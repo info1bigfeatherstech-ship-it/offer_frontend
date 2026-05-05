@@ -280,14 +280,10 @@ const Footer = () => {
         
 
         {/* COPYRIGHT BAR */}
-        <div className="flex flex-col md:flex-row justify-between items-center gap-6 border-t border-white/5 pt-12">
-            <p className="text-[10px] text-gray-700 font-bold uppercase tracking-[0.2em] text-center md:text-left">
-                © {currentYear} Offer Wale Baba International • GSTIN: 24AAHCD5265C1ZX
+        <div className="flex flex-col md:flex-row justify-center items-center gap-6 border-t border-white/5 pt-12">
+            <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] text-center md:text-left">
+                © {currentYear} Design and Developed by <span className='underline'>Offer Wale Baba</span>
             </p>
-            <div className="flex items-center gap-4 bg-[#f7a221]/10 px-6 py-2 rounded-full border border-[#f7a221]/20">
-                <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse shadow-[0_0_15px_#22c55e]"></div>
-                <span className="text-[10px] font-black text-white uppercase tracking-widest">Global Operations Live</span>
-            </div>
         </div>
       </div>
 

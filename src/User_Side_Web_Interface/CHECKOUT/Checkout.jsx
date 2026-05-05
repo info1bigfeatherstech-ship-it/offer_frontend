@@ -499,6 +499,7 @@ const Checkout = () => {
 
   // ── Local state ────────────────────────────────────────────────────────────
   const [step, setStep] = useState(1);
+  const [showAdvanceDropdown, setShowAdvanceDropdown] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [showRazorpay, setShowRazorpay] = useState(false);
   const [razorpayOrderData, setRazorpayOrderData] = useState(null);
@@ -574,6 +575,16 @@ const Checkout = () => {
       toast.error(e?.message || "Could not get delivery quote", { theme: "dark" });
     }
   };
+  const getPartialAmount = () => {
+  const total = quote?.amountPayable ?? 0;
+
+  switch (paymentPlan) {
+    case "advance": return Math.round(total * 0.25);
+    case "half": return Math.round(total * 0.5);
+    case "seventy": return Math.round(total * 0.75);
+    default: return total;
+  }
+};
 
   const handleQuoteRefreshAfterCartMutation = useCallback(async () => {
     checkoutAttemptKeyRef.current = null;
@@ -1120,25 +1131,84 @@ const Checkout = () => {
                     style={{ fontSize: 10, color: "#9ca3af", letterSpacing: "0.06em" }}>
                     Payment Plan
                   </p>
-                  <div className="flex gap-3">
-                    {[
-                      { key: "full", label: "Pay Full", sub: fmt(quote?.amountPayable) },
-                      { key: "advance", label: "Pay 25%", sub: `${fmt(advanceAmount)} now` },
-                    ].map(({ key, label, sub }) => (
-                      <button key={key}
-                        onClick={() => handlePaymentPlanSelect(key)}
-                        className="flex-1 cursor-pointer transition-all active:scale-95"
-                        style={{
-                          padding: 12, borderRadius: 12,
-                          border: `2px solid ${paymentPlan === key ? "#111" : "#f0e8d8"}`,
-                          background: paymentPlan === key ? "#111" : "#fff",
-                          color: paymentPlan === key ? "#F7A221" : "#374151",
-                        }}>
-                        <span className="font-black block" style={{ fontSize: 12 }}>{label}</span>
-                        <span className="block mt-0.5 opacity-80" style={{ fontSize: 11 }}>{sub}</span>
-                      </button>
-                    ))}
-                  </div>
+                 <div className="flex gap-3 relative">
+
+  {/* ✅ PAY FULL */}
+  <button
+    onClick={() => {
+      handlePaymentPlanSelect("full");
+      setShowAdvanceDropdown(false);
+    }}
+    className="flex-1 cursor-pointer transition-all active:scale-95"
+    style={{
+      padding: 12,
+      borderRadius: 12,
+      border: `2px solid ${paymentPlan === "full" ? "#111" : "#f0e8d8"}`,
+      background: paymentPlan === "full" ? "#111" : "#fff",
+      color: paymentPlan === "full" ? "#F7A221" : "#374151",
+    }}
+  >
+    <span className="font-black block text-xs">Pay Full</span>
+    <span className="block mt-0.5 text-[11px] opacity-80">
+      {fmt(quote?.amountPayable)}
+    </span>
+  </button>
+
+  {/* ✅ PAY PARTIAL (WITH DROPDOWN) */}
+  <div className="flex-1 relative">
+
+    <button
+      onClick={() => setShowAdvanceDropdown((prev) => !prev)}
+      className="w-full flex items-center justify-between cursor-pointer transition-all active:scale-95"
+      style={{
+        padding: 12,
+        borderRadius: 12,
+        border: `2px solid ${paymentPlan !== "full" ? "#111" : "#f0e8d8"}`,
+        background: paymentPlan !== "full" ? "#111" : "#fff",
+        color: paymentPlan !== "full" ? "#F7A221" : "#374151",
+      }}
+    >
+      <div className="text-left">
+        <span className="font-black block text-xs">
+          {paymentPlan === "advance" && "Pay 25%"}
+          {paymentPlan === "half" && "Pay 50%"}
+          {paymentPlan === "seventy" && "Pay 75%"}
+        </span>
+
+        <span className="block text-[11px] opacity-80">
+          {fmt(getPartialAmount())} now
+        </span>
+      </div>
+
+      <ChevronDown size={14} />
+    </button>
+
+    {/* 🔽 DROPDOWN */}
+    {showAdvanceDropdown && (
+      <div
+        className="absolute top-full mt-2 w-full rounded-xl shadow-lg z-20"
+        style={{ background: "#fff", border: "1px solid #f0e8d8" }}
+      >
+        {[
+          { key: "advance", label: "Pay 25%" },
+          { key: "half", label: "Pay 50%" },
+          { key: "seventy", label: "Pay 75%" },
+        ].map((opt) => (
+          <button
+            key={opt.key}
+            onClick={() => {
+              handlePaymentPlanSelect(opt.key);
+              setShowAdvanceDropdown(false);
+            }}
+            className="w-full text-left px-3 py-2 text-xs font-semibold hover:bg-gray-50 transition"
+          >
+            {opt.label}
+          </button>
+        ))}
+      </div>
+    )}
+  </div>
+</div>
                   {paymentPlan === "advance" && (
                     <p className="text-center mt-2" style={{ fontSize: 10, color: "#3b82f6" }}>
                       Pay 25% now · Balance {fmt(quote?.amountPayable - advanceAmount)} at delivery
@@ -1205,9 +1275,9 @@ const Checkout = () => {
                 ) : (
                   <>
                     Place Order —{" "}
-                    {paymentMethod === "online" && paymentPlan === "advance"
-                      ? fmt(advanceAmount)
-                      : fmt(quote?.amountPayable)}
+                    {paymentMethod === "online" && paymentPlan !== "full"
+  ? fmt(getPartialAmount())
+  : fmt(quote?.amountPayable)}
                   </>
                 )}
               </button>

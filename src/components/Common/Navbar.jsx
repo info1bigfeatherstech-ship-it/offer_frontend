@@ -15,7 +15,7 @@ import {
   MapPin, LogOut, UserCircle, Settings, Sparkles, TrendingUp, Star, Zap
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import logo from "../../assets/logo2.png";
+import logo from "../../assets/logo2.svg";
 import homeIcon from "../../assets/home (2).png";
 import Coupon from "../../assets/Tickets.gif";
 import Contact from "../../assets/Contact.gif";
@@ -212,14 +212,14 @@ const MegaDropdown = ({ isOpen }) => {
 
   const categories = [
     { label: "Smart Life Gadgets", path: "/category/smart-life-gadgets" },
-    { label: "Home & Kitchen", path: "/category/home-and-kitchen" },
+    { label: "Home & Kitchen", path: "/category/home-&-kitchen" },
     { label: "Fashion World", path: "/category/fashion-world" },
-    { label: "Sports & Fitness", path: "/category/sports-and-fitness" },
-    { label: "Tours & Travels", path: "/category/tours-and-travels" },
+    { label: "Sports & Fitness", path: "/category/sports-&-fitness" },
+    { label: "Tours & Travels", path: "/category/tours-&-travels" },
     { label: "Stationary", path: "/category/stationary" },
     { label: "Baby Items", path: "/category/baby-items" },
     { label: "Car Accessories", path: "/category/car-accessories" },
-    { label: "Cleaning & Housekeeping Supplies", path: "/category/mix-items-daily-use" },
+    { label: "Cleaning & Housekeeping Supplies", path: "/Cleaning-&Housekeeping-Supplies" },
     { label: "Gifts", path: "/category/gifts" }
   ];
 
@@ -263,20 +263,36 @@ const MegaDropdown = ({ isOpen }) => {
 
 const NavItemWithDropdown = ({ link }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const timeoutRef = useRef(null);
+
+  const handleMouseEnter = () => {
+    clearTimeout(timeoutRef.current);
+    setIsOpen(true);
+  };
+
+  const handleMouseLeave = () => {
+    timeoutRef.current = setTimeout(() => {
+      setIsOpen(false);
+    }, 150); // 150ms grace period
+  };
 
   return (
     <div
       className="static"
-      onClick={()=> setIsOpen(!isOpen)}
-      onMouseEnter={()=> setIsOpen(true)}
-      onMouseLeave={()=> setIsOpen(false)}
+      onClick={() => setIsOpen(!isOpen)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <div className="nav-link flex items-center gap-2 group cursor-pointer">
         <img src={homeIcon} className='w-5 h-5 object-cover' alt="" />
         <span className="font-bold text-black group-hover:text-black transition-colors">{link.label}</span>
         <ChevronRight size={14} className={`transition-transform duration-300 ${isOpen ? 'rotate-90 text-black' : 'text-zinc-900/70'}`} />
       </div>
-      <MegaDropdown isOpen={isOpen} />
+      
+      {/* Dropdown ko bhi same handlers do */}
+      <div onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave}>
+        <MegaDropdown isOpen={isOpen} />
+      </div>
     </div>
   );
 };
@@ -399,19 +415,20 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
     },
     {
       label: "Just Arrived",
-      path: "/just-arrived",
-      icon: <ImageIcon src={arrivals} alt="Just Arrived" animation="animate-float" />
+      path: "/#best-sellers",
+      icon: <ImageIcon src={arrivals} alt="Just Arrived" animation="animate-float"  />,
+     
     },
     {
       label: "Sale",
       path: "/on-sale",
       icon: <ImageIcon src={SaleIcon} alt="Sale" animation="animate-flicker" />
     },
-    {
-      label: "Coupons",
-      path: "/coupons",
-      icon: <ImageIcon src={Coupon} alt="Coupons" animation="animate-bounce-soft" />
-    },
+    // {
+    //   label: "Coupons",
+    //   path: "/coupons",
+    //   icon: <ImageIcon src={Coupon} alt="Coupons" animation="animate-bounce-soft" />
+    // },
   ];
 
   const mobileCategories = [
@@ -434,11 +451,11 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
         <div className="container mx-auto flex justify-between text-[11px] font-bold uppercase tracking-wider">
           <div className="flex items-center gap-8">
             <span className="flex items-center gap-2 hover:text-[#F7A221] cursor-pointer transition-colors group">
-              <Phone size={12} className="text-[#F7A221] group-hover:animate-shake" /> +91 93200 01717
+              <Phone size={12} className="text-[#F7A221] group-hover:animate-shake" /> +91 93706 86008
             </span>
-            <span className="flex items-center gap-2 hover:text-[#F7A221] cursor-pointer transition-colors group">
-              <Mail size={12} className="text-[#F7A221] group-hover:scale-110" /> support@offerwale.com
-            </span>
+            <a href="mailto:support.offerwalebaba@gmail.com" className="flex items-center gap-2 hover:text-[#F7A221] cursor-pointer transition-colors group">
+              <Mail size={12} className="text-[#F7A221] group-hover:scale-110" /> support.offerwalebaba@gmail.com
+            </a>
           </div>
           <div className="flex items-center gap-4">
             <Clock size={12} className="text-[#F7A221] animate-pulse" /> <span className="text-white/90">Pan India Delivery • 24/7 Support</span>
@@ -597,7 +614,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                 ))}
                 <img
                   style={{ margin: "auto", display: "flex", justifyContent: "center", alignItems: "center", marginTop: "75px" }}
-                  className="relative z-10 object-contain transition-transform duration-500 w-[180px] h-full flex justify-center items-center"
+                  className="relative z-10 object-contain transition-transform duration-500 w-[175px] h-50 flex justify-center items-center"
                   src={logo}
                   alt="Logo"
                 />
@@ -661,7 +678,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                   <div className="transition-transform duration-300 group-hover:scale-125">
                     {link.icon}
                   </div>
-                  <span className="font-bold text-black text-md md:text-[0.65rem] relative z-10">{link.label}</span>
+                  <span className="font-bold text-black text-md md:text-[0.75rem] relative z-10">{link.label}</span>
                 </Link>
               ))}
               <div className='w-fit h-fit p-2 absolute -right-80 rounded-lg'>
@@ -682,7 +699,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
   </div>
 
   {/* Label */}
-  <span className="relative z-10 font-semibold text-zinc-400 group-hover:text-yellow-500 text-sm tracking-wide transition-colors duration-300 whitespace-nowrap">
+  <span className="relative z-10 font-semibold text-zinc-900 group-hover:text-yellow-500 text-sm tracking-wide transition-colors duration-300 whitespace-nowrap">
     Contact us
   </span>
 
@@ -756,8 +773,8 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                   <div className="bg-gradient-to-r from-black to-gray-900 rounded-2xl p-4 text-white">
                     <p className="text-[10px] font-bold opacity-60 uppercase mb-2 flex items-center gap-1"><HeadphonesIcon size={10} /> Need Help?</p>
                     <div className="flex flex-col gap-1">
-                      <p className="text-sm font-black">+91 93200 01717</p>
-                      <p className="text-[11px] opacity-80">support@offerwale.com</p>
+                      <p className="text-sm font-black">+91 93706 86008</p>
+                      <a href="mailto:support.offerwalebaba@gmail.com" className="text-[11px] opacity-80">support.offerwalebaba@gmail.com</a>
                     </div>
                   </div>
                 </div>

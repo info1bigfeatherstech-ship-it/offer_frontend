@@ -2,6 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { IoLogoWhatsapp, IoLogoFacebook, IoLogoInstagram } from "react-icons/io5";
+import { ChevronDown, FileText, Globe, Receipt } from "lucide-react";
 import { FaTelegram } from "react-icons/fa6";
 import LazyImage from "./LazyImage";
 import {
@@ -502,6 +503,12 @@ const ProductUI = () => {
   const { isLoggedIn } = useSelector((state) => state.auth);
 
   const setL = (key, val) => setLocalLoading((p) => ({ ...p, [key]: val }));
+   const handleCouponDetails = () => {
+  toast.info("Coupon details coming soon 🚀", {
+    position: "top-center",
+    autoClose: 2000,
+  });
+};
 
   // ── fetch ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -671,7 +678,7 @@ const selectedVariant = useMemo(() => {
       } else {
         dispatch(addGuestCartItem({ productId: product._id, productSlug: product.slug, variantId: variant?._id?.toString() || "", quantity: 1 }));
       }
-      toast.success("Added to cart 🛒");
+      toast.success("Added to cart");
     } catch (err) { toast.error(err?.message || "Failed to add"); }
     finally { setL("add", false); }
   };
@@ -1093,22 +1100,33 @@ const selectedVariant = useMemo(() => {
                           <div className="flex items-center">
                             {/* ── ADD TO CART ── */}
                             {!isInCart && (
-                              <button
-                                onClick={handleAddToCart}
-                                disabled={localLoading.add}
-                                className="px-18 py-3 rounded-xl text-sm font-semibold 
-                                flex items-center justify-center gap-2 
-                                bg-black text-white hover:bg-[#F7A221] transition active:scale-[0.97]"
-                              >
-                                {localLoading.add ? (
-                                  <Loader2 size={16} className="animate-spin" />
-                                ) : (
-                                  <>
-                                    <ShoppingCart size={16} />
-                                    Add to Cart
-                                  </>
-                                )}
-                              </button>
+                             <button
+  onClick={handleAddToCart}
+  disabled={localLoading.add}
+  className="
+    w-full sm:w-auto
+    px-4 sm:px-6 md:px-8
+    py-2.5 sm:py-3
+    rounded-xl
+    text-xs sm:text-sm md:text-base
+    font-semibold
+    flex items-center justify-center gap-2
+    bg-black text-white
+    hover:bg-[#F7A221]
+    transition active:scale-[0.97]
+    disabled:opacity-70 disabled:cursor-not-allowed
+  "
+>
+  {localLoading.add ? (
+    <Loader2 size={16} className="animate-spin" />
+  ) : (
+    <>
+      <ShoppingCart size={16} />
+      <span className="hidden xs:inline sm:inline">Add to Cart</span>
+      <span className="inline xs:hidden sm:hidden">Add to Cart</span>
+    </>
+  )}
+</button>
                             )}
 
                             {/* ── QTY CONTROLS ── */}
@@ -1117,7 +1135,7 @@ const selectedVariant = useMemo(() => {
                                 <button
                                   onClick={handleDecrement}
                                   disabled={isProcessing}
-                                  className="w-10 h-10 flex items-center justify-center bg-gray-50 hover:bg-red-500 hover:text-white transition"
+                                  className="w-10 h-10 flex items-center justify-center bg-gray-50 cursor-pointer hover:bg-red-500 hover:text-white transition"
                                 >
                                   {localLoading.remove
                                     ? <Loader2 size={14} className="animate-spin" />
@@ -1131,7 +1149,7 @@ const selectedVariant = useMemo(() => {
                                 <button
                                   onClick={handleIncrement}
                                   disabled={isAtMaxStock || isProcessing}
-                                  className="w-10 h-10 flex items-center justify-center bg-zinc-900 text-white hover:bg-yellow-500 transition"
+                                  className="w-10 h-10 flex items-center cursor-pointer justify-center bg-zinc-900 text-white hover:bg-yellow-500 transition"
                                 >
                                   {localLoading.update
                                     ? <Loader2 size={14} className="animate-spin" />
@@ -1147,7 +1165,7 @@ const selectedVariant = useMemo(() => {
                               <button
                                 onClick={handleWishlist}
                                 disabled={localLoading.wishlist}
-                                className={`px-3 py-2 flex items-center gap-2 text-sm font-semibold transition-all duration-200 rounded-l-2xl active:scale-[0.98]
+                                className={`px-3 py-2 flex items-center gap-2 cursor-pointer text-sm font-semibold transition-all duration-200 rounded-l-2xl active:scale-[0.98]
                                   ${wishlisted
                                     ? "text-red-500 bg-red-50"
                                     : "text-gray-600 hover:bg-gray-50 hover:text-red-400"
@@ -1174,7 +1192,7 @@ const selectedVariant = useMemo(() => {
                                     e.stopPropagation();
                                     setShareOpen((v) => !v);
                                   }}
-                                  className={`h-full py-3.5 px-5 sm:px-7 flex items-center gap-2 text-sm font-semibold transition-all duration-200 rounded-r-2xl active:scale-[0.98]
+                                  className={`h-full py-3.5 px-5 sm:px-7 flex items-center cursor-pointer gap-2 text-sm font-semibold transition-all duration-200 rounded-r-2xl active:scale-[0.98]
                                     ${shareOpen ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"}`}
                                 >
                                   <Share2 size={15} />
@@ -1186,14 +1204,14 @@ const selectedVariant = useMemo(() => {
                                   <div className="absolute bottom-[calc(100%+10px)] right-0 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-lg z-50 flex gap-3">
                                     {[
                                     { type: "whatsapp",  Icon: IoLogoWhatsapp,  cls: "bg-green-500 hover:bg-green-600",  link: "https://wa.me/message/72BTQZMTQU2AG1" },
-{ type: "facebook",  Icon: IoLogoFacebook,  cls: "bg-blue-600 hover:bg-blue-700",    link: "https://www.facebook.com/share/1Eej9auTBB/" },
-{ type: "instagram", Icon: IoLogoInstagram, cls: "bg-gradient-to-br from-yellow-400 via-pink-500 to-purple-600", link: "https://www.instagram.com/offer_wale_baba?igsh=Mjd6aG84bXV5dmRn" },
-{ type: "telegram",  Icon: FaTelegram,      cls: "bg-sky-500 hover:bg-sky-600",      link: "https://t.me/OfferWaleBabaRetail" },
-                                    ].map(({ type, Icon, cls }) => (
-                                       <button key={type} onClick={() => { window.open(link, "_blank"); setShareOpen(false); }}
-    className={`w-9 h-9 rounded-full ${cls} text-white flex items-center justify-center hover:scale-110 active:scale-95 transition-all duration-150 shadow-sm`}>
+                                    { type: "facebook",  Icon: IoLogoFacebook,  cls: "bg-blue-600 hover:bg-blue-700",    link: "https://www.facebook.com/share/1Eej9auTBB/" },
+                                    { type: "instagram", Icon: IoLogoInstagram, cls: "bg-gradient-to-br from-yellow-400 via-pink-500 to-purple-600", link: "https://www.instagram.com/offer_wale_baba?igsh=Mjd6aG84bXV5dmRn" },
+                                    { type: "telegram",  Icon: FaTelegram,      cls: "bg-sky-500 hover:bg-sky-600",      link: "https://t.me/OfferWaleBabaRetail" },
+                                    ].map(({ type, Icon, cls, link }) => (
+                                       <a key={type} onClick={() => { window.open(link, "_blank"); setShareOpen(false); }}
+    className={`w-9 h-9 rounded-full ${cls} text-white flex items-center cursor-pointer justify-center hover:scale-110 active:scale-95 transition-all duration-150 shadow-sm`}>
     <Icon size={16} />
-  </button>
+  </a>
                                     ))}
                                   </div>
                                 )}
@@ -1257,10 +1275,10 @@ const selectedVariant = useMemo(() => {
                     <div className="space-y-4" ref={variantRef}>
                       {attrKeys.map((key) => (
                         <div key={key}>
-                          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+                          <p className="text-xs font-bold cursor-pointer text-gray-400 uppercase tracking-widest mb-2">
                             {key}
                             {selectedAttrs[key] && (
-                              <span className="ml-2 normal-case font-semibold text-gray-800 tracking-normal">
+                              <span className="ml-2 normal-case font-semibold text-gray-800 tracking-normal cursor-pointer">
                                 : {selectedAttrs[key]}
                               </span>
                             )}
@@ -1274,7 +1292,7 @@ const selectedVariant = useMemo(() => {
                                   key={val}
                                   onClick={() => avail && handleAttrSelect(key, val)}
                                   disabled={!avail}
-                                  className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm rounded-xl border-2 font-medium transition-all duration-150 ${
+                                  className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm rounded-xl cursor-pointer border-2 font-medium transition-all duration-150 ${
                                     active
                                       ? "border-gray-900 bg-gray-900 text-white shadow-sm"
                                       : avail
@@ -1312,9 +1330,13 @@ const selectedVariant = useMemo(() => {
                               </p>
                             </div>
                           </div>
-                          <button className="text-sm font-semibold text-red-500 flex-shrink-0 hover:text-red-600 transition-colors">
-                            Details
-                          </button>
+                        <button
+  onClick={handleCouponDetails}
+  type="button"
+  className="text-sm font-semibold text-red-500 hover:text-red-600 transition-colors focus:outline-none"
+>
+  Details
+</button>
                         </div>
                       ))}
                     </div>
@@ -1326,52 +1348,97 @@ const selectedVariant = useMemo(() => {
                 </div>{/* end right */}
 
                 {/* ═══════════ DESCRIPTION ═══════════ */}
-                <div className="bg-gray-50 rounded-2xl mt-10 sm:rounded-3xl overflow-hidden">
-                  <button
-                    onClick={() => setOpenDesc((v) => !v)}
-                    className="w-full flex items-center justify-between px-4 sm:px-6 py-4 hover:bg-gray-50 transition text-left"
-                  >
-                    <span className="font-semibold text-sm sm:text-base text-gray-800">
-                      Product Description
-                    </span>
-                    <span className="text-2xl text-gray-400 font-light select-none">
-                      {openDesc ? "−" : "+"}
-                    </span>
-                  </button>
+              {/* ═══════════ DESCRIPTION ═══════════ */}
+<div className="border border-zinc-100 rounded-2xl overflow-hidden bg-white mt-10">
+  
+  {/* Header */}
+  <button
+    onClick={() => setOpenDesc((v) => !v)}
+    className="w-full flex items-center justify-between px-5 sm:px-6 py-4 hover:bg-gray-50 transition text-left"
+  >
+    <div className="flex items-center gap-3">
+      <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center flex-shrink-0">
+        <FileText size={15} className="text-purple-600" />
+      </div>
+      <div>
+        <p className="text-sm font-semibold text-gray-900">Product Description</p>
+        <p className="text-[11px] text-gray-400 mt-0.5">Highlights, specs & details</p>
+      </div>
+    </div>
+    <ChevronDown
+      size={18}
+      className={`text-gray-400 transition-transform duration-300 flex-shrink-0 ${openDesc ? "rotate-180" : ""}`}
+    />
+  </button>
 
-                  {openDesc && (
-                    <div className="px-4 sm:px-6 pb-5 border-t border-gray-100 text-sm text-gray-600 space-y-4">
-                      <p className="font-semibold text-gray-800 pt-4">{product?.title}</p>
-                      <p className="leading-relaxed">{product?.description}</p>
-                      {product?.attributes?.length > 0 && (
-                        <div>
-                          <p className="font-semibold text-gray-800">Highlights:</p>
-                          <ul className="list-disc pl-5 space-y-1.5 mt-1">
-                            {product.attributes.map((attr, i) => (
-                              <li key={i}>
-                                <span className="font-medium">{attr.key}:</span> {attr.value}
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                      {product?.shipping && (
-                        <div>
-                          <p className="font-semibold text-gray-800">Dimensions:</p>
-                          <div className="grid grid-cols-2 gap-y-1 text-sm mt-1">
-                            <span>Weight:</span><span>{product.shipping.weight} kg</span>
-                            <span>Length:</span><span>{product.shipping.dimensions.length} cm</span>
-                            <span>Width:</span><span>{product.shipping.dimensions.width} cm</span>
-                            <span>Height:</span><span>{product.shipping.dimensions.height} cm</span>
-                          </div>
-                        </div>
-                      )}
-                      <div className="pt-3 text-xs text-gray-400 border-t border-gray-100">
-                        Country Of Origin: India &nbsp;|&nbsp; GST: 18%
-                      </div>
-                    </div>
-                  )}
+  {openDesc && (
+    <div className="border-t border-gray-100 divide-y divide-gray-100">
+
+      {/* About */}
+      {product?.description?.trim() && (
+        <div className="px-5 sm:px-6 py-5">
+          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-3">About this item</p>
+          <p className="text-sm text-gray-600 leading-relaxed">{product.description}</p>
+        </div>
+      )}
+
+      {/* Highlights */}
+      {Array.isArray(product?.attributes) && product.attributes.some(a => a?.key && a?.value) && (
+        <div className="px-5 sm:px-6 py-5">
+          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">Key highlights</p>
+          <div className="flex flex-col gap-3">
+            {product.attributes.filter(a => a?.key && a?.value).map((attr, i) => (
+              <div key={`${attr.key}-${i}`} className="flex items-start gap-3 text-sm">
+                <span className="text-gray-400 min-w-[120px] flex-shrink-0">{attr.key}</span>
+                <span className="text-gray-900 font-medium">{attr.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Dimensions */}
+      {(() => {
+        const s = product?.shipping;
+        const d = s?.dimensions;
+        if (!s || (!s.weight && !d?.length && !d?.width && !d?.height)) return null;
+        const dims = [
+          s?.weight  && { label: "Weight",  val: `${s.weight} kg` },
+          d?.length  && { label: "Length",  val: `${d.length} cm` },
+          d?.width   && { label: "Width",   val: `${d.width} cm` },
+          d?.height  && { label: "Height",  val: `${d.height} cm` },
+        ].filter(Boolean);
+        return (
+          <div className="px-5 sm:px-6 py-5">
+            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">Dimensions & weight</p>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {dims.map(({ label, val }) => (
+                <div key={label} className="bg-gray-50 rounded-xl px-4 py-3">
+                  <p className="text-[11px] text-gray-400 mb-1">{label}</p>
+                  <p className="text-base font-semibold text-gray-900">{val}</p>
                 </div>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Footer */}
+      <div className="px-5 sm:px-6 py-4 bg-gray-50 flex flex-wrap gap-4 items-center">
+        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+          <Globe size={12} />
+          Country of Origin: <span className="font-medium text-gray-700 ml-0.5">India</span>
+        </div>
+        <div className="w-1 h-1 rounded-full bg-gray-300" />
+        <div className="flex items-center gap-1.5 text-xs text-gray-500">
+          <Receipt size={12} />
+          GST: <span className="font-medium text-gray-700 ml-0.5">18%</span>
+        </div>
+      </div>
+
+    </div>
+  )}
+</div>
               </div>
             </div>
           </div>{/* end main card */}

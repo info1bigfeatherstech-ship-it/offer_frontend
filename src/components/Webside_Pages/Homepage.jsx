@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
+import { useLocation } from 'react-router-dom';
 import {
   fetchAllCategories,
   selectAllCategories,
@@ -14,17 +15,33 @@ import HeroSlider from '../Homecompo/HeroSlider';
 
 const Homepage = () => {
   const dispatch = useDispatch();
-  
+
   const categories = useSelector(selectAllCategories);
   console.log(categories);
-  
-  const loading    = useSelector(selectCategoriesLoading);
-  const error      = useSelector(selectCategoriesError);
+
+  const loading = useSelector(selectCategoriesLoading);
+  const error = useSelector(selectCategoriesError);
+  const location = useLocation();
 
   useEffect(() => {
     // console.log('🏠 [Homepage] Fetching all categories...');
     dispatch(fetchAllCategories());
   }, [dispatch]);
+// ✅ Added location hook
+
+// ✅ Scroll effect on hash change
+useEffect(() => {
+  if (location.hash === '#best-sellers') {
+    document.getElementById('best-sellers')?.scrollIntoView({ 
+      behavior: 'smooth' 
+    });
+  }
+}, [location]);
+
+// ✅ Wrapped BestSellers with ID
+<section id="best-sellers">
+  <BestSellers />
+</section>
 
   return (
     <>
@@ -35,7 +52,10 @@ const Homepage = () => {
       <main className="container mx-auto px-4 pt-12 pb-20 space-y-12">
         <Categories />
         <PriceBanners />
-        <BestSellers />
+        {/* <BestSellers /> */}
+        <section id="best-sellers">
+          <BestSellers />
+        </section>
 
         {/* ✅ Dynamic — driven by DB, zero hardcoding */}
         {loading.categories && (

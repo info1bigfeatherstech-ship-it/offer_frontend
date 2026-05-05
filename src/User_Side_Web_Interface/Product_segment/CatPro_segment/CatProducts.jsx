@@ -339,14 +339,15 @@ case "za":
     resetPage();
   }, [slug, dispatch, resetPage]);
 
-  const categoryName = currentCategory?.name || slug?.replace(/-/g, " ") || "Collection";
-  useLayoutEffect(() => {
+const categoryName = currentCategory?.name 
+  || slug?.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) 
+  || "Collection";  useLayoutEffect(() => {
   if (!slug) return;
   console.log("I m working");
-  
-  dispatch(fetchCategoryBySlug(slug));
-  dispatch(clearCurrentCategory());
   clearFilters(); // ← add karo
+  
+  dispatch(clearCurrentCategory());
+  dispatch(fetchCategoryBySlug(slug));
   return () => dispatch(clearCurrentCategory());
 }, [slug, dispatch]);
 
@@ -573,7 +574,7 @@ case "za":
                   <span className="w-6 h-[2px] bg-[#F7A221] inline-block" />
                   Collection
                 </p>
-                <h1 className="text-5xl md:text-7xl font-black text-white uppercase leading-none tracking-tighter">
+                <h1 className="text-5xl md:text-6xl font-['satoshi'] text-white font-bold leading-none tracking-wide">
                   {categoryName}
                 </h1>
                 {currentCategory?.description && (
