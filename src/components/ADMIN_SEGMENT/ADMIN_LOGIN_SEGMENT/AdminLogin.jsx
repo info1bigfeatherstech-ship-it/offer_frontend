@@ -145,7 +145,7 @@ const AdminLogin = () => {
         <div className="min-h-screen flex items-center justify-center bg-black p-6">
             <div className="bg-[#0d0d0d] rounded-3xl border border-[#1f1f1f] p-12 w-full max-w-[420px] shadow-2xl">
 
-                <img src={LOGO} alt="logo" className="h-7 block mx-auto mb-7" />
+                {/* <img src={LOGO} alt="logo" className="h-7 block mx-auto mb-7" /> */}
 
                 <h2 className="text-center text-white text-[28px] font-extrabold tracking-tight mb-1">
                     ADMIN <span className="text-[#f7a221]">ACCESS</span>

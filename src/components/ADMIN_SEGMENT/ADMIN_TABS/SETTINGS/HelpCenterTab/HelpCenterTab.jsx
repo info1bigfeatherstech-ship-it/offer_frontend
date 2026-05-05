@@ -16,13 +16,13 @@ const HelpCenterTab = ({ onBack }) => {
       id: 'email',
       label: 'Email',
       icon: <Mail size={18} className="text-white" />,
-      action: () => window.location.href = "mailto:support@example.com",
+      action: () => window.location.href = "mailto:support.offerwalebaba@gmail.com",
     },
     {
       id: 'whatsapp',
       label: 'WhatsApp',
       icon: <MessageCircle size={18} className="text-white" />,
-      action: () => window.open("https://wa.me/yournumber", "_blank"),
+      action: () => window.open("https://wa.me/9370686008", "_blank"),
     }
   ];
 

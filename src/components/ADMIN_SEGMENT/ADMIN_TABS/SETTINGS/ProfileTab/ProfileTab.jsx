@@ -36,8 +36,8 @@ const ProfileTab = () => {
                   </button>
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-gray-900 uppercase">MEHTA MART MHM</h3>
-                  <p className="text-sm text-gray-500 font-medium">8850998536</p>
+                  <h3 className="text-lg font-bold text-gray-900 uppercase">Offer Wale Baba</h3>
+                  <p className="text-sm text-gray-500 font-medium">9370686008</p>
                   <p className="text-xs text-gray-400 mt-1">Store ID - 5656117</p>
                 </div>
               </div>
@@ -53,7 +53,7 @@ const ProfileTab = () => {
                 <p className="text-[11px] font- text-gray-400 uppercase tracking-wider mb-1">Email</p>
                 <div className="flex items-center gap-2">
                   <img src="https://www.google.com/favicon.ico" className="w-4 h-4 opacity-70" alt="G" />
-                  <span className="text-sm text-gray-700 font-medium">support@offerwale.com</span>
+                  <span className="text-sm text-gray-700 font-medium">support.offerwalebaba@gmail.com</span>
                   <span className="bg-green-50 text-green-600 text-[10px] px-2 py-0.5 rounded border border-green-100 font-bold uppercase tracking-tighter">Verified</span>
                 </div>
               </div>
@@ -65,7 +65,7 @@ const ProfileTab = () => {
               <div className="max-w-2xl">
                 <p className="text-[11px]  text-gray-400 uppercase tracking-wider mb-1">Store description</p>
                 <p className="text-sm text-gray-500 leading-relaxed">
-                  Email: Customersupport@offerwale.com Welcome to OWB OfferWaleBaba! The World of Offers. 
+                  Email: support.offerwalebaba@gmail.com Welcome to OWB OfferWaleBaba! The World of Offers. 
                   We invite you to avail all the best offers displayed by us with the safest Payment Gateways. 
                   We started in the year 2015...
                 </p>
