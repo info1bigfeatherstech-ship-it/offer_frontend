@@ -792,10 +792,6 @@ const Checkout = () => {
   setShowRazorpay(false);
   setRazorpayPaymentState(PAYMENT_STATE.FAILED);
 
-  // Clean up any lingering DOM elements from Razorpay
-  document.querySelector(".razorpay-container")?.remove();
-  document.querySelector(".razorpay-backdrop")?.remove();
-
   // Show a toast or modal
   const msg = error?.error?.description || "Payment failed. Please try again.";
   setPaymentError(msg);
@@ -810,10 +806,6 @@ const Checkout = () => {
  const handleRazorpayClose = () => {
   setShowRazorpay(false);
   setRazorpayPaymentState(PAYMENT_STATE.CANCELLED);
-  
-  // Remove any lingering Razorpay DOM elements
-  document.querySelector(".razorpay-container")?.remove();
-  document.querySelector(".razorpay-backdrop")?.remove();
   
   toast.info("Payment cancelled. Choose COD or try again.", { theme: "dark" });
   navigate("/account/userorders");
