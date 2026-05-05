@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { Loader2, AlertCircle } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 /**
  * RazorpayCheckout Component
@@ -257,34 +258,42 @@ RazorpayCheckout.displayName = "RazorpayCheckout";
 // ─────────────────────────────────────────────────────────────────────────────
 // PaymentErrorModal
 // ─────────────────────────────────────────────────────────────────────────────
-export const PaymentErrorModal = ({ error, onRetry, onClose }) => (
-  <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
-    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-    <div className="relative bg-white rounded-[32px] w-full max-w-md p-6 shadow-2xl text-center">
-      <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
-        <AlertCircle size={28} className="text-red-500" />
-      </div>
-      <h3 className="text-xl font-black text-gray-900 mb-2">Payment Failed</h3>
-      <p className="text-sm text-gray-500 font-medium mb-6">
-        {error || "Something went wrong with your payment. Please try again."}
-      </p>
-      <div className="flex gap-3">
-        <button
-          onClick={onClose}
-          className="flex-1 py-3 rounded-2xl border-2 border-gray-200 font-black text-xs uppercase tracking-widest hover:border-black transition-all cursor-pointer active:scale-95"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={onRetry}
-          className="flex-1 py-3 bg-black text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#F7A221] hover:text-black transition-all cursor-pointer active:scale-95"
-        >
-          Try Again
-        </button>
+export const PaymentErrorModal = ({ error, onRetry, onClose, orderId }) => {
+  const navigate = useNavigate();
+  return (
+    <div className="fixed inset-0 z-[1100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-white rounded-[32px] w-full max-w-md p-6 shadow-2xl text-center">
+        <div className="w-16 h-16 bg-red-50 rounded-full flex items-center justify-center mx-auto mb-4">
+          <AlertCircle size={28} className="text-red-500" />
+        </div>
+        <h3 className="text-xl font-black text-gray-900 mb-2">Payment Failed</h3>
+        <p className="text-sm text-gray-500 font-medium mb-6">
+          {error || "Something went wrong with your payment. Please try again."}
+        </p>
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-3 rounded-2xl border-2 border-gray-200 font-black text-xs uppercase tracking-widest hover:border-black transition-all cursor-pointer"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => {
+              navigate("/account/userorders", {
+                state: { openOrderId: orderId },
+              });
+              onClose();
+            }}
+            className="flex-1 py-3 bg-black text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-[#F7A221] hover:text-black transition-all cursor-pointer"
+          >
+            Try Again
+          </button>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PaymentLoadingModal

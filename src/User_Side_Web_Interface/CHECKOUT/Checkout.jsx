@@ -83,62 +83,91 @@ const isQuoteRefreshError = (errorCode) =>
 // ─────────────────────────────────────────────────────────────────────────────
 // Order Success Screen
 // ─────────────────────────────────────────────────────────────────────────────
-const OrderSuccess = ({ order, onViewOrders }) => (
-  <div className="min-h-screen flex items-center justify-center p-5"
-    style={{ background: "#FFFBF4" }}>
-    <div className="w-full max-w-sm text-center space-y-6">
-      <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto"
-        style={{ background: "#F0FFF4" }}>
-        <CheckCircle2 size={40} style={{ color: "#15803D" }} />
-      </div>
-      <div>
-        <h1 className="text-2xl font-black" style={{ color: "#111" }}>Order Placed!</h1>
-        <p className="text-sm font-medium mt-1.5" style={{ color: "#6b7280" }}>
-          {order.paymentMethod === "cod"
-            ? "We'll process your order shortly."
-            : "Payment confirmed. Order is on its way!"}
-        </p>
-      </div>
-      <div className="rounded-2xl p-5 text-left space-y-3"
-        style={{ background: "#fff", border: "1px solid #f0e8d8" }}>
-        {[
-          { label: "Order ID", value: order.orderId },
-          {
-            label: order.paymentMethod === "cod" ? "Total" : "Paid",
-            value: fmt(order.totalAmount),
-          },
-          {
-            label: "Payment",
-            value: order.paymentMethod === "cod" ? "Cash on Delivery" : "Online",
-          },
-          { label: "Status", value: "Confirmed", badge: true },
-        ].map(({ label, value, badge }) => (
-          <div key={label} className="flex justify-between items-center">
-            <span className="text-xs font-black uppercase tracking-widest"
-              style={{ color: "#9ca3af" }}>{label}</span>
-            {badge
-              ? <span className="text-xs font-black px-3 py-1 rounded-full"
-                  style={{ background: "#F0FFF4", color: "#15803D" }}>{value}</span>
-              : <span className="text-sm font-black" style={{ color: "#111" }}>{value}</span>
-            }
+const OrderSuccess = ({ order, onViewOrders }) => {
+  const [processing, setProcessing] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setProcessing(false), 2000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (processing) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-5"
+        style={{ background: "#FFFBF4" }}>
+        <div className="w-full max-w-sm text-center space-y-6">
+          <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto"
+            style={{ background: "#FEF3E2" }}>
+            <Loader2 size={36} className="animate-spin" style={{ color: "#F7A221" }} />
           </div>
-        ))}
+          <div>
+            <h1 className="text-xl font-black" style={{ color: "#111" }}>Processing Order…</h1>
+            <p className="text-sm font-medium mt-1.5" style={{ color: "#6b7280" }}>
+              Please wait while we confirm your order.
+            </p>
+          </div>
+        </div>
       </div>
-      <div className="flex gap-3">
-        <button onClick={onViewOrders}
-          className="flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95"
-          style={{ background: "#111", color: "#F7A221", border: "none" }}>
-          View Orders
-        </button>
-        <a href="/"
-          className="flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest text-center transition-all active:scale-95"
-          style={{ border: "2px solid #f0e8d8", color: "#6b7280" }}>
-          Shop More
-        </a>
+    );
+  }
+
+  return (
+    <div className="min-h-screen flex items-center justify-center p-5"
+      style={{ background: "#FFFBF4" }}>
+      <div className="w-full max-w-sm text-center space-y-6">
+        <div className="w-20 h-20 rounded-full flex items-center justify-center mx-auto"
+          style={{ background: "#F0FFF4" }}>
+          <CheckCircle2 size={40} style={{ color: "#15803D" }} />
+        </div>
+        <div>
+          <h1 className="text-2xl font-black" style={{ color: "#111" }}>Order Placed!</h1>
+          <p className="text-sm font-medium mt-1.5" style={{ color: "#6b7280" }}>
+            {order.paymentMethod === "cod"
+              ? "We'll process your order shortly."
+              : "Payment confirmed. Order is on its way!"}
+          </p>
+        </div>
+        <div className="rounded-2xl p-5 text-left space-y-3"
+          style={{ background: "#fff", border: "1px solid #f0e8d8" }}>
+          {[
+            { label: "Order ID", value: order.orderId },
+            {
+              label: order.paymentMethod === "cod" ? "Total" : "Paid",
+              value: fmt(order.totalAmount),
+            },
+            {
+              label: "Payment",
+              value: order.paymentMethod === "cod" ? "Cash on Delivery" : "Online",
+            },
+            { label: "Status", value: "Confirmed", badge: true },
+          ].map(({ label, value, badge }) => (
+            <div key={label} className="flex justify-between items-center">
+              <span className="text-xs font-black uppercase tracking-widest"
+                style={{ color: "#9ca3af" }}>{label}</span>
+              {badge
+                ? <span className="text-xs font-black px-3 py-1 rounded-full"
+                    style={{ background: "#F0FFF4", color: "#15803D" }}>{value}</span>
+                : <span className="text-sm font-black" style={{ color: "#111" }}>{value}</span>
+              }
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onViewOrders}
+            className="flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95"
+            style={{ background: "#111", color: "#F7A221", border: "none" }}>
+            View Orders
+          </button>
+          <a href="/"
+            className="flex-1 py-4 rounded-2xl font-black text-xs uppercase tracking-widest text-center transition-all active:scale-95"
+            style={{ border: "2px solid #f0e8d8", color: "#6b7280" }}>
+            Shop More
+          </a>
+        </div>
       </div>
     </div>
-  </div>
-);
+  );
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Step Indicator
@@ -660,11 +689,14 @@ const Checkout = () => {
 
       // Step 3: Handle by payment method
       if (paymentMethod === "cod") {
+              await new Promise(resolve => setTimeout(resolve, 4000))
         toast.success("🎉 Order placed successfully!", { theme: "dark", autoClose: 3000 });
         checkoutAttemptKeyRef.current = null;
         setTimeout(() => {
           dispatch(resetCheckout());
-          navigate("/account/userorders");
+          navigate("/account/userorders", {
+            state: { justPlaced: true }
+          });
         }, 1500);
       } else if (paymentMethod === "online") {
         if (!orderResult.razorpayOrder) {
@@ -797,14 +829,6 @@ const Checkout = () => {
 
   // ── Success screens ────────────────────────────────────────────────────────
   if (placedOrder?.order && paymentMethod === "cod" && !paymentVerification.loading) {
-    return (
-      <OrderSuccess
-        order={{ ...placedOrder.order, paymentMethod: placedOrder.paymentMethod }}
-        onViewOrders={() => { dispatch(resetCheckout()); navigate("/account/userorders"); }}
-      />
-    );
-  }
-  if (placedOrder?.order && paymentMethod === "online" && paymentVerification.success) {
     return (
       <OrderSuccess
         order={{ ...placedOrder.order, paymentMethod: placedOrder.paymentMethod }}
@@ -1238,16 +1262,17 @@ const Checkout = () => {
       )}
 
       {/* ── Payment Error Modal ── */}
-      {showPaymentErrorModal && (
-        <PaymentErrorModal
-          error={paymentError}
-          onRetry={handleRetryPayment}
-          onClose={() => {
-            setShowPaymentErrorModal(false);
-            setPaymentError(null);
-          }}
-        />
-      )}
+    {showPaymentErrorModal && (
+  <PaymentErrorModal
+    error={paymentError}
+    orderId={placedOrder?.order?.orderId}  // ← add this
+    onRetry={handleRetryPayment}
+    onClose={() => {
+      setShowPaymentErrorModal(false);
+      setPaymentError(null);
+    }}
+  />
+)}
     </div>
   );
 };

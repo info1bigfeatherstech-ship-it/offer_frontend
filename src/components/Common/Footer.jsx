@@ -3,7 +3,7 @@ import {
   Facebook, Instagram, Youtube, ShieldCheck, Star, Award, 
   ChevronRight, Zap,Briefcase,Globe
 } from 'lucide-react';
-import logo from "../../assets/logo.jpg"; 
+import logo from "../../assets/logo.jpg";
 import { Link } from 'react-router-dom';
 import google from "../.././assets/google.png"
 
@@ -27,17 +27,17 @@ const Footer = () => {
   {
     icon: "fa-telegram",
     color: "hover:bg-[#0088cc]",
-    link: "https://t.me/yourusername"
+    link: "https://t.me/OfferWaleBabaRetail"
   },
   {
     icon: "fa-instagram",
     color: "hover:bg-gradient-to-tr hover:from-[#f9ce34] hover:via-[#ee2a7b] hover:to-[#6228d7]",
-    link: " https://www.instagram.com/offer_wale_baba?igsh=Mjd6aG84bXV5dmRn"
+    link: " hhttps://www.instagram.com/offer_wale_baba?igsh=Mjd6aG84bXV5dmRn"
   },
   {
     icon: "fa-facebook",
     color: "hover:bg-[#1877F2]",
-    link: " https://www.facebook.com/share/1Eej9auTBB/"
+    link: "https://www.facebook.com/share/1Eej9auTBB"
   },
   {
     icon: "fa-youtube",
@@ -53,7 +53,7 @@ const Footer = () => {
     icon: "fa-google",
     color: "hover:bg-[#4285F4]",
     label: "Google",
-    link: "https://g.page/yourbusiness" // or Google Maps link
+    link: "https://www.google.com/search?q=OfferWaleBaba&stick=H4sIAAAAAAAA_-NgU1I1qDBOSjW3NLU0S000N0pKSUqxMqhIMkoyMzNPMkhMNE1KNkpKW8TK65-WlloUnpiT6pSYlAgA9JZF2jkAAAA&hl=en&mat=CRFncPBLRARKElcBTVDHnlFZAzRUb5k7XxJQUtIo8wkxRLilxtEbwkTszXtkEc5ACbiU0Rdp8GkiDbg99jHlvSmDg_UAZsfXWVQZ-MJOdtz8aSvPSjHQIm98wMZv9rgWgNM&authuser=0" // or Google Maps link
   }
 ];
 
@@ -142,15 +142,7 @@ const Footer = () => {
             </div>
 
          <div className="mt-12 flex flex-wrap justify-center gap-3">
-  {[
-    { icon: "fa-whatsapp", color: "hover:bg-[#25D366]", link: "https://wa.me/message/72BTQZMTQU2AG1" },
-    { icon: "fa-telegram", color: "hover:bg-[#0088cc]", link: "https://t.me/yourusername" },
-    { icon: "fa-instagram", color: "hover:from-[#f9ce34] hover:via-[#ee2a7b] hover:to-[#6228d7] hover:bg-gradient-to-tr", link: "https://www.instagram.com/offer_wale_baba" },
-    { icon: "fa-facebook", color: "hover:bg-[#1877F2]", link: "https://www.facebook.com/share/1Eej9auTBB/" },
-    { icon: "fa-youtube", color: "hover:bg-[#FF0000]", link: "https://youtube.com/@offerwalebabaa" },
-    { icon: "fa-threads", color: "hover:bg-black", link: "https://www.threads.net/@yourusername" },
-    { icon: "fa-google", color: "hover:bg-zinc-100", link: "https://g.page/yourbusiness" },
-  ].map((social, i) => (
+  {socialLinks.map((social, i) => (
     <a
       key={i}
       href={social.link}
@@ -194,14 +186,14 @@ const Footer = () => {
                     referrerPolicy="no-referrer-when-downgrade"
                   />
                 </div>
-                <div className="flex gap-8">
+                <div className="flex gap-10">
                     <div>
                         <p className="text-[#f7a221] font-black text-[10px] tracking-widest uppercase mb-2">Support</p>
-                        <p className="text-white font-bold text-lg">+91 99999 00000</p>
+                        <p className="text-white font-bold w-38 text-lg">+91 9370686008</p>
                     </div>
-                    <div>
+                    <div className='ml-2'>
                         <p className="text-[#f7a221] font-black text-[10px] tracking-widest uppercase mb-2">Location</p>
-                        <p className="text-white font-bold text-lg">Maharashtra, India</p>
+                        <p className="text-white text-lg">Sambhaji chowk, opp. tipcy-topcy society, Babasai Nagar, Ulhasnagar, Maharashtra 421004</p>
                     </div>
                 </div>
             </div>

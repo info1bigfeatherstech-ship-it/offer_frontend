@@ -222,7 +222,7 @@ export const createProduct = createAsyncThunk(
 
       const response = await axiosInstance.post("/admin/products", fd, {
         headers: { "Content-Type": "multipart/form-data" },
-        timeout: 60000,
+        timeout: 300000,
         maxContentLength: Infinity,
         maxBodyLength: Infinity,
       });
