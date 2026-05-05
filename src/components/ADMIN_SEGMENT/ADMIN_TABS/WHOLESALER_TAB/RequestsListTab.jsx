@@ -16,8 +16,8 @@ const RequestsListTab = ({ statusFilter, onRequestAction }) => {
   });
 
   const handleViewDetails = (request) => {
-    console.log("Full request object:", request);
-    console.log("Request ID:", request?.id, request?._id);
+    // console.log("Full request object:", request);
+    // console.log("Request ID:", request?.id, request?._id);
     setSelectedRequest(request);
     setIsModalOpen(true);
   };

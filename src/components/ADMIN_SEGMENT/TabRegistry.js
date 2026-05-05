@@ -20,7 +20,7 @@ const SettingsDashboard = lazy(() => import("./ADMIN_TABS/SETTINGS/SettingsDashb
 const CustomerReviewTab = lazy(() => import("./ADMIN_TABS/CUSTOMER_REVIEW/CustomerReviewTab"));
 const StaffTab = lazy(() => import("./ADMIN_TABS/STAFF_TAB/StaffTab"));
 const DemoDashboard = lazy(() => import("./ADMIN_TABS/DEMO/DemoDashboard"));
-const WholesalerDashboard = lazy(() => import("./ADMIN_TABS/WHOLESALER_TAB/WholesalerDashboard"));
+// const WholesalerDashboard = lazy(() => import("./ADMIN_TABS/WHOLESALER_TAB/WholesalerDashboard"));
 
 // const getProductsBadge = (state) => state.adminGetProducts?.products?.length || 0;
 // const getArchivedBadge = (state) => state.adminArchived?.products?.length || 0;
@@ -137,14 +137,14 @@ export const TAB_REGISTRY = [
     // NOTE: no subItems here — settings sidebar is internal to SettingsDashboard
     //       so AdminDashboard won't render a dropdown for it
   },
-  {
-    id: "wholesaler",
-    label: "Wholesalers",
-    icon: "M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.5 6M17 13l1.5 6M9 21h6",
-    component: WholesalerDashboard,
-    badge: null,
-    subItems: null,  // No dropdown, uses internal tabs
-  },
+  // {
+  //   id: "wholesaler",
+  //   label: "Wholesalers",
+  //   icon: "M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-1.5 6M17 13l1.5 6M9 21h6",
+  //   component: WholesalerDashboard,
+  //   badge: null,
+  //   subItems: null,  // No dropdown, uses internal tabs
+  // },
 
   // ── HOW TO ADD A NEW TOP-LEVEL TAB WITH SUB-TABS ────────────────────────
   // 1. Create  ADMIN_TABS/DEMO_SEGMENT/demoTabRegistry.js   (list sub-tabs)

@@ -53,7 +53,8 @@ const getPortalForAuthContext = (authContext) => {
 };
 
 const axiosInstance = axios.create({
-  baseURL: import.meta.env.VITE_BACKEND_BASE_URL || "http://localhost:8081/api",
+  // baseURL: import.meta.env.VITE_BACKEND_BASE_URL || "http://localhost:8081/api",
+  baseURL: import.meta.env.VITE_BACKEND_BASE_URL || "https://offerwalebaba.onrender.com/api",
   timeout: 15000,
   withCredentials: true, // ✅ IMPORTANT: sends cookies (refreshToken) with every request
   headers: {

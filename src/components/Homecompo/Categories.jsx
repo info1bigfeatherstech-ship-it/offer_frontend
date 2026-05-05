@@ -11,7 +11,7 @@ import { useState } from "react";
 const Categories = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const [endIndex, setendIndex] = useState(5);
+  const [endIndex, setendIndex] = useState();
   const handleCategories = (category)=>{
 
     setcategories1([...categories1, slicedCategories])

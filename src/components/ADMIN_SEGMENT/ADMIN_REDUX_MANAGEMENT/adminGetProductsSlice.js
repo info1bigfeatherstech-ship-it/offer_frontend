@@ -15,9 +15,7 @@ export const fetchProducts = createAsyncThunk(
     try {
       const response = await axiosInstance.get("/admin/products/all", {
         params: { page, limit },
-      });
-      console.log("res", response.data);
-      
+      });      
       if (response.data.success) return response.data; // ✅ FIXED: return full response, not just products
       return rejectWithValue(response.data.message || "Failed to fetch products");
     } catch (error) {
