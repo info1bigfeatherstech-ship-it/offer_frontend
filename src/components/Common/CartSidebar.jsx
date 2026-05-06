@@ -470,7 +470,7 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth, user }) => {
   const navigate  = useNavigate();
 
   const items        = useSelector(selectCartItems);
-  console.log("items", items);
+  // console.log("items", items);
   
   const guestItems   = useSelector(selectCartGuestItems);
   const totalAmount  = useSelector(selectCartTotalAmount);

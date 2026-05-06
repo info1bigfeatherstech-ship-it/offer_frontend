@@ -68,7 +68,7 @@ const formatPrice = (n) => {
 const logError = (ctx, err, info = {}) => {
   console.group(`🔴 [ProductCard] ${ctx}`);
   console.error(err);
-  console.log(info);
+  // console.log(info);
   console.groupEnd();
 };
 
@@ -101,8 +101,8 @@ const RelatedCard = ({ product, index = 0 }) => {
   }
 
   const { isLoggedIn } = useSelector((state) => state.auth);
-  const wishlisted     = useSelector(selectIsWishlisted(product?.slug));
-  const cartItem       = useSelector(selectCartItemBySlug(product?.slug));
+  const wishlisted = useSelector(selectIsWishlisted(product?.slug));
+  const cartItem = useSelector(selectCartItemBySlug(product?.slug));
 
   const [localLoading, setLocalLoading] = useState({
     add: false, update: false, remove: false, wishlist: false, buyNow: false,
@@ -117,19 +117,19 @@ const RelatedCard = ({ product, index = 0 }) => {
   };
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const variant     = product?.variants?.[0] ?? {};
-  const title       = product?.title || product?.name || "Product";
-  const salePrice   = variant.price?.sale ?? variant.price?.base ?? null;
-  const basePrice   = variant.price?.base ?? null;
+  const variant = product?.variants?.[0] ?? {};
+  const title = product?.title || product?.name || "Product";
+  const salePrice = variant.price?.sale ?? variant.price?.base ?? null;
+  const basePrice = variant.price?.base ?? null;
   const hasDiscount = basePrice != null && salePrice != null && basePrice > salePrice;
   const discountPct = variant.discountPercentage ??
     (hasDiscount ? Math.round(((basePrice - salePrice) / basePrice) * 100) : null);
-  const imgUrl      = variant.images?.[0]?.url || null;
-  const maxStock    = variant.inventory?.trackInventory
+  const imgUrl = variant.images?.[0]?.url || null;
+  const maxStock = variant.inventory?.trackInventory
     ? (variant.inventory?.quantity ?? 0) : Infinity;
-  const inStock      = maxStock > 0;
-  const isInCart     = !!cartItem;
-  const currentQty   = cartItem?.quantity ?? 0;
+  const inStock = maxStock > 0;
+  const isInCart = !!cartItem;
+  const currentQty = cartItem?.quantity ?? 0;
   const isAtMaxStock = currentQty >= maxStock && maxStock !== Infinity;
 
   const category = typeof product?.category === "object"
@@ -310,11 +310,10 @@ const RelatedCard = ({ product, index = 0 }) => {
             onClick={handleWishlist}
             disabled={localLoading.wishlist}
             aria-label="Toggle wishlist"
-            className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90 ${
-              wishlisted
-                ? "bg-red-500 text-white"
-                : "bg-white/90 backdrop-blur-sm text-zinc-600 hover:bg-red-500 hover:text-white"
-            } disabled:opacity-50`}
+            className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90 ${wishlisted
+              ? "bg-red-500 text-white"
+              : "bg-white/90 backdrop-blur-sm text-zinc-600 hover:bg-red-500 hover:text-white"
+              } disabled:opacity-50`}
           >
             {localLoading.wishlist
               ? <Loader2 size={13} className="animate-spin" />
@@ -353,16 +352,16 @@ const RelatedCard = ({ product, index = 0 }) => {
         {/* Fomo label — stock-aware: hide stock-related labels when out of stock */}
         {product?.fomo?.enabled && (product?.fomoLabel || product?.fomo?.viewingFomo?.label) &&
           (inStock || !isStockRelatedLabel(product?.fomoLabel || "")) && (
-          <div className="flex items-center gap-1.5 bg-orange-50 rounded-lg px-2 py-1 w-fit">
-            <span className="relative flex h-1.5 w-1.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-orange-500"></span>
-            </span>
-            <p className="text-[9px] font-semibold text-orange-700">
-              {product.fomo?.viewingFomo?.label || product.fomoLabel}
-            </p>
-          </div>
-        )}
+            <div className="flex items-center gap-1.5 bg-orange-50 rounded-lg px-2 py-1 w-fit">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-orange-500"></span>
+              </span>
+              <p className="text-[9px] font-semibold text-orange-700">
+                {product.fomo?.viewingFomo?.label || product.fomoLabel}
+              </p>
+            </div>
+          )}
 
         {/* Title + Rating row */}
         <div className="flex items-start justify-between gap-1">
@@ -410,11 +409,10 @@ const RelatedCard = ({ product, index = 0 }) => {
             <button
               onClick={handleAddToCart}
               disabled={localLoading.add}
-              className={`w-full py-2 sm:py-3.5 cursor-pointer text-[10px] sm:text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 ${
-                localLoading.add
-                  ? "bg-zinc-300 text-white hover:bg-[#F7A221] cursor-wait"
-                  : "bg-zinc-900 text-white hover:bg-[#F7A221]"
-              } disabled:opacity-60`}
+              className={`w-full py-2 sm:py-3.5 cursor-pointer text-[10px] sm:text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 ${localLoading.add
+                ? "bg-zinc-300 text-white hover:bg-[#F7A221] cursor-wait"
+                : "bg-zinc-900 text-white hover:bg-[#F7A221]"
+                } disabled:opacity-60`}
             >
               {localLoading.add ? (
                 <><Loader2 size={12} className="animate-spin" /> Adding...</>
@@ -479,7 +477,7 @@ const ProductUI = () => {
   const [showZoom, setShowZoom] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isVisible, setisVisible] = useState(false);
-  const containerRef  = useRef(null);
+  const containerRef = useRef(null);
   const lensRef = useRef(null);
   const zoomRef = useRef(null);
   const rafRef = useRef(null);
@@ -488,27 +486,27 @@ const ProductUI = () => {
   const targetRef = useRef({ x: 0.5, y: 0.5 });
   const currentRef = useRef({ x: 0.5, y: 0.5 });
 
-  const product    = useSelector(selectCurrentProduct);
-  console.log("Product details", product);
+  const product = useSelector(selectCurrentProduct);
+  // console.log("Product details", product);
 
-  const related    = useSelector(selectRelatedProducts);
+  const related = useSelector(selectRelatedProducts);
   const loadingMap = useSelector(selectProductsLoading);
-  const errorMap   = useSelector(selectProductsError);
-  const isLoading  = loadingMap.product;
+  const errorMap = useSelector(selectProductsError);
+  const isLoading = loadingMap.product;
   const fetchError = errorMap.product;
   const wishlisted = useSelector(selectIsWishlisted(product?.slug));
-  console.log("wishlisted:", wishlisted, "slug:", product?.slug);
-  const cartItem   = useSelector(selectCartItemBySlug(product?.slug));
-  const isInCart   = !!cartItem;
+  // console.log("wishlisted:", wishlisted, "slug:", product?.slug);
+  const cartItem = useSelector(selectCartItemBySlug(product?.slug));
+  const isInCart = !!cartItem;
   const { isLoggedIn } = useSelector((state) => state.auth);
 
   const setL = (key, val) => setLocalLoading((p) => ({ ...p, [key]: val }));
-   const handleCouponDetails = () => {
-  toast.info("Coupon details coming soon 🚀", {
-    position: "top-center",
-    autoClose: 2000,
-  });
-};
+  const handleCouponDetails = () => {
+    toast.info("Coupon details coming soon 🚀", {
+      position: "top-center",
+      autoClose: 2000,
+    });
+  };
 
   // ── fetch ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -519,8 +517,8 @@ const ProductUI = () => {
     setSelectedAttrs({});
     setActiveThumb(0);
     dispatch(fetchProductBySlug(slug)).unwrap()
-      .then(() => dispatch(fetchRelatedProducts({ slug, limit: 5 })).unwrap().catch(() => {}))
-      .catch(() => {});
+      .then(() => dispatch(fetchRelatedProducts({ slug, limit: 5 })).unwrap().catch(() => { }))
+      .catch(() => { });
     return () => { dispatch(clearCurrentProduct()); dispatch(clearRelatedProducts()); };
   }, [slug, dispatch]);
 
@@ -605,23 +603,23 @@ const ProductUI = () => {
     [activeVariants]
   );
 
-const selectedVariant = useMemo(() => {
-  if (!activeVariants.length) return null;
+  const selectedVariant = useMemo(() => {
+    if (!activeVariants.length) return null;
 
-  // Agar koi bhi attr selected nahi (sab null), return first variant
-  const hasAnySelection = Object.values(selectedAttrs).some((v) => v != null);
-  if (!hasAnySelection) return activeVariants[0];
+    // Agar koi bhi attr selected nahi (sab null), return first variant
+    const hasAnySelection = Object.values(selectedAttrs).some((v) => v != null);
+    if (!hasAnySelection) return activeVariants[0];
 
-  let best = activeVariants[0], bestScore = -1;
-  activeVariants.forEach((v) => {
-    const score = Object.entries(selectedAttrs).filter(([k, val]) =>
-      val != null &&
-      v.attributes?.some((a) => a.key === k && a.value === val)
-    ).length;
-    if (score > bestScore) { bestScore = score; best = v; }
-  });
-  return best;
-}, [activeVariants, selectedAttrs]);
+    let best = activeVariants[0], bestScore = -1;
+    activeVariants.forEach((v) => {
+      const score = Object.entries(selectedAttrs).filter(([k, val]) =>
+        val != null &&
+        v.attributes?.some((a) => a.key === k && a.value === val)
+      ).length;
+      if (score > bestScore) { bestScore = score; best = v; }
+    });
+    return best;
+  }, [activeVariants, selectedAttrs]);
 
   useEffect(() => {
     if (!activeVariants.length) return;
@@ -633,39 +631,39 @@ const selectedVariant = useMemo(() => {
 
   useEffect(() => { setActiveThumb(0); }, [selectedVariant?._id]);
 
- const handleAttrSelect = (key, value) => {
-  setSelectedAttrs((prev) => ({
-    ...prev,
-    [key]: prev[key] === value ? null : value, // toggle back to null
-  }));
-  setActiveThumb(0);
-};
+  const handleAttrSelect = (key, value) => {
+    setSelectedAttrs((prev) => ({
+      ...prev,
+      [key]: prev[key] === value ? null : value, // toggle back to null
+    }));
+    setActiveThumb(0);
+  };
 
   // ── derived ────────────────────────────────────────────────────────────────
-  const images    = selectedVariant?.images ?? [];
+  const images = selectedVariant?.images ?? [];
   const activeImg = images[activeThumb]?.url ?? null;
 
   const salePrice = selectedVariant?.finalPrice ?? selectedVariant?.price?.sale ?? selectedVariant?.price?.base ?? null;
   const basePrice = selectedVariant?.price?.base ?? null;
-  const hasDisc   = basePrice != null && salePrice != null && basePrice > salePrice;
-  const discPct   = selectedVariant?.discountPercentage
+  const hasDisc = basePrice != null && salePrice != null && basePrice > salePrice;
+  const discPct = selectedVariant?.discountPercentage
     ?? (hasDisc ? Math.round(((basePrice - salePrice) / basePrice) * 100) : null);
 
-  const stock    = selectedVariant?.inventory?.quantity ?? null;
-  const inStock  = product?.inStock ?? (stock == null || stock > 0);
+  const stock = selectedVariant?.inventory?.quantity ?? null;
+  const inStock = product?.inStock ?? (stock == null || stock > 0);
   const lowStock = stock != null && stock > 0 && stock <= (selectedVariant?.inventory?.lowStockThreshold ?? 5);
   const maxStock = selectedVariant?.inventory?.quantity ?? 9999;
-  const currentQty   = cartItem?.quantity ?? 0;
+  const currentQty = cartItem?.quantity ?? 0;
   const isAtMaxStock = currentQty >= maxStock;
   const isProcessing = localLoading.add || localLoading.update || localLoading.remove;
 
-  const title     = product?.title || product?.name || "Product";
-  const desc      = product?.description ?? "";
-  const rating    = product?.rating?.value ?? 4.5;
+  const title = product?.title || product?.name || "Product";
+  const desc = product?.description ?? "";
+  const rating = product?.rating?.value ?? 4.5;
   const ratingCnt = product?.rating?.count ?? 0;
-  const soldInfo  = product?.soldInfo?.count ?? 0;
-  const brand     = product?.brand ?? null;
-  const variant   = selectedVariant || {};
+  const soldInfo = product?.soldInfo?.count ?? 0;
+  const brand = product?.brand ?? null;
+  const variant = selectedVariant || {};
 
   // ── handlers ───────────────────────────────────────────────────────────────
   const handleAddToCart = async (e) => {
@@ -834,11 +832,10 @@ const selectedVariant = useMemo(() => {
                       <button
                         key={i}
                         onClick={() => setActiveThumb(i)}
-                        className={`rounded-full transition-all duration-200 ${
-                          activeThumb === i
-                            ? "w-4 h-2 bg-orange-400"
-                            : "w-2 h-2 bg-gray-300"
-                        }`}
+                        className={`rounded-full transition-all duration-200 ${activeThumb === i
+                          ? "w-4 h-2 bg-orange-400"
+                          : "w-2 h-2 bg-gray-300"
+                          }`}
                       />
                     ))}
                   </div>
@@ -894,11 +891,10 @@ const selectedVariant = useMemo(() => {
                         <button
                           key={i}
                           onClick={() => { setActiveThumb(i); }}
-                          className={`flex-shrink-0 w-[56px] h-[56px] rounded-xl overflow-hidden border-2 transition-all duration-200 ${
-                            activeThumb === i
-                              ? "border-orange-400 shadow-md shadow-orange-100 scale-[1.04]"
-                              : "border-gray-200 hover:border-orange-300"
-                          }`}
+                          className={`flex-shrink-0 w-[56px] h-[56px] rounded-xl overflow-hidden border-2 transition-all duration-200 ${activeThumb === i
+                            ? "border-orange-400 shadow-md shadow-orange-100 scale-[1.04]"
+                            : "border-gray-200 hover:border-orange-300"
+                            }`}
                         >
                           <img src={img.url} alt={`thumb-${i}`} className="w-full h-full object-cover" />
                         </button>
@@ -967,11 +963,10 @@ const selectedVariant = useMemo(() => {
                         <button
                           key={i}
                           onClick={() => setActiveThumb(i)}
-                          className={`rounded-full transition-all duration-200 ${
-                            activeThumb === i
-                              ? "w-4 h-2 bg-orange-400"
-                              : "w-2 h-2 bg-gray-300 hover:bg-gray-400"
-                          }`}
+                          className={`rounded-full transition-all duration-200 ${activeThumb === i
+                            ? "w-4 h-2 bg-orange-400"
+                            : "w-2 h-2 bg-gray-300 hover:bg-gray-400"
+                            }`}
                         />
                       ))}
                     </div>
@@ -996,13 +991,14 @@ const selectedVariant = useMemo(() => {
                   )}
 
                   {/* Title */}
-                  <h1 className="text-xl sm:text-3xl font-bold text-gray-900 leading-snug tracking-tight">
-                    {title}
+                  <h1 className="text-sm sm:text-2xl  text-gray-900 leading-snug tracking-tight">
+                    {/* {title} */}
+                    {product.title.length > 60 ? `${product.title.substring(0, 60)}...` : product.title}
                   </h1>
 
                   {/* Brand + Rating */}
                   <div className="flex flex-col flex-wrap gap-2">
-                    {brand && (
+                    {brand && brand.toLowerCase() !== "generic" && (
                       <span className="text-sm text-gray-500">
                         by <span className="text-orange-500 font-semibold">{brand}</span>
                       </span>
@@ -1068,16 +1064,16 @@ const selectedVariant = useMemo(() => {
                     {/* Fallback fomoLabel — old schema, stock-aware */}
                     {!product?.fomo?.stockFomo && !product?.fomo?.viewingFomo && product?.fomo?.enabled && product?.fomoLabel &&
                       (inStock || !isStockRelatedLabel(product.fomoLabel)) && (
-                      <div className="flex items-center gap-2 bg-orange-50 border border-orange-100 rounded-xl px-3 py-2 w-fit">
-                        <span className="relative flex h-2 w-2">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
-                        </span>
-                        <p className="text-xs font-semibold text-orange-700">
-                          {product.fomoLabel}
-                        </p>
-                      </div>
-                    )}
+                        <div className="flex items-center gap-2 bg-orange-50 border border-orange-100 rounded-xl px-3 py-2 w-fit">
+                          <span className="relative flex h-2 w-2">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orange-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-orange-500"></span>
+                          </span>
+                          <p className="text-xs font-semibold text-orange-700">
+                            {product.fomoLabel}
+                          </p>
+                        </div>
+                      )}
 
                   </div>
 
@@ -1100,10 +1096,10 @@ const selectedVariant = useMemo(() => {
                           <div className="flex items-center">
                             {/* ── ADD TO CART ── */}
                             {!isInCart && (
-                             <button
-  onClick={handleAddToCart}
-  disabled={localLoading.add}
-  className="
+                              <button
+                                onClick={handleAddToCart}
+                                disabled={localLoading.add}
+                                className="
     w-full sm:w-auto
     px-4 sm:px-6 md:px-8
     py-2.5 sm:py-3
@@ -1116,17 +1112,17 @@ const selectedVariant = useMemo(() => {
     transition active:scale-[0.97]
     disabled:opacity-70 disabled:cursor-not-allowed
   "
->
-  {localLoading.add ? (
-    <Loader2 size={16} className="animate-spin" />
-  ) : (
-    <>
-      <ShoppingCart size={16} />
-      <span className="hidden xs:inline sm:inline">Add to Cart</span>
-      <span className="inline xs:hidden sm:hidden">Add to Cart</span>
-    </>
-  )}
-</button>
+                              >
+                                {localLoading.add ? (
+                                  <Loader2 size={16} className="animate-spin" />
+                                ) : (
+                                  <>
+                                    <ShoppingCart size={16} />
+                                    <span className="hidden xs:inline sm:inline">Add to Cart</span>
+                                    <span className="inline xs:hidden sm:hidden">Add to Cart</span>
+                                  </>
+                                )}
+                              </button>
                             )}
 
                             {/* ── QTY CONTROLS ── */}
@@ -1203,15 +1199,15 @@ const selectedVariant = useMemo(() => {
                                 {shareOpen && (
                                   <div className="absolute bottom-[calc(100%+10px)] right-0 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-lg z-50 flex gap-3">
                                     {[
-                                    { type: "whatsapp",  Icon: IoLogoWhatsapp,  cls: "bg-green-500 hover:bg-green-600",  link: "https://wa.me/message/72BTQZMTQU2AG1" },
-                                    { type: "facebook",  Icon: IoLogoFacebook,  cls: "bg-blue-600 hover:bg-blue-700",    link: "https://www.facebook.com/share/1Eej9auTBB/" },
-                                    { type: "instagram", Icon: IoLogoInstagram, cls: "bg-gradient-to-br from-yellow-400 via-pink-500 to-purple-600", link: "https://www.instagram.com/offer_wale_baba?igsh=Mjd6aG84bXV5dmRn" },
-                                    { type: "telegram",  Icon: FaTelegram,      cls: "bg-sky-500 hover:bg-sky-600",      link: "https://t.me/OfferWaleBabaRetail" },
+                                      { type: "whatsapp", Icon: IoLogoWhatsapp, cls: "bg-green-500 hover:bg-green-600", link: "https://wa.me/message/72BTQZMTQU2AG1" },
+                                      { type: "facebook", Icon: IoLogoFacebook, cls: "bg-blue-600 hover:bg-blue-700", link: "https://www.facebook.com/share/1Eej9auTBB/" },
+                                      { type: "instagram", Icon: IoLogoInstagram, cls: "bg-gradient-to-br from-yellow-400 via-pink-500 to-purple-600", link: "https://www.instagram.com/offer_wale_baba?igsh=Mjd6aG84bXV5dmRn" },
+                                      { type: "telegram", Icon: FaTelegram, cls: "bg-sky-500 hover:bg-sky-600", link: "https://t.me/OfferWaleBabaRetail" },
                                     ].map(({ type, Icon, cls, link }) => (
-                                       <a key={type} onClick={() => { window.open(link, "_blank"); setShareOpen(false); }}
-    className={`w-9 h-9 rounded-full ${cls} text-white flex items-center cursor-pointer justify-center hover:scale-110 active:scale-95 transition-all duration-150 shadow-sm`}>
-    <Icon size={16} />
-  </a>
+                                      <a key={type} onClick={() => { window.open(link, "_blank"); setShareOpen(false); }}
+                                        className={`w-9 h-9 rounded-full ${cls} text-white flex items-center cursor-pointer justify-center hover:scale-110 active:scale-95 transition-all duration-150 shadow-sm`}>
+                                        <Icon size={16} />
+                                      </a>
                                     ))}
                                   </div>
                                 )}
@@ -1285,20 +1281,19 @@ const selectedVariant = useMemo(() => {
                           </p>
                           <div className="flex flex-wrap gap-2">
                             {getAllValues(key).map((val) => {
-                              const avail  = isAvailable(key, val);
+                              const avail = isAvailable(key, val);
                               const active = selectedAttrs[key] === val;
                               return (
                                 <button
                                   key={val}
                                   onClick={() => avail && handleAttrSelect(key, val)}
                                   disabled={!avail}
-                                  className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm rounded-xl cursor-pointer border-2 font-medium transition-all duration-150 ${
-                                    active
-                                      ? "border-gray-900 bg-gray-900 text-white shadow-sm"
-                                      : avail
+                                  className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm rounded-xl cursor-pointer border-2 font-medium transition-all duration-150 ${active
+                                    ? "border-gray-900 bg-gray-900 text-white shadow-sm"
+                                    : avail
                                       ? "border-gray-200 text-gray-700 hover:border-gray-900 hover:text-gray-900 bg-white"
                                       : "border-gray-100 text-gray-300 cursor-not-allowed line-through bg-gray-50"
-                                  }`}
+                                    }`}
                                 >
                                   {val}
                                 </button>
@@ -1318,7 +1313,7 @@ const selectedVariant = useMemo(() => {
                       {[
                         { label: "Get Flat ₹100 OFF on orders above ₹2000", code: "100 OFB" },
                         { label: "Get Flat ₹150 OFF on orders above ₹3000", code: "150 OFB" },
-                        { label: "Get Flat ₹50 OFF on orders above ₹1000",  code: "50 OFB"  },
+                        { label: "Get Flat ₹50 OFF on orders above ₹1000", code: "50 OFB" },
                       ].map(({ label, code }) => (
                         <div key={code} className="flex items-start justify-between py-3 gap-3">
                           <div className="flex items-start gap-2.5">
@@ -1330,13 +1325,13 @@ const selectedVariant = useMemo(() => {
                               </p>
                             </div>
                           </div>
-                        <button
-  onClick={handleCouponDetails}
-  type="button"
-  className="text-sm font-semibold text-red-500 hover:text-red-600 transition-colors focus:outline-none"
->
-  Details
-</button>
+                          <button
+                            onClick={handleCouponDetails}
+                            type="button"
+                            className="text-sm font-semibold text-red-500 hover:text-red-600 transition-colors focus:outline-none"
+                          >
+                            Details
+                          </button>
                         </div>
                       ))}
                     </div>
@@ -1348,97 +1343,127 @@ const selectedVariant = useMemo(() => {
                 </div>{/* end right */}
 
                 {/* ═══════════ DESCRIPTION ═══════════ */}
-              {/* ═══════════ DESCRIPTION ═══════════ */}
-<div className="border border-zinc-100 rounded-2xl overflow-hidden bg-white mt-10">
-  
-  {/* Header */}
-  <button
-    onClick={() => setOpenDesc((v) => !v)}
-    className="w-full flex items-center justify-between px-5 sm:px-6 py-4 hover:bg-gray-50 transition text-left"
-  >
-    <div className="flex items-center gap-3">
-      <div className="w-8 h-8 bg-purple-50 rounded-lg flex items-center justify-center flex-shrink-0">
-        <FileText size={15} className="text-purple-600" />
-      </div>
-      <div>
-        <p className="text-sm font-semibold text-gray-900">Product Description</p>
-        <p className="text-[11px] text-gray-400 mt-0.5">Highlights, specs & details</p>
-      </div>
-    </div>
-    <ChevronDown
-      size={18}
-      className={`text-gray-400 transition-transform duration-300 flex-shrink-0 ${openDesc ? "rotate-180" : ""}`}
-    />
-  </button>
+                {/* ═══════════ DESCRIPTION ═══════════ */}
+                <div className="border border-zinc-100 rounded-2xl overflow-hidden bg-white mt-10">
 
-  {openDesc && (
-    <div className="border-t border-gray-100 divide-y divide-gray-100">
+                  {/* Header */}
+                  <button
+                    onClick={() => setOpenDesc((v) => !v)}
+                    className="w-full flex items-center cursor-pointer justify-between px-5 sm:px-6 py-4 hover:bg-gray-50 transition text-left"
+                  >
+                    <div className="flex items-center gap-3 cursor-pointer">
+                      <div className="w-8 h-8 bg-purple-50 cursor-pointer rounded-lg flex items-center justify-center flex-shrink-0">
+                        <FileText size={15} className="text-purple-600" />
+                      </div>
+                      <div className="cursor-pointer">
+                        <p className="text-sm font-semibold text-gray-900">Product Description</p>
+                        <p className="text-[11px] text-gray-400 mt-0.5">Highlights, specs & details</p>
+                      </div>
+                    </div>
+                    <ChevronDown
+                      size={18}
+                      className={`text-gray-400 transition-transform duration-300 flex-shrink-0 ${openDesc ? "rotate-180" : ""}`}
+                    />
+                  </button>
 
-      {/* About */}
-      {product?.description?.trim() && (
-        <div className="px-5 sm:px-6 py-5">
-          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-3">About this item</p>
-          <p className="text-sm text-gray-600 leading-relaxed">{product.description}</p>
-        </div>
-      )}
+                  {openDesc && (
+                    <div className="border-t border-gray-100 divide-y divide-gray-100 cursor-pointer">
 
-      {/* Highlights */}
-      {Array.isArray(product?.attributes) && product.attributes.some(a => a?.key && a?.value) && (
-        <div className="px-5 sm:px-6 py-5">
-          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">Key highlights</p>
-          <div className="flex flex-col gap-3">
-            {product.attributes.filter(a => a?.key && a?.value).map((attr, i) => (
-              <div key={`${attr.key}-${i}`} className="flex items-start gap-3 text-sm">
-                <span className="text-gray-400 min-w-[120px] flex-shrink-0">{attr.key}</span>
-                <span className="text-gray-900 font-medium">{attr.value}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+                      {/* About */}
+                      {product?.description?.trim() && (
+                        <div className="px-5 sm:px-6 py-5">
+                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-3">About this item</p>
+                          <p className="text-sm text-gray-600 font-bold leading-relaxed">{product.title}</p> <br />
+                          <p className="text-sm text-gray-600 leading-relaxed">{product.description}</p>
+                        </div>
+                      )}
 
-      {/* Dimensions */}
-      {(() => {
-        const s = product?.shipping;
-        const d = s?.dimensions;
-        if (!s || (!s.weight && !d?.length && !d?.width && !d?.height)) return null;
-        const dims = [
-          s?.weight  && { label: "Weight",  val: `${s.weight} kg` },
-          d?.length  && { label: "Length",  val: `${d.length} cm` },
-          d?.width   && { label: "Width",   val: `${d.width} cm` },
-          d?.height  && { label: "Height",  val: `${d.height} cm` },
-        ].filter(Boolean);
-        return (
-          <div className="px-5 sm:px-6 py-5">
-            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">Dimensions & weight</p>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {dims.map(({ label, val }) => (
-                <div key={label} className="bg-gray-50 rounded-xl px-4 py-3">
-                  <p className="text-[11px] text-gray-400 mb-1">{label}</p>
-                  <p className="text-base font-semibold text-gray-900">{val}</p>
+                      {/* Highlights */}
+                      {Array.isArray(product?.attributes) && product.attributes.some(a => a?.key && a?.value) && (
+                        <div className="px-5 sm:px-6 py-5">
+                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">Key highlights</p>
+                          <div className="flex flex-col gap-3">
+                            {product.attributes.filter(a => a?.key && a?.value).map((attr, i) => (
+                              <div key={`${attr.key}-${i}`} className="flex items-start gap-3 text-sm">
+                                <span className="text-gray-400 min-w-[120px] flex-shrink-0">{attr.key}</span>
+                                <span className="text-gray-900 font-medium">{attr.value}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Dimensions */}
+                      {(() => {
+                        const s = product?.shipping;
+                        const d = s?.dimensions;
+                        if (!s || (!s.weight && !d?.length && !d?.width && !d?.height)) return null;
+
+                        // Calculate Volumetric Weight in grams
+                        const length = d?.length || 0;
+                        const width = d?.width || 0;
+                        const height = d?.height || 0;
+                        const dimensionalFactor = 5000; // Standard factor for domestic/India shipments
+
+                        let volumetricWeightGm = null;
+                        if (length && width && height) {
+                          const volumetricWeightKg = (length * width * height) / dimensionalFactor;
+                          volumetricWeightGm = Math.round(volumetricWeightKg * 1000); // Convert to grams
+                        }
+
+                        const dims = [
+                          s?.weight && { key: "Weight", value: `${s.weight} kg` },
+                          d?.length && { key: "Length", value: `${d.length} cm` },
+                          d?.width && { key: "Width", value: `${d.width} cm` },
+                          d?.height && { key: "Height", value: `${d.height} cm` },
+                          volumetricWeightGm && { key: "Volu. Weight", value: `${volumetricWeightGm} Gm` },
+                        ].filter(Boolean);
+
+                        return (
+                          <div className="px-5 sm:px-6 py-5">
+                            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">Dimensions & weight</p>
+                            <div className="flex flex-col gap-3">
+                              {dims.map((attr, i) => (
+                                <div key={`${attr.key}-${i}`} className="flex items-start gap-3 text-sm">
+                                  <span className="text-gray-400 min-w-[120px] flex-shrink-0">{attr.key}</span>
+                                  <span className="text-gray-900 font-medium">{attr.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                      {/* Footer */}
+                      {(() => {
+                        const countryOfOrigin = "India"; // hardcoded
+                        const gst = product?.gst || product?.tax?.gst || null; // real GST from product data
+
+                        const items = [
+                          { key: "Country of Origin", value: countryOfOrigin },
+                          ...(gst ? [{ key: "GST", value: `${gst}%` }] : [])
+                        ];
+
+                        if (items.length === 0) return null;
+
+                        return (
+                          <div className="px-5 sm:px-6 py-5">
+                            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">Tax & Compliance</p>
+                            <div className="flex flex-col gap-3">
+                              {items.map((item, i) => (
+                                <div key={`${item.key}-${i}`} className="flex items-start gap-3 text-sm">
+                                  <span className="text-gray-400 min-w-[120px] flex-shrink-0">{item.key}</span>
+                                  <span className="text-gray-900 font-medium">{item.value}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
+
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          </div>
-        );
-      })()}
-
-      {/* Footer */}
-      <div className="px-5 sm:px-6 py-4 bg-gray-50 flex flex-wrap gap-4 items-center">
-        <div className="flex items-center gap-1.5 text-xs text-gray-500">
-          <Globe size={12} />
-          Country of Origin: <span className="font-medium text-gray-700 ml-0.5">India</span>
-        </div>
-        <div className="w-1 h-1 rounded-full bg-gray-300" />
-        <div className="flex items-center gap-1.5 text-xs text-gray-500">
-          <Receipt size={12} />
-          GST: <span className="font-medium text-gray-700 ml-0.5">18%</span>
-        </div>
-      </div>
-
-    </div>
-  )}
-</div>
               </div>
             </div>
           </div>{/* end main card */}

@@ -219,10 +219,10 @@ const MegaDropdown = ({ isOpen }) => {
     { label: "Stationary", path: "/category/stationary" },
     { label: "Baby Items", path: "/category/baby-items" },
     { label: "Car Accessories", path: "/category/car-accessories" },
-    { label: "Cleaning & Housekeeping Supplies", path: "/Cleaning-&Housekeeping-Supplies" },
+    { label: "Cleaning & Housekeeping Supplies", path: "/category/cleaning-&housekeeping-supplies" },
     { label: "Gifts", path: "/category/gifts" }
   ];
-
+    // mix-items-daily-use
   return (
     <>
  <div className="absolute top-full left-1/2 -translate-x-1/2 w-screen bg-white border-t border-gray-200 shadow-2xl z-50 hidden lg:block animate-slideDown">

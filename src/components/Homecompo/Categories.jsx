@@ -23,8 +23,8 @@ const Categories = () => {
   }
   const categories = useSelector(selectHierarchicalCategories);
 const visibleCategories = categories.slice(0, endIndex);
-  console.log("categories", categories.slice(0,endIndex+1));
-  console.log("categories", categories);
+  // console.log("categories", categories.slice(0,endIndex+1));
+  // console.log("categories", categories);
   
   const { loading, error } = useSelector((state) => state.userCategories);
 

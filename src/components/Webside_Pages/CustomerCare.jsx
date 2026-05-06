@@ -70,6 +70,10 @@ export default function CustomerCare() {
     }
   ];
 
+  useEffect(()=>{
+    window.scrollTo({ top:0, behavior:"smooth"})
+  }, []) ;
+
   return (
     <div className="min-h-screen bg-[#F9FAFB] text-slate-800 font-sans selection:bg-[#f7a221] selection:text-white">
       
@@ -107,7 +111,7 @@ export default function CustomerCare() {
               data-aos="fade-up"
               data-aos-delay="300"
             >
-              Tailored assistance for the modern Indian lifestyle. Select a department below to manage your <span className='underline animate-bounce text-[#f7a221]'>OFFERWALE BABA</span> experience.
+              Tailored assistance for the modern Indian lifestyle. Select a department below to manage your <span className='underline animate-bounce text-[#f7a221]'>OFFER WALE BABA</span> experience.
             </p>
           </div>
           

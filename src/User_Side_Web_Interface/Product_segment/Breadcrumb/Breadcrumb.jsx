@@ -4,7 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 
 const Breadcrumb = ({ product }) => {
     const categoryName = product?.category?.name || "";
-    console.log("categoryname",product);
+    // console.log("categoryname",product);
     
     const navigate = useNavigate();
       const [isFilterOpen, setIsFilterOpen] = useState(false);
@@ -17,7 +17,7 @@ const Breadcrumb = ({ product }) => {
               <ArrowLeft size={20} />
             </button>
             <nav className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-widest text-zinc-400">
-              <Link to="/" className="hover:text-zinc-900">Home</Link>
+              <Link to="/" className="text-zinc-900">Home</Link>
               <ChevronDown size={10} />
               <span className="text-zinc-900 font-bold">{categoryName}</span>
             </nav>

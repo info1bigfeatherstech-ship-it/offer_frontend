@@ -11,6 +11,7 @@ import {
   SlidersHorizontal,
   Loader2,
   ChevronDown,
+  Home,
 } from "lucide-react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 
@@ -67,27 +68,27 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
   }, [products, cols]);
 
   const skeletonRowCount = loadingMore ? Math.ceil(LOAD_MORE_SKELETON_COUNT / cols) : 0;
-  const totalRows        = rows.length + skeletonRowCount;
+  const totalRows = rows.length + skeletonRowCount;
 
   const rowVirtualizer = useVirtualizer({
-    count:            totalRows,
+    count: totalRows,
     getScrollElement: () => parentRef.current,
-    estimateSize:     () => 420,  // approximate row height — adjust to your card
-    overscan:         3,
+    estimateSize: () => 420,  // approximate row height — adjust to your card
+    overscan: 3,
   });
 
   return (
     <div ref={parentRef} style={{ width: "100%" }}>
       <div
         style={{
-          height:   `${rowVirtualizer.getTotalSize()}px`,
-          width:    "100%",
+          height: `${rowVirtualizer.getTotalSize()}px`,
+          width: "100%",
           position: "relative",
         }}
       >
         {rowVirtualizer.getVirtualItems().map((virtualRow) => {
           const isSkeletonRow = virtualRow.index >= rows.length;
-          const rowItems      = isSkeletonRow
+          const rowItems = isSkeletonRow
             ? Array(cols).fill(null)
             : rows[virtualRow.index];
 
@@ -97,26 +98,26 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
               data-index={virtualRow.index}
               ref={rowVirtualizer.measureElement}
               style={{
-                position:  "absolute",
-                top:       0,
-                left:      0,
-                width:     "100%",
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
               <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8 pb-10">
                 {isSkeletonRow
                   ? Array(cols).fill(null).map((_, i) => (
-                      <SkeletonCard key={`skel-${virtualRow.index}-${i}`} />
-                    ))
+                    <SkeletonCard key={`skel-${virtualRow.index}-${i}`} />
+                  ))
                   : rowItems.map((product, i) => (
-                      <ProductCard
+                    <ProductCard
                       key={product._id || i}
                       product={product}
                       index={virtualRow.index * cols + i}
                       seed={i}
-                      />
-                    ))
+                    />
+                  ))
                 }
               </div>
             </div>
@@ -129,60 +130,60 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
 
 // ── CatProducts ───────────────────────────────────────────────────────────────
 const CatProducts = () => {
-  const { slug }   = useParams();
-  const dispatch   = useDispatch();
-  const navigate   = useNavigate();
+  const { slug } = useParams();
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
   const [sortBy, setSortBy] = useState("default");
-  console.log(sortBy);
-  
-// values: default | priceLowHigh | priceHighLow | newest | discount
+  // console.log(sortBy);
+
+  // values: default | priceLowHigh | priceHighLow | newest | discount
 
   // ── Filters state ──────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({
-    price:        [],   // "u1000" | "1000-5000" | "5000-15000" | "o15000"
+    price: [],   // "u1000" | "1000-5000" | "5000-15000" | "o15000"
     availability: [],   // "instock" | "outofstock"
-    discount:     [],   // "10" | "25" | "50"
-    onSale:       false,
-     todayArrival: false,  
+    discount: [],   // "10" | "25" | "50"
+    onSale: false,
+    todayArrival: false,
   });
   const [isSortOpen, setIsSortOpen] = useState(false);
   const toggleFilter = useCallback((key, value) => {
-  setFilters((prev) => {
-    const exists = prev[key].includes(value);
+    setFilters((prev) => {
+      const exists = prev[key].includes(value);
 
-    return {
-      ...prev,
-      [key]: exists
-        ? prev[key].filter((v) => v !== value)
-        : [...prev[key], value],
-    };
-  });
-}, []);
+      return {
+        ...prev,
+        [key]: exists
+          ? prev[key].filter((v) => v !== value)
+          : [...prev[key], value],
+      };
+    });
+  }, []);
 
   // ── Category metadata ──────────────────────────────────────────────────────
-  const currentCategory      = useSelector(selectCurrentCategory);
+  const currentCategory = useSelector(selectCurrentCategory);
   const categoryLoadingState = useSelector((s) => s.userCategories.loading.category);
-  const categoryErrorState   = useSelector((s) => s.userCategories.error.category);
+  const categoryErrorState = useSelector((s) => s.userCategories.error.category);
 
   // ── Memoized selectors ────────────────────────────────────────────────────
-  const selectProducts   = useMemo(() => selectProductsBySlug(slug),  [slug]);
-  const selectLoading    = useMemo(() => selectLoadingBySlug(slug),   [slug]);
-  const selectPagination = useMemo(() => selectPaginationBySlug(slug),[slug]);
+  const selectProducts = useMemo(() => selectProductsBySlug(slug), [slug]);
+  const selectLoading = useMemo(() => selectLoadingBySlug(slug), [slug]);
+  const selectPagination = useMemo(() => selectPaginationBySlug(slug), [slug]);
 
 
 
 
-const activeTags = useMemo(() => {
-  const tags = [];
-  if (filters.onSale) tags.push("on_sale");
-  if (filters.todayArrival) tags.push("today_arrival");
-  return tags.join(","); // "on_sale" | "today_arrival" | "on_sale,today_arrival" | ""
-}, [filters.onSale, filters.todayArrival]);
+  const activeTags = useMemo(() => {
+    const tags = [];
+    if (filters.onSale) tags.push("on_sale");
+    if (filters.todayArrival) tags.push("today_arrival");
+    return tags.join(","); // "on_sale" | "today_arrival" | "on_sale,today_arrival" | ""
+  }, [filters.onSale, filters.todayArrival]);
 
   // ── Paginated products ────────────────────────────────────────────────────
- 
+
   const {
     data: products,
     isLoading: catLoading,
@@ -191,139 +192,139 @@ const activeTags = useMemo(() => {
     loadMore: handleLoadMore,
     resetPage,
   } = usePaginatedFetch({
-    fetchAction:      fetchProductsByCategory,
-    selectData:       selectProducts,
-    selectLoading:    selectLoading,
+    fetchAction: fetchProductsByCategory,
+    selectData: selectProducts,
+    selectLoading: selectLoading,
     selectPagination: selectPagination,
-    fetchParams:      { slug, tags: activeTags },
-    limit:            8,
+    fetchParams: { slug, tags: activeTags },
+    limit: 8,
   });
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const isLoading = (catLoading || categoryLoadingState) && products.length === 0;
-  const hasError  = !isLoading && !!categoryErrorState;
-  const hasMore   = pagination?.hasNextPage ?? false;  
+  const hasError = !isLoading && !!categoryErrorState;
+  const hasMore = pagination?.hasNextPage ?? false;
 
   // ── Filter logic ───────────────────────────────────────────────────────────
- const filteredProducts = useMemo(() => {
-  if (!products?.length) return [];
+  const filteredProducts = useMemo(() => {
+    if (!products?.length) return [];
 
-  return products.filter((product) => {
-    const variant = product.variants?.[0];
-    console.log("data", product);
-    
+    return products.filter((product) => {
+      const variant = product.variants?.[0];
+      // console.log("data", product);
 
-    const base = variant?.price?.base ?? 0;
-    const sale = variant?.price?.sale ?? base;
-    const qty  = variant?.inventory?.quantity ?? 0;
 
-    const discount =
-      base > 0 ? Math.round(((base - sale) / base) * 100) : 0;
+      const base = variant?.price?.base ?? 0;
+      const sale = variant?.price?.sale ?? base;
+      const qty = variant?.inventory?.quantity ?? 0;
 
-    const isOnSale = sale < base || false;
+      const discount =
+        base > 0 ? Math.round(((base - sale) / base) * 100) : 0;
 
-    // ✅ PRICE (multi-select)
-    if (filters.price.length > 0) {
-      const priceMatch = filters.price.some((p) => {
-        if (p === "u29") return base < 29;
-        if (p === "29-49") return base >= 29 && base <= 49;
-        if (p === "49-79") return base >= 49 && base <= 79;
-        if (p === "o99") return base > 99;
-        return false;
-      });
+      const isOnSale = sale < base || false;
 
-      if (!priceMatch) return false;
-    }
+      // ✅ PRICE (multi-select)
+      if (filters.price.length > 0) {
+        const priceMatch = filters.price.some((p) => {
+          if (p === "u29") return base < 29;
+          if (p === "29-49") return base >= 29 && base <= 49;
+          if (p === "49-79") return base >= 49 && base <= 79;
+          if (p === "o99") return base > 99;
+          return false;
+        });
 
-    // ✅ AVAILABILITY (multi-select)
-    if (filters.availability.length > 0) {
-      const stockMatch = filters.availability.some((a) => {
-        if (a === "instock") return qty > 0;
-        if (a === "outofstock") return qty <= 0;
-        return false;
-      });
+        if (!priceMatch) return false;
+      }
 
-      if (!stockMatch) return false;
-    }
+      // ✅ AVAILABILITY (multi-select)
+      if (filters.availability.length > 0) {
+        const stockMatch = filters.availability.some((a) => {
+          if (a === "instock") return qty > 0;
+          if (a === "outofstock") return qty <= 0;
+          return false;
+        });
 
-    // ✅ DISCOUNT (multi-select)
-    if (filters.discount.length > 0) {
-      const discountMatch = filters.discount.some(
-        (d) => discount >= Number(d)
-      );
+        if (!stockMatch) return false;
+      }
 
-      if (!discountMatch) return false;
-    }
+      // ✅ DISCOUNT (multi-select)
+      if (filters.discount.length > 0) {
+        const discountMatch = filters.discount.some(
+          (d) => discount >= Number(d)
+        );
 
-    // ✅ ON SALE
-    if (filters.onSale && !isOnSale) return false;
+        if (!discountMatch) return false;
+      }
 
-    return true;
-  });
-}, [products, filters]);
+      // ✅ ON SALE
+      if (filters.onSale && !isOnSale) return false;
+
+      return true;
+    });
+  }, [products, filters]);
   const sortedProducts = useMemo(() => {
-  let data = [...filteredProducts];
+    let data = [...filteredProducts];
 
-  switch (sortBy) {
-    case "priceLowHigh":
-      return data.sort((a, b) => {
-        const aPrice = a.variants?.[0]?.price?.sale ?? a.variants?.[0]?.price?.base ?? 0;
-        const bPrice = b.variants?.[0]?.price?.sale ?? b.variants?.[0]?.price?.base ?? 0;
-        return aPrice - bPrice;
-      });
+    switch (sortBy) {
+      case "priceLowHigh":
+        return data.sort((a, b) => {
+          const aPrice = a.variants?.[0]?.price?.sale ?? a.variants?.[0]?.price?.base ?? 0;
+          const bPrice = b.variants?.[0]?.price?.sale ?? b.variants?.[0]?.price?.base ?? 0;
+          return aPrice - bPrice;
+        });
 
-    case "priceHighLow":
-      return data.sort((a, b) => {
-        const aPrice = a.variants?.[0]?.price?.sale ?? a.variants?.[0]?.price?.base ?? 0;
-        const bPrice = b.variants?.[0]?.price?.sale ?? b.variants?.[0]?.price?.base ?? 0;
-        return bPrice - aPrice;
-      });
+      case "priceHighLow":
+        return data.sort((a, b) => {
+          const aPrice = a.variants?.[0]?.price?.sale ?? a.variants?.[0]?.price?.base ?? 0;
+          const bPrice = b.variants?.[0]?.price?.sale ?? b.variants?.[0]?.price?.base ?? 0;
+          return bPrice - aPrice;
+        });
 
-    case "discount":
-      return data.sort((a, b) => {
-        const getDiscount = (p) => {
-          const base = p.variants?.[0]?.price?.base ?? 0;
-          const sale = p.variants?.[0]?.price?.sale ?? base;
-          return base > 0 ? ((base - sale) / base) * 100 : 0;
-        };
-        return getDiscount(b) - getDiscount(a);
-      });
+      case "discount":
+        return data.sort((a, b) => {
+          const getDiscount = (p) => {
+            const base = p.variants?.[0]?.price?.base ?? 0;
+            const sale = p.variants?.[0]?.price?.sale ?? base;
+            return base > 0 ? ((base - sale) / base) * 100 : 0;
+          };
+          return getDiscount(b) - getDiscount(a);
+        });
       case "az":
-  return data.sort((a, b) => a.name.localeCompare(b.name));
+        return data.sort((a, b) => a.name.localeCompare(b.name));
 
-case "za":
-  return data.sort((a, b) => b.name.localeCompare(a.name));
+      case "za":
+        return data.sort((a, b) => b.name.localeCompare(a.name));
 
-    case "newest":
-      return data.sort(
-        (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
-      );
+      case "newest":
+        return data.sort(
+          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+        );
 
-    default:
-      return data;
-  }
-}, [filteredProducts, sortBy]);
+      default:
+        return data;
+    }
+  }, [filteredProducts, sortBy]);
 
- const activeFilterCount = useMemo(() => {
-  return (
-    filters.price.length +
-    filters.availability.length +
-    filters.discount.length +
-    (filters.onSale ? 1 : 0) +
-    (filters.todayArrival ? 1 : 0)   // ✅ add kiya
-  );
-}, [filters])
+  const activeFilterCount = useMemo(() => {
+    return (
+      filters.price.length +
+      filters.availability.length +
+      filters.discount.length +
+      (filters.onSale ? 1 : 0) +
+      (filters.todayArrival ? 1 : 0)   // ✅ add kiya
+    );
+  }, [filters])
 
   // ── Helpers ────────────────────────────────────────────────────────────────
- const clearFilters = useCallback(() => {
-  setFilters({
-    price: [],
-    availability: [],
-    discount: [],
-    onSale: false,
-     todayArrival: false, 
-  });
-}, []);
+  const clearFilters = useCallback(() => {
+    setFilters({
+      price: [],
+      availability: [],
+      discount: [],
+      onSale: false,
+      todayArrival: false,
+    });
+  }, []);
 
   // ── Category metadata fetch ────────────────────────────────────────────────
   useEffect(() => {
@@ -339,17 +340,17 @@ case "za":
     resetPage();
   }, [slug, dispatch, resetPage]);
 
-const categoryName = currentCategory?.name 
-  || slug?.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) 
-  || "Collection";  useLayoutEffect(() => {
-  if (!slug) return;
-  console.log("I m working");
-  clearFilters(); // ← add karo
-  
-  dispatch(clearCurrentCategory());
-  dispatch(fetchCategoryBySlug(slug));
-  return () => dispatch(clearCurrentCategory());
-}, [slug, dispatch]);
+  const categoryName = currentCategory?.name
+    || slug?.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
+    || "Collection"; useLayoutEffect(() => {
+      if (!slug) return;
+      // console.log("I m working");
+      clearFilters(); // ← add karo
+
+      dispatch(clearCurrentCategory());
+      dispatch(fetchCategoryBySlug(slug));
+      return () => dispatch(clearCurrentCategory());
+    }, [slug, dispatch]);
 
   // ── Filter Panel (shared between sidebar + drawer) ─────────────────────────
   const FilterPanel = () => (
@@ -362,40 +363,39 @@ const categoryName = currentCategory?.name
         </h4>
         <div className="space-y-1.5">
           {[
-  { label: "Under ₹29", val: "u29" },
-  { label: "₹29 - ₹49", val: "29-49" },
-  { label: "₹49 - ₹79", val: "49-79" },
-  { label: "Over ₹99", val: "o99" },
-].map(({ label, val }) => (
-  <label key={val} className="flex items-center gap-3 cursor-pointer group">
-    
-    <div
-      className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all
-        ${filters.price.includes(val)
-          ? "bg-zinc-900 border-zinc-900"
-          : "border-zinc-300 group-hover:border-zinc-500"
-        }`}
-      onClick={() => toggleFilter("price", val)}
-    >
-      {filters.price.includes(val) && (
-        <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 8">
-          <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5"/>
-        </svg>
-      )}
-    </div>
+            { label: "Under ₹29", val: "u29" },
+            { label: "₹29 - ₹49", val: "29-49" },
+            { label: "₹49 - ₹79", val: "49-79" },
+            { label: "Over ₹99", val: "o99" },
+          ].map(({ label, val }) => (
+            <label key={val} className="flex items-center gap-3 cursor-pointer group">
 
-    <span
-      className={`text-sm ${
-        filters.price.includes(val)
-          ? "text-zinc-900 font-medium"
-          : "text-zinc-800"
-      }`}
-      onClick={() => toggleFilter("price", val)}
-    >
-      {label}
-    </span>
-  </label>
-))}
+              <div
+                className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all
+        ${filters.price.includes(val)
+                    ? "bg-zinc-900 border-zinc-900"
+                    : "border-zinc-300 group-hover:border-zinc-500"
+                  }`}
+                onClick={() => toggleFilter("price", val)}
+              >
+                {filters.price.includes(val) && (
+                  <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 8">
+                    <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" />
+                  </svg>
+                )}
+              </div>
+
+              <span
+                className={`text-sm ${filters.price.includes(val)
+                  ? "text-zinc-900 font-medium"
+                  : "text-zinc-800"
+                  }`}
+                onClick={() => toggleFilter("price", val)}
+              >
+                {label}
+              </span>
+            </label>
+          ))}
         </div>
       </div>
 
@@ -408,7 +408,7 @@ const categoryName = currentCategory?.name
         </h4>
         <div className="space-y-1.5">
           {[
-            { label: "In stock",     val: "instock"    },
+            { label: "In stock", val: "instock" },
             { label: "Out of stock", val: "outofstock" },
           ].map(({ label, val }) => (
             <label
@@ -421,11 +421,11 @@ const categoryName = currentCategory?.name
                     ? "bg-zinc-900 border-zinc-900"
                     : "border-zinc-300 group-hover:border-zinc-500"
                   }`}
-                onClick={() =>  toggleFilter("availability", val)}
+                onClick={() => toggleFilter("availability", val)}
               >
                 {filters.availability.includes(val) && (
                   <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 8" fill="none">
-                    <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 )}
               </div>
@@ -467,7 +467,7 @@ const categoryName = currentCategory?.name
               >
                 {filters.discount.includes(val) && (
                   <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 8" fill="none">
-                    <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                   </svg>
                 )}
               </div>
@@ -485,32 +485,30 @@ const categoryName = currentCategory?.name
       <div className="h-px bg-zinc-100" />
 
       {/* On Sale */}
-    <div>
-  <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] text-zinc-800 mb-4">
-    Deals
-  </h4>
+      <div>
+        <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] text-zinc-800 mb-4">
+          Deals
+        </h4>
 
-  {/* On Sale Toggle */}
-  <label className="flex items-center gap-3 cursor-pointer group mb-3">
-    <button
-      onClick={() => setFilters((prev) => ({ ...prev, onSale: !prev.onSale }))}
-      className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${
-        filters.onSale ? "bg-zinc-900" : "bg-zinc-200"
-      }`}
-    >
-      <span
-        className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${
-          filters.onSale ? "translate-x-4" : "translate-x-0"
-        }`}
-      />
-    </button>
-    <span className={`text-sm transition-colors ${filters.onSale ? "text-zinc-900 font-medium" : "text-zinc-800"}`}>
-      On sale only
-    </span>
-  </label>
+        {/* On Sale Toggle */}
+        <label className="flex items-center gap-3 cursor-pointer group mb-3">
+          <button
+            onClick={() => setFilters((prev) => ({ ...prev, onSale: !prev.onSale }))}
+            className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${filters.onSale ? "bg-zinc-900" : "bg-zinc-200"
+              }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${filters.onSale ? "translate-x-4" : "translate-x-0"
+                }`}
+            />
+          </button>
+          <span className={`text-sm transition-colors ${filters.onSale ? "text-zinc-900 font-medium" : "text-zinc-800"}`}>
+            On sale only
+          </span>
+        </label>
 
-  {/* Today Arrival Toggle */}
-</div>
+        {/* Today Arrival Toggle */}
+      </div>
 
       {/* Clear */}
       {activeFilterCount > 0 && (
@@ -537,7 +535,7 @@ const categoryName = currentCategory?.name
                 <ArrowLeft size={20} />
               </button>
               <nav className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-widest text-zinc-400">
-                <Link to="/" className="hover:text-zinc-900">Home</Link>
+                <Link to="/" className="text-zinc-900">Home</Link>
                 <ChevronRight size={10} />
                 <span className="text-zinc-900 font-bold">{categoryName}</span>
               </nav>
@@ -602,11 +600,18 @@ const categoryName = currentCategory?.name
 
           {/* ── SIDEBAR ── */}
           <aside className="hidden md:block md:px-18 w-64 flex-shrink-0">
-            <div className="sticky top-24">
+            <div className="sticky top-50">
               <div className="flex items-center justify-between pb-4 border-b border-zinc-100 mb-6">
-                <div className="flex items-center gap-2">
-                  <SlidersHorizontal size={15} />
-                  <span className="text-sm font-bold uppercase tracking-widest">Filters</span>
+                <div>
+                  <div className="flex items-center gap-2 mb-2">
+                    <SlidersHorizontal size={15} />
+                    <span className="text-sm font-bold uppercase tracking-widest">Filters</span>
+                  </div>
+                  <Link to="/" className="text-zinc-900 flex items-center gap-2 hover:text-yellow-500 transition-colors">
+                    <Home size={16} /> {/* or House, HomeIcon depending on your icon library */}
+                    <span className="text-sm">Go  home</span>
+                    <ChevronRight size={14} />
+                  </Link>
                 </div>
                 {activeFilterCount > 0 && (
                   <span className="text-[10px] font-bold bg-zinc-900 text-white px-2 py-0.5 rounded-full">
@@ -618,180 +623,179 @@ const categoryName = currentCategory?.name
             </div>
           </aside>
           {isSortOpen && (
-  <div className="fixed inset-0 z-[100] md:hidden">
-    <div
-      className="absolute inset-0 bg-black/40"
-      onClick={() => setIsSortOpen(false)}
-    />
+            <div className="fixed inset-0 z-[100] md:hidden">
+              <div
+                className="absolute inset-0 bg-black/40"
+                onClick={() => setIsSortOpen(false)}
+              />
 
-    <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl p-6 animate-in slide-in-from-bottom duration-300">
-      
-      <h3 className="text-sm font-bold mb-4 uppercase tracking-widest">
-        Sort By
-      </h3>
+              <div className="absolute bottom-0 left-0 right-0 bg-white rounded-t-2xl p-6 animate-in slide-in-from-bottom duration-300">
 
-      <div className="space-y-4">
-        {[
-          { label: "A-Z", val: "az" },
-          { label: "Z-A", val: "za" },
-          { label: "Price Low → High", val: "priceLowHigh" },
-          { label: "Price High → Low", val: "priceHighLow" },
-        ].map((opt) => (
-          <button
-            key={opt.val}
-            onClick={() => {
-              setSortBy(opt.val);
-              setIsSortOpen(false);
-            }}
-            className={`block w-full text-left text-sm ${
-              sortBy === opt.val ? "font-bold text-black" : "text-zinc-500"
-            }`}
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    </div>
-  </div>
-)}
+                <h3 className="text-sm font-bold mb-4 uppercase tracking-widest">
+                  Sort By
+                </h3>
+
+                <div className="space-y-4">
+                  {[
+                    { label: "A-Z", val: "az" },
+                    { label: "Z-A", val: "za" },
+                    { label: "Price Low → High", val: "priceLowHigh" },
+                    { label: "Price High → Low", val: "priceHighLow" },
+                  ].map((opt) => (
+                    <button
+                      key={opt.val}
+                      onClick={() => {
+                        setSortBy(opt.val);
+                        setIsSortOpen(false);
+                      }}
+                      className={`block w-full text-left text-sm ${sortBy === opt.val ? "font-bold text-black" : "text-zinc-500"
+                        }`}
+                    >
+                      {opt.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* ── PRODUCT GRID AREA ── */}
-    <div className="flex-grow">
-  {/* --- Toolbar --- */}
-  <div className="flex items-center justify-between mb-10">
-    
-    {/* LEFT */}
-    <div className="flex items-center gap-4">
-      <p className="text-xs font-['satoshi'] font-semibold uppercase text-zinc-800 tracking-[0.1em]">
-        Sort By :
-      </p>
+          <div className="flex-grow">
+            {/* --- Toolbar --- */}
+            <div className="flex items-center justify-between mb-10">
 
-      <div className="relative">
-        <select
-          value={sortBy}
-          onChange={(e) => setSortBy(e.target.value)}
-          className="appearance-none bg-white/60 backdrop-blur-md px-3 pr-10 py-2 text-sm font-semibold text-zinc-800 rounded-md shadow-sm border border-zinc-200 hover:border-zinc-400 focus:border-black focus:ring-0 outline-none transition-all cursor-pointer"
-        >
-          <option value="az">Alphabetically, A-Z</option>
-          <option value="za">Alphabetically, Z-A</option>
-          <option value="priceLowHigh">Price: Low to High</option>
-          <option value="priceHighLow">Price: High to Low</option>
-        </select>
+              {/* LEFT */}
+              <div className="flex items-center gap-4">
+                <p className="text-xs font-['satoshi'] font-semibold uppercase text-zinc-800 tracking-[0.1em]">
+                  Sort By :
+                </p>
 
-        <ChevronDown
-          size={16}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none"
-        />
-      </div>
-    </div>
+                <div className="relative">
+                  <select
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value)}
+                    className="appearance-none bg-white/60 backdrop-blur-md px-3 pr-10 py-2 text-sm font-semibold text-zinc-800 rounded-md shadow-sm border border-zinc-200 hover:border-zinc-400 focus:border-black focus:ring-0 outline-none transition-all cursor-pointer"
+                  >
+                    <option value="az">Alphabetically, A-Z</option>
+                    <option value="za">Alphabetically, Z-A</option>
+                    <option value="priceLowHigh">Price: Low to High</option>
+                    <option value="priceHighLow">Price: High to Low</option>
+                  </select>
 
-    {/* RIGHT COUNT */}
-    <div className="hidden sm:flex items-center gap-3 bg-zinc-50 px-4 py-2 rounded-full border border-zinc-200">
-      <span className="text-lg font-semibold text-zinc-800">
-        {filteredProducts.length}
-      </span>
-      <span className="text-[10px] uppercase tracking-widest text-zinc-400">
-        Products
-      </span>
-    </div>
-  </div>
+                  <ChevronDown
+                    size={16}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none"
+                  />
+                </div>
+              </div>
 
-  {/* --- Content --- */}
-  <div className="relative min-h-[60vh]">
-
-    {/* ERROR */}
-    {hasError && (
-      <div className="flex flex-col items-center justify-center py-28 text-center animate-in fade-in duration-500">
-        <div className="p-4 rounded-full bg-red-50 mb-4">
-          <AlertCircle size={28} className="text-red-400" />
-        </div>
-
-        <p className="text-zinc-600 text-sm mb-6 max-w-sm">
-          {categoryErrorState?.message || "Something went wrong while loading products."}
-        </p>
-
-        <button
-          onClick={handleRetry}
-          className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider px-5 py-2 border border-zinc-300 rounded-full hover:bg-black hover:text-white transition-all"
-        >
-          <RefreshCw size={14} />
-          Retry
-        </button>
-      </div>
-    )}
-
-    {/* LOADING */}
-    {isLoading && (
-      <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-        {[...Array(8)].map((_, i) => (
-          <div key={i} className="animate-pulse space-y-3">
-            <div className="aspect-[4/5] bg-gradient-to-br from-zinc-100 to-zinc-200 rounded-lg" />
-            <div className="h-3 bg-zinc-200 rounded w-3/4" />
-            <div className="h-3 bg-zinc-100 rounded w-1/2" />
-          </div>
-        ))}
-      </div>
-    )}
-
-    {/* MAIN GRID */}
-    {!isLoading && !hasError && filteredProducts.length > 0 && (
-      <div className="animate-in fade-in duration-700">
-        <VirtualizedProductGrid
-          key={slug}
-          products={sortedProducts}
-          loadingMore={loadingMore}
-        />
-
-        {/* LOAD MORE */}
-        <div className="mt-20 text-center">
-          {hasMore ? (
-            <div className="space-y-6">
-              <button
-                onClick={handleLoadMore}
-                disabled={catLoading}
-                className="group relative px-10 py-3 rounded-full hover:bg-orange-400 duration-300 bg-zinc-800 text-zinc-100 border-zinc-300 overflow-hidden transition-all"
-              >
-                <span className="relative z-10 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest">
-                  {loadingMore ? (
-                    <Loader2 size={14} className="animate-spin" />
-                  ) : "Load More"}
+              {/* RIGHT COUNT */}
+              <div className="hidden sm:flex items-center gap-3 bg-zinc-50 px-4 py-2 rounded-full border border-zinc-200">
+                <span className="text-lg font-semibold text-zinc-800">
+                  {filteredProducts.length}
                 </span>
-              </button>
-
-              <p className="text-[10px] text-zinc-400 uppercase tracking-widest">
-                {products.length} / {pagination?.total || 0} viewed
-              </p>
+                <span className="text-[10px] uppercase tracking-widest text-zinc-400">
+                  Products
+                </span>
+              </div>
             </div>
-          ) : (
-            <p className="text-xs uppercase tracking-[0.4em] text-zinc-300 py-10">
-              End of Collection
-            </p>
-          )}
-        </div>
-      </div>
-    )}
 
-    {/* EMPTY */}
-    {!isLoading && !hasError && filteredProducts.length === 0 && products.length > 0 && (
-      <div className="py-32 flex flex-col items-center text-center animate-in fade-in">
-        <h2 className="text-xl font-semibold text-zinc-700 mb-2">
-          No products found
-        </h2>
+            {/* --- Content --- */}
+            <div className="relative min-h-[60vh]">
 
-        <p className="text-zinc-400 text-xs uppercase tracking-widest mb-6">
-          Try different filters
-        </p>
+              {/* ERROR */}
+              {hasError && (
+                <div className="flex flex-col items-center justify-center py-28 text-center animate-in fade-in duration-500">
+                  <div className="p-4 rounded-full bg-red-50 mb-4">
+                    <AlertCircle size={28} className="text-red-400" />
+                  </div>
 
-        <button
-          onClick={clearFilters}
-          className="px-6 py-2 text-xs font-semibold uppercase tracking-wider border border-zinc-300 rounded-full hover:bg-black hover:text-white transition"
-        >
-          Reset Filters
-        </button>
-      </div>
-    )}
-  </div>
-</div>
+                  <p className="text-zinc-600 text-sm mb-6 max-w-sm">
+                    {categoryErrorState?.message || "Something went wrong while loading products."}
+                  </p>
+
+                  <button
+                    onClick={handleRetry}
+                    className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider px-5 py-2 border border-zinc-300 rounded-full hover:bg-black hover:text-white transition-all"
+                  >
+                    <RefreshCw size={14} />
+                    Retry
+                  </button>
+                </div>
+              )}
+
+              {/* LOADING */}
+              {isLoading && (
+                <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                  {[...Array(8)].map((_, i) => (
+                    <div key={i} className="animate-pulse space-y-3">
+                      <div className="aspect-[4/5] bg-gradient-to-br from-zinc-100 to-zinc-200 rounded-lg" />
+                      <div className="h-3 bg-zinc-200 rounded w-3/4" />
+                      <div className="h-3 bg-zinc-100 rounded w-1/2" />
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* MAIN GRID */}
+              {!isLoading && !hasError && filteredProducts.length > 0 && (
+                <div className="animate-in fade-in duration-700">
+                  <VirtualizedProductGrid
+                    key={slug}
+                    products={sortedProducts}
+                    loadingMore={loadingMore}
+                  />
+
+                  {/* LOAD MORE */}
+                  <div className="mt-20 text-center cursor-pointer">
+                    {hasMore ? (
+                      <div className="space-y-6">
+                        <button
+                          onClick={handleLoadMore}
+                          disabled={catLoading}
+                          className="group relative cursor-pointer px-10 py-3 rounded-full hover:bg-orange-400 duration-300 bg-zinc-800 text-zinc-100 border-zinc-300 overflow-hidden transition-all"
+                        >
+                          <span className="relative z-10 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest">
+                            {loadingMore ? (
+                              <Loader2 size={14} className="animate-spin" />
+                            ) : "Load More"}
+                          </span>
+                        </button>
+
+                        <p className="text-[10px] text-zinc-400 uppercase tracking-widest">
+                          {products.length} / {pagination?.total || 0} viewed
+                        </p>
+                      </div>
+                    ) : (
+                      <p className="text-xs uppercase tracking-[0.4em] text-zinc-300 py-10">
+                        End of Collection
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* EMPTY */}
+              {!isLoading && !hasError && filteredProducts.length === 0 && products.length > 0 && (
+                <div className="py-32 flex flex-col items-center text-center animate-in fade-in">
+                  <h2 className="text-xl font-semibold text-zinc-700 mb-2">
+                    No products found
+                  </h2>
+
+                  <p className="text-zinc-400 text-xs uppercase tracking-widest mb-6">
+                    Try different filters
+                  </p>
+
+                  <button
+                    onClick={clearFilters}
+                    className="px-6 py-2 text-xs font-semibold uppercase tracking-wider border border-zinc-300 rounded-full hover:bg-black hover:text-white transition"
+                  >
+                    Reset Filters
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* ── MOBILE FILTER DRAWER ── */}
@@ -835,7 +839,7 @@ const categoryName = currentCategory?.name
 };
 
 export default CatProducts;
-// code working but try to add virtulization 
+// code working but try to add virtulization
 
 // import React, { useEffect, useCallback, useState } from "react";
 // import { useParams, useNavigate, Link } from "react-router-dom";

@@ -17,7 +17,7 @@ const Homepage = () => {
   const dispatch = useDispatch();
 
   const categories = useSelector(selectAllCategories);
-  console.log(categories);
+  // console.log(categories);
 
   const loading = useSelector(selectCategoriesLoading);
   const error = useSelector(selectCategoriesError);

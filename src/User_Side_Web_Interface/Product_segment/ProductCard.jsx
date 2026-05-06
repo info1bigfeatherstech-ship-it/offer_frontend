@@ -64,6 +64,7 @@ const ProductCard = ({ product, index = 0 }) => {
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const variant     = product?.variants?.[0] ?? {};
+  const name       = product?.name || product?.title;
   const title       = product?.title || product?.name || "Product";
   const salePrice   = variant.price?.sale ?? variant.price?.base ?? null;
   const basePrice   = variant.price?.base ?? null;
@@ -224,7 +225,7 @@ const ProductCard = ({ product, index = 0 }) => {
 
         <LazyImage
           src={imgUrl}
-          alt={title}
+          alt={name}
           aspectRatio="1/1"
           objectFit="cover"
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
@@ -295,7 +296,7 @@ const ProductCard = ({ product, index = 0 }) => {
         {/* Title + Rating row */}
         <div className="flex items-start justify-between gap-1">
           <h3 className="text-xs sm:text-sm font-semibold text-zinc-900 line-clamp-2 group-hover:text-yellow-600 transition-colors leading-snug flex-1">
-            {title}
+            {name}
           </h3>
           <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
             <Star size={14} className="text-yellow-400 fill-yellow-400" />
