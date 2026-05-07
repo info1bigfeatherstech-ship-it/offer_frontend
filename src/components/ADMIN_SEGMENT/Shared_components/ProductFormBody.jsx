@@ -246,48 +246,6 @@ const ProductFormBody = ({
           </div>
           <div className="p-4 space-y-4">
             {/* Read-only Ecom Status Badge */}
-            <div className="flex items-center justify-between p-3 bg-blue-50 rounded-lg border border-blue-200">
-              <div>
-                <span className="text-sm font-medium text-gray-700">Ecom Storefront Status</span>
-                <p className="text-xs text-gray-500 mt-0.5">Automatically calculated from variants with active ecom visibility</p>
-              </div>
-              <div>
-                {isEditMode && primaryVariant ? (
-                  (() => {
-                    const hasActiveEcom = formData.variants?.some(v => v.channelVisibility?.ecomm === "active");
-                    const status = hasActiveEcom ? "active" : "draft";
-                    const badgeClass = status === "active" ? "bg-green-100 text-green-700" : "bg-yellow-100 text-yellow-700";
-                    return <span className={`px-3 py-1 rounded-full text-sm font-medium ${badgeClass}`}>{status.toUpperCase()}</span>;
-                  })()
-                ) : (
-                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-500">PENDING</span>
-                )}
-              </div>
-            </div>
-
-            {/* Read-only Wholesale Status Badge */}
-            <div className="flex items-center justify-between p-3 bg-purple-50 rounded-lg border border-purple-200">
-              <div>
-                <span className="text-sm font-medium text-gray-700">Wholesale Storefront Status</span>
-                <p className="text-xs text-gray-500 mt-0.5">Automatically calculated from wholesale-eligible variants</p>
-              </div>
-              <div>
-                {isEditMode && primaryVariant ? (
-                  (() => {
-                    const hasActiveWholesale = formData.variants?.some(v => 
-                      v.wholesale === true && 
-                      (v.price?.wholesaleBase > 0) && 
-                      v.channelVisibility?.wholesale === "active"
-                    );
-                    const status = hasActiveWholesale ? "active" : "draft";
-                    const badgeClass = status === "active" ? "bg-purple-100 text-purple-700" : "bg-gray-100 text-gray-500";
-                    return <span className={`px-3 py-1 rounded-full text-sm font-medium ${badgeClass}`}>{status.toUpperCase()}</span>;
-                  })()
-                ) : (
-                  <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-500">PENDING</span>
-                )}
-              </div>
-            </div>
 
             <div className="flex items-center justify-between">
               <span className="text-sm font-medium text-gray-700">Featured Product</span>

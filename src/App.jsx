@@ -35,6 +35,8 @@ import UserTab from "./components/ADMIN_SEGMENT/ADMIN_TABS/USER/UserTab";
 import Checkout from "./User_Side_Web_Interface/CHECKOUT/Checkout";
 import ContactUs from "./components/Common/Contact";
 import TagProducts from "./User_Side_Web_Interface/User_Dash_Segment/UserSubPages/TagProducts";
+import AboutUs from "./components/Common/AboutUs";
+import Policy from "./components/Common/Policy";
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Optional: protect /account routes ────────────────────────────────────────
@@ -207,6 +209,8 @@ const AppContent = () => {
                     path="/account"
                     element={<Navigate to="/account/userprofile" replace />}
                 />
+                <Route path="/about" element={<AboutUs/>}/>
+                <Route path="/policies/:slug" element={<Policy/>}/>
                 <Route
                     path="/account/:activeTab"
                     element={

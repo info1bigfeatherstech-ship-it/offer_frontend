@@ -40,22 +40,21 @@ const Footer = () => {
     {
       title: "Important Links",
       items: [
-        { label: "Contact Us", path: "/contact" },
-        { label: "Influencer Form", path: "/influencer-form" },
-        { label: "Shipment Tracking", path: "/shipment-tracking" },
-        { label: "Customer Care", path: "/customer-care" },
         { label: "About Us", path: "/about" },
+        { label: "Contact Us", path: "/contact" },
+        // { label: "Influencer Form", path: "/influencer-form" },
+        { label: "Customer Care", path: "/customer-care" },
         { label: "Influencer Form", path: "/influencer-form" },
       ]
     },
     {
       title: "Policies",
       items: [
-        { label: "Return & Refund", path: "/return-refund" },
-        { label: "Order Cancellation Policy", path: "/order-cancellation-policy" },
-        { label: "Privacy Policy", path: "/privacy-policy" },  
-        { label: "Shipping Policy", path: "/shipping-policy" },
-        { label: "Terms & Conditions", path: "/terms-conditions" }
+        { label: "Return & Refund", path: "/policies/return-refund" },
+        { label: "Order Cancellation Policy", path: "/policies/order-cancellation" },
+        { label: "Privacy Policy", path: "/policies/privacy-policy" },
+        { label: "Shipping Policy", path: "/policies/shipping-policy" },
+        { label: "Terms & Conditions", path: "/policies/terms-conditions" }
       ]
     }
   ];
@@ -63,7 +62,8 @@ const Footer = () => {
   const socialLinks = [
     {
       icon: "fa-whatsapp",
-      color: "hover:bg-[#25D366]",
+      color: "bg-[#25D366]",
+      iconColor: "text-[#25D366]",
       link: "https://wa.me/message/72BTQZMTQU2AG1" // replace with your number
     },
     // {
@@ -93,7 +93,7 @@ const Footer = () => {
     // },
     {
       icon: "fa-google",
-      color: "hover:bg-[#4285F4]",
+      color: "bg-[#4285F4]",
       label: "Google",
       link: "https://www.google.com/search?q=OfferWaleBaba&stick=H4sIAAAAAAAA_-NgU1I1qDBOSjW3NLU0S000N0pKSUqxMqhIMkoyMzNPMkhMNE1KNkpKW8TK65-WlloUnpiT6pSYlAgA9JZF2jkAAAA&hl=en&mat=CRFncPBLRARKElcBTVDHnlFZAzRUb5k7XxJQUtIo8wkxRLilxtEbwkTszXtkEc5ACbiU0Rdp8GkiDbg99jHlvSmDg_UAZsfXWVQZ-MJOdtz8aSvPSjHQIm98wMZv9rgWgNM&authuser=0" // or Google Maps link
     }
@@ -197,7 +197,7 @@ const Footer = () => {
                 {/* NORMAL ICON */}
                 <i
                   className={`fa-brands ${social.icon} text-2xl transition-opacity duration-300 ${social.icon === "fa-google" ? "group-hover:opacity-0" : ""
-                    }`}
+                    } ${social.icon === "fa-whatsapp" ? "text-[#25D366]" : ""}`}
                 />
 
                 {/* GOOGLE SVG */}
@@ -205,7 +205,7 @@ const Footer = () => {
                   <img
                     src={google}
                     alt="google"
-                    className="w-6 h-6 absolute opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+                    className="w-6 h-6 absolute  group-hover: transition-opacity duration-300"
                   />
                 )}
               </a>
@@ -213,75 +213,75 @@ const Footer = () => {
           </div>
         </div>
 
-       {/* MAIN FOOTER CONTENT GRID */}
-{/* MAIN FOOTER CONTENT GRID */}
-<div className="grid lg:grid-cols-12 gap-16 mb-24 border-t border-white/5 pt-24">
-  
-  {/* Support & Location Section */}
-  <div className="lg:col-span-5 space-y-8">
-    <div className="relative aspect-video rounded-[2rem] overflow-hidden border border-white/10 group">
-      <iframe
-        title="location"
-        src="https://www.google.com/maps?q=19.2092622,73.1663272&z=16&output=embed"
-        className="w-full h-full border-0 grayscale invert opacity-40 
+        {/* MAIN FOOTER CONTENT GRID */}
+        {/* MAIN FOOTER CONTENT GRID */}
+        <div className="grid lg:grid-cols-12 gap-16 mb-24 border-t border-white/5 pt-24">
+
+          {/* Support & Location Section */}
+          <div className="lg:col-span-5 space-y-8">
+            <div className="relative aspect-video rounded-[2rem] overflow-hidden border border-white/10 group">
+              <iframe
+                title="location"
+                src="https://www.google.com/maps?q=19.2092622,73.1663272&z=16&output=embed"
+                className="w-full h-full border-0 grayscale invert opacity-40 
                    group-hover:opacity-100 group-hover:grayscale-0 
                    transition-all duration-1000"
-        loading="lazy"
-        referrerPolicy="no-referrer-when-downgrade"
-      />
-    </div>
-    
-    {/* Responsive: Flex col on mobile, Flex row on desktop */}
-    <div className="flex flex-col md:flex-row items-start justify-between gap-8 md:gap-10">
-      {/* Support Info */}
-      <div className="flex-1 min-w-0">
-        <p className="text-[#f7a221] font-black text-[10px] tracking-widest uppercase mb-2">Support</p>
-        <p className="text-white font-bold text-lg mb-1">+91 9370686008</p>
-        <a 
-          href="mailto:support.offerwalebaba@gmail.com" 
-          className="text-white text-sm break-all block hover:text-[#f7a221] transition-colors"
-        >
-          support.offerwalebaba@gmail.com
-        </a>
-      </div>
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+            </div>
 
-      {/* Location Info */}
-      <div className="flex-1 min-w-0 md:ml-2">
-        <p className="text-[#f7a221] font-black text-[10px] tracking-widest uppercase mb-2">Location</p>
-        <p className="text-white text-base md:text-lg leading-relaxed">
-          Block no 277/553, sambhaji chowk, opp. tipcy-topcy society, Babasai Nagar, Ulhasnagar, Maharashtra 421004
-        </p>
-      </div>
-    </div>
-  </div>
+            {/* Responsive: Flex col on mobile, Flex row on desktop */}
+            <div className="flex flex-col md:flex-row items-start justify-between gap-8 md:gap-10">
+              {/* Support Info */}
+              <div className="flex-1 min-w-0">
+                <p className="text-[#f7a221] font-black text-[10px] tracking-widest uppercase mb-2">Support</p>
+                <p className="text-white font-bold text-lg mb-1">+91 9370686008</p>
+                <a
+                  href="mailto:support.offerwalebaba@gmail.com"
+                  className="text-white text-sm break-all block hover:text-[#f7a221] transition-colors"
+                >
+                  support.offerwalebaba@gmail.com
+                </a>
+              </div>
 
-  {/* Quick Links Section */}
-  <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-8">
-    {footerSections.map((section, idx) => (
-      <div key={idx} className="space-y-6">
-        <h4 className="   hover:text-white text-[#f7a221]  text-lg font- uppercase  flex items-center gap-1">
-          <div className="h-px w-1 bg-[#f7a221]"></div>
-          {section.title}
-        </h4>
-        <ul className="space-y-3">
-          {section.items.map((item, i) => (
-            <li key={i} className="group flex items-center text-sm font-semibold text-white">
-              <Link
-                to={item.path}
-                className="flex items-center cursor-pointer hover:text-[#f7a221] transition-colors duration-300"
-              >
-                <span className="w-0 overflow-hidden group-hover:w-4 transition-all duration-300 text-[#f7a221]">
-                  <ChevronRight size={14} />
-                </span>
-                {item.label}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </div>
-    ))}
-  </div>
-</div>
+              {/* Location Info */}
+              <div className="flex-1 min-w-0 md:ml-2">
+                <p className="text-[#f7a221] font-black text-[10px] tracking-widest uppercase mb-2">Location</p>
+                <p className="text-white text-base md:text-lg leading-relaxed">
+                  Block no 277/553, sambhaji chowk, opp. tipcy-topcy society, Babasai Nagar, Ulhasnagar, Maharashtra 421004
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Quick Links Section */}
+          <div className="lg:col-span-7 grid grid-cols-2 sm:grid-cols-4 gap-8">
+            {footerSections.map((section, idx) => (
+              <div key={idx} className="space-y-6">
+                <h4 className="   hover:text-white text-[#f7a221]  text-lg font- uppercase  flex items-center gap-1">
+                  <div className="h-px w-1 bg-[#f7a221]"></div>
+                  {section.title}
+                </h4>
+                <ul className="space-y-3">
+                  {section.items.map((item, i) => (
+                    <li key={i} className="group flex items-center text-sm font-semibold text-white">
+                      <Link
+                        to={item.path}
+                        className="flex items-center cursor-pointer hover:text-[#f7a221] transition-colors duration-300"
+                      >
+                        <span className="w-0 overflow-hidden group-hover:w-4 transition-all duration-300 text-[#f7a221]">
+                          <ChevronRight size={14} />
+                        </span>
+                        {item.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        </div>
 
 
 
@@ -342,7 +342,7 @@ const Footer = () => {
         </div> */}
 
 
-        
+
         <div className="flex flex-col md:flex-row justify-center items-center gap-6 border-t border-white/5 pt-12">
           <p className="text-[10px] text-gray-500 font-bold uppercase tracking-[0.2em] text-center md:text-left">
             © {currentYear} Design and Developed by <span className='underline'>Offer Wale Baba</span>
