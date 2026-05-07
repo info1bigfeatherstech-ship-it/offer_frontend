@@ -440,8 +440,8 @@ const RazorpayCheckout = forwardRef(({
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency || "INR",
         name: "OfferWaleBaba",
-        description: `Order #${orderId}`,
-        image: "/logo.png",
+        description: `Payment for Order ${orderId}`,
+        image: "/public/logo2.svg",
         order_id: razorpayOrder.id,
  
         handler: (response) => {

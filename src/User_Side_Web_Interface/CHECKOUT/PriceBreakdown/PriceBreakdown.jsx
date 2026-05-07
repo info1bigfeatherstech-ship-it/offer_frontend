@@ -21,9 +21,17 @@ const fmt = (n) => {
  *   itemCount       — number of items in cart
  *   paymentMethod   — "cod" | "online"
  *   paymentPlan     — "full" | "advance"
+ *   advancePercent  — optional; server policy % (1–100) for partial pay-now display
  *   compact         — smaller version for sidebar/summary
  */
-const PriceBreakdown = ({ quote, itemCount, paymentMethod = "cod", paymentPlan = "full", compact = false }) => {
+const PriceBreakdown = ({
+  quote,
+  itemCount,
+  paymentMethod = "cod",
+  paymentPlan = "full",
+  advancePercent: advancePercentProp,
+  compact = false,
+}) => {
   if (!quote) return null;
 
   const {
@@ -37,9 +45,11 @@ const PriceBreakdown = ({ quote, itemCount, paymentMethod = "cod", paymentPlan =
     codAvailable,
   } = quote;
 
-  // Calculate advance amount (25% of total by default)
-  const advancePercent = 25;
-  const advanceAmount = Math.round(amountPayable * advancePercent / 100);
+  const advancePercent =
+    advancePercentProp != null && Number.isFinite(Number(advancePercentProp))
+      ? Math.min(100, Math.max(1, Number(advancePercentProp)))
+      : 25;
+  const advanceAmount = Math.round((amountPayable * advancePercent) / 100);
   const balanceAmount = amountPayable - advanceAmount;
 
   const rows = [
@@ -118,7 +128,9 @@ const PriceBreakdown = ({ quote, itemCount, paymentMethod = "cod", paymentPlan =
       {paymentMethod === "online" && paymentPlan === "advance" && !compact && (
         <div className="bg-blue-50 border border-blue-100 rounded-2xl px-3 py-2.5 mt-2">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[11px] font-black text-blue-700">Advance Payment (25%)</span>
+            <span className="text-[11px] font-black text-blue-700">
+              Advance Payment ({advancePercent}%)
+            </span>
             <span className="text-[11px] font-black text-blue-700">{fmt(advanceAmount)}</span>
           </div>
           <div className="flex items-center justify-between">

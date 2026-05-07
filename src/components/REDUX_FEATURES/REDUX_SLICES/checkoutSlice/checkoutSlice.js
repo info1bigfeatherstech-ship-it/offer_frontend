@@ -6,21 +6,55 @@ import axiosInstance from "../../../../SERVICES/axiosInstance";
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * GET /api/checkout/settings
+ * Store policy: COD toggle, partial payment toggle & percent (server-enforced).
+ */
+export const fetchCheckoutSettings = createAsyncThunk(
+  "checkout/fetchSettings",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.get("/checkout/settings");
+      if (!res.data?.success) {
+        throw new Error(res.data?.message || "Failed to load checkout settings");
+      }
+      return res.data;
+    } catch (err) {
+      return rejectWithValue({
+        message: err.response?.data?.message || err.message || "Failed to load checkout settings",
+        code: err.response?.data?.code,
+        status: err.response?.status,
+      });
+    }
+  }
+);
+
+/**
  * POST /api/checkout/quote
  * Requires: addressId, optional couponCode, paymentMethodHint
  */
 export const fetchCheckoutQuote = createAsyncThunk(
   "checkout/fetchQuote",
-  async ({ addressId, couponCode, paymentMethodHint, demoMockShipping = false }, { rejectWithValue }) => {
-    console.log("addressId", addressId, "couponCode", couponCode, "paymentMethodHint", paymentMethodHint, "demoMockShipping", demoMockShipping);
-    
+  async (
+    {
+      addressId,
+      couponCode,
+      paymentMethodHint,
+      paymentPlan = "full",
+      balanceCollection = "online",
+      demoMockShipping = false,
+    },
+    { rejectWithValue }
+  ) => {
     try {
-      const res = await axiosInstance.post("/checkout/quote", {
+      const body = {
         addressId,
         couponCode: couponCode || undefined,
         paymentMethodHint: paymentMethodHint || undefined,
         demoMockShipping,
-      });
+        paymentPlan,
+        balanceCollection,
+      };
+      const res = await axiosInstance.post("/checkout/quote", body);
       if (!res.data.success) throw new Error(res.data.message || "Failed to get quote");
       return res.data;
     } catch (err) {
@@ -39,13 +73,25 @@ export const fetchCheckoutQuote = createAsyncThunk(
  */
 export const confirmCheckoutQuote = createAsyncThunk(
   "checkout/confirmQuote",
-  async ({ quoteId, paymentMethod, paymentPlan = "full" }, { rejectWithValue }) => {
+  async (
+    { quoteId, paymentMethod, paymentPlan = "full", paymentAdvancePercent, balanceCollection = "online" },
+    { rejectWithValue }
+  ) => {
     try {
-      const res = await axiosInstance.post("/checkout/confirm", {
+      const body = {
         quoteId,
         paymentMethod,
         paymentPlan,
-      });
+        balanceCollection,
+      };
+      if (
+        paymentAdvancePercent !== undefined &&
+        paymentAdvancePercent !== null &&
+        String(paymentPlan).toLowerCase() !== "full"
+      ) {
+        body.paymentAdvancePercent = paymentAdvancePercent;
+      }
+      const res = await axiosInstance.post("/checkout/confirm", body);
       if (!res.data.success) throw new Error(res.data.message || "Failed to confirm quote");
       return res.data;
     } catch (err) {
@@ -66,19 +112,41 @@ export const confirmCheckoutQuote = createAsyncThunk(
  */
 export const placeOrder = createAsyncThunk(
   "checkout/placeOrder",
-  async ({ addressId, paymentMethod, quoteId, couponCode, onlinePaymentMode = "full", idempotencyKey }, { rejectWithValue }) => {
+  async (
+    {
+      addressId,
+      paymentMethod,
+      quoteId,
+      couponCode,
+      onlinePaymentMode = "full",
+      paymentAdvancePercent,
+      balanceCollection = "online",
+      idempotencyKey,
+    },
+    { rejectWithValue }
+  ) => {
     try {
       const requestConfig = idempotencyKey
         ? { headers: { "Idempotency-Key": idempotencyKey } }
         : undefined;
 
-      const res = await axiosInstance.post("/orders/items", {
+      const payload = {
         addressId,
         paymentMethod,
         quoteId,
         couponCode: couponCode || undefined,
         onlinePaymentMode,
-      }, requestConfig);
+        balanceCollection,
+      };
+      if (
+        paymentAdvancePercent !== undefined &&
+        paymentAdvancePercent !== null &&
+        String(onlinePaymentMode).toLowerCase() !== "full"
+      ) {
+        payload.paymentAdvancePercent = paymentAdvancePercent;
+      }
+
+      const res = await axiosInstance.post("/orders/items", payload, requestConfig);
       if (!res.data.success) throw new Error(res.data.message || "Failed to place order");
       return res.data;
     } catch (err) {
@@ -159,6 +227,53 @@ export const checkDelivery = createAsyncThunk(
   }
 );
 
+/**
+ * GET /api/coupons/available
+ * Fetches active coupons visible to logged-in customer.
+ */
+export const fetchAvailableCoupons = createAsyncThunk(
+  "checkout/fetchAvailableCoupons",
+  async (_, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.get("/coupons/available");
+      if (!res.data?.success) throw new Error(res.data?.message || "Failed to load coupons");
+      return res.data?.coupons || [];
+    } catch (err) {
+      return rejectWithValue({
+        message: err.response?.data?.message || err.message || "Failed to load coupons",
+        status: err.response?.status,
+      });
+    }
+  }
+);
+
+/**
+ * POST /api/coupons/validate
+ * Pre-validates coupon for current server cart.
+ */
+export const validateCouponCode = createAsyncThunk(
+  "checkout/validateCouponCode",
+  async ({ couponCode }, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.post("/coupons/validate", {
+        couponCode,
+        useServercart: true,
+      });
+      if (!res.data?.success || !res.data?.valid) {
+        throw new Error(res.data?.message || "Invalid coupon");
+      }
+      return res.data;
+    } catch (err) {
+      return rejectWithValue({
+        message: err.response?.data?.message || err.message || "Invalid coupon",
+        code: err.response?.data?.code,
+        details: err.response?.data?.details,
+        status: err.response?.status,
+      });
+    }
+  }
+);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Initial State
 // ─────────────────────────────────────────────────────────────────────────────
@@ -201,9 +316,23 @@ const initialState = {
   // Payment method and plan
   paymentMethod: null,
   paymentPlan: "full", // "full" or "advance"
+  /** Remaining balance after advance: "online" (Razorpay) or "cod" (courier) */
+  balanceCollection: "online",
 
   // Coupon
   couponCode: "",
+  availableCoupons: [],
+  couponValidation: {
+    loading: false,
+    error: null,
+    valid: false,
+    details: null,
+  },
+
+  /** Server checkout policy (COD / partial payment) — see GET /checkout/settings */
+  checkoutPolicy: null,
+  checkoutPolicyLoading: false,
+  checkoutPolicyError: null,
 
   // Loading flags
   loading: {
@@ -244,8 +373,14 @@ const checkoutSlice = createSlice({
     setPaymentPlan: (state, action) => {
       state.paymentPlan = action.payload;
     },
+    setBalanceCollection: (state, action) => {
+      state.balanceCollection = action.payload === "cod" ? "cod" : "online";
+    },
     setCouponCode: (state, action) => {
       state.couponCode = action.payload;
+    },
+    setCheckoutPolicy: (state, action) => {
+      state.checkoutPolicy = action.payload ?? null;
     },
     resetQuote: (state) => {
       state.quote = null;
@@ -270,6 +405,21 @@ const checkoutSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
+      // ── fetchCheckoutSettings ────────────────────────────────────────────
+      .addCase(fetchCheckoutSettings.pending, (state) => {
+        state.checkoutPolicyLoading = true;
+        state.checkoutPolicyError = null;
+      })
+      .addCase(fetchCheckoutSettings.fulfilled, (state, action) => {
+        state.checkoutPolicyLoading = false;
+        state.checkoutPolicy = action.payload?.data ?? null;
+        state.checkoutPolicyError = null;
+      })
+      .addCase(fetchCheckoutSettings.rejected, (state, action) => {
+        state.checkoutPolicyLoading = false;
+        state.checkoutPolicyError = action.payload || { message: "Failed to load checkout settings" };
+      })
+
       // ── checkDelivery ────────────────────────────────────────────────────
       .addCase(checkDelivery.pending, (state) => {
         state.loading.delivery = true;
@@ -292,6 +442,36 @@ const checkoutSlice = createSlice({
         state.delivery.isDeliverable = false;
       })
 
+      // ── fetchAvailableCoupons ──────────────────────────────────────────────
+      .addCase(fetchAvailableCoupons.pending, (state) => {
+        state.couponValidation.error = null;
+      })
+      .addCase(fetchAvailableCoupons.fulfilled, (state, action) => {
+        state.availableCoupons = Array.isArray(action.payload) ? action.payload : [];
+      })
+      .addCase(fetchAvailableCoupons.rejected, (state, action) => {
+        state.availableCoupons = [];
+        state.couponValidation.error = action.payload || { message: "Failed to load coupons" };
+      })
+
+      // ── validateCouponCode ────────────────────────────────────────────────
+      .addCase(validateCouponCode.pending, (state) => {
+        state.couponValidation.loading = true;
+        state.couponValidation.error = null;
+        state.couponValidation.valid = false;
+      })
+      .addCase(validateCouponCode.fulfilled, (state, action) => {
+        state.couponValidation.loading = false;
+        state.couponValidation.valid = true;
+        state.couponValidation.details = action.payload?.coupon || null;
+      })
+      .addCase(validateCouponCode.rejected, (state, action) => {
+        state.couponValidation.loading = false;
+        state.couponValidation.error = action.payload || { message: "Invalid coupon" };
+        state.couponValidation.valid = false;
+        state.couponValidation.details = null;
+      })
+
       // ── fetchCheckoutQuote ───────────────────────────────────────────────
       .addCase(fetchCheckoutQuote.pending, (state) => {
         state.loading.quote = true;
@@ -305,6 +485,9 @@ const checkoutSlice = createSlice({
         state.quote = action.payload;
         state.quoteId = action.payload.quoteId;
         state.quoteExpiresAt = action.payload.quoteExpiresAt;
+        if (action.payload?.checkoutPolicy) {
+          state.checkoutPolicy = action.payload.checkoutPolicy;
+        }
       })
       .addCase(fetchCheckoutQuote.rejected, (state, action) => {
         state.loading.quote = false;
@@ -319,6 +502,9 @@ const checkoutSlice = createSlice({
       .addCase(confirmCheckoutQuote.fulfilled, (state, action) => {
         state.loading.confirm = false;
         state.confirmed = action.payload;
+        if (action.payload?.checkoutPolicy) {
+          state.checkoutPolicy = action.payload.checkoutPolicy;
+        }
         if (action.payload?.totals) {
           state.quote = { ...state.quote, ...action.payload.totals };
         }
@@ -397,7 +583,9 @@ export const {
   setSelectedAddress,
   setPaymentMethod,
   setPaymentPlan,
+  setBalanceCollection,
   setCouponCode,
+  setCheckoutPolicy,
   resetQuote,
   resetCheckout,
   clearCheckoutErrors,
@@ -416,13 +604,19 @@ export const selectPlacedOrder = (s) => s.checkout.placedOrder;
 export const selectSelectedAddressId = (s) => s.checkout.selectedAddressId;
 export const selectPaymentMethod = (s) => s.checkout.paymentMethod;
 export const selectPaymentPlan = (s) => s.checkout.paymentPlan;
+export const selectBalanceCollection = (s) => s.checkout.balanceCollection;
 export const selectCouponCode = (s) => s.checkout.couponCode;
+export const selectAvailableCoupons = (s) => s.checkout.availableCoupons;
+export const selectCouponValidation = (s) => s.checkout.couponValidation;
 export const selectCheckoutLoading = (s) => s.checkout.loading;
 export const selectCheckoutError = (s) => s.checkout.error;
 export const selectRazorpayKey = (s) => s.checkout.razorpayKey;
 export const selectRazorpayKeyLoading = (s) => s.checkout.razorpayKeyLoading;
 export const selectRazorpayKeyError = (s) => s.checkout.razorpayKeyError;
 export const selectPaymentVerification = (s) => s.checkout.paymentVerification;
+export const selectCheckoutPolicy = (s) => s.checkout.checkoutPolicy;
+export const selectCheckoutPolicyLoading = (s) => s.checkout.checkoutPolicyLoading;
+export const selectCheckoutPolicyError = (s) => s.checkout.checkoutPolicyError;
 
 export default checkoutSlice.reducer;
 // import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";

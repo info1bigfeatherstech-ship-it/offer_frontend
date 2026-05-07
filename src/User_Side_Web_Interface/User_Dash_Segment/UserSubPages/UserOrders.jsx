@@ -6,6 +6,7 @@ import {
   fetchOrderById,
   trackOrder,
   cancelOrder,
+  createReturnRequest,
   clearOrderErrors,
   clearActiveOrder,
   initiatePendingOrderPayment,
@@ -183,13 +184,20 @@ const OrderDetail = ({ orderId, onBack, onCancel, isCancelling, cancelError }) =
   const error = useSelector(selectOrderError);
   const initiatePaymentLoading = useSelector((s) => s.orders.loading.initiatePayment);
   const initiatePaymentError = useSelector((s) => s.orders.error.initiatePayment);
+  const returnRequestLoading = useSelector((s) => s.orders.loading.returnRequest);
+  const returnRequestError = useSelector((s) => s.orders.error.returnRequest);
   const paymentVerification = useSelector(selectPaymentVerification);
 
   const [showTracking, setShowTracking] = useState(false);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
+  const [showReturnForm, setShowReturnForm] = useState(false);
   const [showRazorpay, setShowRazorpay] = useState(false);
   const [razorpayBundle, setRazorpayBundle] = useState(null);
   const [razorpayClientError, setRazorpayClientError] = useState(null);
+  const [returnReasonType, setReturnReasonType] = useState("damaged");
+  const [returnReasonMessage, setReturnReasonMessage] = useState("");
+  const [returnProofVideo, setReturnProofVideo] = useState(null);
+  const [returnProofImages, setReturnProofImages] = useState([]);
 
   useEffect(() => {
     dispatch(fetchOrderById(orderId));
@@ -292,6 +300,10 @@ const OrderDetail = ({ orderId, onBack, onCancel, isCancelling, cancelError }) =
   }
 
   const canCancel = ["pending", "confirmed"].includes(order.orderStatus);
+  const returnStatus = String(order?.returnInfo?.status || "").toLowerCase();
+  const canRaiseReturn =
+    String(order.orderStatus || "").toLowerCase() === "delivered" &&
+    (!returnStatus || ["rejected", "closed"].includes(returnStatus));
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -478,6 +490,134 @@ const OrderDetail = ({ orderId, onBack, onCancel, isCancelling, cancelError }) =
         )}
       </div>
 
+      {/* Return request */}
+      <div className="bg-white rounded-[32px] p-6">
+        <div className="flex items-center justify-between gap-3">
+          <h3 className="text-xs font-black uppercase tracking-widest text-gray-900">
+            Return Request
+          </h3>
+          {order?.returnInfo?.status && (
+            <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-gray-100 text-gray-700">
+              {String(order.returnInfo.status).replace(/_/g, " ")}
+            </span>
+          )}
+        </div>
+        {canRaiseReturn ? (
+          <div className="mt-4 space-y-3">
+            <p className="text-xs text-gray-500 font-medium">
+              Returns are available only for damaged or wrong item deliveries. Please provide one video and at least one image.
+            </p>
+            {!showReturnForm ? (
+              <button
+                type="button"
+                onClick={() => setShowReturnForm(true)}
+                className="inline-flex items-center gap-2 bg-black text-white text-xs font-black uppercase tracking-widest px-5 py-3 rounded-2xl hover:bg-[#F7A221] hover:text-black transition-all"
+              >
+                Raise Return Request
+              </button>
+            ) : (
+              <div className="space-y-3 pt-2">
+                <select
+                  value={returnReasonType}
+                  onChange={(e) => setReturnReasonType(e.target.value)}
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"
+                >
+                  <option value="damaged">Damaged product</option>
+                  <option value="wrong_item">Wrong item received</option>
+                </select>
+                <textarea
+                  value={returnReasonMessage}
+                  onChange={(e) => setReturnReasonMessage(e.target.value)}
+                  rows={3}
+                  maxLength={500}
+                  placeholder="Describe what is damaged/wrong..."
+                  className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm resize-none"
+                />
+                <div>
+                  <p className="text-[11px] font-bold text-gray-500 uppercase mb-1">Proof Video</p>
+                  <input
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) => setReturnProofVideo(e.target.files?.[0] || null)}
+                    className="text-xs"
+                  />
+                </div>
+                <div>
+                  <p className="text-[11px] font-bold text-gray-500 uppercase mb-1">Proof Images (1-3)</p>
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={(e) => setReturnProofImages(Array.from(e.target.files || []).slice(0, 3))}
+                    className="text-xs"
+                  />
+                </div>
+                {returnRequestError?.message && (
+                  <p className="text-xs font-bold text-red-600">{returnRequestError.message}</p>
+                )}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowReturnForm(false)}
+                    className="px-4 py-2 text-xs font-black uppercase tracking-widest border border-gray-200 rounded-xl"
+                    disabled={returnRequestLoading}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={returnRequestLoading}
+                    onClick={async () => {
+                      if (!returnReasonMessage.trim()) {
+                        toast.error("Please describe the issue.", { theme: "dark" });
+                        return;
+                      }
+                      if (!returnProofVideo) {
+                        toast.error("Please upload a proof video.", { theme: "dark" });
+                        return;
+                      }
+                      if (!returnProofImages.length) {
+                        toast.error("Please upload at least one proof image.", { theme: "dark" });
+                        return;
+                      }
+                      try {
+                        await dispatch(
+                          createReturnRequest({
+                            orderId: order.orderId,
+                            reasonType: returnReasonType,
+                            reasonMessage: returnReasonMessage,
+                            proofVideo: returnProofVideo,
+                            proofImages: returnProofImages,
+                          })
+                        ).unwrap();
+                        await dispatch(fetchOrderById(order.orderId)).unwrap();
+                        dispatch(fetchUserOrders());
+                        setShowReturnForm(false);
+                        setReturnReasonMessage("");
+                        setReturnProofVideo(null);
+                        setReturnProofImages([]);
+                        toast.success("Return request submitted.", { theme: "dark" });
+                      } catch {
+                        // handled through redux error + toast already
+                      }
+                    }}
+                    className="px-4 py-2 text-xs font-black uppercase tracking-widest rounded-xl bg-black text-white disabled:opacity-50"
+                  >
+                    {returnRequestLoading ? "Submitting..." : "Submit Request"}
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ) : (
+          <p className="mt-3 text-xs text-gray-500 font-medium">
+            {returnStatus
+              ? `Return status: ${returnStatus.replace(/_/g, " ")}`
+              : "Return request is available after delivery."}
+          </p>
+        )}
+      </div>
+
       {/* Cancel */}
       {canCancel && (
         <div className="bg-white rounded-[32px] p-6">
@@ -584,7 +724,7 @@ const UserOrders = () => {
     try {
       await dispatch(cancelOrder(orderId)).unwrap();
       setActiveOrderId(null); // go back to list
-    } catch (e) {
+    } catch {
       // error shown in OrderDetail
     }
   };
@@ -669,8 +809,6 @@ const UserOrders = () => {
 
       <div className="space-y-4">
         {orders.map((order) => {
-          const cfg = STATUS_CONFIG[order.orderStatus] || STATUS_CONFIG.pending;
-
           return (
             <button
               key={order.orderId}
@@ -679,7 +817,7 @@ const UserOrders = () => {
             >
               <div className="flex flex-col sm:flex-row justify-between gap-4">
                 <div className="flex gap-4">
-                  <div className="w-14 h-14 bg-white rounded-2xl shadow-sm flex items-center justify-center text-gray-300 flex-shrink-0">
+                  <div className="w-14 h-14 bg-white rounded-2xl shadow-sm flex items-center justify-center text-gray-300 shrink-0">
                     <Package size={24} />
                   </div>
                   <div>

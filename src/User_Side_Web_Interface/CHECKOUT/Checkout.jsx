@@ -11,15 +11,41 @@ import {
 
 // Redux — checkout
 import {
-  fetchCheckoutQuote, confirmCheckoutQuote, placeOrder,
-  setSelectedAddress, setPaymentMethod, setPaymentPlan,
-  resetCheckout, resetQuote, clearCheckoutErrors,
-  selectQuote, selectQuoteId, selectPlacedOrder,
-  selectSelectedAddressId, selectPaymentMethod, selectPaymentPlan,
-  selectCheckoutLoading, selectCheckoutError,
-  getRazorpayKey, selectRazorpayKey, selectRazorpayKeyLoading,
-  selectRazorpayKeyError, verifyRazorpayPayment,
-  selectPaymentVerification, resetPaymentVerification,
+  fetchCheckoutQuote,
+  fetchCheckoutSettings,
+  fetchAvailableCoupons,
+  confirmCheckoutQuote,
+  placeOrder,
+  setSelectedAddress,
+  setPaymentMethod,
+  setPaymentPlan,
+  setBalanceCollection,
+  setCouponCode,
+  resetCheckout,
+  resetQuote,
+  clearCheckoutErrors,
+  validateCouponCode,
+  selectQuote,
+  selectQuoteId,
+  selectPlacedOrder,
+  selectSelectedAddressId,
+  selectPaymentMethod,
+  selectPaymentPlan,
+  selectBalanceCollection,
+  selectCouponCode,
+  selectAvailableCoupons,
+  selectCouponValidation,
+  selectCheckoutLoading,
+  selectCheckoutError,
+  selectCheckoutPolicy,
+  selectCheckoutPolicyLoading,
+  getRazorpayKey,
+  selectRazorpayKey,
+  selectRazorpayKeyLoading,
+  selectRazorpayKeyError,
+  verifyRazorpayPayment,
+  selectPaymentVerification,
+  resetPaymentVerification,
 } from "../../components/REDUX_FEATURES/REDUX_SLICES/checkoutSlice/checkoutSlice";
 
 // Redux — address
@@ -33,7 +59,6 @@ import {
 import {
   selectCartItems, selectDisplayCartCount,
   updateCartItem, removeCartItem,
-  selectCartLoading,
 } from "../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice";
 
 // Redux — auth
@@ -79,6 +104,22 @@ const createCheckoutAttemptKey = () => {
 
 const isQuoteRefreshError = (errorCode) =>
   errorCode === "QUOTE_STALE" || errorCode === "QUOTE_EXPIRED";
+
+/** Aligns with backend checkout policy (1–100 when partial is enabled). */
+const getServerPartialPercent = (policy) => {
+  if (!policy?.partialPaymentEnabled) return null;
+  const p = Number(policy.partialPaymentPercent);
+  if (!Number.isFinite(p)) return 25;
+  const rounded = Math.round(p * 100) / 100;
+  return Math.min(100, Math.max(1, rounded));
+};
+
+const formatPercentLabel = (n) => {
+  if (n == null || !Number.isFinite(n)) return "—";
+  if (Number.isInteger(n)) return String(n);
+  const s = n.toFixed(2).replace(/\.?0+$/, "");
+  return s;
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Order Success Screen
@@ -219,7 +260,6 @@ const OrderSummaryCard = ({
   cartCount,
   quote,
   dispatch,
-  cartLoading,
   onCartMutationSuccess,
 }) => {
   const [open, setOpen] = useState(false);
@@ -252,7 +292,7 @@ const OrderSummaryCard = ({
     } finally {
       setUpdatingId(null);
     }
-  }, [dispatch]);
+  }, [dispatch, onCartMutationSuccess]);
 
   const handleRemove = useCallback(async (item) => {
     const productId = String(item.productId?._id || item.productId);
@@ -271,7 +311,7 @@ const OrderSummaryCard = ({
     } finally {
       setUpdatingId(null);
     }
-  }, [dispatch]);
+  }, [dispatch, onCartMutationSuccess]);
 
   return (
     <div style={{
@@ -430,10 +470,9 @@ const OrderSummaryCard = ({
                 label: "Shipping",
                 value: delivery === 0 ? "FREE" : fmt(delivery),
                 green: delivery === 0,
-                muted: delivery > 0,
               },
               { label: "GST", value: fmt(gst) },
-            ].map(({ label, value, green, muted }) => (
+            ].map(({ label, value, green }) => (
               <div key={label} className="flex justify-between items-center">
                 <span style={{ fontSize: 13, color: "#6b7280" }}>{label}</span>
                 <span style={{
@@ -482,29 +521,35 @@ const Checkout = () => {
   const selectedAddressId = useSelector(selectSelectedAddressId);
   const paymentMethod = useSelector(selectPaymentMethod);
   const paymentPlan = useSelector(selectPaymentPlan);
+  const balanceCollection = useSelector(selectBalanceCollection);
+  const couponCode = useSelector(selectCouponCode);
+  const availableCoupons = useSelector(selectAvailableCoupons);
+  const couponValidation = useSelector(selectCouponValidation);
   const loading = useSelector(selectCheckoutLoading);
   const error = useSelector(selectCheckoutError);
   const razorpayKey = useSelector(selectRazorpayKey);
   const razorpayKeyLoading = useSelector(selectRazorpayKeyLoading);
   const razorpayKeyError = useSelector(selectRazorpayKeyError);
   const paymentVerification = useSelector(selectPaymentVerification);
+  const checkoutPolicy = useSelector(selectCheckoutPolicy);
+  const checkoutPolicyLoading = useSelector(selectCheckoutPolicyLoading);
   const defaultAddr = useSelector(selectDefaultAddress);
   const otherAddrs = useSelector(selectOtherAddresses);
   const addressLoading = useSelector(selectAddressLoading);
   const addressError = useSelector(selectAddressError);
   const cartItems = useSelector(selectCartItems);
   const cartCount = useSelector(selectDisplayCartCount);
-  const cartLoading = useSelector(selectCartLoading);
   const user = useSelector(selectUser);
 
   // ── Local state ────────────────────────────────────────────────────────────
   const [step, setStep] = useState(1);
-  const [showAdvanceDropdown, setShowAdvanceDropdown] = useState(false);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [showRazorpay, setShowRazorpay] = useState(false);
   const [razorpayOrderData, setRazorpayOrderData] = useState(null);
   const [paymentError, setPaymentError] = useState(null);
   const [showPaymentErrorModal, setShowPaymentErrorModal] = useState(false);
+  const [couponInput, setCouponInput] = useState("");
+  const [showCouponsList, setShowCouponsList] = useState(false);
 
   // Payment state machine
   const [razorpayPaymentState, setRazorpayPaymentState] = useState(PAYMENT_STATE.IDLE);
@@ -517,8 +562,33 @@ const Checkout = () => {
   // Derived
   const allAddresses = [...(defaultAddr ? [defaultAddr] : []), ...otherAddrs];
   const selectedAddress = allAddresses.find(a => a._id === selectedAddressId);
-  const advanceAmount = quote?.amountPayable
-    ? Math.round((quote.amountPayable * 25) / 100) : 0;
+
+  const policyPartialPercent = getServerPartialPercent(checkoutPolicy);
+  const partialPlanEnabled = checkoutPolicy?.partialPaymentEnabled === true;
+  const showCodOption =
+    checkoutPolicy?.codEnabled !== false &&
+    (quote ? quote.codAvailable !== false : true);
+
+  const checkoutMode =
+    paymentMethod === "cod"
+      ? "cod"
+      : paymentPlan === "advance" && balanceCollection === "cod"
+        ? "advance_cod"
+        : "online_full";
+
+  const getPartialPayNowAmount = () => {
+    const total = quote?.amountPayable ?? 0;
+    if (paymentPlan === "full") return total;
+    const pct = policyPartialPercent;
+    if (pct == null) return Math.round(total * 0.25);
+    return Math.round((total * pct) / 100);
+  };
+
+  const advanceAmount = paymentPlan === "full" ? 0 : getPartialPayNowAmount();
+  const advancePreviewNow =
+    quote?.amountPayable != null && policyPartialPercent != null
+      ? Math.round((quote.amountPayable * policyPartialPercent) / 100)
+      : 0;
 
   // ── Scroll to top on mount and step change ─────────────────────────────────
   useEffect(() => {
@@ -532,6 +602,46 @@ const Checkout = () => {
   useEffect(() => {
     checkoutAttemptKeyRef.current = null;
   }, [selectedAddressId]);
+
+  useEffect(() => {
+    dispatch(fetchCheckoutSettings());
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (paymentPlan === "half" || paymentPlan === "seventy") {
+      dispatch(setPaymentPlan("advance"));
+      dispatch(setBalanceCollection("cod"));
+    }
+  }, [paymentPlan, dispatch]);
+
+  useEffect(() => {
+    if (!checkoutPolicy) return;
+    if (
+      !checkoutPolicy.partialPaymentEnabled &&
+      (paymentPlan !== "full" || balanceCollection === "cod")
+    ) {
+      dispatch(setPaymentPlan("full"));
+      dispatch(setBalanceCollection("online"));
+    }
+  }, [checkoutPolicy, paymentPlan, balanceCollection, dispatch]);
+
+  useEffect(() => {
+    if (!checkoutPolicy) return;
+    if (!checkoutPolicy.codEnabled && (paymentMethod === "cod" || balanceCollection === "cod")) {
+      dispatch(setPaymentMethod("online"));
+      dispatch(setPaymentPlan("full"));
+      dispatch(setBalanceCollection("online"));
+    }
+  }, [checkoutPolicy, paymentMethod, balanceCollection, dispatch]);
+
+  useEffect(() => {
+    if (step !== 2 || !checkoutPolicy) return;
+    if (paymentMethod == null) {
+      dispatch(setPaymentMethod("online"));
+      dispatch(setPaymentPlan("full"));
+      dispatch(setBalanceCollection("online"));
+    }
+  }, [step, checkoutPolicy, paymentMethod, dispatch]);
 
   // ── Fetch Razorpay key when online selected ────────────────────────────────
   useEffect(() => {
@@ -550,9 +660,37 @@ const Checkout = () => {
   // ── Fetch quote on step 2 ──────────────────────────────────────────────────
   useEffect(() => {
     if (step === 2 && selectedAddressId && !quote && !loading.quote) {
-      handleFetchQuote();
+      dispatch(
+        fetchCheckoutQuote({
+          addressId: selectedAddressId,
+          couponCode: couponCode || undefined,
+          paymentMethodHint: paymentMethod || "online",
+          paymentPlan,
+          balanceCollection,
+        })
+      );
     }
-  }, [step, selectedAddressId]);
+  }, [
+    step,
+    selectedAddressId,
+    quote,
+    loading.quote,
+    dispatch,
+    paymentMethod,
+    paymentPlan,
+    balanceCollection,
+    couponCode,
+  ]);
+
+  useEffect(() => {
+    if (step === 2) {
+      dispatch(fetchAvailableCoupons());
+    }
+  }, [step, dispatch]);
+
+  useEffect(() => {
+    setCouponInput(couponCode || "");
+  }, [couponCode]);
 
   // ── Cleanup on unmount ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -564,28 +702,6 @@ const Checkout = () => {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
-  const handleFetchQuote = async () => {
-    if (!selectedAddressId) return;
-    try {
-      await dispatch(fetchCheckoutQuote({
-        addressId: selectedAddressId,
-        paymentMethodHint: paymentMethod || undefined,
-      })).unwrap();
-    } catch (e) {
-      toast.error(e?.message || "Could not get delivery quote", { theme: "dark" });
-    }
-  };
-  const getPartialAmount = () => {
-  const total = quote?.amountPayable ?? 0;
-
-  switch (paymentPlan) {
-    case "advance": return Math.round(total * 0.25);
-    case "half": return Math.round(total * 0.5);
-    case "seventy": return Math.round(total * 0.75);
-    default: return total;
-  }
-};
-
   const handleQuoteRefreshAfterCartMutation = useCallback(async () => {
     checkoutAttemptKeyRef.current = null;
     dispatch(resetQuote());
@@ -595,15 +711,20 @@ const Checkout = () => {
     }
 
     try {
-      await dispatch(fetchCheckoutQuote({
-        addressId: selectedAddressId,
-        paymentMethodHint: paymentMethod || undefined,
-      })).unwrap();
+      await dispatch(
+        fetchCheckoutQuote({
+          addressId: selectedAddressId,
+          couponCode: couponCode || undefined,
+          paymentMethodHint: paymentMethod || "online",
+          paymentPlan,
+          balanceCollection,
+        })
+      ).unwrap();
       toast.info("Checkout totals refreshed.", { theme: "dark" });
     } catch (refreshError) {
       toast.error(refreshError?.message || "Could not refresh checkout totals", { theme: "dark" });
     }
-  }, [dispatch, paymentMethod, selectedAddressId, step]);
+  }, [dispatch, paymentMethod, paymentPlan, balanceCollection, selectedAddressId, step, couponCode]);
 
   const handleStep1Next = () => {
     if (!selectedAddressId) {
@@ -612,37 +733,94 @@ const Checkout = () => {
     }
     setStep(2);
     if (!quote) {
-      dispatch(fetchCheckoutQuote({
-        addressId: selectedAddressId,
-        paymentMethodHint: paymentMethod || undefined,
-      }));
+      dispatch(
+        fetchCheckoutQuote({
+          addressId: selectedAddressId,
+          couponCode: couponCode || undefined,
+          paymentMethodHint: paymentMethod || "online",
+          paymentPlan,
+          balanceCollection,
+        })
+      );
     }
   };
 
-  const handlePaymentMethodSelect = (method) => {
+  const selectCheckoutPaymentMode = (mode) => {
     checkoutAttemptKeyRef.current = null;
-    dispatch(setPaymentMethod(method));
-    if (method === "online") dispatch(setPaymentPlan("full"));
+    if (mode === "cod") {
+      dispatch(setPaymentMethod("cod"));
+      dispatch(setPaymentPlan("full"));
+      dispatch(setBalanceCollection("online"));
+    } else if (mode === "online_full") {
+      dispatch(setPaymentMethod("online"));
+      dispatch(setPaymentPlan("full"));
+      dispatch(setBalanceCollection("online"));
+    } else if (mode === "advance_cod") {
+      dispatch(setPaymentMethod("online"));
+      dispatch(setPaymentPlan("advance"));
+      dispatch(setBalanceCollection("cod"));
+    }
     if (quote && selectedAddressId) {
       dispatch(resetQuote());
       dispatch(setSelectedAddress(selectedAddressId));
-      dispatch(fetchCheckoutQuote({
-        addressId: selectedAddressId,
-        paymentMethodHint: method || undefined,
-      }));
+      const hint = mode === "cod" ? "cod" : "online";
+      const plan = mode === "advance_cod" ? "advance" : "full";
+      const bal = mode === "advance_cod" ? "cod" : "online";
+      dispatch(
+        fetchCheckoutQuote({
+          addressId: selectedAddressId,
+          couponCode: couponCode || undefined,
+          paymentMethodHint: hint,
+          paymentPlan: plan,
+          balanceCollection: bal,
+        })
+      );
     }
   };
 
-  const handlePaymentPlanSelect = (plan) => {
-    checkoutAttemptKeyRef.current = null;
-    dispatch(setPaymentPlan(plan));
-    if (quote && selectedAddressId) {
-      dispatch(resetQuote());
-      dispatch(setSelectedAddress(selectedAddressId));
-      dispatch(fetchCheckoutQuote({
-        addressId: selectedAddressId,
-        paymentMethodHint: paymentMethod || undefined,
-      }));
+  const handleApplyCoupon = async (inputCode) => {
+    const normalized = String(inputCode || "").trim().toUpperCase();
+    if (!normalized) {
+      toast.error("Please enter a coupon code", { theme: "dark" });
+      return;
+    }
+    if (!selectedAddressId) {
+      toast.error("Please select address first", { theme: "dark" });
+      return;
+    }
+    try {
+      await dispatch(validateCouponCode({ couponCode: normalized })).unwrap();
+      dispatch(setCouponCode(normalized));
+      await dispatch(
+        fetchCheckoutQuote({
+          addressId: selectedAddressId,
+          couponCode: normalized,
+          paymentMethodHint: paymentMethod || "online",
+          paymentPlan,
+          balanceCollection,
+        })
+      ).unwrap();
+      toast.success(`Coupon ${normalized} applied`, { theme: "dark" });
+    } catch (err) {
+      toast.error(err?.message || "Coupon is not valid", { theme: "dark" });
+    }
+  };
+
+  const handleRemoveCoupon = async () => {
+    if (!selectedAddressId) return;
+    dispatch(setCouponCode(""));
+    try {
+      await dispatch(
+        fetchCheckoutQuote({
+          addressId: selectedAddressId,
+          paymentMethodHint: paymentMethod || "online",
+          paymentPlan,
+          balanceCollection,
+        })
+      ).unwrap();
+      toast.info("Coupon removed", { theme: "dark" });
+    } catch (err) {
+      toast.error(err?.message || "Could not refresh totals", { theme: "dark" });
     }
   };
 
@@ -684,9 +862,18 @@ const Checkout = () => {
         checkoutAttemptKeyRef.current || createCheckoutAttemptKey();
       checkoutAttemptKeyRef.current = idempotencyKey;
 
+      const advancePercentForApi =
+        paymentMethod === "online" && paymentPlan !== "full" && policyPartialPercent != null
+          ? policyPartialPercent
+          : undefined;
+
       // Step 1: Confirm quote
       const confirmResult = await dispatch(confirmCheckoutQuote({
-        quoteId, paymentMethod, paymentPlan,
+        quoteId,
+        paymentMethod,
+        paymentPlan,
+        paymentAdvancePercent: advancePercentForApi,
+        balanceCollection,
       })).unwrap();
 
       // Step 2: Place order
@@ -694,7 +881,10 @@ const Checkout = () => {
         addressId: selectedAddressId,
         paymentMethod,
         quoteId: confirmResult.quoteId || quoteId,
+        couponCode: couponCode || undefined,
         onlinePaymentMode: paymentPlan,
+        paymentAdvancePercent: advancePercentForApi,
+        balanceCollection,
         idempotencyKey,
       })).unwrap();
 
@@ -731,10 +921,14 @@ const Checkout = () => {
       if (isQuoteRefreshError(e?.code)) {
         checkoutAttemptKeyRef.current = null;
         toast.info(msg, { theme: "dark" });
-        dispatch(fetchCheckoutQuote({
-          addressId: selectedAddressId,
-          paymentMethodHint: paymentMethod || undefined,
-        }));
+        dispatch(
+          fetchCheckoutQuote({
+            addressId: selectedAddressId,
+            paymentMethodHint: paymentMethod || "online",
+            paymentPlan,
+            balanceCollection,
+          })
+        );
       } else if (e?.code === "IDEMPOTENCY_REQUEST_IN_PROGRESS") {
         toast.info("Your order is already being processed. Please wait a moment.", { theme: "dark" });
       } else if (e?.code === "IDEMPOTENCY_KEY_REUSED") {
@@ -829,6 +1023,17 @@ const Checkout = () => {
     isPlacingOrder ||
     paymentVerification.loading ||
     (paymentMethod === "online" && !razorpayKey && !razorpayKeyLoading && !razorpayKeyError);
+  const couponApplyDisabled =
+    !selectedAddressId ||
+    step !== 2 ||
+    loading.quote ||
+    cartItems.length === 0 ||
+    couponValidation.loading ||
+    !String(couponInput || "").trim();
+  const couponShortfallInr =
+    couponValidation.error?.code === "COUPON_MIN_ORDER_NOT_MET"
+      ? Number(couponValidation.error?.details?.shortfallInr || 0)
+      : 0;
 
   // ── Success screens ────────────────────────────────────────────────────────
   if (placedOrder?.order && paymentMethod === "cod" && !paymentVerification.loading) {
@@ -955,7 +1160,6 @@ const Checkout = () => {
               cartCount={cartCount}
               quote={quote}
               dispatch={dispatch}
-              cartLoading={cartLoading}
               onCartMutationSuccess={handleQuoteRefreshAfterCartMutation}
             />
 
@@ -1031,183 +1235,302 @@ const Checkout = () => {
                 Choose How to Pay
               </p>
 
-              {/* ── COD ── */}
-              <button type="button"
-                onClick={() => handlePaymentMethodSelect("cod")}
-                className="w-full text-left cursor-pointer transition-all active:scale-[0.98]"
-                style={{
-                  padding: 14, borderRadius: 16,
-                  border: `2px solid ${paymentMethod === "cod" ? "#111" : "#f0e8d8"}`,
-                  background: paymentMethod === "cod" ? "#111" : "#fff",
-                  transition: "all 0.2s",
-                }}>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center flex-shrink-0"
+              {checkoutPolicyLoading && !checkoutPolicy ? (
+                <p className="text-[11px] text-gray-400 font-medium py-2">Loading payment options…</p>
+              ) : (
+                <div className="space-y-3">
+                  {showCodOption && (
+                    <button
+                      type="button"
+                      onClick={() => selectCheckoutPaymentMode("cod")}
+                      className="w-full text-left cursor-pointer transition-all active:scale-[0.98]"
+                      style={{
+                        padding: 14,
+                        borderRadius: 16,
+                        border: `2px solid ${checkoutMode === "cod" ? "#111" : "#f0e8d8"}`,
+                        background: checkoutMode === "cod" ? "#111" : "#fff",
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="flex items-center justify-center shrink-0"
+                          style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: "50%",
+                            border: `2px solid ${checkoutMode === "cod" ? "#F7A221" : "#d1d5db"}`,
+                          }}
+                        >
+                          {checkoutMode === "cod" && (
+                            <div
+                              style={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: "50%",
+                                background: "#F7A221",
+                              }}
+                            />
+                          )}
+                        </div>
+                        <div
+                          className="flex items-center justify-center shrink-0"
+                          style={{
+                            width: 38,
+                            height: 38,
+                            borderRadius: 10,
+                            background: checkoutMode === "cod" ? "rgba(255,255,255,0.15)" : "#F0FFF4",
+                          }}
+                        >
+                          <Banknote
+                            size={17}
+                            style={{ color: checkoutMode === "cod" ? "#fff" : "#16a34a" }}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p
+                              className="font-black text-sm"
+                              style={{ color: checkoutMode === "cod" ? "#F7A221" : "#111" }}
+                            >
+                              Cash on delivery — full amount
+                            </p>
+                            <span
+                              className="font-black"
+                              style={{
+                                fontSize: 9,
+                                padding: "2px 7px",
+                                borderRadius: 99,
+                                background: checkoutMode === "cod" ? "rgba(255,255,255,0.2)" : "#F7A221",
+                                color: checkoutMode === "cod" ? "#fff" : "#111",
+                              }}
+                            >
+                              Popular
+                            </span>
+                          </div>
+                          <p
+                            style={{
+                              fontSize: 11,
+                              marginTop: 1,
+                              color: checkoutMode === "cod" ? "rgba(247,162,33,0.65)" : "#9ca3af",
+                            }}
+                          >
+                            Pay the full order total when your order arrives
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() => selectCheckoutPaymentMode("online_full")}
+                    className="w-full text-left cursor-pointer transition-all active:scale-[0.98]"
                     style={{
-                      width: 20, height: 20, borderRadius: "50%",
-                      border: `2px solid ${paymentMethod === "cod" ? "#F7A221" : "#d1d5db"}`,
-                    }}>
-                    {paymentMethod === "cod" && (
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#F7A221" }} />
-                    )}
-                  </div>
-                  <div className="flex items-center justify-center flex-shrink-0"
-                    style={{
-                      width: 38, height: 38, borderRadius: 10,
-                      background: paymentMethod === "cod" ? "rgba(255,255,255,0.15)" : "#F0FFF4",
-                    }}>
-                    <Banknote size={17}
-                      style={{ color: paymentMethod === "cod" ? "#fff" : "#16a34a" }} />
-                  </div>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-black text-sm"
-                        style={{ color: paymentMethod === "cod" ? "#F7A221" : "#111" }}>
-                        Cash on Delivery
-                      </p>
-                      <span className="font-black"
+                      padding: 14,
+                      borderRadius: 16,
+                      border: `2px solid ${checkoutMode === "online_full" ? "#111" : "#f0e8d8"}`,
+                      background: checkoutMode === "online_full" ? "#111" : "#fff",
+                      color: checkoutMode === "online_full" ? "#F7A221" : "#111",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="flex items-center justify-center shrink-0"
                         style={{
-                          fontSize: 9, padding: "2px 7px", borderRadius: 99,
-                          background: paymentMethod === "cod" ? "rgba(255,255,255,0.2)" : "#F7A221",
-                          color: paymentMethod === "cod" ? "#fff" : "#111",
-                        }}>
-                        Popular
-                      </span>
+                          width: 20,
+                          height: 20,
+                          borderRadius: "50%",
+                          border: `2px solid ${checkoutMode === "online_full" ? "#F7A221" : "#d1d5db"}`,
+                        }}
+                      >
+                        {checkoutMode === "online_full" && (
+                          <div
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: "50%",
+                              background: "#F7A221",
+                            }}
+                          />
+                        )}
+                      </div>
+                      <div
+                        className="flex items-center justify-center shrink-0"
+                        style={{ width: 38, height: 38, borderRadius: 10, background: "#EBF8FF" }}
+                      >
+                        <CreditCard size={17} style={{ color: "#3b82f6" }} />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-black text-sm">Pay online — full amount</p>
+                        <p className="text-[11px] opacity-80 mt-0.5">
+                          {fmt(quote?.amountPayable)} · UPI, cards, net banking
+                        </p>
+                      </div>
                     </div>
-                    <p style={{
-                      fontSize: 11, marginTop: 1,
-                      color: paymentMethod === "cod" ? "rgba(247,162,33,0.65)" : "#9ca3af",
-                    }}>
-                      Pay when your order arrives
-                    </p>
-                  </div>
-                </div>
-              </button>
+                  </button>
 
-              {/* ── Online ── */}
-              <button type="button"
-                onClick={() => handlePaymentMethodSelect("online")}
-                className="w-full text-left cursor-pointer transition-all active:scale-[0.98]"
-                style={{
-                  padding: 14, borderRadius: 16,
-                  border: `2px solid ${paymentMethod === "online" ? "#F7A221" : "#f0e8d8"}`,
-                  background: "#fff", transition: "all 0.2s",
-                }}>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center justify-center flex-shrink-0"
-                    style={{
-                      width: 20, height: 20, borderRadius: "50%",
-                      border: `2px solid ${paymentMethod === "online" ? "#F7A221" : "#d1d5db"}`,
-                    }}>
-                    {paymentMethod === "online" && (
-                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#F7A221" }} />
-                    )}
-                  </div>
-                  <div className="flex items-center justify-center flex-shrink-0"
-                    style={{ width: 38, height: 38, borderRadius: 10, background: "#EBF8FF" }}>
-                    <CreditCard size={17} style={{ color: "#3b82f6" }} />
-                  </div>
-                  <div>
-                    <p className="font-black text-sm" style={{ color: "#111" }}>Pay Online</p>
-                    <p style={{ fontSize: 11, color: "#9ca3af", marginTop: 1 }}>
-                      UPI · Cards · Net Banking
-                    </p>
-                  </div>
-                </div>
-              </button>
+                  {partialPlanEnabled && policyPartialPercent != null && (
+                    <button
+                      type="button"
+                      onClick={() => selectCheckoutPaymentMode("advance_cod")}
+                      className="w-full text-left cursor-pointer transition-all active:scale-[0.98]"
+                      style={{
+                        padding: 14,
+                        borderRadius: 16,
+                        border: `2px solid ${checkoutMode === "advance_cod" ? "#111" : "#f0e8d8"}`,
+                        background: checkoutMode === "advance_cod" ? "#111" : "#fff",
+                        color: checkoutMode === "advance_cod" ? "#F7A221" : "#111",
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="flex items-center justify-center shrink-0"
+                          style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: "50%",
+                            border: `2px solid ${checkoutMode === "advance_cod" ? "#F7A221" : "#d1d5db"}`,
+                          }}
+                        >
+                          {checkoutMode === "advance_cod" && (
+                            <div
+                              style={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: "50%",
+                                background: "#F7A221",
+                              }}
+                            />
+                          )}
+                        </div>
+                        <div
+                          className="flex items-center justify-center shrink-0"
+                          style={{ width: 38, height: 38, borderRadius: 10, background: "#FEF3E2" }}
+                        >
+                          <Banknote size={17} style={{ color: "#b45309" }} />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-black text-sm">
+                            Pay {formatPercentLabel(policyPartialPercent)}% online now
+                          </p>
+                          <p className="text-[11px] opacity-80 mt-0.5">
+                            Balance on delivery (COD) · {fmt(advancePreviewNow)} due online now
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  )}
 
-              {/* ── Payment plan (online only) ── */}
-              {paymentMethod === "online" && (
-                <div className="pt-3" style={{ borderTop: "1px solid #f0e8d8" }}>
-                  <p className="font-black uppercase mb-3"
-                    style={{ fontSize: 10, color: "#9ca3af", letterSpacing: "0.06em" }}>
-                    Payment Plan
-                  </p>
-                 <div className="flex gap-3 relative">
-
-  {/* ✅ PAY FULL */}
-  <button
-    onClick={() => {
-      handlePaymentPlanSelect("full");
-      setShowAdvanceDropdown(false);
-    }}
-    className="flex-1 cursor-pointer transition-all active:scale-95"
-    style={{
-      padding: 12,
-      borderRadius: 12,
-      border: `2px solid ${paymentPlan === "full" ? "#111" : "#f0e8d8"}`,
-      background: paymentPlan === "full" ? "#111" : "#fff",
-      color: paymentPlan === "full" ? "#F7A221" : "#374151",
-    }}
-  >
-    <span className="font-black block text-xs">Pay Full</span>
-    <span className="block mt-0.5 text-[11px] opacity-80">
-      {fmt(quote?.amountPayable)}
-    </span>
-  </button>
-
-  {/* ✅ PAY PARTIAL (WITH DROPDOWN) */}
-  <div className="flex-1 relative">
-
-    <button
-      onClick={() => setShowAdvanceDropdown((prev) => !prev)}
-      className="w-full flex items-center justify-between cursor-pointer transition-all active:scale-95"
-      style={{
-        padding: 12,
-        borderRadius: 12,
-        border: `2px solid ${paymentPlan !== "full" ? "#111" : "#f0e8d8"}`,
-        background: paymentPlan !== "full" ? "#111" : "#fff",
-        color: paymentPlan !== "full" ? "#F7A221" : "#374151",
-      }}
-    >
-      <div className="text-left">
-        <span className="font-black block text-xs">
-          {paymentPlan === "advance" && "Pay 25%"}
-          {paymentPlan === "half" && "Pay 50%"}
-          {paymentPlan === "seventy" && "Pay 75%"}
-        </span>
-
-        <span className="block text-[11px] opacity-80">
-          {fmt(getPartialAmount())} now
-        </span>
-      </div>
-
-      <ChevronDown size={14} />
-    </button>
-
-    {/* 🔽 DROPDOWN */}
-    {showAdvanceDropdown && (
-      <div
-        className="absolute top-full mt-2 w-full rounded-xl shadow-lg z-20"
-        style={{ background: "#fff", border: "1px solid #f0e8d8" }}
-      >
-        {[
-          { key: "advance", label: "Pay 25%" },
-          { key: "half", label: "Pay 50%" },
-          { key: "seventy", label: "Pay 75%" },
-        ].map((opt) => (
-          <button
-            key={opt.key}
-            onClick={() => {
-              handlePaymentPlanSelect(opt.key);
-              setShowAdvanceDropdown(false);
-            }}
-            className="w-full text-left px-3 py-2 text-xs font-semibold hover:bg-gray-50 transition"
-          >
-            {opt.label}
-          </button>
-        ))}
-      </div>
-    )}
-  </div>
-</div>
-                  {paymentPlan === "advance" && (
-                    <p className="text-center mt-2" style={{ fontSize: 10, color: "#3b82f6" }}>
-                      Pay 25% now · Balance {fmt(quote?.amountPayable - advanceAmount)} at delivery
+                  {checkoutMode === "advance_cod" && quote?.amountPayable != null && (
+                    <p className="text-center px-1" style={{ fontSize: 10, color: "#3b82f6" }}>
+                      {formatPercentLabel(policyPartialPercent)}% charged online now; remaining{" "}
+                      {fmt(quote.amountPayable - advanceAmount)} is collected as cash on delivery.
                     </p>
                   )}
                 </div>
               )}
+
+              {/* ── Coupon card ── */}
+              <div className="p-4 space-y-3" style={{ background: "#fff", border: "1px solid #f0e8d8", borderRadius: 20 }}>
+                <div className="flex items-center justify-between">
+                  <p className="font-black uppercase" style={{ fontSize: 10, color: "#9ca3af", letterSpacing: "0.06em" }}>
+                    Apply Coupon
+                  </p>
+                  {couponCode ? (
+                    <button
+                      type="button"
+                      onClick={handleRemoveCoupon}
+                      className="text-[10px] font-black uppercase"
+                      style={{ color: "#ef4444", background: "none", border: "none", letterSpacing: "0.06em", cursor: "pointer" }}
+                    >
+                      Remove
+                    </button>
+                  ) : null}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={couponInput}
+                    onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
+                    placeholder="Enter coupon code"
+                    className="flex-1 px-3 py-2 rounded-xl border text-sm"
+                    style={{ borderColor: "#f0e8d8", outline: "none" }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleApplyCoupon(couponInput)}
+                    disabled={couponApplyDisabled}
+                    className="px-3 py-2 rounded-xl text-xs font-black uppercase"
+                    style={{
+                      background: "#111",
+                      color: "#F7A221",
+                      border: "none",
+                      opacity: couponApplyDisabled ? 0.6 : 1,
+                      cursor: couponApplyDisabled ? "not-allowed" : "pointer",
+                    }}
+                  >
+                    {couponValidation.loading ? "Applying..." : "Apply"}
+                  </button>
+                </div>
+
+                {quote?.couponApplied && quote?.promotionDiscount > 0 && (
+                  <p className="text-[11px] font-bold" style={{ color: "#15803D" }}>
+                    {quote.couponApplied} applied · You saved {fmt(quote.promotionDiscount)}
+                  </p>
+                )}
+
+                {couponValidation.error?.message && (
+                  <p className="text-[11px] font-bold" style={{ color: "#b91c1c" }}>
+                    {couponValidation.error.message}
+                  </p>
+                )}
+                {couponShortfallInr > 0 && (
+                  <p className="text-[11px] font-bold" style={{ color: "#2563eb" }}>
+                    Add {fmt(couponShortfallInr)} more to use this coupon.
+                  </p>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowCouponsList((v) => !v)}
+                  className="text-[11px] font-bold"
+                  style={{ color: "#2563eb", background: "none", border: "none", cursor: "pointer" }}
+                >
+                  {showCouponsList ? "Hide available coupons" : "View available coupons"}
+                </button>
+
+                {showCouponsList && (
+                  <div className="space-y-2 max-h-44 overflow-auto pr-1">
+                    {availableCoupons.length === 0 ? (
+                      <p className="text-[11px]" style={{ color: "#9ca3af" }}>No active coupons available.</p>
+                    ) : (
+                      availableCoupons.map((c) => (
+                        <button
+                          type="button"
+                          key={c.code}
+                          onClick={() => {
+                            setCouponInput(c.code);
+                            handleApplyCoupon(c.code);
+                          }}
+                          className="w-full text-left p-2 rounded-lg"
+                          style={{ border: "1px solid #f0e8d8", background: "#FFFBF4", cursor: "pointer" }}
+                        >
+                          <p className="text-xs font-black" style={{ color: "#111" }}>
+                            {c.code} · {c.discountType === "fixed" ? `${fmt(c.discountValue)} OFF` : `${c.discountValue}% OFF`}
+                          </p>
+                          <p className="text-[10px]" style={{ color: "#6b7280" }}>
+                            Min order {fmt(c.minOrderValue || 0)}
+                          </p>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                )}
+              </div>
 
               {/* Razorpay key error */}
               {paymentMethod === "online" && razorpayKeyError && (
@@ -1268,8 +1591,8 @@ const Checkout = () => {
                   <>
                     Place Order —{" "}
                     {paymentMethod === "online" && paymentPlan !== "full"
-  ? fmt(getPartialAmount())
-  : fmt(quote?.amountPayable)}
+                      ? fmt(getPartialPayNowAmount())
+                      : fmt(quote?.amountPayable)}
                   </>
                 )}
               </button>

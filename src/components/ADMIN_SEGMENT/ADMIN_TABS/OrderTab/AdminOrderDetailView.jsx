@@ -85,10 +85,43 @@ function paymentMethodLabel(order) {
   return m ? String(m) : "—";
 }
 
+function normalizeTrackingEvents(rawEvents = []) {
+  if (!Array.isArray(rawEvents)) return [];
+  return rawEvents
+    .map((event, idx) => ({
+      id: `${idx}-${String(event?.status || event?.description || "event")}`,
+      status: event?.status || "Shipment update",
+      description: event?.description || null,
+      location: event?.location || null,
+      timestamp: event?.timestamp || event?.at || null,
+    }))
+    .filter((event) => event.status || event.description || event.timestamp);
+}
+
+function timelineRowsFromTracking(tracking) {
+  const events = Array.isArray(tracking?.timeline) ? tracking.timeline : [];
+  return events.map((event, idx) => ({
+    id: `tl-${idx}-${String(event?.status || "step")}`,
+    status: event?.status || "Shipment update",
+    description: event?.description || null,
+    location: event?.location || null,
+    timestamp: event?.timestamp || null,
+  }));
+}
+
 /**
  * Rich admin order detail — data-driven from GET /orders/items/:orderId (staff sees customer + SKUs).
  */
-export default function AdminOrderDetailView({ order, loading, error, onBack }) {
+export default function AdminOrderDetailView({
+  order,
+  tracking,
+  trackingLoading,
+  trackingError,
+  onRefreshTracking,
+  loading,
+  error,
+  onBack,
+}) {
   const addr = order?.addressSnapshot || {};
   const ship = order?.shipmentInfo || {};
   const coupon = order?.appliedCoupon;
@@ -155,6 +188,14 @@ export default function AdminOrderDetailView({ order, loading, error, onBack }) 
   const showRazorpayIds =
     String(pi.method || "").toLowerCase() === "online" ||
     (String(order.paymentStatus || "") === "paid" && (pi.razorpayOrderId || pi.razorpayPaymentId));
+  const providerStatus = tracking?.providerStatus || ship?.providerStatus || null;
+  const lastSyncedAt = tracking?.lastSyncedAt || ship?.lastSyncAt || null;
+  const lastSyncError = ship?.lastError || null;
+  const trackingTimeline = timelineRowsFromTracking(tracking);
+  const carrierTimeline =
+    trackingTimeline.length > 0
+      ? trackingTimeline
+      : normalizeTrackingEvents(ship?.rawEvents);
 
   return (
     <div className="p-4 md:p-6 bg-[#F8FAFC] min-h-screen pb-12">
@@ -198,13 +239,18 @@ export default function AdminOrderDetailView({ order, loading, error, onBack }) 
         </div>
 
         {/* Shipment strip */}
-        {(ship.trackingNumber || ship.courier) && (
+        {(ship.trackingNumber || ship.courier || providerStatus) && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Shipment</p>
               <p className="text-sm font-semibold text-slate-900">
                 {ship.courier || "Courier"} {ship.trackingNumber ? `· ${ship.trackingNumber}` : ""}
               </p>
+              {providerStatus && (
+                <p className="text-xs text-blue-700 mt-1">
+                  Carrier status: <span className="font-semibold">{providerStatus}</span>
+                </p>
+              )}
               {ship.shippedAt && (
                 <p className="text-xs text-slate-500 mt-1">Shipped {formatDateHeader(ship.shippedAt)}</p>
               )}
@@ -228,6 +274,85 @@ export default function AdminOrderDetailView({ order, loading, error, onBack }) 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left column */}
           <div className="lg:col-span-2 space-y-6">
+            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+              <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500">Shipment tracking</h3>
+                  <p className="text-[11px] text-slate-500 mt-1">Live from Shiprocket + saved shipment events</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={onRefreshTracking}
+                  disabled={Boolean(trackingLoading)}
+                  className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50"
+                >
+                  {trackingLoading ? "Refreshing..." : "Refresh tracking"}
+                </button>
+              </div>
+              <div className="p-4 space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                    <p className="text-slate-500">Provider status</p>
+                    <p className="font-semibold text-slate-900 mt-0.5">{providerStatus || "—"}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                    <p className="text-slate-500">Last synced</p>
+                    <p className="font-semibold text-slate-900 mt-0.5">{formatDateHeader(lastSyncedAt)}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                    <p className="text-slate-500">Tracking number</p>
+                    <p className="font-semibold text-slate-900 mt-0.5">{ship.trackingNumber || ship.awbCode || "—"}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                    <p className="text-slate-500">Shipment id</p>
+                    <p className="font-semibold text-slate-900 mt-0.5">{ship.shipmentId || "—"}</p>
+                  </div>
+                </div>
+
+                {trackingError?.data?.message && (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    Could not fetch live tracking: {trackingError.data.message}
+                  </div>
+                )}
+
+                {lastSyncError && (
+                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900">
+                    Last sync error: {lastSyncError}
+                  </div>
+                )}
+
+                {carrierTimeline.length > 0 ? (
+                  <div className="space-y-2">
+                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Carrier timeline</p>
+                    <div className="max-h-80 overflow-auto rounded-lg border border-slate-100">
+                      <table className="w-full text-xs">
+                        <thead className="bg-slate-50 text-slate-500 uppercase">
+                          <tr>
+                            <th className="text-left px-3 py-2">Status</th>
+                            <th className="text-left px-3 py-2">Time</th>
+                            <th className="text-left px-3 py-2">Location</th>
+                            <th className="text-left px-3 py-2">Description</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100">
+                          {carrierTimeline.map((event) => (
+                            <tr key={event.id}>
+                              <td className="px-3 py-2 text-slate-900 font-medium">{event.status || "—"}</td>
+                              <td className="px-3 py-2 text-slate-600">{formatDateHeader(event.timestamp)}</td>
+                              <td className="px-3 py-2 text-slate-600">{event.location || "—"}</td>
+                              <td className="px-3 py-2 text-slate-600">{event.description || "—"}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500">No carrier timeline events yet.</p>
+                )}
+              </div>
+            </div>
+
             {/* Line items */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
               <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80">

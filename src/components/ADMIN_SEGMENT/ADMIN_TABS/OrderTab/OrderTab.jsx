@@ -16,6 +16,7 @@ import {
   useGetAdminOrdersSummaryQuery,
   useGetAdminOrdersListQuery,
   useGetAdminOrderDetailQuery,
+  useGetAdminOrderTrackingQuery,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 import AdminOrderDetailView from "./AdminOrderDetailView";
 
@@ -110,11 +111,26 @@ const OrderTab = () => {
     skip: !selectedOrderId,
   });
 
+  const {
+    data: trackingRes,
+    isLoading: trackingLoading,
+    isFetching: trackingFetching,
+    error: trackingError,
+    isError: trackingIsError,
+    refetch: refetchTracking,
+  } = useGetAdminOrderTrackingQuery(selectedOrderId, {
+    skip: !selectedOrderId,
+    refetchOnFocus: true,
+    refetchOnReconnect: true,
+    pollingInterval: selectedOrderId ? 30000 : 0,
+  });
+
   const summary = summaryRes?.data;
   const listPayload = listRes?.data;
   const orders = listPayload?.orders ?? [];
   const pagination = listPayload?.pagination;
   const detailOrder = detailRes?.order;
+  const tracking = trackingRes?.tracking || null;
 
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [showBulkMenu, setShowBulkMenu] = useState(false);
@@ -212,6 +228,10 @@ const OrderTab = () => {
         order={detailOrder}
         loading={detailLoading}
         error={detailIsError ? detailError : null}
+        tracking={tracking}
+        trackingLoading={trackingLoading || trackingFetching}
+        trackingError={trackingIsError ? trackingError : null}
+        onRefreshTracking={() => refetchTracking()}
         onBack={() => setSelectedOrderId(null)}
       />
     );

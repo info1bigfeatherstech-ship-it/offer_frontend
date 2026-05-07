@@ -6,6 +6,7 @@ import { DEMO_TAB_REGISTRY } from "./ADMIN_TABS/DEMO/demoTabRegistry";
 
 
 const OrderTab = lazy(() => import("./ADMIN_TABS/OrderTab/OrderTab"));
+const ReturnsRefundsTab = lazy(() => import("./ADMIN_TABS/OrderTab/ReturnsRefundsTab"));
 const ProductsTab = lazy(() => import("./ADMIN_TABS/ProductsTab"));
 const AnalyticsTab = lazy(() => import("./ADMIN_TABS/AnalyticsTab"));
 const outOfStockTab = lazy(() => import("./ADMIN_TABS/OutOfStockTab/OutOfStockTab"));
@@ -31,6 +32,13 @@ export const TAB_REGISTRY = [
     label: "Orders",
     icon: "M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4H6zM3 6h18M16 10a4 4 0 01-8 0",
     component: OrderTab,
+    badge: null,
+  },
+  {
+    id: "returns_refunds",
+    label: "Returns & Refunds",
+    icon: "M4 4h16v4H4zM6 10h12v10H6zM9 14h6M9 18h4",
+    component: ReturnsRefundsTab,
     badge: null,
   },
   {
