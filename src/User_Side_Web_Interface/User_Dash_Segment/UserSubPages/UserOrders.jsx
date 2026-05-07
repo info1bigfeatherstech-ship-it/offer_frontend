@@ -111,6 +111,11 @@ const STATUS_CONFIG = {
     color: "bg-green-100 text-green-700",
     icon: <CheckCircle size={11} />,
   },
+  return_requested: {
+    label: "Return Requested",
+    color: "bg-orange-100 text-orange-700",
+    icon: <RefreshCw size={11} className="animate-spin" />,
+  },
   cancelled: {
     label: "Cancelled",
     color: "bg-red-100 text-red-600",
