@@ -14,6 +14,10 @@ import adminOrdersUiReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/ord
 import { adminOrdersApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 import staffReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/staffSlice";
 import { wholesalerApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/wholesalerApi/wholesalerApi";
+import couponReducer from '../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/couponApi/CouponSlice';
+import { couponApi } from '../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/couponApi/couponApi';
+
+
 // USER REDUCER 
 import userProductsReducer from "../REDUX_SLICES/userProductsSlice";
 import userCategoriesReducer from "../REDUX_SLICES/userCategoriesSlice";
@@ -24,6 +28,9 @@ import { searchApi } from '../REDUX_SLICES/searchApi';
 import checkoutReducer from '../REDUX_SLICES/checkoutSlice/checkoutSlice';
 import orderReducer from '../REDUX_SLICES/orderSlice/orderSlice';
 import productTagsReducer from "../REDUX_SLICES/productTagsSlice"
+
+
+
 const store = configureStore({
   reducer: {
     auth: authReducer,   //user authentication reducer
@@ -35,6 +42,8 @@ const store = configureStore({
     categories: categoriesReducer,
     adminBulkUpload: adminBulkUploadReducer,
     adminAuth: adminAuthReducer,
+    coupon: couponReducer,
+    [couponApi.reducerPath]: couponApi.reducer,
     [adminAuthApi.reducerPath]: adminAuthApi.reducer,
     [userAnalyticsApi.reducerPath]: userAnalyticsApi.reducer,
     [seoAnalyticsApi.reducerPath]: seoAnalyticsApi.reducer,
@@ -65,6 +74,7 @@ const store = configureStore({
       seoAnalyticsApi.middleware,
       adminOrdersApi.middleware,
       wholesalerApi.middleware,
+      couponApi.middleware,
     ),
   devTools: import.meta.env.MODE !== "production", // Redux DevTools only in dev
 });

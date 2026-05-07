@@ -101,6 +101,38 @@ export const initiatePendingOrderPayment = createAsyncThunk(
   }
 );
 
+/** POST /api/orders/items/:orderId/return-request (multipart) */
+export const createReturnRequest = createAsyncThunk(
+  "orders/createReturnRequest",
+  async ({ orderId, reasonType, reasonMessage, proofVideo, proofImages }, { rejectWithValue }) => {
+    try {
+      const form = new FormData();
+      form.append("reasonType", reasonType);
+      form.append("reasonMessage", reasonMessage);
+      if (proofVideo) form.append("proofVideo", proofVideo);
+      (proofImages || []).forEach((img) => {
+        form.append("proofImages", img);
+      });
+
+      const res = await axiosInstance.post(
+        `/orders/items/${encodeURIComponent(String(orderId))}/return-request`,
+        form,
+        {
+          headers: { "Content-Type": "multipart/form-data" },
+        }
+      );
+      if (!res.data.success) throw new Error(res.data.message || "Could not submit return request");
+      return { orderId, payload: res.data };
+    } catch (err) {
+      return rejectWithValue({
+        message: err.response?.data?.message || err.message || "Could not submit return request",
+        code: err.response?.data?.code,
+        status: err.response?.status,
+      });
+    }
+  }
+);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Initial State
 // ─────────────────────────────────────────────────────────────────────────────
@@ -115,6 +147,7 @@ const initialState = {
     track: false,
     cancel: false,
     initiatePayment: false,
+    returnRequest: false,
   },
   error: {
     fetch: null,
@@ -122,6 +155,7 @@ const initialState = {
     track: null,
     cancel: null,
     initiatePayment: null,
+    returnRequest: null,
   },
 };
 
@@ -229,6 +263,20 @@ const orderSlice = createSlice({
       .addCase(initiatePendingOrderPayment.rejected, (state, action) => {
         state.loading.initiatePayment = false;
         state.error.initiatePayment = action.payload || { message: "Could not start payment" };
+      })
+
+      // ── createReturnRequest ──────────────────────────────────────────────
+      .addCase(createReturnRequest.pending, (state) => {
+        state.loading.returnRequest = true;
+        state.error.returnRequest = null;
+      })
+      .addCase(createReturnRequest.fulfilled, (state) => {
+        state.loading.returnRequest = false;
+        state.error.returnRequest = null;
+      })
+      .addCase(createReturnRequest.rejected, (state, action) => {
+        state.loading.returnRequest = false;
+        state.error.returnRequest = action.payload || { message: "Could not submit return request" };
       });
   },
 });

@@ -31,6 +31,7 @@ import { toast } from "react-toastify";
 import Breadcrumb from "./Breadcrumb/Breadcrumb";
 import CatProducts from "./CatPro_segment/CatProducts";
 import { fetchCategories } from "../../components/ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/categoriesSlice";
+import axiosInstance from "../../SERVICES/axiosInstance";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 const Skeleton = () => (
@@ -63,6 +64,29 @@ const fmt = (n) => {
 const formatPrice = (n) => {
   if (n == null) return "—";
   return new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(n);
+};
+
+const formatCouponLabel = (coupon) => {
+  if (!coupon) return "";
+  const code = String(coupon.code || "").trim().toUpperCase();
+  const minOrderValue = Number(coupon.minOrderValue || 0);
+  const discountValue = Number(coupon.discountValue || 0);
+  const discountType = String(coupon.discountType || "").trim().toLowerCase();
+
+  if (!code) return "";
+
+  if (discountType === "percentage") {
+    const baseText = `Use ${code} on ₹${formatPrice(minOrderValue)}+ for ${discountValue}% OFF`;
+    if (coupon.maxDiscountAmount) {
+      return `${baseText} (up to ₹${formatPrice(coupon.maxDiscountAmount)})`;
+    }
+    return baseText;
+  }
+
+  if (minOrderValue > 0) {
+    return `Use ${code} on ₹${formatPrice(minOrderValue)}+ for ₹${formatPrice(discountValue)} OFF`;
+  }
+  return `Use ${code} for ₹${formatPrice(discountValue)} OFF`;
 };
 
 const logError = (ctx, err, info = {}) => {
@@ -477,11 +501,15 @@ const ProductUI = () => {
   const [showZoom, setShowZoom] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isVisible, setisVisible] = useState(false);
+  const [publicCoupons, setPublicCoupons] = useState([]);
+  const [couponsLoading, setCouponsLoading] = useState(false);
+  const [copiedCouponCode, setCopiedCouponCode] = useState("");
   const containerRef = useRef(null);
   const lensRef = useRef(null);
   const zoomRef = useRef(null);
   const rafRef = useRef(null);
   const variantRef = useRef(null);
+  const copyResetTimeoutRef = useRef(null);
 
   const targetRef = useRef({ x: 0.5, y: 0.5 });
   const currentRef = useRef({ x: 0.5, y: 0.5 });
@@ -501,12 +529,20 @@ const ProductUI = () => {
   const { isLoggedIn } = useSelector((state) => state.auth);
 
   const setL = (key, val) => setLocalLoading((p) => ({ ...p, [key]: val }));
-  const handleCouponDetails = () => {
-    toast.info("Coupon details coming soon 🚀", {
-      position: "top-center",
-      autoClose: 2000,
-    });
-  };
+  const handleCopyCouponCode = useCallback(async (couponCode) => {
+    const code = String(couponCode || "").trim().toUpperCase();
+    if (!code) return;
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopiedCouponCode(code);
+      if (copyResetTimeoutRef.current) clearTimeout(copyResetTimeoutRef.current);
+      copyResetTimeoutRef.current = setTimeout(() => setCopiedCouponCode(""), 1000);
+      toast.success(`Copied ${code}`);
+    } catch (error) {
+      logError("copyCouponCode", error);
+      toast.error("Unable to copy code");
+    }
+  }, []);
 
   // ── fetch ──────────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -526,6 +562,31 @@ const ProductUI = () => {
     const close = () => setShareOpen(false);
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (copyResetTimeoutRef.current) clearTimeout(copyResetTimeoutRef.current);
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadPublicCoupons = async () => {
+      setCouponsLoading(true);
+      try {
+        const res = await axiosInstance.get("/public/coupons");
+        const coupons = Array.isArray(res?.data?.coupons) ? res.data.coupons : [];
+        if (!cancelled) setPublicCoupons(coupons);
+      } catch (err) {
+        if (!cancelled) setPublicCoupons([]);
+        logError("loadPublicCoupons", err);
+      } finally {
+        if (!cancelled) setCouponsLoading(false);
+      }
+    };
+    loadPublicCoupons();
+    return () => { cancelled = true; };
   }, []);
 
   // ✅ Detect mobile
@@ -656,6 +717,12 @@ const ProductUI = () => {
   const currentQty = cartItem?.quantity ?? 0;
   const isAtMaxStock = currentQty >= maxStock;
   const isProcessing = localLoading.add || localLoading.update || localLoading.remove;
+  const topCoupons = useMemo(() => {
+    return (Array.isArray(publicCoupons) ? publicCoupons : [])
+      .map((coupon) => ({ ...coupon, label: formatCouponLabel(coupon) }))
+      .filter((coupon) => coupon.label)
+      .slice(0, 3);
+  }, [publicCoupons]);
 
   const title = product?.title || product?.name || "Product";
   const desc = product?.description ?? "";
@@ -1310,30 +1377,47 @@ const ProductUI = () => {
                   <div>
                     <p className="text-lg font-bold text-gray-900 mb-3">Offers</p>
                     <div className="flex flex-col divide-y divide-gray-100">
-                      {[
-                        { label: "Get Flat ₹100 OFF on orders above ₹2000", code: "100 OFB" },
-                        { label: "Get Flat ₹150 OFF on orders above ₹3000", code: "150 OFB" },
-                        { label: "Get Flat ₹50 OFF on orders above ₹1000", code: "50 OFB" },
-                      ].map(({ label, code }) => (
-                        <div key={code} className="flex items-start justify-between py-3 gap-3">
+                      {topCoupons.map((coupon) => (
+                        <div key={coupon._id || coupon.code} className="flex items-start justify-between py-3 gap-3">
                           <div className="flex items-start gap-2.5">
-                            <Tag size={18} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                            <Tag size={18} className="text-gray-400 mt-0.5 shrink-0" />
                             <div>
-                              <p className="text-sm font-medium text-gray-800">{label}</p>
-                              <p className="text-xs text-gray-400 mt-0.5">
-                                Use code - <span className="font-semibold text-gray-600">{code}</span>
+                              <p className="text-sm font-medium text-gray-800">
+                                {(() => {
+                                  const code = String(coupon.code || "").trim().toUpperCase();
+                                  const label = String(coupon.label || "");
+                                  const prefix = `Use ${code}`;
+                                  if (code && label.startsWith(prefix)) {
+                                    return (
+                                      <>
+                                        Use <span className="font-bold text-gray-900">{code}</span>
+                                        {label.slice(prefix.length)}
+                                      </>
+                                    );
+                                  }
+                                  return label;
+                                })()}
+                              </p>
+                              <p className="text-xs font-semibold text-gray-500 mt-0.5">
+                                Coupon code - <span className="font-semibold text-gray-600">{String(coupon.code || "").toUpperCase()}</span>
                               </p>
                             </div>
                           </div>
                           <button
-                            onClick={handleCouponDetails}
+                            onClick={() => handleCopyCouponCode(coupon.code)}
                             type="button"
-                            className="text-sm font-semibold text-red-500 hover:text-red-600 transition-colors focus:outline-none"
+                            className="text-sm font-semibold text-red-500 hover:text-red-600 transition-colors focus:outline-none cursor-pointer"
                           >
-                            Details
+                            {copiedCouponCode === String(coupon.code || "").trim().toUpperCase() ? "Copied" : "Copy code"}
                           </button>
                         </div>
                       ))}
+                      {!couponsLoading && topCoupons.length === 0 && (
+                        <p className="py-3 text-sm text-gray-500">No active offers available right now.</p>
+                      )}
+                      {couponsLoading && (
+                        <p className="py-3 text-sm text-gray-500">Loading offers...</p>
+                      )}
                     </div>
                     <p className="text-[11px] text-gray-400 mt-1">*Coupons can be applied at checkout</p>
                   </div>

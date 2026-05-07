@@ -43,7 +43,7 @@ const axiosBaseQuery =
 export const adminOrdersApi = createApi({
   reducerPath: 'adminOrdersApi',
   baseQuery: axiosBaseQuery({ baseUrl: '' }),
-  tagTypes: ['AdminOrdersSummary', 'AdminOrdersList'],
+  tagTypes: ['AdminOrdersSummary', 'AdminOrdersList', 'AdminOrderTracking'],
   keepUnusedDataFor: 30,
   endpoints: (builder) => ({
     /**
@@ -119,6 +119,64 @@ export const adminOrdersApi = createApi({
       }),
       providesTags: (result, error, orderId) => [{ type: 'AdminOrdersList', id: orderId }],
     }),
+
+    /**
+     * Live tracking + timeline sync from provider.
+     * GET /api/orders/items/:orderId/track
+     */
+    getAdminOrderTracking: builder.query({
+      query: (orderId) => ({
+        url: `/orders/items/${encodeURIComponent(String(orderId))}/track`,
+        method: 'GET',
+      }),
+      providesTags: (result, error, orderId) => [{ type: 'AdminOrderTracking', id: orderId }],
+    }),
+
+    getAdminReturnRequests: builder.query({
+      query: (arg = {}) => ({
+        url: '/orders/admin/returns/requests',
+        method: 'GET',
+        params: {
+          page: arg.page ?? 1,
+          limit: arg.limit ?? 20,
+          ...(arg.status ? { status: arg.status } : {}),
+        },
+      }),
+      providesTags: [{ type: 'AdminOrderTracking', id: 'RETURNS_LIST' }],
+    }),
+
+    getAdminReturnRequestDetail: builder.query({
+      query: (orderId) => ({
+        url: `/orders/admin/returns/requests/${encodeURIComponent(String(orderId))}`,
+        method: 'GET',
+      }),
+      providesTags: (result, error, orderId) => [{ type: 'AdminOrderTracking', id: `RETURN_${orderId}` }],
+    }),
+
+    decideAdminReturnRequest: builder.mutation({
+      query: ({ orderId, decision, decisionReason }) => ({
+        url: `/orders/admin/returns/requests/${encodeURIComponent(String(orderId))}/decision`,
+        method: 'POST',
+        data: { decision, decisionReason },
+      }),
+      invalidatesTags: (result, error, arg) => [
+        { type: 'AdminOrderTracking', id: 'RETURNS_LIST' },
+        { type: 'AdminOrderTracking', id: `RETURN_${arg.orderId}` },
+        { type: 'AdminOrdersList', id: arg.orderId },
+      ],
+    }),
+
+    initiateAdminReturnRefund: builder.mutation({
+      query: ({ orderId }) => ({
+        url: `/orders/admin/returns/requests/${encodeURIComponent(String(orderId))}/refund`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, arg) => [
+        { type: 'AdminOrderTracking', id: 'RETURNS_LIST' },
+        { type: 'AdminOrderTracking', id: `RETURN_${arg.orderId}` },
+        { type: 'AdminOrdersList', id: arg.orderId },
+      ],
+    }),
   }),
 });
 
@@ -127,4 +185,9 @@ export const {
   useGetAdminOrdersListQuery,
   useGetAdminOrderDetailQuery,
   useLazyGetAdminOrderDetailQuery,
+  useGetAdminOrderTrackingQuery,
+  useGetAdminReturnRequestsQuery,
+  useGetAdminReturnRequestDetailQuery,
+  useDecideAdminReturnRequestMutation,
+  useInitiateAdminReturnRefundMutation,
 } = adminOrdersApi;
