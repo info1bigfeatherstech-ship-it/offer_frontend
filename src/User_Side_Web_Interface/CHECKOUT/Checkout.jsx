@@ -1,11 +1,11 @@
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import {
   Loader2, MapPin, CreditCard, Truck, CheckCircle2,
   Package, AlertCircle, ArrowLeft, ShoppingBag,
-  Banknote, X, Clock, ChevronDown, ChevronUp,
+  Banknote, X, Clock, ChevronDown, ChevronUp, Gift,
   Minus, Plus, Trash2,
 } from "lucide-react";
 
@@ -251,6 +251,211 @@ const StepIndicator = ({ step }) => (
     </div>
   </div>
 );
+
+const PrepaidSavingsPopup = ({
+  codTotalAmount,
+  onSwitchToPrepaid,
+  onContinueCod,
+  onClose,
+  selectedMode = "cod",
+}) => {
+  const codHandlingFee = 49;
+  const totalSavings = codHandlingFee;
+  const codTotal = Number.isFinite(Number(codTotalAmount)) ? Number(codTotalAmount) : 0;
+  const basePrice = Math.max(0, codTotal - codHandlingFee);
+  const prepaidTotal = Math.max(0, codTotal - totalSavings);
+
+  return (
+    <>
+      <style>{`
+        @keyframes prepaid-overlay-fade {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes prepaid-card-pop {
+          0% { opacity: 0; transform: translateY(20px) scale(0.94); }
+          60% { opacity: 1; transform: translateY(-2px) scale(1.01); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes prepaid-gift-bounce {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+        @keyframes prepaid-shimmer {
+          0% { transform: translateX(-120%); }
+          100% { transform: translateX(150%); }
+        }
+        @keyframes prepaid-sparkle {
+          0% { opacity: 0; transform: translateY(6px) scale(0.7); }
+          30% { opacity: 1; }
+          100% { opacity: 0; transform: translateY(-8px) scale(1.1); }
+        }
+      `}</style>
+      <div
+        className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-4"
+        style={{ background: "rgba(17, 24, 39, 0.55)", animation: "prepaid-overlay-fade 220ms ease-out" }}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Prepaid savings offer"
+        onClick={onClose}
+      >
+        <div
+          className="relative w-full max-w-2xl rounded-3xl p-4 sm:p-6 overflow-hidden"
+          style={{
+            background: "#fff",
+            border: "1px solid #f0e8d8",
+            boxShadow: "0 30px 80px rgba(0,0,0,0.28)",
+            animation: "prepaid-card-pop 320ms cubic-bezier(.22,1,.36,1)",
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Close prepaid savings popup"
+            className="absolute right-3 top-3 rounded-full p-1.5 cursor-pointer"
+            style={{ border: "1px solid #f0e8d8", background: "#fff", color: "#6b7280" }}
+          >
+            <X size={14} />
+          </button>
+
+          <span
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              top: 8,
+              right: 22,
+              width: 6,
+              height: 6,
+              borderRadius: "50%",
+              background: "#F7A221",
+              animation: "prepaid-sparkle 1.4s ease-in-out infinite",
+            }}
+          />
+          <span
+            aria-hidden="true"
+            style={{
+              position: "absolute",
+              top: 22,
+              right: 40,
+              width: 4,
+              height: 4,
+              borderRadius: "50%",
+              background: "#34D399",
+              animation: "prepaid-sparkle 1.8s ease-in-out infinite 220ms",
+            }}
+          />
+
+          <div className="flex items-start gap-2 sm:gap-3">
+            <div
+              className="flex items-center justify-center shrink-0"
+              style={{
+                width: 40,
+                height: 40,
+                borderRadius: 12,
+                background: "#FEF3E2",
+                animation: "prepaid-gift-bounce 1.6s ease-in-out infinite",
+              }}
+            >
+              <Gift size={18} style={{ color: "#F59E0B" }} />
+            </div>
+            <div className="flex-1">
+              <p className="font-black uppercase" style={{ fontSize: 9, color: "#9ca3af", letterSpacing: "0.06em" }}>
+                Payment choice
+              </p>
+              <h3 className="font-black mt-1" style={{ fontSize: 22, color: "#111", lineHeight: 1.15 }}>
+                Save {fmt(totalSavings)} on prepaid
+              </h3>
+              <p style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
+                Compare both options before you continue.
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-4">
+            <button
+              type="button"
+              onClick={onContinueCod}
+              className="w-full rounded-2xl p-2.5 sm:p-3 text-left transition-all active:scale-[0.99] cursor-pointer"
+              style={{
+                border: selectedMode === "cod" ? "2px solid #dc2626" : "1px solid #fecaca",
+                background: selectedMode === "cod" ? "#fff1f2" : "#fff5f5",
+              }}
+            >
+              <p className="font-black uppercase" style={{ fontSize: 10, color: "#9ca3af", letterSpacing: "0.06em" }}>
+                Cash on Delivery
+              </p>
+              <div className="mt-1.5 space-y-0.5">
+                <div className="flex items-center justify-between">
+                  <span style={{ fontSize: 11, color: "#6b7280" }}>Product total</span>
+                  <span className="font-bold" style={{ fontSize: 13, color: "#111" }}>{fmt(basePrice)}</span>
+                </div>
+                <div className="flex items-center justify-between mt-1.5 pt-1.5" style={{ borderTop: "1px dashed #fecaca" }}>
+                  <span className="font-black" style={{ fontSize: 11, color: "#7f1d1d" }}>Total</span>
+                  <span className="font-black" style={{ fontSize: 15, color: "#dc2626" }}>{fmt(codTotal)}</span>
+                </div>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={onSwitchToPrepaid}
+              className="w-full rounded-2xl p-2.5 sm:p-3 relative overflow-hidden text-left transition-all active:scale-[0.99] cursor-pointer"
+              style={{
+                border: selectedMode === "online_full" ? "2px solid #f59e0b" : "2px solid #F7A221",
+                background: selectedMode === "online_full" ? "#fff7ed" : "#fffdf7",
+                boxShadow: selectedMode === "online_full" ? "0 0 0 2px rgba(245,158,11,0.15) inset" : "none",
+              }}
+            >
+              <span
+                className="font-black absolute right-2 top-2 px-2 py-0.5 rounded-full"
+                style={{ fontSize: 9, background: "#dcfce7", color: "#166534" }}
+              >
+                Save {fmt(totalSavings)}
+              </span>
+              <p className="font-black uppercase" style={{ fontSize: 10, color: "#9ca3af", letterSpacing: "0.06em" }}>
+                Online / Prepaid
+              </p>
+              <div className="mt-1.5 space-y-0.5">
+                <div className="flex items-center justify-between">
+                  <span style={{ fontSize: 11, color: "#6b7280" }}>Product total</span>
+                  <span className="font-bold" style={{ fontSize: 13, color: "#111" }}>{fmt(basePrice)}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span style={{ fontSize: 11, color: "#6b7280" }}>Prepaid discount</span>
+                  <span className="font-bold" style={{ fontSize: 13, color: "#15803D" }}>- {fmt(totalSavings)}</span>
+                </div>
+                <div className="flex items-center justify-between mt-1.5 pt-1.5" style={{ borderTop: "1px dashed #fcd34d" }}>
+                  <span className="font-black" style={{ fontSize: 11, color: "#92400e" }}>Total</span>
+                  <span className="font-black" style={{ fontSize: 15, color: "#15803D" }}>{fmt(prepaidTotal)}</span>
+                </div>
+              </div>
+            </button>
+          </div>
+
+          <div className="mt-5">
+            <button
+              type="button"
+              onClick={onSwitchToPrepaid}
+              className="w-full py-3 rounded-2xl font-black text-xs uppercase tracking-widest"
+              style={{ border: "none", color: "#fff", background: "#111", cursor: "pointer" }}
+            >
+              Switch to online payment & save {fmt(totalSavings)}
+            </button>
+            <button
+              type="button"
+              onClick={onContinueCod}
+              className="w-full mt-3 text-center font-bold"
+              style={{ fontSize: 12, color: "#9ca3af", background: "none", border: "none", cursor: "pointer" }}
+            >
+              Continue with COD anyway
+            </button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Order Summary Card (collapsible) — with real cart controls
@@ -550,6 +755,9 @@ const Checkout = () => {
   const [showPaymentErrorModal, setShowPaymentErrorModal] = useState(false);
   const [couponInput, setCouponInput] = useState("");
   const [showCouponsList, setShowCouponsList] = useState(false);
+  const [isCouponManuallyApplied, setIsCouponManuallyApplied] = useState(false);
+  const [showPrepaidSavingsPopup, setShowPrepaidSavingsPopup] = useState(false);
+  const [codPopupAmount, setCodPopupAmount] = useState(0);
 
   // Payment state machine
   const [razorpayPaymentState, setRazorpayPaymentState] = useState(PAYMENT_STATE.IDLE);
@@ -558,6 +766,7 @@ const Checkout = () => {
   const [isPlacingOrder, setIsPlacingOrder] = useState(false);
   const placeOrderInFlight = useRef(false);
   const checkoutAttemptKeyRef = useRef(null);
+  const shouldEvaluateCodNudgeRef = useRef(false);
 
   // Derived
   const allAddresses = [...(defaultAddr ? [defaultAddr] : []), ...otherAddrs];
@@ -601,7 +810,33 @@ const Checkout = () => {
 
   useEffect(() => {
     checkoutAttemptKeyRef.current = null;
+    shouldEvaluateCodNudgeRef.current = false;
+    setShowPrepaidSavingsPopup(false);
+    setCodPopupAmount(0);
+    setIsCouponManuallyApplied(false);
+    if (couponCode) {
+      dispatch(setCouponCode(""));
+      setCouponInput("");
+    }
   }, [selectedAddressId]);
+
+  useEffect(() => {
+    if (checkoutMode !== "cod") {
+      setShowPrepaidSavingsPopup(false);
+      return;
+    }
+    if (!shouldEvaluateCodNudgeRef.current || loading.quote) return;
+    if (!quote || !Number.isFinite(Number(quote.amountPayable))) return;
+
+    const codAmount = Number(quote.amountPayable);
+
+    shouldEvaluateCodNudgeRef.current = false;
+
+    if (paymentPlan === "full" && Number.isFinite(codAmount) && codAmount > 0) {
+      setCodPopupAmount(codAmount);
+      setShowPrepaidSavingsPopup(true);
+    }
+  }, [checkoutMode, loading.quote, quote, paymentPlan]);
 
   useEffect(() => {
     dispatch(fetchCheckoutSettings());
@@ -680,12 +915,17 @@ const Checkout = () => {
   const requestQuote = useCallback(
     async ({
       addressId = selectedAddressId,
-      coupon = couponCode || undefined,
       paymentHint = paymentMethod || "online",
       plan = paymentPlan,
       balance = balanceCollection,
       unwrap = false,
+      ...rest
     } = {}) => {
+      const hasCouponOverride = Object.prototype.hasOwnProperty.call(rest, "coupon");
+      const coupon = hasCouponOverride
+        ? rest.coupon
+        : (isCouponManuallyApplied ? (couponCode || undefined) : undefined);
+
       if (!addressId) {
         return null;
       }
@@ -699,7 +939,7 @@ const Checkout = () => {
       const action = dispatch(
         fetchCheckoutQuote({
           addressId,
-          couponCode: coupon,
+          couponCode: coupon == null ? undefined : coupon,
           paymentMethodHint: paymentHint,
           paymentPlan: plan,
           balanceCollection: balance,
@@ -715,6 +955,7 @@ const Checkout = () => {
     [
       dispatch,
       selectedAddressId,
+      isCouponManuallyApplied,
       couponCode,
       paymentMethod,
       paymentPlan,
@@ -753,6 +994,10 @@ const Checkout = () => {
 
   const selectCheckoutPaymentMode = (mode) => {
     checkoutAttemptKeyRef.current = null;
+    shouldEvaluateCodNudgeRef.current = mode === "cod";
+    if (mode !== "cod") {
+      setShowPrepaidSavingsPopup(false);
+    }
     if (mode === "cod") {
       dispatch(setPaymentMethod("cod"));
       dispatch(setPaymentPlan("full"));
@@ -793,6 +1038,7 @@ const Checkout = () => {
     }
     try {
       await dispatch(validateCouponCode({ couponCode: normalized })).unwrap();
+      setIsCouponManuallyApplied(true);
       dispatch(setCouponCode(normalized));
       await requestQuote({ coupon: normalized, unwrap: true });
       toast.success(`Coupon ${normalized} applied`, { theme: "dark" });
@@ -803,9 +1049,10 @@ const Checkout = () => {
 
   const handleRemoveCoupon = async () => {
     if (!selectedAddressId) return;
+    setIsCouponManuallyApplied(false);
     dispatch(setCouponCode(""));
     try {
-      await requestQuote({ coupon: undefined, unwrap: true });
+      await requestQuote({ coupon: null, unwrap: true });
       toast.info("Coupon removed", { theme: "dark" });
     } catch (err) {
       toast.error(err?.message || "Could not refresh totals", { theme: "dark" });
@@ -999,6 +1246,16 @@ const Checkout = () => {
     handlePlaceOrder();
   };
 
+  const handleSwitchToPrepaidFromPopup = () => {
+    setShowPrepaidSavingsPopup(false);
+    setCodPopupAmount(0);
+    selectCheckoutPaymentMode("online_full");
+  };
+
+  const handleContinueCodFromPopup = () => {
+    setShowPrepaidSavingsPopup(false);
+  };
+
   // ── Derived button state ───────────────────────────────────────────────────
   const isPlaceOrderDisabled =
     !quote ||
@@ -1036,7 +1293,7 @@ const Checkout = () => {
     <div className="min-h-screen" style={{ background: "#FFFBF4" }}>
 
       {/* ── Sticky Header ── */}
-      <header className="sticky top-0 z-50 flex items-center justify-between px-4"
+      <header className="sticky top-0  flex items-center justify-between px-4"
         style={{ background: "#fff", borderBottom: "1px solid #f0e8d8", height: 56 }}>
         <button
           onClick={() => step === 1 ? navigate(-1) : setStep(1)}
@@ -1279,20 +1536,11 @@ const Checkout = () => {
                               className="font-black text-sm"
                               style={{ color: checkoutMode === "cod" ? "#F7A221" : "#111" }}
                             >
-                              Cash on delivery — full amount
+                              Cash on delivery — full Amount
                             </p>
-                            <span
-                              className="font-black"
-                              style={{
-                                fontSize: 9,
-                                padding: "2px 7px",
-                                borderRadius: 99,
-                                background: checkoutMode === "cod" ? "rgba(255,255,255,0.2)" : "#F7A221",
-                                color: checkoutMode === "cod" ? "#fff" : "#111",
-                              }}
-                            >
-                              Popular
-                            </span>
+
+
+                           
                           </div>
                           <p
                             style={{
@@ -1303,6 +1551,7 @@ const Checkout = () => {
                           >
                             Pay the full order total when your order arrives
                           </p>
+                          
                         </div>
                       </div>
                     </button>
@@ -1349,7 +1598,19 @@ const Checkout = () => {
                         <CreditCard size={17} style={{ color: "#3b82f6" }} />
                       </div>
                       <div className="flex-1">
-                        <p className="font-black text-sm">Pay online — full amount</p>
+                        <span className="font-black text-sm">Pay online — full amount</span>
+                         <span
+                              className="font-black ml-2"
+                              style={{
+                                fontSize: 9,
+                                padding: "2px 7px",
+                                borderRadius: 99,
+                                background: checkoutMode === "cod" ? "rgba(255,255,255,0.2)" : "#F7A221",
+                                color: checkoutMode === "cod" ? "#fff" : "#111",
+                              }}
+                            >
+                              Popular
+                            </span>
                         <p className="text-[11px] opacity-80 mt-0.5">
                           {fmt(quote?.amountPayable)} · UPI, cards, net banking
                         </p>
@@ -1591,7 +1852,7 @@ const Checkout = () => {
 
               {/* Terms */}
               <p className="text-center" style={{ fontSize: 10, color: "#9ca3af" }}>
-                By placing this order you agree to our Terms &amp; Conditions
+                By placing this order you agree to our <Link to="/policies/terms-conditions" className="text-[#F7A221] underline">Terms &amp; Conditions</Link>
               </p>
             </div>
           </div>
@@ -1603,7 +1864,7 @@ const Checkout = () => {
         <AddressFormModal
           initial={null}
           onSubmit={handleAddAddressSubmit}
-          onClose={handleAddAddressClose}
+          onClose={handleAddAddressClose} 
           isSaving={addressLoading.add}
           error={addressError.add}
         />
@@ -1630,6 +1891,16 @@ const Checkout = () => {
       {/* ── Payment verification overlay ── */}
       {(paymentVerification.loading || razorpayPaymentState === PAYMENT_STATE.SUCCESS) && (
         <PaymentLoadingModal message="Verifying your payment… please wait" />
+      )}
+
+      {showPrepaidSavingsPopup && (
+        <PrepaidSavingsPopup
+          codTotalAmount={codPopupAmount || Number(quote?.amountPayable || 0)}
+          onSwitchToPrepaid={handleSwitchToPrepaidFromPopup}
+          onContinueCod={handleContinueCodFromPopup}
+          onClose={handleContinueCodFromPopup}
+          selectedMode={checkoutMode}
+        />
       )}
 
       {/* ── Payment Error Modal ── */}
