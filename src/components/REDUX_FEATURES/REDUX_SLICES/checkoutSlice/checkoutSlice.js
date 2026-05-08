@@ -64,6 +64,13 @@ export const fetchCheckoutQuote = createAsyncThunk(
         status: err.response?.status,
       });
     }
+  },
+  {
+    condition: (_, { getState }) => {
+      const loadingState = getState()?.checkout?.loading;
+      // Prevent duplicate quote requests while one is in-flight.
+      return !loadingState?.quote;
+    },
   }
 );
 
@@ -291,6 +298,8 @@ const initialState = {
   quote: null,
   quoteId: null,
   quoteExpiresAt: null,
+  quoteStatus: "idle", // idle | loading | ready | error
+  activeQuoteRequestId: null,
 
   // Confirmed quote (after /confirm)
   confirmed: null,
@@ -386,6 +395,8 @@ const checkoutSlice = createSlice({
       state.quote = null;
       state.quoteId = null;
       state.quoteExpiresAt = null;
+      state.quoteStatus = "idle";
+      state.activeQuoteRequestId = null;
       state.confirmed = null;
       state.error.quote = null;
       state.error.confirm = null;
@@ -473,15 +484,22 @@ const checkoutSlice = createSlice({
       })
 
       // ── fetchCheckoutQuote ───────────────────────────────────────────────
-      .addCase(fetchCheckoutQuote.pending, (state) => {
+      .addCase(fetchCheckoutQuote.pending, (state, action) => {
         state.loading.quote = true;
+        state.quoteStatus = "loading";
+        state.activeQuoteRequestId = action.meta.requestId;
         state.error.quote = null;
         state.quote = null;
         state.quoteId = null;
         state.confirmed = null;
       })
       .addCase(fetchCheckoutQuote.fulfilled, (state, action) => {
+        if (state.activeQuoteRequestId && state.activeQuoteRequestId !== action.meta.requestId) {
+          return;
+        }
         state.loading.quote = false;
+        state.quoteStatus = "ready";
+        state.activeQuoteRequestId = null;
         state.quote = action.payload;
         state.quoteId = action.payload.quoteId;
         state.quoteExpiresAt = action.payload.quoteExpiresAt;
@@ -490,7 +508,12 @@ const checkoutSlice = createSlice({
         }
       })
       .addCase(fetchCheckoutQuote.rejected, (state, action) => {
+        if (state.activeQuoteRequestId && state.activeQuoteRequestId !== action.meta.requestId) {
+          return;
+        }
         state.loading.quote = false;
+        state.quoteStatus = "error";
+        state.activeQuoteRequestId = null;
         state.error.quote = action.payload || { message: "Failed to get quote" };
       })
 

@@ -657,31 +657,6 @@ const Checkout = () => {
     }
   }, [cartItems.length, placedOrder, loading.quote, navigate]);
 
-  // ── Fetch quote on step 2 ──────────────────────────────────────────────────
-  useEffect(() => {
-    if (step === 2 && selectedAddressId && !quote && !loading.quote) {
-      dispatch(
-        fetchCheckoutQuote({
-          addressId: selectedAddressId,
-          couponCode: couponCode || undefined,
-          paymentMethodHint: paymentMethod || "online",
-          paymentPlan,
-          balanceCollection,
-        })
-      );
-    }
-  }, [
-    step,
-    selectedAddressId,
-    quote,
-    loading.quote,
-    dispatch,
-    paymentMethod,
-    paymentPlan,
-    balanceCollection,
-    couponCode,
-  ]);
-
   useEffect(() => {
     if (step === 2) {
       dispatch(fetchAvailableCoupons());
@@ -702,6 +677,52 @@ const Checkout = () => {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
+  const requestQuote = useCallback(
+    async ({
+      addressId = selectedAddressId,
+      coupon = couponCode || undefined,
+      paymentHint = paymentMethod || "online",
+      plan = paymentPlan,
+      balance = balanceCollection,
+      unwrap = false,
+    } = {}) => {
+      if (!addressId) {
+        return null;
+      }
+      if (loading.quote) {
+        if (unwrap) {
+          throw new Error("Checkout totals are already refreshing. Please wait.");
+        }
+        return null;
+      }
+
+      const action = dispatch(
+        fetchCheckoutQuote({
+          addressId,
+          couponCode: coupon,
+          paymentMethodHint: paymentHint,
+          paymentPlan: plan,
+          balanceCollection: balance,
+        })
+      );
+
+      if (!unwrap) {
+        return action;
+      }
+
+      return action.unwrap();
+    },
+    [
+      dispatch,
+      selectedAddressId,
+      couponCode,
+      paymentMethod,
+      paymentPlan,
+      balanceCollection,
+      loading.quote,
+    ]
+  );
+
   const handleQuoteRefreshAfterCartMutation = useCallback(async () => {
     checkoutAttemptKeyRef.current = null;
     dispatch(resetQuote());
@@ -711,37 +732,22 @@ const Checkout = () => {
     }
 
     try {
-      await dispatch(
-        fetchCheckoutQuote({
-          addressId: selectedAddressId,
-          couponCode: couponCode || undefined,
-          paymentMethodHint: paymentMethod || "online",
-          paymentPlan,
-          balanceCollection,
-        })
-      ).unwrap();
+      await requestQuote({ unwrap: true });
       toast.info("Checkout totals refreshed.", { theme: "dark" });
     } catch (refreshError) {
       toast.error(refreshError?.message || "Could not refresh checkout totals", { theme: "dark" });
     }
-  }, [dispatch, paymentMethod, paymentPlan, balanceCollection, selectedAddressId, step, couponCode]);
+  }, [dispatch, requestQuote, selectedAddressId, step]);
 
   const handleStep1Next = () => {
+    if (loading.quote) return;
     if (!selectedAddressId) {
       toast.error("Please select a delivery address", { theme: "dark" });
       return;
     }
     setStep(2);
     if (!quote) {
-      dispatch(
-        fetchCheckoutQuote({
-          addressId: selectedAddressId,
-          couponCode: couponCode || undefined,
-          paymentMethodHint: paymentMethod || "online",
-          paymentPlan,
-          balanceCollection,
-        })
-      );
+      requestQuote();
     }
   };
 
@@ -766,15 +772,12 @@ const Checkout = () => {
       const hint = mode === "cod" ? "cod" : "online";
       const plan = mode === "advance_cod" ? "advance" : "full";
       const bal = mode === "advance_cod" ? "cod" : "online";
-      dispatch(
-        fetchCheckoutQuote({
-          addressId: selectedAddressId,
-          couponCode: couponCode || undefined,
-          paymentMethodHint: hint,
-          paymentPlan: plan,
-          balanceCollection: bal,
-        })
-      );
+      requestQuote({
+        addressId: selectedAddressId,
+        paymentHint: hint,
+        plan,
+        balance: bal,
+      });
     }
   };
 
@@ -791,15 +794,7 @@ const Checkout = () => {
     try {
       await dispatch(validateCouponCode({ couponCode: normalized })).unwrap();
       dispatch(setCouponCode(normalized));
-      await dispatch(
-        fetchCheckoutQuote({
-          addressId: selectedAddressId,
-          couponCode: normalized,
-          paymentMethodHint: paymentMethod || "online",
-          paymentPlan,
-          balanceCollection,
-        })
-      ).unwrap();
+      await requestQuote({ coupon: normalized, unwrap: true });
       toast.success(`Coupon ${normalized} applied`, { theme: "dark" });
     } catch (err) {
       toast.error(err?.message || "Coupon is not valid", { theme: "dark" });
@@ -810,14 +805,7 @@ const Checkout = () => {
     if (!selectedAddressId) return;
     dispatch(setCouponCode(""));
     try {
-      await dispatch(
-        fetchCheckoutQuote({
-          addressId: selectedAddressId,
-          paymentMethodHint: paymentMethod || "online",
-          paymentPlan,
-          balanceCollection,
-        })
-      ).unwrap();
+      await requestQuote({ coupon: undefined, unwrap: true });
       toast.info("Coupon removed", { theme: "dark" });
     } catch (err) {
       toast.error(err?.message || "Could not refresh totals", { theme: "dark" });
@@ -921,14 +909,12 @@ const Checkout = () => {
       if (isQuoteRefreshError(e?.code)) {
         checkoutAttemptKeyRef.current = null;
         toast.info(msg, { theme: "dark" });
-        dispatch(
-          fetchCheckoutQuote({
-            addressId: selectedAddressId,
-            paymentMethodHint: paymentMethod || "online",
-            paymentPlan,
-            balanceCollection,
-          })
-        );
+        requestQuote({
+          addressId: selectedAddressId,
+          paymentHint: paymentMethod || "online",
+          plan: paymentPlan,
+          balance: balanceCollection,
+        });
       } else if (e?.code === "IDEMPOTENCY_REQUEST_IN_PROGRESS") {
         toast.info("Your order is already being processed. Please wait a moment.", { theme: "dark" });
       } else if (e?.code === "IDEMPOTENCY_KEY_REUSED") {
