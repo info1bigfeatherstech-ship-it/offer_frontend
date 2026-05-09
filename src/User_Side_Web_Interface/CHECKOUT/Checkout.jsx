@@ -252,18 +252,9 @@ const StepIndicator = ({ step }) => (
   </div>
 );
 
-const PrepaidSavingsPopup = ({
-  codTotalAmount,
-  onSwitchToPrepaid,
-  onContinueCod,
-  onClose,
-  selectedMode = "cod",
-}) => {
+const PrepaidSavingsPopup = ({ onSwitchToPrepaid, onContinueCod, onClose }) => {
   const codHandlingFee = 49;
   const totalSavings = codHandlingFee;
-  const codTotal = Number.isFinite(Number(codTotalAmount)) ? Number(codTotalAmount) : 0;
-  const basePrice = Math.max(0, codTotal - codHandlingFee);
-  const prepaidTotal = Math.max(0, codTotal - totalSavings);
 
   return (
     <>
@@ -281,10 +272,6 @@ const PrepaidSavingsPopup = ({
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(-4px); }
         }
-        @keyframes prepaid-shimmer {
-          0% { transform: translateX(-120%); }
-          100% { transform: translateX(150%); }
-        }
         @keyframes prepaid-sparkle {
           0% { opacity: 0; transform: translateY(6px) scale(0.7); }
           30% { opacity: 1; }
@@ -296,11 +283,11 @@ const PrepaidSavingsPopup = ({
         style={{ background: "rgba(17, 24, 39, 0.55)", animation: "prepaid-overlay-fade 220ms ease-out" }}
         role="dialog"
         aria-modal="true"
-        aria-label="Prepaid savings offer"
+        aria-label="Pay online discount offer"
         onClick={onClose}
       >
         <div
-          className="relative w-full max-w-2xl rounded-3xl p-4 sm:p-6 overflow-hidden"
+          className="relative w-full max-w-md rounded-3xl p-4 sm:p-6 overflow-hidden"
           style={{
             background: "#fff",
             border: "1px solid #f0e8d8",
@@ -312,7 +299,7 @@ const PrepaidSavingsPopup = ({
           <button
             type="button"
             onClick={onClose}
-            aria-label="Close prepaid savings popup"
+            aria-label="Close pay online discount popup"
             className="absolute right-3 top-3 rounded-full p-1.5 cursor-pointer"
             style={{ border: "1px solid #f0e8d8", background: "#fff", color: "#6b7280" }}
           >
@@ -364,73 +351,12 @@ const PrepaidSavingsPopup = ({
                 Payment choice
               </p>
               <h3 className="font-black mt-1" style={{ fontSize: 22, color: "#111", lineHeight: 1.15 }}>
-                Save {fmt(totalSavings)} on prepaid
+                {fmt(totalSavings)} discount on pay online
               </h3>
               <p style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
-                Compare both options before you continue.
+                We are giving you this discount when you choose full online payment. Your exact payable total is in the order summary above.
               </p>
             </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 sm:gap-3 mt-4">
-            <button
-              type="button"
-              onClick={onContinueCod}
-              className="w-full rounded-2xl p-2.5 sm:p-3 text-left transition-all active:scale-[0.99] cursor-pointer"
-              style={{
-                border: selectedMode === "cod" ? "2px solid #dc2626" : "1px solid #fecaca",
-                background: selectedMode === "cod" ? "#fff1f2" : "#fff5f5",
-              }}
-            >
-              <p className="font-black uppercase" style={{ fontSize: 10, color: "#9ca3af", letterSpacing: "0.06em" }}>
-                Cash on Delivery
-              </p>
-              <div className="mt-1.5 space-y-0.5">
-                <div className="flex items-center justify-between">
-                  <span style={{ fontSize: 11, color: "#6b7280" }}>Product total</span>
-                  <span className="font-bold" style={{ fontSize: 13, color: "#111" }}>{fmt(basePrice)}</span>
-                </div>
-                <div className="flex items-center justify-between mt-1.5 pt-1.5" style={{ borderTop: "1px dashed #fecaca" }}>
-                  <span className="font-black" style={{ fontSize: 11, color: "#7f1d1d" }}>Total</span>
-                  <span className="font-black" style={{ fontSize: 15, color: "#dc2626" }}>{fmt(codTotal)}</span>
-                </div>
-              </div>
-            </button>
-
-            <button
-              type="button"
-              onClick={onSwitchToPrepaid}
-              className="w-full rounded-2xl p-2.5 sm:p-3 relative overflow-hidden text-left transition-all active:scale-[0.99] cursor-pointer"
-              style={{
-                border: selectedMode === "online_full" ? "2px solid #f59e0b" : "2px solid #F7A221",
-                background: selectedMode === "online_full" ? "#fff7ed" : "#fffdf7",
-                boxShadow: selectedMode === "online_full" ? "0 0 0 2px rgba(245,158,11,0.15) inset" : "none",
-              }}
-            >
-              <span
-                className="font-black absolute right-2 top-2 px-2 py-0.5 rounded-full"
-                style={{ fontSize: 9, background: "#dcfce7", color: "#166534" }}
-              >
-                Save {fmt(totalSavings)}
-              </span>
-              <p className="font-black uppercase" style={{ fontSize: 10, color: "#9ca3af", letterSpacing: "0.06em" }}>
-                Online / Prepaid
-              </p>
-              <div className="mt-1.5 space-y-0.5">
-                <div className="flex items-center justify-between">
-                  <span style={{ fontSize: 11, color: "#6b7280" }}>Product total</span>
-                  <span className="font-bold" style={{ fontSize: 13, color: "#111" }}>{fmt(basePrice)}</span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span style={{ fontSize: 11, color: "#6b7280" }}>Prepaid discount</span>
-                  <span className="font-bold" style={{ fontSize: 13, color: "#15803D" }}>- {fmt(totalSavings)}</span>
-                </div>
-                <div className="flex items-center justify-between mt-1.5 pt-1.5" style={{ borderTop: "1px dashed #fcd34d" }}>
-                  <span className="font-black" style={{ fontSize: 11, color: "#92400e" }}>Total</span>
-                  <span className="font-black" style={{ fontSize: 15, color: "#15803D" }}>{fmt(prepaidTotal)}</span>
-                </div>
-              </div>
-            </button>
           </div>
 
           <div className="mt-5">
@@ -440,7 +366,7 @@ const PrepaidSavingsPopup = ({
               className="w-full py-3 rounded-2xl font-black text-xs uppercase tracking-widest"
               style={{ border: "none", color: "#fff", background: "#111", cursor: "pointer" }}
             >
-              Switch to online payment & save {fmt(totalSavings)}
+              Switch to pay online — get {fmt(totalSavings)} discount
             </button>
             <button
               type="button"
@@ -757,7 +683,6 @@ const Checkout = () => {
   const [showCouponsList, setShowCouponsList] = useState(false);
   const [isCouponManuallyApplied, setIsCouponManuallyApplied] = useState(false);
   const [showPrepaidSavingsPopup, setShowPrepaidSavingsPopup] = useState(false);
-  const [codPopupAmount, setCodPopupAmount] = useState(0);
 
   // Payment state machine
   const [razorpayPaymentState, setRazorpayPaymentState] = useState(PAYMENT_STATE.IDLE);
@@ -812,7 +737,6 @@ const Checkout = () => {
     checkoutAttemptKeyRef.current = null;
     shouldEvaluateCodNudgeRef.current = false;
     setShowPrepaidSavingsPopup(false);
-    setCodPopupAmount(0);
     setIsCouponManuallyApplied(false);
     if (couponCode) {
       dispatch(setCouponCode(""));
@@ -833,7 +757,6 @@ const Checkout = () => {
     shouldEvaluateCodNudgeRef.current = false;
 
     if (paymentPlan === "full" && Number.isFinite(codAmount) && codAmount > 0) {
-      setCodPopupAmount(codAmount);
       setShowPrepaidSavingsPopup(true);
     }
   }, [checkoutMode, loading.quote, quote, paymentPlan]);
@@ -1248,7 +1171,6 @@ const Checkout = () => {
 
   const handleSwitchToPrepaidFromPopup = () => {
     setShowPrepaidSavingsPopup(false);
-    setCodPopupAmount(0);
     selectCheckoutPaymentMode("online_full");
   };
 
@@ -1895,11 +1817,9 @@ const Checkout = () => {
 
       {showPrepaidSavingsPopup && (
         <PrepaidSavingsPopup
-          codTotalAmount={codPopupAmount || Number(quote?.amountPayable || 0)}
           onSwitchToPrepaid={handleSwitchToPrepaidFromPopup}
           onContinueCod={handleContinueCodFromPopup}
           onClose={handleContinueCodFromPopup}
-          selectedMode={checkoutMode}
         />
       )}
 
