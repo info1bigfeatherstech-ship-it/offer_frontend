@@ -49,7 +49,7 @@ useEffect(() => {
         <HeroSlider />
       </div>
 
-      <main className="container mx-auto px-4 pt-12 pb-20 space-y-12">
+      <main className="container mx-auto px-4 pt- pb-20">
         <Categories />
         <PriceBanners />
         {/* <BestSellers /> */}

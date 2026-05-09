@@ -1,8 +1,10 @@
+
 import React, { useState, useEffect, useRef } from "react";
 import { User, Lock, ShieldAlert, Eye, EyeOff } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { loginUser, googleLogin, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
+import LOGO from "../../assets/logo2.svg"
 
 // ── Shared Google icon (imported by Register too) ──────────────
 export const GoogleIcon = () => (
@@ -70,7 +72,7 @@ const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
           if (s <= 1) { clearInterval(lockTimerRef.current); clearLock(); return 0; }
           return s - 1;
         });
-      }, 1000);
+      });
     }
     return () => clearInterval(lockTimerRef.current);
   }, [lockSecondsLeft]);
@@ -165,7 +167,12 @@ const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
     <div className="w-full">
       <div ref={googleBtnRef} style={{ display: "none" }} />
 
-      <h2 className="text-3xl sm:text-4xl text-center font- text-white mb-1 tracking-tighter">
+      {/* ── Logo Container (Top Center) ── */}
+      <div className="flex justify-center mb-6">
+        <img src={LOGO} alt="Logo" className="h-25 md:h-32 w-auto object-contain rounded" />
+      </div>
+
+      <h2 className="text-2xl sm:text-2xl text-center font- text-white mb-1 tracking-tighter">
         WELCOME <span className="text-[#f7a221]">BACK</span>
       </h2>
       <p className="text-gray-200 text-[10px] tracking-widest mb-5 sm:mb-6 text-center uppercase">
@@ -297,6 +304,306 @@ const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
 };
 
 export default Login;
+// import React, { useState, useEffect, useRef } from "react";
+// import { User, Lock, ShieldAlert, Eye, EyeOff } from "lucide-react";
+// import { useDispatch, useSelector } from "react-redux";
+// import { toast } from "react-toastify";
+// import { loginUser, googleLogin, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
+// import LOGO from "../../assets/logo2.png"
+
+// // ── Shared Google icon (imported by Register too) ──────────────
+// export const GoogleIcon = () => (
+//   <svg className="w-5 h-5 shrink-0" viewBox="0 0 48 48" aria-hidden="true">
+//     <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
+//     <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
+//     <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
+//     <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.31-8.16 2.31-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+//   </svg>
+// );
+
+// // ── Progressive lockout constants ─────────────────────────────
+// const LOCKOUT_SEQUENCE = [0, 0, 30, 60, 300];
+// const getLockDuration = (failCount) =>
+//   LOCKOUT_SEQUENCE[Math.min(failCount, LOCKOUT_SEQUENCE.length - 1)];
+
+// const STORAGE_KEY = "lr_login_lock";
+
+// const readLock = () => {
+//   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); }
+//   catch { return null; }
+// };
+// const writeLock = (data) => {
+//   try { localStorage.setItem(STORAGE_KEY, JSON.stringify(data)); } catch {}
+// };
+// const clearLock = () => {
+//   try { localStorage.removeItem(STORAGE_KEY); } catch {}
+// };
+
+// const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
+//   const dispatch = useDispatch();
+//   const { loading, error } = useSelector((state) => state.auth);
+//   const googleBtnRef = useRef(null);
+
+//   // CHANGED: renamed from `email` → `identifier` to match backend field name
+//   // Accepts both email address and phone number
+//   const [identifier, setIdentifier] = useState("");
+//   const [password, setPassword] = useState("");
+//   const [isOpen, setisOpen] = useState(false)
+
+//   // ── Lockout state ─────────────────────────────────────────────
+//   const [lockSecondsLeft, setLockSecondsLeft] = useState(0);
+//   const [failCount, setFailCount] = useState(0);
+//   const lockTimerRef = useRef(null);
+
+//   useEffect(() => {
+//     const saved = readLock();
+//     if (saved) {
+//       const remaining = Math.ceil((saved.unlocksAt - Date.now()) / 1000);
+//       if (remaining > 0) {
+//         setFailCount(saved.failCount);
+//         setLockSecondsLeft(remaining);
+//       } else {
+//         clearLock();
+//       }
+//     }
+//     return () => clearInterval(lockTimerRef.current);
+//   }, []);
+
+//   useEffect(() => {
+//     clearInterval(lockTimerRef.current);
+//     if (lockSecondsLeft > 0) {
+//       lockTimerRef.current = setInterval(() => {
+//         setLockSecondsLeft((s) => {
+//           if (s <= 1) { clearInterval(lockTimerRef.current); clearLock(); return 0; }
+//           return s - 1;
+//         });
+//       }, 1000);
+//     }
+//     return () => clearInterval(lockTimerRef.current);
+//   }, [lockSecondsLeft]);
+
+//   const startLock = (newFailCount) => {
+//     const duration = getLockDuration(newFailCount);
+//     if (duration > 0) {
+//       const unlocksAt = Date.now() + duration * 1000;
+//       writeLock({ failCount: newFailCount, unlocksAt });
+//       setLockSecondsLeft(duration);
+//     }
+//   };
+
+//   const formatLockTime = (s) => {
+//     if (s >= 60) return `${Math.ceil(s / 60)}m ${s % 60 > 0 ? `${s % 60}s` : ""}`.trim();
+//     return `${s}s`;
+//   };
+
+//   useEffect(() => { dispatch(clearError()); }, [dispatch]);
+
+//   useEffect(() => {
+//     if (error) toast.error(error);
+//   }, [error]);
+
+//   const handleGoogleClick = () => {
+//     if (googleBtnRef.current) {
+//       const googleDiv = googleBtnRef.current.querySelector('div[role="button"]');
+//       if (googleDiv) googleDiv.click();
+//       else {
+//         const iframe = googleBtnRef.current.querySelector("iframe");
+//         if (iframe) iframe.click();
+//       }
+//     }
+//   };
+
+//   useEffect(() => {
+//     const init = () => {
+//       if (!window.google) return;
+//       window.google.accounts.id.initialize({
+//         client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "demo-client-id",
+//         use_fedcm_for_prompt: true,
+//         callback: async (response) => {
+//           const result = await dispatch(googleLogin({ idToken: response.credential }));
+//           if (googleLogin.fulfilled.match(result)) {
+//             clearLock();
+//             toast.success("Logged in with Google!");
+//             onLoginSuccess();
+//           }
+//         },
+//       });
+//       window.google.accounts.id.renderButton(googleBtnRef.current, {
+//         theme: "outline", size: "large",
+//       });
+//     };
+//     if (!window.google) {
+//       const script = document.createElement("script");
+//       script.src = "https://accounts.google.com/gsi/client";
+//       script.async = true;
+//       script.onload = init;
+//       document.body.appendChild(script);
+//     } else { init(); }
+//   }, [dispatch, onLoginSuccess]);
+
+//   const handleLogin = async (e) => {
+//     e.preventDefault();
+//     if (lockSecondsLeft > 0) return;
+
+//     // CHANGED: now sends { identifier, password } instead of { email, password }
+//     // identifier can be an email address or a phone number — backend handles both
+//     const result = await dispatch(loginUser({ identifier, password }));
+
+//     if (loginUser.fulfilled.match(result)) {
+//       clearLock();
+//       setFailCount(0);
+//       setLockSecondsLeft(0);
+//       toast.success("Welcome back!");
+//       onLoginSuccess();
+//     } else {
+//       const newFail = failCount + 1;
+//       setFailCount(newFail);
+//       startLock(newFail);
+//       const duration = getLockDuration(newFail);
+//       if (duration > 0) {
+//         toast.error(`Too many attempts. Locked for ${formatLockTime(duration)}.`);
+//       }
+//     }
+//   };
+
+//   const isLocked = lockSecondsLeft > 0;
+
+//   return (
+//     <div className="w-full">
+//       <div ref={googleBtnRef} style={{ display: "none" }} />
+
+//       <h2 className="text-3xl sm:text-4xl text-center font- text-white mb-1 tracking-tighter">
+//         WELCOME <span className="text-[#f7a221]">BACK</span>
+//       </h2>
+//       <p className="text-gray-200 text-[10px] tracking-widest mb-5 sm:mb-6 text-center uppercase">
+//         Access your premium dashboard
+//       </p>
+
+//       {error && !isLocked && (
+//         <div className="mb-4 p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-[11px] text-center font-medium">
+//           {error}
+//         </div>
+//       )}
+
+//       {isLocked && (
+//         <div className="mb-4 p-3 bg-orange-500/10 border border-orange-500/25 rounded-xl flex items-center gap-2.5">
+//           <ShieldAlert size={16} className="text-orange-400 shrink-0" />
+//           <div>
+//             <p className="text-orange-400 text-[11px] font-black uppercase tracking-wide">
+//               Account temporarily locked
+//             </p>
+//             <p className="text-orange-400/70 text-[10px] mt-0.5">
+//               Try again in <span className="font-bold text-orange-300">{formatLockTime(lockSecondsLeft)}</span>
+//             </p>
+//           </div>
+//         </div>
+//       )}
+
+//       <button
+//         type="button"
+//         onClick={handleGoogleClick}
+//         disabled={isLocked}
+//         className="w-full bg-white hover:bg-gray-50 active:bg-gray-100 disabled:opacity-40 text-black cursor-pointer font-bold py-3.5 px-4 rounded-2xl transition-all flex items-center justify-center gap-3 mb-3 shadow-md active:scale-[0.98] touch-manipulation select-none"
+//       >
+//         <GoogleIcon />
+//         <span className="text-sm">Sign in with Google</span>
+//       </button>
+
+//       <div className="relative my-5">
+//         <div className="absolute inset-0 flex items-center">
+//           <div className="w-full border-t border-white/25" />
+//         </div>
+//         <div className="relative flex justify-center text-[9px] uppercase tracking-[0.3em] font-bold">
+//           <span className="px-4 bg-[#0d0d0d] text-gray-200">OR</span>
+//         </div>
+//       </div>
+
+//       <form onSubmit={handleLogin} className="space-y-3">
+//         <div className="relative">
+//           <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+//           {/*
+//             CHANGED: input type="text" (was "text"), placeholder updated to clarify
+//             email OR phone. Value bound to `identifier` state (was `email`).
+//             Backend field name is "identifier" — this maps directly.
+//           */}
+//           <input
+//             type="text"
+//             placeholder="Email or Phone Number"
+//             value={identifier}
+//             onChange={(e) => setIdentifier(e.target.value)}
+//             disabled={isLocked}
+//             className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 disabled:opacity-40 transition-all text-sm"
+//             style={{ fontSize: "16px" }}
+//             required
+//           />
+//         </div>
+
+//        <div className="relative">
+//   <Lock
+//     className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none"
+//     size={17}
+//   />
+
+//   <input
+//     type={isOpen ? "text" : "password"} // ✅ fixed (removed extra space)
+//     placeholder="Password"
+//     value={password}
+//     onChange={(e) => setPassword(e.target.value)}
+//     autoComplete="current-password"
+//     disabled={isLocked}
+//     className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 transition-all duration-300 pl-11 pr-10 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 disabled:opacity-40 transition-all text-sm"
+//     style={{ fontSize: "16px" }}
+//     required
+//   />
+
+//   {/* 👁️ Eye Toggle */}
+//   <span
+//     onClick={() => setisOpen(!isOpen)}
+//     className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-white/40 hover:text-white transition"
+//   >
+//     {isOpen ? <EyeOff size={20} /> : <Eye size={20} />}
+//   </span>
+// </div>
+
+//         <div className="flex justify-end pt-0.5">
+//           <button
+//             type="button"
+//             onClick={onForgotPasswordClick}
+//             className="text-[11px] text-white/40 hover:text-[#f7a221] uppercase font-bold tracking-tight cursor-pointer transition-colors py-1 touch-manipulation"
+//           >
+//             Forgot Password?
+//           </button>
+//         </div>
+
+//         <button
+//           type="submit"
+//           disabled={loading || isLocked}
+//           className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-50 text-black font-black py-4 rounded-xl transition-all flex items-center justify-center gap-2 text-sm shadow-[0_8px_20px_rgba(247,162,33,0.25)] cursor-pointer touch-manipulation select-none"
+//         >
+//           {loading ? "PROCESSING..." : isLocked ? `LOCKED — ${formatLockTime(lockSecondsLeft)}` : "LOGIN"}
+//         </button>
+//       </form>
+
+//       {failCount > 0 && failCount < 4 && !isLocked && (
+//         <p className="text-center text-orange-400/60 text-[10px] mt-3 tracking-wide">
+//           {4 - failCount} attempt{4 - failCount !== 1 ? "s" : ""} left before longer lockout
+//         </p>
+//       )}
+
+//       <p className="text-center text-gray-200 text-[11px] mt-5 tracking-wide">
+//         No account?{" "}
+//         <button
+//           onClick={onRegisterClick}
+//           className="text-[#f7a221] text-[15px] hover:underline cursor-pointer touch-manipulation"
+//         >
+//           Register here
+//         </button>
+//       </p>
+//     </div>
+//   );
+// };
+
+// export default Login;
 // updated code give user to login with phone number or email in same input 
 // import React, { useState, useEffect, useRef } from "react";
 // import { Mail, Lock, Phone, ShieldAlert } from "lucide-react";

@@ -35,12 +35,12 @@ const PriceBanners = () => {
     // MEMOIZED: Count products in each price range - ONLY recalculates when products change
     const priceCounts = useMemo(() => {
         if (!products || !Array.isArray(products)) {
-            return { under29: 0, under49: 0, under99: 0, above99: 0 };
+            return { under29: 0, under49: 0, under79: 0, above99: 0 };
         }
 
         let under29 = 0;
         let under49 = 0;
-        let under99 = 0;
+        let under79 = 0;
         let above99 = 0;
 
         for (const product of products) {
@@ -49,11 +49,11 @@ const PriceBanners = () => {
 
             if (price <= 29) under29++;
             if (price <= 49) under49++;
-            if (price <= 99) under99++;
+            if (price <= 79) under79++;
             if (price > 99) above99++;
         }
 
-        return { under29, under49, under99, above99 };
+        return { under29, under49, under79, above99 };
     }, [products, getEffectivePrice]);
 
     // MEMOIZED: Banner configuration with dynamic counts
@@ -77,16 +77,16 @@ const PriceBanners = () => {
             slug: "under-rs-49"
         },
         {
-            label: "Under ₹99",
+            label: "Under ₹79",
             tag: "SUPER SAVER",
             icon: <Zap size={20} />,
             gradient: "from-[#1a1a1a] to-[#111111]",
             accentColor: "from-[#f7a221]/20 to-transparent",
-            count: priceCounts.under99,
-            slug: "under-rs-99"
+            count: priceCounts.under79,
+             slug: "under-rs-79"
         },
         {
-            label: "Above ₹99",
+            label: "₹99 & Above",
             tag: "PREMIUM",
             icon: <Sparkles size={20} />,
             gradient: "from-[#1a1a1a] to-[#111111]",
@@ -126,6 +126,7 @@ const PriceBanners = () => {
                     <span className="w-2 h-8 md:h-12 bg-[#f7a221] rounded-full shadow-[0_0_15px_rgba(247,162,33,0.4)]"></span>
                     Shop By Price
                 </h3>
+                
                 <button className="text-[#f7a221] font-black flex items-center gap-2 text-[10px] md:text-sm uppercase tracking-[0.2em] hover:opacity-80 transition-opacity">
                     View All <ArrowRight size={16} />
                 </button>

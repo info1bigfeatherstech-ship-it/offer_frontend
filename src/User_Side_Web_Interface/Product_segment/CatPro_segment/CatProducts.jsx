@@ -58,6 +58,10 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+   useEffect(() => {
+      window.scrollTo({ top: 0, behavior: "smooth" })
+    }, [])
+
   // Chunk flat array into rows
   const rows = useMemo(() => {
     const result = [];

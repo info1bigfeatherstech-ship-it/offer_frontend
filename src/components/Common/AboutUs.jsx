@@ -1,4 +1,3 @@
-import { motion } from "framer-motion";
 import {
   MapPin,
   ChevronDown,
@@ -21,6 +20,7 @@ import {
 } from "lucide-react";
 import logo from "../../assets/logo.jpg"
 import { Link } from "react-router-dom";
+import { useEffect } from "react";
 
 const categories = [
   {
@@ -103,7 +103,6 @@ const categories = [
     color: "from-amber-500/20 to-orange-500/10",
   },
 ];
-const MotionLink = motion(Link);
 
 const advantages = [
   {
@@ -146,19 +145,10 @@ const values = [
   },
 ];
 
-const fadeUp = {
-  hidden: { opacity: 0, y: 40 },
-  visible: (i = 1) => ({
-    opacity: 1,
-    y: 0,
-    transition: {
-      delay: i * 0.08,
-      duration: 0.7,
-    },
-  }),
-};
-
 export default function AboutUs() {
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }, [])
   return (
     <div className="bg-[#0a0a0f] text-white overflow-hidden">
 
@@ -172,26 +162,23 @@ export default function AboutUs() {
         {/* GRID */}
         <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
 
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={fadeUp}
-          className="relative z-10 text-center max-w-5xl w-full"
-        >
-          <div className="inline-flex items-center gap-2 rounded-full border border-amber-500/30 bg-amber-500/10 px-5 py-2 text-xs uppercase tracking-[3px] text-amber-400">
-            <span className="h-2 w-2 rounded-full bg-amber-400 animate-pulse" />
-            About Us
+        <div className="relative z-10 text-center max-w-5xl w-full">
+          {/* About Us - NOW BIGGER */}
+          <div className="inline-flex items-center gap-3 rounded-full border-2 border-amber-500/40 bg-amber-500/15 px-8 py-4 backdrop-blur-sm">
+            <span className="h-3 w-3 rounded-full bg-amber-400 animate-pulse" />
+            <span className="text-base sm:text-lg md:text-xl uppercase tracking-[4px] font-bold text-amber-400">
+              About Us
+            </span>
           </div>
 
-          <h1 
-className="mt-8 text-4xl sm:text-5xl lg:text-7xl font-black leading-[0.95] tracking-[-2px] sm:tracking-[-3px]"          >
+          <h1 className="mt-8 text-2xl sm:text-3xl lg:text-4xl font- leading-[0.95] tracking-[-2px] sm:tracking-[-3px]">
             Discover Products <br />
             <span className="text-amber-400">You'll</span>  Love
           </h1>
 
           <p className="mx-auto mt-6 sm:mt-8 max-w-2xl text-base sm:text-lg leading-7 sm:leading-8 text-white/60 px-2">
             From the heart of Ulhasnagar, Maharashtra —bringing trending products,
-             amazing deals, and a seamless shopping experience to businesses and
+            amazing deals, and a seamless shopping experience to businesses and
             shoppers across PAN India.
           </p>
 
@@ -201,15 +188,15 @@ className="mt-8 text-4xl sm:text-5xl lg:text-7xl font-black leading-[0.95] track
           </div>
 
           <div className="mt-10 flex w-full flex-col sm:flex-row justify-center gap-4">
-            <Link to="/category/smart-life-gadgets" className="w-full sm:w-auto text-center rounded-full bg-amber-400 px-8 py-4 text-sm font-bold text-black transition hover:scale-105 hover:bg-amber-300">
-             Start Shopping
+            <Link to="/" className="w-full sm:w-auto text-center rounded-full bg-amber-400 px-8 py-4 text-sm font-bold text-black transition hover:scale-105 hover:bg-amber-300">
+              Start Shopping
             </Link>
 
             <Link to="/contact" className="rounded-full border border-white/20 px-8 py-4 text-sm font-bold transition hover:border-amber-400 hover:text-amber-400">
               Contact Us
             </Link>
           </div>
-        </motion.div>
+        </div>
 
         <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center text-white/30">
           <ChevronDown className="animate-bounce" />
@@ -222,25 +209,20 @@ className="mt-8 text-4xl sm:text-5xl lg:text-7xl font-black leading-[0.95] track
       {/* STATS */}
       <section className="grid grid-cols-2 md:grid-cols-4 bg-amber-400 text-black">
         {[
-  ["50K+", "Happy Customers"],
-  ["10K+", "Products"],
-  ["Fast", "Delivery"],
-  ["24/7", "Support"],
-        ].map(([number, label], i) => (
-          <motion.div
+          ["50K+", "Happy Customers"],
+          ["10K+", "Products"],
+          ["Fast", "Delivery"],
+          ["24/7", "Support"],
+        ].map(([number, label]) => (
+          <div
             key={label}
-            custom={i}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={fadeUp}
-            className="border border-black/10 py-8 text-center"
+            className="border border-black/10 py-8 text-center transition-all duration-300 hover:bg-amber-300/50 hover:scale-105"
           >
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black">{number}</h2>
             <p className="mt-2 text-xs uppercase tracking-[2px] text-black/60">
               {label}
             </p>
-          </motion.div>
+          </div>
         ))}
       </section>
 
@@ -248,41 +230,41 @@ className="mt-8 text-4xl sm:text-5xl lg:text-7xl font-black leading-[0.95] track
       <section className="bg-[#f8f8f5] px-6 py-28 text-black lg:px-12">
         <div className="mx-auto grid max-w-7xl gap-16 lg:grid-cols-2 items-center">
 
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={fadeUp}
-          >
+          <div className="transition-all duration-700 hover:-translate-y-2">
             <p className="text-xs uppercase tracking-[4px] text-amber-500 font-bold">
               Our Story
             </p>
 
             <div className="mt-4 h-[2px] w-14 bg-amber-500" />
 
-            <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl font-black leading-tight tracking-[-2px]">
+            <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl font- leading-tight tracking-[-2px]">
               Making Everyday <br />
               Shopping Better
             </h2>
 
             <p className="mt-8 text-gray-600 leading-8">
-             Today, thousands of customers across India trust OWB for trending products,
+              Today, thousands of customers across India trust OWB for trending products,
               daily essentials, fashion, gadgets, gifting, and more.
             </p>
 
             <p className="mt-5 text-gray-600 leading-8">
-              Today, OWB serves retailers, businesses, and shoppers across
-              India with thousands of curated products.
+              OWB serves retailers, businesses, and shoppers across India with thousands of curated products,
+              ensuring quality, affordability, and trust at every step.
             </p>
-          </motion.div>
 
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={fadeUp}
-            className="relative"
-          >
+            <div className="mt-10 flex gap-4">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-amber-500" />
+                <span className="text-sm font-medium">Verified Sellers</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-amber-500" />
+                <span className="text-sm font-medium">PAN India Delivery</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="relative transition-all duration-700 hover:-translate-y-2">
             <div className="rounded-[32px] border border-amber-500/10 bg-[#111827] p-10 text-white shadow-2xl">
 
               <p className="text-xs uppercase tracking-[3px] text-amber-400">
@@ -301,12 +283,12 @@ className="mt-8 text-4xl sm:text-5xl lg:text-7xl font-black leading-[0.95] track
             </div>
 
             <div className="absolute -bottom-6 -right-6 rounded-3xl bg-amber-400 px-8 py-6 text-black shadow-2xl">
-              <h2 className="text-4xl font-black">₹299</h2>
+              <h2 className="text-4xl font-black">₹29</h2>
               <p className="mt-1 text-xs uppercase tracking-[2px] text-black/60">
                 Starting Price
               </p>
             </div>
-          </motion.div>
+          </div>
         </div>
       </section>
 
@@ -314,60 +296,50 @@ className="mt-8 text-4xl sm:text-5xl lg:text-7xl font-black leading-[0.95] track
       <section className="bg-white px-6 py-28 text-black lg:px-12">
         <div className="mx-auto max-w-7xl">
 
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={fadeUp}
-          >
+          <div className="transition-all duration-700">
             <p className="text-xs uppercase tracking-[4px] text-amber-500 font-bold">
               What We Offer
             </p>
 
             <div className="mt-4 h-[2px] w-14 bg-amber-500" />
 
-            <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl font-black tracking-[-2px]">
+            <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl font- tracking-[-2px]">
               One Platform, <br />
               Every Category
             </h2>
 
             <p className="mt-6 max-w-2xl text-gray-600 leading-8">
               From gadgets to gifting and essentials — OWB is your all-in-one
-              wholesale destination.
+              wholesale destination with over 10,000+ products.
             </p>
-          </motion.div>
+          </div>
 
           <div className="mt-16 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {categories.map((item, i) => {
+            {categories.map((item) => {
               const Icon = item.icon;
 
               return (
-                <MotionLink
-                  key={item.title}
+                <Link
+                  key={item.label}
                   to={item.path}
-                  custom={i}
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={{ once: true }}
-                  variants={fadeUp}
-                  className="group rounded-3xl border border-gray-200 bg-[#fafafa] p-7 transition hover:-translate-y-2 hover:border-amber-400 hover:shadow-2xl"
+                  className="group rounded-3xl border border-gray-200 bg-[#fafafa] p-7 transition-all duration-500 hover:-translate-y-3 hover:border-amber-400 hover:shadow-2xl"
                 >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 transition group-hover:bg-amber-400/20">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 transition-all duration-300 group-hover:bg-amber-400/20 group-hover:scale-110">
                     <Icon className="h-6 w-6 text-amber-500" />
                   </div>
 
                   <h3 className="mt-6 text-xl font-bold">
-                    {item.title}
+                    {item.label}
                   </h3>
 
                   <p className="mt-3 text-gray-600 leading-7">
                     {item.desc}
                   </p>
 
-                  <Link to={item.path} className="mt-6 text-sm font-bold text-amber-500 transition hover:translate-x-1">
+                  <div className="mt-6 text-sm font-bold text-amber-500 transition-all duration-300 group-hover:translate-x-2 inline-block">
                     View Products →
-                  </Link>
-                </MotionLink>
+                  </div>
+                </Link>
               );
             })}
           </div>
@@ -380,43 +352,33 @@ className="mt-8 text-4xl sm:text-5xl lg:text-7xl font-black leading-[0.95] track
 
         <div className="mx-auto max-w-7xl relative z-10">
 
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={fadeUp}
-          >
+          <div className="transition-all duration-700">
             <p className="text-xs uppercase tracking-[4px] text-amber-400 font-bold">
               Why Choose Us
             </p>
 
             <div className="mt-4 h-[2px] w-14 bg-amber-400" />
 
-            <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl font-black tracking-[-2px]">
-             Why Shoppers Love Us
+            <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl  tracking-[-2px]">
+              Why Shoppers Love Us
             </h2>
 
             <p className="mt-6 max-w-2xl text-white/60 leading-8">
               Everything built for your business — pricing, delivery,
               compliance, and trust.
             </p>
-          </motion.div>
+          </div>
 
           <div className="mt-16 grid gap-6 lg:grid-cols-2">
-            {advantages.map((item, i) => {
+            {advantages.map((item) => {
               const Icon = item.icon;
 
               return (
-                <motion.div
+                <div
                   key={item.title}
-                  custom={i}
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={{ once: true }}
-                  variants={fadeUp}
-                  className="rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl transition hover:-translate-y-2 hover:border-amber-400/30"
+                  className="rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl transition-all duration-500 hover:-translate-y-2 hover:border-amber-400/30 hover:shadow-2xl"
                 >
-                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 transition-all duration-300 hover:scale-110">
                     <Icon className="h-6 w-6 text-amber-400" />
                   </div>
 
@@ -427,7 +389,7 @@ className="mt-8 text-4xl sm:text-5xl lg:text-7xl font-black leading-[0.95] track
                   <p className="mt-4 leading-8 text-white/60">
                     {item.desc}
                   </p>
-                </motion.div>
+                </div>
               );
             })}
           </div>
@@ -438,38 +400,28 @@ className="mt-8 text-4xl sm:text-5xl lg:text-7xl font-black leading-[0.95] track
       <section className="bg-[#f8f8f5] px-6 py-28 text-black lg:px-12">
         <div className="mx-auto max-w-7xl">
 
-          <motion.div
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={fadeUp}
-          >
+          <div className="transition-all duration-700">
             <p className="text-xs uppercase tracking-[4px] text-amber-500 font-bold">
               Our Values
             </p>
 
             <div className="mt-4 h-[2px] w-14 bg-amber-500" />
 
-            <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl font-black tracking-[-2px]">
+            <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl tracking-[-2px]">
               What We Stand For
             </h2>
-          </motion.div>
+          </div>
 
           <div className="mt-16 grid gap-6 lg:grid-cols-3">
-            {values.map((item, i) => {
+            {values.map((item) => {
               const Icon = item.icon;
 
               return (
-                <motion.div
+                <div
                   key={item.title}
-                  custom={i}
-                  initial="hidden"
-                  whileInView="visible"
-                  viewport={{ once: true }}
-                  variants={fadeUp}
-                  className="group rounded-3xl border border-gray-200 bg-white p-10 text-center transition hover:-translate-y-2 hover:shadow-2xl"
+                  className="group rounded-3xl border border-gray-200 bg-white p-10 text-center transition-all duration-500 hover:-translate-y-2 hover:shadow-2xl"
                 >
-                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 transition group-hover:scale-110">
+                  <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 transition-all duration-300 group-hover:scale-110 group-hover:bg-amber-200">
                     <Icon className="h-7 w-7 text-amber-500" />
                   </div>
 
@@ -480,7 +432,7 @@ className="mt-8 text-4xl sm:text-5xl lg:text-7xl font-black leading-[0.95] track
                   <p className="mt-4 leading-8 text-gray-600">
                     {item.desc}
                   </p>
-                </motion.div>
+                </div>
               );
             })}
           </div>
@@ -489,12 +441,13 @@ className="mt-8 text-4xl sm:text-5xl lg:text-7xl font-black leading-[0.95] track
 
       {/* QUOTE */}
       <section className="bg-white px-6 py-28 text-black lg:px-12">
-        <div className="mx-auto max-w-6xl rounded-[40px] border border-gray-200 bg-[#fafafa] p-10 lg:p-16 shadow-xl">
+        <div className="mx-auto max-w-6xl rounded-[40px] border border-gray-200 bg-[#fafafa] p-10 lg:p-16 shadow-xl transition-all duration-500 hover:shadow-2xl">
 
           <div className="flex flex-col items-center gap-10 lg:flex-row">
 
-            <img src={logo} className="flex h-36 w-36 items-center justify-center rounded-full bg-[#111827] text-4xl font-black text-amber-400"/>
-              OWB
+            <div className="flex h-36 w-55 items-center justify-center r bg-[#111827] text-4xl font-black text-amber-400 transition-all duration-500">
+              <img src={logo} alt="OWB Logo" className="h-full w-full  object-cover" />
+            </div>
 
             <div>
               <h2 className="text-3xl font-black">
@@ -522,61 +475,27 @@ className="mt-8 text-4xl sm:text-5xl lg:text-7xl font-black leading-[0.95] track
         <div className="relative z-10 mx-auto max-w-4xl">
 
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-[-2px]">
-Ready to Discover Amazing Products?          </h2>
+            Ready to Discover Amazing Products?
+          </h2>
 
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-8 text-black/70">
-           Explore trending products, exciting deals, and everyday essentials.
+            Explore trending products, exciting deals, and everyday essentials.
+            Start your shopping journey with OWB today!
           </p>
 
           <div className="mt-10 flex flex-wrap justify-center gap-4">
-            <Link to="/categories" className="rounded-full bg-black px-8 py-4 text-sm font-bold text-white transition hover:scale-105">
-Start Shopping            </Link>
+            <Link to="/" className="rounded-full bg-black px-10 py-5 text-base font-bold text-white transition-all duration-300 hover:scale-105 hover:bg-black/90 hover:shadow-xl">
+              Start Shopping Now →
+            </Link>
 
-            <Link to="/contact" 
-className="w-full sm:w-auto text-center rounded-full border border-white/20 px-8 py-4 text-sm font-bold transition hover:border-amber-400 hover:text-amber-400"            >
-              Contact Us
+            <Link to="/contact"
+              className="rounded-full border-2 border-black/20 bg-transparent px-10 py-5 text-base font-bold text-black transition-all duration-300 hover:border-amber-600 hover:bg-amber-500 hover:text-black hover:shadow-xl"
+            >
+              Contact Our Team
             </Link>
           </div>
         </div>
       </section>
-
-      {/* FOOTER */}
-      {/* <footer className="bg-black px-6 py-10 text-white">
-        <div className="mx-auto flex max-w-7xl flex-col gap-8 lg:flex-row lg:items-center lg:justify-between">
-
-          <div>
-            <h2 className="text-2xl font-black">
-              Offer Wale <span className="text-amber-400">Baba</span>
-            </h2>
-
-            <p className="mt-2 text-sm text-white/40">
-              Ulhasnagar, Maharashtra · Serving PAN India
-            </p>
-          </div>
-
-          <div className="flex flex-wrap gap-6 text-sm text-white/50">
-            <a href="#" className="hover:text-amber-400">
-              Home
-            </a>
-
-            <a href="#" className="hover:text-amber-400">
-              About
-            </a>
-
-            <a href="#" className="hover:text-amber-400">
-              Categories
-            </a>
-
-            <a href="#" className="hover:text-amber-400">
-              Contact
-            </a>
-          </div>
-
-          <p className="text-sm text-white/30">
-            © 2026 Offer Wale Baba. All rights reserved.
-          </p>
-        </div>
-      </footer> */}
     </div>
   );
 }

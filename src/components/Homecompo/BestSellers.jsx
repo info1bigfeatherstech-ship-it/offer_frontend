@@ -76,14 +76,17 @@ const BestSellers = () => {
   }
 
   return (
-    <section className="max-w-[1500px] mx-auto px-4 md:px-12 lg:px-20 py-12 md:py-20 font-sans">
+    <section className="max-w-[1500px] mx-auto px-4 md:px-12 lg:px-20 py-12 md:py-20 font-">
 
       {/* Header */}
       <div className="flex items-end justify-between mb-10 border-b border-zinc-100 pb-6">
         <div className="space-y-1">
-          <h2 className="text-3xl md:text-5xl font-outfit tracking-tighter uppercase">
-            Just&nbsp;&nbsp;<span className="text-yellow-600 font-outfit">Arrived</span>
-          </h2>
+          
+           <h3 className="text-2xl sm:text-2xl md:text-4xl font-lato flex items-center gap-2 md:gap-4 text-gray-900 mb-4 sm:mb-0">
+            <span className="w-2 h-8 md:w-3 md:h-12 bg-[#f7a221] rounded-full" />
+            Just Arrived
+          </h3>
+          
           <div className="flex items-center gap-2">
             <span className="w-4 h-[1px] bg-yellow-600" />
             <p className="text-[8px] font-bold uppercase tracking-[0.3em] text-yellow-600 underline underline-offset-4">
@@ -91,12 +94,12 @@ const BestSellers = () => {
             </p>
           </div>
         </div>
-        <button
+        {/* <button
           onClick={() => navigate('/products')}
           className="hidden sm:block text-[9px] font-black uppercase tracking-widest bg-zinc-900 text-white px-6 py-3 hover:bg-zinc-800 transition-all"
         >
           Explore All
-        </button>
+        </button> */}
       </div>
 
       {/* Skeleton */}

@@ -37,6 +37,7 @@ import ContactUs from "./components/Common/Contact";
 import TagProducts from "./User_Side_Web_Interface/User_Dash_Segment/UserSubPages/TagProducts";
 import AboutUs from "./components/Common/AboutUs";
 import Policy from "./components/Common/Policy";
+// import SideVideo from "./components/Common/SideVideo/SideVideo";
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Optional: protect /account routes ────────────────────────────────────────
@@ -237,7 +238,7 @@ const AppContent = () => {
                     onLoginSuccess={handleLoginSuccess}
                 />
             )}
-
+            {/* <SideVideo /> */}
             <WhatsAppFloat />
         </div>
     );

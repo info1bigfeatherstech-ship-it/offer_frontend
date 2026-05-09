@@ -17,20 +17,21 @@ const Footer = () => {
       title: "Quick links",
       items: [
         { label: "Smart Life Gadgets", path: "/category/smart-life-gadgets" },
-        { label: "Home & Kitchen", path: "/category/home-&-kitchen" },
+        { label: "Home & Kitchen", path: "/category/home-and-kitchen" },
         { label: "Fashion World", path: "/category/fashion-world" },
-        { label: "Sports & Fitness", path: "/category/sports-&-fitness" },
-        { label: "Tours & Travels", path: "/category/tours-&-travels" }
+        { label: "Sports & Fitness", path: "/category/sports-and-fitness" },
+        { label: "Tours & Travels", path: "/category/tours-and-travels" },
+        { label: "Stationary", path: "/category/stationary" },
       ]
     },
     {
       title: "Quick links",
       items: [
-        { label: "Stationary", path: "/category/stationary" },
         { label: "Baby Items", path: "/category/baby-items" },
         { label: "Car Accessories", path: "/category/car-accessories" },
-        { label: "Cleaning & Housekeeping Supplies", path: "/Cleaning-&Housekeeping-Supplies" },
-        { label: "Gifts", path: "/category/gifts" }
+        { label: "Cleaning & Housekeeping Supplies", path: "/category/cleaning-&housekeeping-supplies" },
+        { label: "Gifts", path: "/category/gifts" },
+        { label: "Mix-items", path: "/category/stationary" },
       ]
     },
     // { 
@@ -232,27 +233,42 @@ const Footer = () => {
             </div>
 
             {/* Responsive: Flex col on mobile, Flex row on desktop */}
-            <div className="flex flex-col md:flex-row items-start justify-between gap-8 md:gap-10">
-              {/* Support Info */}
-              <div className="flex-1 min-w-0">
-                <p className="text-[#f7a221] font-black text-[10px] tracking-widest uppercase mb-2">Support</p>
-                <p className="text-white font-bold text-lg mb-1">+91 9370686008</p>
-                <a
-                  href="mailto:support.offerwalebaba@gmail.com"
-                  className="text-white text-sm break-all block hover:text-[#f7a221] transition-colors"
-                >
-                  support.offerwalebaba@gmail.com
-                </a>
-              </div>
+            <div className="flex flex-col md:grid md:grid-cols-2 gap-8 md:gap-10">
+  {/* Support Info - Takes 1 column on desktop */}
+  <div className="min-w-0">
+    <p className="text-[#f7a221] font-black text-[20px] tracking-widest uppercase mb-2">
+      Support
+    </p>
+    <p className="text-white font-bold text-lg mb-1">+91 9370686008</p>
+    <a
+      href="mailto:support.offerwalebaba@gmail.com"
+      className="text-white text-sm break-all block hover:text-[#f7a221] transition-colors"
+    >
+      support.offerwalebaba@gmail.com
+    </a>
+  </div>
 
-              {/* Location Info */}
-              <div className="flex-1 min-w-0 md:ml-2">
-                <p className="text-[#f7a221] font-black text-[10px] tracking-widest uppercase mb-2">Location</p>
-                <p className="text-white text-base md:text-lg leading-relaxed">
-                  Block no 277/553, sambhaji chowk, opp. tipcy-topcy society, Babasai Nagar, Ulhasnagar, Maharashtra 421004
-                </p>
-              </div>
-            </div>
+  {/* Location Info - Takes 1 column on desktop */}
+  <div className="min-w-0">
+    <p className="text-[#f7a221] font-black text-[20px] tracking-widest uppercase mb-2">
+      Location
+    </p>
+    <p className="text-white text-base md:text-lg leading-relaxed">
+      Block no 277/553, sambhaji chowk, opp. tipcy-topcy society, Babasai Nagar,
+      Ulhasnagar, Maharashtra 421004
+    </p>
+  </div>
+
+  {/* Working Hours - Spans full width at the bottom on desktop */}
+  <div className="min-w-0 md:col-span-2 border-t border-white/10 pt-4 md:pt-0 md:border-none">
+    <p className="text-[#f7a221] font-black text-[20px] tracking-widest uppercase mb-2">
+      Working Hours
+    </p>
+    <p className="text-white text-base md:text-lg leading-relaxed">
+      Tue–Sun, 1 PM – 11 PM
+    </p>
+  </div>
+</div>
           </div>
 
           {/* Quick Links Section */}

@@ -1,9 +1,12 @@
+
+
 import React, { useState, useEffect, useRef } from "react";
 import { Phone, Mail, User, Lock } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { registerUser, googleLogin } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
 import { GoogleIcon } from "./Login";
+import LOGO from "../../assets/logo2.svg";
 
 const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
   const dispatch = useDispatch();
@@ -94,7 +97,12 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
     <div className="w-full">
       <div ref={googleBtnRef} style={{ display: "none" }} />
 
-      <h2 className="text-3xl sm:text-4xl text-center font- text-white mb-1 tracking-tighter">
+      {/* ── Logo Container (Top Center) ── */}
+     <div className="flex justify-center mb-5">
+  <img src={LOGO} alt="Logo" className="h-25 md:h-32 w-auto object-contain rounded" />
+</div>
+
+      <h2 className="text-2xl sm:text-2xl text-center font- text-white mb-1 tracking-tighter">
         JOIN THE <span className="text-[#f7a221]">CLUB</span>
       </h2>
       <p className="text-gray-200 text-center text-[10px] tracking-widest uppercase mb-5">
@@ -110,13 +118,13 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
       <div className="lr-slide-up">
         <button
           onClick={handleGoogleClick}
-          className="w-full bg-white hover:bg-gray-50 active:bg-gray-100 text-black cursor-pointer font-bold py-3.5 px-4 rounded-2xl transition-all flex items-center justify-center gap-3 mb-3 shadow-md active:scale-[0.98] touch-manipulation select-none"
+          className="w-full bg-white hover:bg-gray-50 active:bg-gray-100 text-black cursor-pointer font-bold py-3 px-4 rounded-2xl transition-all flex items-center justify-center gap-3 mb-3 shadow-md active:scale-[0.98] touch-manipulation select-none"
         >
           <GoogleIcon />
           <span className="text-sm">Sign up with Google</span>
         </button>
 
-        <div className="relative my-5">
+        <div className="relative my-4">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-white/25" />
           </div>
@@ -125,7 +133,7 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3.5">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <div className="relative">
             <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
             <input
@@ -134,7 +142,7 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoComplete="name"
-              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
               style={{ fontSize: "16px" }}
               required
             />
@@ -148,7 +156,7 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
-              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
               style={{ fontSize: "16px" }}
               required
             />
@@ -171,7 +179,7 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
                 setPhone(digits);
               }}
               autoComplete="tel"
-              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
               style={{ fontSize: "16px" }}
               required
               minLength={10}
@@ -187,7 +195,7 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
-              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
               style={{ fontSize: "16px" }}
               required
               minLength="6"
@@ -197,13 +205,13 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-50 text-black font-black py-4 rounded-xl cursor-pointer transition-all shadow-[0_8px_20px_rgba(247,162,33,0.25)] text-sm uppercase touch-manipulation select-none"
+            className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-50 text-black font-black py-3.5 rounded-xl cursor-pointer transition-all shadow-[0_8px_20px_rgba(247,162,33,0.25)] text-sm uppercase touch-manipulation select-none"
           >
             {loading ? "SENDING OTP..." : "REGISTER"}
           </button>
         </form>
 
-        <p className="text-center text-gray-200 text-[11px] mt-5 tracking-wide">
+        <p className="text-center text-gray-200 text-[11px] mt-4 tracking-wide">
           Already a member?{" "}
           <button
             onClick={onLoginClick}
@@ -218,6 +226,228 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
 };
 
 export default Register;
+// upper code have logo
+
+// import React, { useState, useEffect, useRef } from "react";
+// import { Phone, Mail, User, Lock } from "lucide-react";
+// import { useDispatch, useSelector } from "react-redux";
+// import { toast } from "react-toastify";
+// import { registerUser, googleLogin } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
+// import { GoogleIcon } from "./Login";
+
+// const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
+//   const dispatch = useDispatch();
+//   const { loading, error, pendingPhone } = useSelector((state) => state.auth);
+//   // CHANGED: pendingEmail → pendingPhone (OTP is now sent to phone)
+//   const googleBtnRef = useRef(null);
+
+//   const [name, setName] = useState("");
+//   const [email, setEmail] = useState("");
+//   // CHANGED: phone is now REQUIRED by backend (10-digit validation server-side)
+//   const [phone, setPhone] = useState("");
+//   const [password, setPassword] = useState("");
+
+//   useEffect(() => {
+//     if (error) toast.error(error);
+//   }, [error]);
+
+//   const handleGoogleClick = () => {
+//     if (googleBtnRef.current) {
+//       const el = googleBtnRef.current.querySelector('div[role="button"]');
+//       if (el) el.click();
+//       else {
+//         const iframe = googleBtnRef.current.querySelector("iframe");
+//         if (iframe) iframe.click();
+//       }
+//     }
+//   };
+
+//   useEffect(() => {
+//     const init = () => {
+//       if (!window.google) return;
+//       window.google.accounts.id.initialize({
+//         client_id: import.meta.env.VITE_GOOGLE_CLIENT_ID || "demo-client-id",
+//         use_fedcm_for_prompt: true,
+//         callback: async (response) => {
+//           const result = await dispatch(googleLogin({ idToken: response.credential }));
+//           if (googleLogin.fulfilled.match(result)) {
+//             toast.success("Welcome to the Club!");
+//             onRegisterSuccess();
+//           }
+//         },
+//       });
+//       window.google.accounts.id.renderButton(googleBtnRef.current, {
+//         theme: "outline",
+//         size: "large",
+//       });
+//     };
+//     if (!window.google) {
+//       const s = document.createElement("script");
+//       s.src = "https://accounts.google.com/gsi/client";
+//       s.async = true;
+//       s.onload = init;
+//       document.body.appendChild(s);
+//     } else {
+//       init();
+//     }
+//   }, [dispatch, onRegisterSuccess]);
+
+//   const handleSubmit = async (e) => {
+//     e.preventDefault();
+
+//     // Client-side phone validation to match backend's /^[0-9]{10}$/ rule
+//     // Give a clear error before even hitting the server
+//     const cleanPhone = phone.trim();
+//     if (!/^[0-9]{10}$/.test(cleanPhone)) {
+//       toast.error("Phone number must be exactly 10 digits");
+//       return;
+//     }
+
+//     try {
+//       const result = await dispatch(
+//         registerUser({ name, email, password, phone: cleanPhone })
+//       ).unwrap();
+
+//       if (result) {
+//         toast.success("OTP sent to your phone!");
+//         // CHANGED: pass phone (not email) to OTP modal
+//         // Backend sends OTP to phone, so OtpVerification needs phone
+//         // pendingPhone from Redux is the source of truth; fall back to local state
+//         onShowOtp(pendingPhone || cleanPhone, name);
+//       }
+//     } catch (_) {
+//       // Error handled by the useEffect above via Redux state
+//     }
+//   };
+
+//   return (
+//     <div className="w-full">
+//       <div ref={googleBtnRef} style={{ display: "none" }} />
+
+//       <h2 className="text-3xl sm:text-4xl text-center font- text-white mb-1 tracking-tighter">
+//         JOIN THE <span className="text-[#f7a221]">CLUB</span>
+//       </h2>
+//       <p className="text-gray-200 text-center text-[10px] tracking-widest uppercase mb-5">
+//         Exclusive deals await
+//       </p>
+
+//       {error && (
+//         <div className="mb-4 p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-[11px] text-center font-medium">
+//           {error}
+//         </div>
+//       )}
+
+//       <div className="lr-slide-up">
+//         <button
+//           onClick={handleGoogleClick}
+//           className="w-full bg-white hover:bg-gray-50 active:bg-gray-100 text-black cursor-pointer font-bold py-3.5 px-4 rounded-2xl transition-all flex items-center justify-center gap-3 mb-3 shadow-md active:scale-[0.98] touch-manipulation select-none"
+//         >
+//           <GoogleIcon />
+//           <span className="text-sm">Sign up with Google</span>
+//         </button>
+
+//         <div className="relative my-5">
+//           <div className="absolute inset-0 flex items-center">
+//             <div className="w-full border-t border-white/25" />
+//           </div>
+//           <div className="relative flex justify-center text-[9px] uppercase tracking-[0.3em] font-">
+//             <span className="px-4 bg-[#0d0d0d] text-gray-200">OR REGISTER WITH DETAILS</span>
+//           </div>
+//         </div>
+
+//         <form onSubmit={handleSubmit} className="space-y-3.5">
+//           <div className="relative">
+//             <User className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+//             <input
+//               type="text"
+//               placeholder="Full Name"
+//               value={name}
+//               onChange={(e) => setName(e.target.value)}
+//               autoComplete="name"
+//               className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+//               style={{ fontSize: "16px" }}
+//               required
+//             />
+//           </div>
+
+//           <div className="relative">
+//             <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+//             <input
+//               type="email"
+//               placeholder="Email Address"
+//               value={email}
+//               onChange={(e) => setEmail(e.target.value)}
+//               autoComplete="email"
+//               className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+//               style={{ fontSize: "16px" }}
+//               required
+//             />
+//           </div>
+
+//           {/*
+//             CHANGED: phone is now REQUIRED (was optional before).
+//             Backend validates: /^[0-9]{10}$/ — exactly 10 digits, no spaces or dashes.
+//             OTP will be sent to this phone number via SMS.
+//           */}
+//           <div className="relative">
+//             <Phone className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+//             <input
+//               type="tel"
+//               placeholder="Phone Number (10 digits)"
+//               value={phone}
+//               onChange={(e) => {
+//                 // Only allow digits, max 10
+//                 const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+//                 setPhone(digits);
+//               }}
+//               autoComplete="tel"
+//               className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+//               style={{ fontSize: "16px" }}
+//               required
+//               minLength={10}
+//               maxLength={10}
+//             />
+//           </div>
+
+//           <div className="relative">
+//             <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={17} />
+//             <input
+//               type="password"
+//               placeholder="Password (min 6 chars)"
+//               value={password}
+//               onChange={(e) => setPassword(e.target.value)}
+//               autoComplete="new-password"
+//               className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 text-sm transition-all"
+//               style={{ fontSize: "16px" }}
+//               required
+//               minLength="6"
+//             />
+//           </div>
+
+//           <button
+//             type="submit"
+//             disabled={loading}
+//             className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-50 text-black font-black py-4 rounded-xl cursor-pointer transition-all shadow-[0_8px_20px_rgba(247,162,33,0.25)] text-sm uppercase touch-manipulation select-none"
+//           >
+//             {loading ? "SENDING OTP..." : "REGISTER"}
+//           </button>
+//         </form>
+
+//         <p className="text-center text-gray-200 text-[11px] mt-5 tracking-wide">
+//           Already a member?{" "}
+//           <button
+//             onClick={onLoginClick}
+//             className="text-[#f7a221] text-[15px] font- hover:underline cursor-pointer touch-manipulation"
+//           >
+//             Login here
+//           </button>
+//         </p>
+//       </div>
+//     </div>
+//   );
+// };
+
+// export default Register;
 // need to change the ui name email phone pass 
 // import React, { useState, useEffect, useRef } from "react";
 // import { Phone, Mail, User, ArrowRight, Lock, ChevronLeft } from "lucide-react";

@@ -72,7 +72,7 @@ const visibleCategories = categories.slice(0, endIndex);
 
   // ── Main Render ──────────────────────────────────────────────────────────
   return (
-    <div className="w-full bg-white py-8 md:py-16 overflow-hidden">
+    <div className="w-full bg-white py-8 md:py-1 overflow-hidden">
       <section className="container mx-auto px-4">
 
         {/* Header */}

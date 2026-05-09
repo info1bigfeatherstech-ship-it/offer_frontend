@@ -32,7 +32,7 @@ const policiesData = [
       },
       {
         "heading": "Cancellation vs Return & Policy Updates",
-        "content": "Cancellation applies before dispatch (as per order status and eligibility). Return applies after successful delivery and follows this policy.\n\nOfferWaaleBaba may update this policy from time to time to reflect operational, legal, or platform changes. Updated versions will be posted on the website with revised date.\n\nFor return/refund assistance, contact us with your Order ID:\nEmail: support.offerwalebaba@gmail.com\nPhone/WhatsApp: Call us +91 93706 86008\nSupport Hours: Tue–Sun, 1 PM – 11 PM"
+        "content": "Cancellation applies before dispatch (as per order status and eligibility). Return applies after successful delivery and follows this policy.\n\nOfferWaaleBaba may update this policy from time to time to reflect operational, or platform changes. Updated versions will be posted on the website with revised date.\n\nFor return/refund assistance, contact us with your Order ID:\nEmail: support.offerwalebaba@gmail.com\n"
       }
     ]
   },
@@ -85,11 +85,11 @@ const policiesData = [
       },
       {
         "heading": "11) Contact for Cancellation Support",
-        "content": "For help with cancellation:\nEmail: support.offerwalebaba@gmail.com\nPhone/WhatsApp: +91 93706 86008\nSupport Hours: Tue–Sun, 1 PM – 11 PM\n\nPlease keep your Order ID ready for faster assistance."
+        "content": "For help with cancellation:\nEmail: support.offerwalebaba@gmail.com\nPlease keep your Order ID ready for faster assistance."
       },
       {
         "heading": "12) Policy Changes",
-        "content": "OfferWaaleBaba may update this policy at any time for legal/operational reasons. Updated policy becomes effective once published on the website with revised date."
+        "content": "OfferWaaleBaba may update this policy at any time for operational reasons. Updated policy becomes effective once published on the website with revised date."
       }
     ]
   },
@@ -97,7 +97,7 @@ const policiesData = [
     "slug": "terms-conditions",
     "title": "Terms & Conditions",
     "subtitle": "By using OfferWaaleBaba, you agree to these terms. Please read them carefully before making a purchase.",
-    "tag": "Legal",
+    "tag": "terms",
     "updated": "May 8, 2026",
     "sections": [
       {
@@ -114,7 +114,7 @@ const policiesData = [
       },
       {
         "heading": "4) Payment Methods",
-        "content": "OfferWaaleBaba may support:\n• Full COD\n• Full online payment\n• Partial online advance + COD balance at delivery (where enabled)\n\nAdditional terms:\n• Partial payment percentages and eligibility may be configured by admin/business rules.\n• For hybrid/partial payment orders, remaining amount is collected as COD through delivery workflow.\n• Payment failures may lead to cancellation or pending state as per system rules."
+        "content": "OfferWaaleBaba may support: Full online payment\n• Full COD\n•  Partial online advance + COD balance at delivery (where enabled)\n\nAdditional terms:\n• Partial payment percentages and eligibility may be configured by admin/business rules.\n• For hybrid/partial payment orders, remaining amount is collected as COD through delivery workflow.\n• Payment failures may lead to cancellation or pending state as per system rules."
       },
       {
         "heading": "5) Shipping and Delivery",
@@ -130,35 +130,26 @@ const policiesData = [
       },
       {
         "heading": "8) User Conduct",
-        "content": "Users must not:\n• Provide false identity or payment details\n• Abuse return/refund or promotional systems\n• Attempt unauthorized access, scraping, reverse engineering, or service disruption\n• Upload unlawful, infringing, or harmful content\n\nViolations may result in account restriction, order cancellation, legal reporting, and claim recovery."
+        "content": "Users must not:\n• Provide false identity or payment details\n• Abuse return/refund or promotional systems\n• Attempt unauthorized access, scraping, reverse engineering, or service disruption\n• Upload unlawful, infringing, or harmful content\n\nViolations may result in account restriction, order cancellation, reporting, and claim recovery."
       },
       {
         "heading": "9) Intellectual Property",
         "content": "All content on OfferWaaleBaba (logo, text, design, images, software, branding) is owned/licensed by us and protected by applicable IP laws. Unauthorized reproduction or commercial use is prohibited."
       },
+      
+     
       {
-        "heading": "10) Limitation of Liability",
-        "content": "To the extent permitted by law:\n• OfferWaaleBaba is not liable for indirect, incidental, special, or consequential damages.\n• Our aggregate liability for a claim shall not exceed the order value relevant to that claim."
-      },
-      {
-        "heading": "11) Indemnity",
-        "content": "You agree to indemnify and hold harmless OfferWaaleBaba, its team, and affiliates against claims, losses, and liabilities arising from your misuse of platform or violation of these Terms."
-      },
-      {
-        "heading": "12) Force Majeure",
+        "heading": "10) Force Majeure",
         "content": "We are not liable for delay/failure caused by events beyond reasonable control, including natural disasters, internet outages, government restrictions, pandemics, labor disruptions, or courier network failures."
       },
+    
       {
-        "heading": "13) Governing Law and Jurisdiction",
-        "content": "These Terms are governed by the laws of India. Courts at [Insert City/State] shall have exclusive jurisdiction, subject to applicable consumer law protections."
-      },
-      {
-        "heading": "14) Changes to Terms",
+        "heading": "11) Changes to Terms",
         "content": "We may modify these Terms at any time. Revised Terms become effective upon publication. Continued platform use indicates acceptance of updated Terms."
       },
       {
-        "heading": "15) Contact Information",
-        "content": "For legal/support queries:\nEmail: support.offerwalebaba@gmail.com\nPhone/WhatsApp: +91 93706 86008\nAddress: Block no 277/553, sambhaji chowk, opp. tipcy-topcy society, Babasai Nagar, Ulhasnagar, Maharashtra 421004"
+        "heading": "12) Contact Information",
+        "content": "For support/queries:\nEmail: support.offerwalebaba@gmail.com"
       }
     ]
   },
@@ -191,7 +182,7 @@ const policiesData = [
       },
       {
         "heading": "Contact Us",
-        "content": "For privacy-related concerns or questions about your data:\nEmail: support.offerwalebaba@gmail.com\nPhone/WhatsApp: +91 93706 86008\nSupport Hours: Tue–Sun, 1 PM – 11 PM"
+        "content": "For privacy-related concerns or questions about your data:\nEmail: support.offerwalebaba@gmail.com\n"
       }
     ]
   },
@@ -256,7 +247,7 @@ const policiesData = [
       },
       {
         "heading": "14) Contact Us",
-        "content": "For shipping-related support, contact:\nEmail: support.offerwalebaba@gmail.com\nPhone/WhatsApp: +91 93706 86008\nSupport Hours: Tue–Sun, 1 PM – 11 PM\n\nPlease share your Order ID for quicker assistance."
+        "content": "For shipping-related support, contact:\nEmail: support.offerwalebaba@gmail.com\nPlease share your Order ID for quicker assistance."
       }
     ]
   }
