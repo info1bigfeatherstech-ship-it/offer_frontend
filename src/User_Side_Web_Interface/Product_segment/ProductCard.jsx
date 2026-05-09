@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
@@ -18,6 +18,7 @@ import {
 
 import LazyImage from "./LazyImage";
 import { fetchCategories } from "../../components/ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/categoriesSlice";
+import { getProductRatingDisplay } from "../../utils/productRatingDisplay";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const formatPrice = (n) => {
@@ -82,6 +83,8 @@ const ProductCard = ({ product, index = 0 }) => {
   const category = typeof product?.category === "object"
     ? product.category?.name
     : product?.category || "";
+
+  const ratingUi = useMemo(() => getProductRatingDisplay(product, null), [product]);
 
     useEffect(()=>{
       dispatch(fetchCategories());
@@ -300,7 +303,9 @@ const ProductCard = ({ product, index = 0 }) => {
           </h3>
           <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
             <Star size={14} className="text-yellow-400 fill-yellow-400" />
-            <span className="text-[10px] md:text-[15px] font-semibold text-zinc-600">4.3</span>
+            <span className="text-[10px] md:text-[15px] font-semibold text-zinc-600">
+              {Number(ratingUi.average).toFixed(1)}
+            </span>
           </div>
         </div>
 

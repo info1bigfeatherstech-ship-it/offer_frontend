@@ -32,6 +32,8 @@ import Breadcrumb from "./Breadcrumb/Breadcrumb";
 import CatProducts from "./CatPro_segment/CatProducts";
 import { fetchCategories } from "../../components/ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/categoriesSlice";
 import axiosInstance from "../../SERVICES/axiosInstance";
+import { getProductRatingDisplay } from "../../utils/productRatingDisplay";
+import StarRatingInput from "./StarRatingInput";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 const Skeleton = () => (
@@ -159,6 +161,8 @@ const RelatedCard = ({ product, index = 0 }) => {
   const category = typeof product?.category === "object"
     ? product.category?.name
     : product?.category || "";
+
+  const ratingUi = useMemo(() => getProductRatingDisplay(product, null), [product]);
 
   useEffect(() => {
     dispatch(fetchCategories());
@@ -394,7 +398,9 @@ const RelatedCard = ({ product, index = 0 }) => {
           </h3>
           <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
             <Star size={14} className="text-yellow-400 fill-yellow-400" />
-            <span className="text-[10px] md:text-[15px] font-semibold text-zinc-600">4.3</span>
+            <span className="text-[10px] md:text-[15px] font-semibold text-zinc-600">
+              {Number(ratingUi.average).toFixed(1)}
+            </span>
           </div>
         </div>
 
@@ -504,6 +510,14 @@ const ProductUI = () => {
   const [publicCoupons, setPublicCoupons] = useState([]);
   const [couponsLoading, setCouponsLoading] = useState(false);
   const [copiedCouponCode, setCopiedCouponCode] = useState("");
+  const [reviewSummary, setReviewSummary] = useState(null);
+  const [reviewsList, setReviewsList] = useState([]);
+  const [reviewsLoading, setReviewsLoading] = useState(false);
+  const [myReview, setMyReview] = useState(null);
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  /** When true, optional comment textarea is shown (rating + submit are always visible). */
+  const [showReviewComment, setShowReviewComment] = useState(false);
   const containerRef = useRef(null);
   const lensRef = useRef(null);
   const zoomRef = useRef(null);
@@ -569,6 +583,75 @@ const ProductUI = () => {
       if (copyResetTimeoutRef.current) clearTimeout(copyResetTimeoutRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    const productId = product?._id;
+    if (!productId) {
+      setReviewSummary(null);
+      setReviewsList([]);
+      setMyReview(null);
+      setShowReviewComment(false);
+      return undefined;
+    }
+    setShowReviewComment(false);
+    let cancelled = false;
+    (async () => {
+      setReviewsLoading(true);
+      try {
+        const pid = String(productId);
+        const [sumRes, listRes] = await Promise.all([
+          axiosInstance.get(`/product-reviews/public/${pid}/summary`),
+          axiosInstance.get(`/product-reviews/public/${pid}`, { params: { limit: 50 } }),
+        ]);
+        if (cancelled) return;
+        setReviewSummary(sumRes.data?.summary ?? null);
+        setReviewsList(Array.isArray(listRes.data?.reviews) ? listRes.data.reviews : []);
+      } catch (err) {
+        logError("loadProductReviews", err);
+        if (!cancelled) {
+          setReviewSummary(null);
+          setReviewsList([]);
+        }
+      } finally {
+        if (!cancelled) setReviewsLoading(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [product?._id]);
+
+  useEffect(() => {
+    const productId = product?._id;
+    if (!productId || !isLoggedIn) {
+      if (!isLoggedIn) {
+        setMyReview(null);
+        setShowReviewComment(false);
+      }
+      return undefined;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await axiosInstance.get(`/product-reviews/mine/${String(productId)}`);
+        if (!cancelled) {
+          const r = res.data?.review;
+          setMyReview(r || null);
+          if (r) {
+            setReviewForm({ rating: r.rating, comment: r.comment || "" });
+          } else {
+            setReviewForm({ rating: 5, comment: "" });
+          }
+        }
+      } catch (err) {
+        logError("loadMyReview", err);
+        if (!cancelled) setMyReview(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [product?._id, isLoggedIn]);
 
   useEffect(() => {
     let cancelled = false;
@@ -726,8 +809,13 @@ const ProductUI = () => {
 
   const title = product?.title || product?.name || "Product";
   const desc = product?.description ?? "";
-  const rating = product?.rating?.value ?? 4.5;
-  const ratingCnt = product?.rating?.count ?? 0;
+  const ratingDisplay = useMemo(
+    () => getProductRatingDisplay(product, reviewSummary),
+    [product, reviewSummary]
+  );
+  const displayAvg = ratingDisplay.average;
+  const displayCount = ratingDisplay.count;
+  const ratingIsPlaceholder = ratingDisplay.isPlaceholder;
   const soldInfo = product?.soldInfo?.count ?? 0;
   const brand = product?.brand ?? null;
   const variant = selectedVariant || {};
@@ -810,6 +898,49 @@ const ProductUI = () => {
     };
     if (map[type]) window.open(map[type], "_blank");
     if (type === "instagram") { navigator?.clipboard?.writeText(url); alert("Link copied!"); }
+  };
+
+  const submitProductReview = async (e) => {
+    e.preventDefault();
+    if (!product?._id || !isLoggedIn) {
+      toast.info("Please log in to write a review");
+      return;
+    }
+    setReviewSubmitting(true);
+    try {
+      const body = {
+        productId: String(product._id),
+        rating: Number(reviewForm.rating),
+        comment: String(reviewForm.comment || "").trim(),
+      };
+      if (myReview?._id) {
+        await axiosInstance.put(`/product-reviews/${myReview._id}`, body);
+        toast.success("Review updated");
+      } else {
+        await axiosInstance.post("/product-reviews", body);
+        toast.success("Thanks! Your review will appear after moderation.");
+      }
+      const pid = String(product._id);
+      const [sumRes, listRes, mineRes] = await Promise.all([
+        axiosInstance.get(`/product-reviews/public/${pid}/summary`),
+        axiosInstance.get(`/product-reviews/public/${pid}`, { params: { limit: 50 } }),
+        axiosInstance.get(`/product-reviews/mine/${pid}`),
+      ]);
+      setReviewSummary(sumRes.data?.summary ?? null);
+      setReviewsList(Array.isArray(listRes.data?.reviews) ? listRes.data.reviews : []);
+      const r = mineRes.data?.review;
+      setMyReview(r || null);
+      if (r) setReviewForm({ rating: r.rating, comment: r.comment || "" });
+      setShowReviewComment(false);
+    } catch (err) {
+      const msg =
+        err?.response?.data?.message ||
+        err?.message ||
+        "Could not save review";
+      toast.error(msg);
+    } finally {
+      setReviewSubmitting(false);
+    }
   };
 
   // ── guards ─────────────────────────────────────────────────────────────────
@@ -932,8 +1063,9 @@ const ProductUI = () => {
           <div className="bg-gray-50 rounded-2xl sm:rounded-3xl overflow-hidden ">
             <div className="flex flex-col lg:grid lg:grid-cols-2">
 
-              {/* ── LEFT: Image panel ── */}
-              <div className="flex flex-row lg:border-r border-gray-100 gap-6">
+              {/* ── LEFT: Gallery + customer reviews below ── */}
+              <div className="flex flex-col w-full gap-4 lg:gap-6 lg:border-r border-gray-100 lg:pr-4 min-w-0">
+                <div className="flex flex-row gap-6 min-w-0">
 
                 {images.length > 0 && (
                   <div className="hidden lg:flex flex-col items-center gap-0 py-3 px-2 border-r border-gray-100 bg-gray-50 flex-shrink-0 w-[76px]">
@@ -1039,9 +1171,145 @@ const ProductUI = () => {
                     </div>
                   )}
                 </div>
-              </div>
+                </div>{/* end image row */}
 
-              <div className="flex flex-col">
+                {/* Reviews: directly under gallery; list grows downward / scrolls */}
+                <div className="border border-zinc-100 rounded-2xl overflow-hidden bg-white flex flex-col min-h-0 w-full lg:max-h-[min(70vh,48rem)]">
+                  <div className="px-4 py-5 sm:px-6 sm:pt-6 sm:pb-4 flex-shrink-0 border-b border-zinc-100/90">
+                    <p className="text-lg font-bold text-gray-900 mb-3">Customer reviews</p>
+                    {reviewsLoading ? (
+                      <p className="text-sm text-gray-500 py-2">Loading reviews…</p>
+                    ) : (
+                      <>
+                        <div className="flex flex-wrap items-center gap-2 mb-4 text-sm text-gray-600">
+                          <span className="font-semibold text-gray-900">
+                            {Number(displayAvg).toFixed(1)}
+                          </span>
+                          <Star size={16} className="text-[#F7C85C] fill-[#F7C85C]" />
+                          <span>
+                            {ratingIsPlaceholder
+                              ? `${displayCount} ratings`
+                              : `${displayCount} published ${displayCount === 1 ? "review" : "reviews"}`}
+                          </span>
+                        </div>
+
+                        {isLoggedIn ? (
+                          <form
+                            onSubmit={submitProductReview}
+                            className="rounded-xl border border-gray-200 bg-gray-50/80 p-4 space-y-3"
+                          >
+                            <p className="text-sm font-semibold text-gray-900">
+                              {myReview?._id ? "Your review" : "Rate this product"}
+                            </p>
+                            {myReview && !myReview.isActive && (
+                              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
+                                Submitted — visible on the site after admin approval.
+                              </p>
+                            )}
+                            <div>
+                              <span className="block text-xs font-medium text-gray-500 mb-2">Your rating</span>
+                              <StarRatingInput
+                                value={reviewForm.rating}
+                                onChange={(n) =>
+                                  setReviewForm((f) => ({ ...f, rating: n }))
+                                }
+                                disabled={reviewSubmitting}
+                                size={30}
+                              />
+                            </div>
+                            {!showReviewComment ? (
+                              <button
+                                type="button"
+                                onClick={() => setShowReviewComment(true)}
+                                className="text-sm font-semibold text-orange-600 hover:text-orange-700 hover:underline"
+                              >
+                                Write a comment <span className="font-normal text-gray-500">(optional)</span>
+                              </button>
+                            ) : (
+                              <div className="space-y-2">
+                                <label className="block text-xs font-medium text-gray-500 mb-1">
+                                  Comment (optional)
+                                </label>
+                                <textarea
+                                  value={reviewForm.comment}
+                                  onChange={(e) =>
+                                    setReviewForm((f) => ({ ...f, comment: e.target.value }))
+                                  }
+                                  rows={3}
+                                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white"
+                                  maxLength={2000}
+                                />
+                                <button
+                                  type="button"
+                                  disabled={reviewSubmitting}
+                                  onClick={() => setShowReviewComment(false)}
+                                  className="text-xs font-medium text-gray-500 hover:text-gray-800"
+                                >
+                                  Hide comment
+                                </button>
+                              </div>
+                            )}
+                            <button
+                              type="submit"
+                              disabled={reviewSubmitting}
+                              className="text-sm font-semibold px-4 py-2 rounded-lg bg-zinc-900 text-white hover:bg-zinc-800 disabled:opacity-60"
+                            >
+                              {reviewSubmitting ? "Saving…" : myReview?._id ? "Update review" : "Submit review"}
+                            </button>
+                          </form>
+                        ) : (
+                          <p className="text-sm text-gray-500">
+                            <Link to="/login" className="text-orange-600 font-semibold hover:underline">
+                              Log in
+                            </Link>{" "}
+                            to leave a review.
+                          </p>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  <div
+                    className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 overscroll-y-contain [scrollbar-gutter:stable]"
+                    aria-label="Published reviews list"
+                  >
+                    {reviewsLoading ? null : reviewsList.length === 0 ? (
+                      <p className="text-sm text-gray-500">No published reviews yet.</p>
+                    ) : (
+                      <ul className="space-y-4 pb-2">
+                        {reviewsList.map((r) => (
+                          <li
+                            key={r._id}
+                            className="border border-gray-100 rounded-xl p-4 bg-white"
+                          >
+                            <div className="flex items-center justify-between gap-2 mb-1">
+                              <span className="text-sm font-semibold text-gray-900">
+                                {r.author}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                {r.createdAt
+                                  ? new Date(r.createdAt).toLocaleDateString()
+                                  : ""}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-1 text-sm text-amber-600 mb-2">
+                              {Array.from({ length: r.rating }).map((_, i) => (
+                                <Star key={i} size={14} className="fill-current" />
+                              ))}
+                            </div>
+                            {r.comment ? (
+                              <p className="text-sm text-gray-600 leading-relaxed">{r.comment}</p>
+                            ) : (
+                              <p className="text-xs text-gray-400 italic">No comment</p>
+                            )}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              </div>{/* end left column */}
+
+              <div className="flex flex-col min-w-0">
                 {/* ── RIGHT: Info panel ── */}
                 <div className="flex relative flex-col gap-3 p-4 sm:p-6 lg:p-7">
                   {showZoom && !isMobile && (
@@ -1071,9 +1339,15 @@ const ProductUI = () => {
                       </span>
                     )}
                     <div className="flex items-center w-fit px-1 py-2 rounded-lg gap-2 bg-gray-100">
-                      <div className="flex text-sm items-center gap-2">4.7 <Star size={14} fill="#F7C85C" className="text-[#F7C85C]" /></div>
+                      <div className="flex text-sm items-center gap-2">
+                        {Number(displayAvg).toFixed(1)}{" "}
+                        <Star size={14} fill="#F7C85C" className="text-[#F7C85C]" />
+                      </div>
                       <div className="w-[1.5px] h-5 bg-zinc-300"></div>
-                      <div className="text-sm">3 Ratings</div>
+                      <div className="text-sm">
+                        {displayCount}{" "}
+                        {displayCount === 1 ? "rating" : "ratings"}
+                      </div>
                     </div>
                   </div>
 
@@ -1422,92 +1696,46 @@ const ProductUI = () => {
                     <p className="text-[11px] text-gray-400 mt-1">*Coupons can be applied at checkout</p>
                   </div>
 
-                  <div className="h-px bg-gray-100" />
-
-                </div>{/* end right */}
-
-                {/* ═══════════ DESCRIPTION ═══════════ */}
-                {/* ═══════════ DESCRIPTION ═══════════ */}
-                <div className="border border-zinc-100 rounded-2xl overflow-hidden bg-white mt-10">
-
-                  {/* Header */}
-                  <button
-                    onClick={() => setOpenDesc((v) => !v)}
-                    className="w-full flex items-center cursor-pointer justify-between px-5 sm:px-6 py-4 hover:bg-gray-50 transition text-left"
-                  >
-                    <div className="flex items-center gap-3 cursor-pointer">
-                      <div className="w-8 h-8 bg-purple-50 cursor-pointer rounded-lg flex items-center justify-center flex-shrink-0">
-                        <FileText size={15} className="text-purple-600" />
-                      </div>
-                      <div className="cursor-pointer">
-                        <p className="text-sm font-semibold text-gray-900">Product Description</p>
-                        <p className="text-[11px] text-gray-400 mt-0.5">Highlights, specs & details</p>
-                      </div>
-                    </div>
-                    <ChevronDown
-                      size={18}
-                      className={`text-gray-400 transition-transform duration-300 flex-shrink-0 ${openDesc ? "rotate-180" : ""}`}
-                    />
-                  </button>
-
-                  {openDesc && (
-                    <div className="border-t border-gray-100 divide-y divide-gray-100 cursor-pointer">
-
-                      {/* About */}
-                      {product?.description?.trim() && (
-                        <div className="px-5 sm:px-6 py-5">
-                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-3">About this item</p>
-                          <p className="text-sm text-gray-600 font-bold leading-relaxed">{product.title}</p> <br />
-                          <p className="text-sm text-gray-600 leading-relaxed">{product.description}</p>
+                  <div className="h-px bg-gray-100 mt-2" />
+                  <div className="mt-4 border border-zinc-100 rounded-2xl overflow-hidden bg-white">
+                    <button
+                      type="button"
+                      onClick={() => setOpenDesc((v) => !v)}
+                      className="w-full flex items-center cursor-pointer justify-between px-5 sm:px-6 py-4 hover:bg-gray-50 transition text-left"
+                    >
+                      <div className="flex items-center gap-3 cursor-pointer">
+                        <div className="w-8 h-8 bg-purple-50 cursor-pointer rounded-lg flex items-center justify-center flex-shrink-0">
+                          <FileText size={15} className="text-purple-600" />
                         </div>
-                      )}
-
-                      {/* Highlights */}
-                      {Array.isArray(product?.attributes) && product.attributes.some(a => a?.key && a?.value) && (
-                        <div className="px-5 sm:px-6 py-5">
-                          <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">Key highlights</p>
-                          <div className="flex flex-col gap-3">
-                            {product.attributes.filter(a => a?.key && a?.value).map((attr, i) => (
-                              <div key={`${attr.key}-${i}`} className="flex items-start gap-3 text-sm">
-                                <span className="text-gray-400 min-w-[120px] flex-shrink-0">{attr.key}</span>
-                                <span className="text-gray-900 font-medium">{attr.value}</span>
-                              </div>
-                            ))}
-                          </div>
+                        <div className="cursor-pointer">
+                          <p className="text-sm font-semibold text-gray-900">Product Description</p>
+                          <p className="text-[11px] text-gray-400 mt-0.5">Highlights, specs & details</p>
                         </div>
-                      )}
+                      </div>
+                      <ChevronDown
+                        size={18}
+                        className={`text-gray-400 transition-transform duration-300 flex-shrink-0 ${openDesc ? "rotate-180" : ""}`}
+                      />
+                    </button>
 
-                      {/* Dimensions */}
-                      {(() => {
-                        const s = product?.shipping;
-                        const d = s?.dimensions;
-                        if (!s || (!s.weight && !d?.length && !d?.width && !d?.height)) return null;
+                    {openDesc && (
+                      <div className="border-t border-gray-100 divide-y divide-gray-100 cursor-pointer">
 
-                        // Calculate Volumetric Weight in grams
-                        const length = d?.length || 0;
-                        const width = d?.width || 0;
-                        const height = d?.height || 0;
-                        const dimensionalFactor = 5000; // Standard factor for domestic/India shipments
-
-                        let volumetricWeightGm = null;
-                        if (length && width && height) {
-                          const volumetricWeightKg = (length * width * height) / dimensionalFactor;
-                          volumetricWeightGm = Math.round(volumetricWeightKg * 1000); // Convert to grams
-                        }
-
-                        const dims = [
-                          s?.weight && { key: "Weight", value: `${s.weight} kg` },
-                          d?.length && { key: "Length", value: `${d.length} cm` },
-                          d?.width && { key: "Width", value: `${d.width} cm` },
-                          d?.height && { key: "Height", value: `${d.height} cm` },
-                          volumetricWeightGm && { key: "Volu. Weight", value: `${volumetricWeightGm} Gm` },
-                        ].filter(Boolean);
-
-                        return (
+                        {/* About */}
+                        {product?.description?.trim() && (
                           <div className="px-5 sm:px-6 py-5">
-                            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">Dimensions & weight</p>
+                            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-3">About this item</p>
+                            <p className="text-sm text-gray-600 font-bold leading-relaxed">{product.title}</p> <br />
+                            <p className="text-sm text-gray-600 leading-relaxed">{product.description}</p>
+                          </div>
+                        )}
+
+                        {/* Highlights */}
+                        {Array.isArray(product?.attributes) && product.attributes.some(a => a?.key && a?.value) && (
+                          <div className="px-5 sm:px-6 py-5">
+                            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">Key highlights</p>
                             <div className="flex flex-col gap-3">
-                              {dims.map((attr, i) => (
+                              {product.attributes.filter(a => a?.key && a?.value).map((attr, i) => (
                                 <div key={`${attr.key}-${i}`} className="flex items-start gap-3 text-sm">
                                   <span className="text-gray-400 min-w-[120px] flex-shrink-0">{attr.key}</span>
                                   <span className="text-gray-900 font-medium">{attr.value}</span>
@@ -1515,40 +1743,81 @@ const ProductUI = () => {
                               ))}
                             </div>
                           </div>
-                        );
-                      })()}
+                        )}
 
-                      {/* Footer */}
-                      {(() => {
-                        const countryOfOrigin = "India"; // hardcoded
-                        const gst = product?.gst || product?.tax?.gst || null; // real GST from product data
+                        {/* Dimensions */}
+                        {(() => {
+                          const s = product?.shipping;
+                          const d = s?.dimensions;
+                          if (!s || (!s.weight && !d?.length && !d?.width && !d?.height)) return null;
 
-                        const items = [
-                          { key: "Country of Origin", value: countryOfOrigin },
-                          ...(gst ? [{ key: "GST", value: `${gst}%` }] : [])
-                        ];
+                          const length = d?.length || 0;
+                          const width = d?.width || 0;
+                          const height = d?.height || 0;
+                          const dimensionalFactor = 5000;
 
-                        if (items.length === 0) return null;
+                          let volumetricWeightGm = null;
+                          if (length && width && height) {
+                            const volumetricWeightKg = (length * width * height) / dimensionalFactor;
+                            volumetricWeightGm = Math.round(volumetricWeightKg * 1000);
+                          }
 
-                        return (
-                          <div className="px-5 sm:px-6 py-5">
-                            <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">Tax & Compliance</p>
-                            <div className="flex flex-col gap-3">
-                              {items.map((item, i) => (
-                                <div key={`${item.key}-${i}`} className="flex items-start gap-3 text-sm">
-                                  <span className="text-gray-400 min-w-[120px] flex-shrink-0">{item.key}</span>
-                                  <span className="text-gray-900 font-medium">{item.value}</span>
-                                </div>
-                              ))}
+                          const dims = [
+                            s?.weight && { key: "Weight", value: `${s.weight} kg` },
+                            d?.length && { key: "Length", value: `${d.length} cm` },
+                            d?.width && { key: "Width", value: `${d.width} cm` },
+                            d?.height && { key: "Height", value: `${d.height} cm` },
+                            volumetricWeightGm && { key: "Volu. Weight", value: `${volumetricWeightGm} Gm` },
+                          ].filter(Boolean);
+
+                          return (
+                            <div className="px-5 sm:px-6 py-5">
+                              <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">Dimensions & weight</p>
+                              <div className="flex flex-col gap-3">
+                                {dims.map((attr, i) => (
+                                  <div key={`${attr.key}-${i}`} className="flex items-start gap-3 text-sm">
+                                    <span className="text-gray-400 min-w-[120px] flex-shrink-0">{attr.key}</span>
+                                    <span className="text-gray-900 font-medium">{attr.value}</span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        );
-                      })()}
+                          );
+                        })()}
 
-                    </div>
-                  )}
-                </div>
-              </div>
+                        {/* Footer */}
+                        {(() => {
+                          const countryOfOrigin = "India";
+                          const gst = product?.gst || product?.tax?.gst || null;
+
+                          const items = [
+                            { key: "Country of Origin", value: countryOfOrigin },
+                            ...(gst ? [{ key: "GST", value: `${gst}%` }] : [])
+                          ];
+
+                          if (items.length === 0) return null;
+
+                          return (
+                            <div className="px-5 sm:px-6 py-5">
+                              <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">Tax & Compliance</p>
+                              <div className="flex flex-col gap-3">
+                                {items.map((item, i) => (
+                                  <div key={`${item.key}-${i}`} className="flex items-start gap-3 text-sm">
+                                    <span className="text-gray-400 min-w-[120px] flex-shrink-0">{item.key}</span>
+                                    <span className="text-gray-900 font-medium">{item.value}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          );
+                        })()}
+
+                      </div>
+                    )}
+                  </div>
+
+                </div>{/* end info panel */}
+              </div>{/* end right column */}
             </div>
           </div>{/* end main card */}
 

@@ -36,16 +36,22 @@ const buildInventoryObj = (inv) => ({
   trackInventory: inv?.trackInventory !== false,
 });
 
+/** BASE = left of hyphen, unchanged except trim+uppercase (0001-1 ≠ 000001-1). Suffix only is normalized (01→1). */
+const SUFFIXED_PRODUCT_CODE_REGEX = /^([A-Z0-9]+)-(\d+)$/;
+
 const normalizeProductCode = (rawCode, label = "ProductCode") => {
   const code = String(rawCode ?? "").trim().toUpperCase();
   if (!code) throw new Error(`${label} is required`);
-  if (!/^[A-Z0-9]+-\d{2}$/.test(code)) {
-    throw new Error(`${label} must be in BASE-XX format (e.g., 3897-01)`);
+  const m = code.match(SUFFIXED_PRODUCT_CODE_REGEX);
+  if (!m) {
+    throw new Error(`${label} must be in BASE-N format (e.g., 3897-1 or 3897-01)`);
   }
-  return code;
+  const seq = Number(m[2]);
+  if (!Number.isInteger(seq) || seq < 1) {
+    throw new Error(`${label} suffix must be a whole number ≥ 1`);
+  }
+  return `${m[1]}-${seq}`;
 };
-
-const PRODUCT_CODE_REGEX = /^([A-Z0-9]+)-(\d{2})$/;
 
 const validateProductCodeSeries = (codes, contextLabel = "variants") => {
   const normalized = (codes || []).map((c) => String(c || "").trim().toUpperCase()).filter(Boolean);
@@ -54,11 +60,15 @@ const validateProductCodeSeries = (codes, contextLabel = "variants") => {
   }
 
   const parsed = normalized.map((code, idx) => {
-    const match = code.match(PRODUCT_CODE_REGEX);
+    const match = code.match(SUFFIXED_PRODUCT_CODE_REGEX);
     if (!match) {
-      throw new Error(`${contextLabel}[${idx + 1}] ProductCode must be in BASE-XX format (e.g., 3897-01)`);
+      throw new Error(`${contextLabel}[${idx + 1}] ProductCode must be BASE-N (e.g., 3897-1 or 3897-01)`);
     }
-    return { code, base: match[1], sequence: Number(match[2]) };
+    const seq = Number(match[2]);
+    if (!Number.isInteger(seq) || seq < 1) {
+      throw new Error(`${contextLabel}[${idx + 1}] ProductCode suffix must be a whole number ≥ 1`);
+    }
+    return { code: `${match[1]}-${seq}`, base: match[1], sequence: seq };
   });
 
   const base = parsed[0].base;
@@ -67,10 +77,7 @@ const validateProductCodeSeries = (codes, contextLabel = "variants") => {
 
   for (const item of parsed) {
     if (item.base !== base) {
-      throw new Error(`All ProductCodes must share same base. Expected ${base}-XX, got ${item.code}`);
-    }
-    if (item.sequence < 1) {
-      throw new Error(`ProductCode sequence must start from 01. Invalid code: ${item.code}`);
+      throw new Error(`All ProductCodes must share same base. Expected ${base}-N, got ${item.code}`);
     }
     if (seenCodes.has(item.code)) {
       throw new Error(`Duplicate ProductCode found: ${item.code}`);
@@ -81,7 +88,7 @@ const validateProductCodeSeries = (codes, contextLabel = "variants") => {
 
   for (let expected = 1; expected <= parsed.length; expected++) {
     if (!seenSequences.has(expected)) {
-      throw new Error(`ProductCode sequence must be continuous: missing ${base}-${String(expected).padStart(2, "0")}`);
+      throw new Error(`ProductCode sequence must be continuous: missing ${base}-${expected}`);
     }
   }
 };

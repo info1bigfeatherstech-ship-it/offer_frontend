@@ -21,7 +21,8 @@ const getDiscountPercentage = (base, sale) => {
   return Math.round(((Number(base) - Number(sale)) / Number(base)) * 100);
 };
 
-const PRODUCT_CODE_REGEX = /^([A-Z0-9]+)-(\d{2})$/;
+/** BASE left of hyphen preserved (leading zeros); only suffix digits normalized. */
+const SUFFIXED_PRODUCT_CODE_REGEX = /^([A-Z0-9]+)-(\d+)$/;
 
 const validateProductCodeSeries = (rawCodes, contextLabel = "variants") => {
   const normalized = (rawCodes || []).map((c) => String(c || "").trim().toUpperCase()).filter(Boolean);
@@ -30,11 +31,18 @@ const validateProductCodeSeries = (rawCodes, contextLabel = "variants") => {
   }
 
   const parsed = normalized.map((code, idx) => {
-    const match = code.match(PRODUCT_CODE_REGEX);
+    const match = code.match(SUFFIXED_PRODUCT_CODE_REGEX);
     if (!match) {
-      throw new Error(`${contextLabel}[${idx + 1}] ProductCode must be in BASE-XX format (e.g., 3897-01)`);
+      throw new Error(
+        `${contextLabel}[${idx + 1}] ProductCode must be BASE-N (e.g., 3897-1 or 3897-01)`
+      );
     }
-    return { code, base: match[1], sequence: Number(match[2]) };
+    const seq = Number(match[2]);
+    if (!Number.isInteger(seq) || seq < 1) {
+      throw new Error(`${contextLabel}[${idx + 1}] ProductCode suffix must be a whole number ≥ 1`);
+    }
+    const canonical = `${match[1]}-${seq}`;
+    return { code: canonical, base: match[1], sequence: seq };
   });
 
   const base = parsed[0].base;
@@ -43,10 +51,7 @@ const validateProductCodeSeries = (rawCodes, contextLabel = "variants") => {
 
   for (const entry of parsed) {
     if (entry.base !== base) {
-      throw new Error(`All ProductCodes must share same base. Expected ${base}-XX, got ${entry.code}`);
-    }
-    if (entry.sequence < 1) {
-      throw new Error(`ProductCode sequence must start from 01. Invalid code: ${entry.code}`);
+      throw new Error(`All ProductCodes must share same base. Expected ${base}-N, got ${entry.code}`);
     }
     if (seenCodes.has(entry.code)) {
       throw new Error(`Duplicate ProductCode found: ${entry.code}`);
@@ -57,7 +62,7 @@ const validateProductCodeSeries = (rawCodes, contextLabel = "variants") => {
 
   for (let expected = 1; expected <= parsed.length; expected++) {
     if (!seenSeq.has(expected)) {
-      throw new Error(`ProductCode sequence must be continuous: missing ${base}-${String(expected).padStart(2, "0")}`);
+      throw new Error(`ProductCode sequence must be continuous: missing ${base}-${expected}`);
     }
   }
 };
@@ -151,7 +156,14 @@ const ProductModal = ({ onClose, brands, setBrands }) => {
     if (!formData.category) { alert("Please select a category"); return; }
     const bc0 = String(formData.ProductCode ?? "").trim();
     if (!bc0) { alert("Main ProductCode is required"); return; }
-    if (!/^[A-Z0-9]+-\d{2}$/.test(bc0.toUpperCase())) { alert("Main ProductCode must be in BASE-XX format (e.g., 3897-01)"); return; }
+    {
+      const m0 = bc0.toUpperCase().match(SUFFIXED_PRODUCT_CODE_REGEX);
+      const s0 = m0 ? Number(m0[2]) : NaN;
+      if (!m0 || !Number.isInteger(s0) || s0 < 1) {
+        alert("Main ProductCode must be BASE-N (e.g., 3897-1 or 3897-01)");
+        return;
+      }
+    }
     if (!formData.price?.base || isNaN(Number(formData.price.base))) {
       alert("Main variant base price is required"); return;
     }
@@ -159,7 +171,14 @@ const ProductModal = ({ onClose, brands, setBrands }) => {
     for (let i = 0; i < formData.variants.length; i++) {
       const bc = String(formData.variants[i].ProductCode ?? "").trim();
       if (!bc) { alert(`Variant ${i + 1}: ProductCode is required`); return; }
-      if (!/^[A-Z0-9]+-\d{2}$/.test(bc.toUpperCase())) { alert(`Variant ${i + 1}: ProductCode must be in BASE-XX format (e.g., 3897-01)`); return; }
+      {
+        const mv = bc.toUpperCase().match(SUFFIXED_PRODUCT_CODE_REGEX);
+        const sv = mv ? Number(mv[2]) : NaN;
+        if (!mv || !Number.isInteger(sv) || sv < 1) {
+          alert(`Variant ${i + 1}: ProductCode must be BASE-N (e.g., 3897-1 or 3897-01)`);
+          return;
+        }
+      }
       if (!formData.variants[i].price?.base || isNaN(Number(formData.variants[i].price.base))) {
         alert(`Variant ${i + 1}: base price is required`); return;
       }

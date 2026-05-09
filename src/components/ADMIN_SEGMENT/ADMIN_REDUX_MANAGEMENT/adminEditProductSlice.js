@@ -184,12 +184,15 @@ export const addVariantToProduct = createAsyncThunk(
     try {
       const rawCode = variantData.ProductCode ?? variantData.productCode;
       if (!rawCode && rawCode !== 0) return rejectWithValue("ProductCode is required to add a variant");
-      const normalizedProductCode = String(rawCode).trim().toUpperCase();
-      if (!/^[A-Z0-9]+-\d{2}$/.test(normalizedProductCode))
-        return rejectWithValue("ProductCode must be in BASE-XX format (e.g., 3897-01)");
+      const upper = String(rawCode).trim().toUpperCase();
+      const m = upper.match(/^([A-Z0-9]+)-(\d+)$/);
+      const seq = m ? Number(m[2]) : NaN;
+      if (!m || !Number.isInteger(seq) || seq < 1)
+        return rejectWithValue("ProductCode must be BASE-N (e.g., 3897-1 or 3897-01)");
+      const canonicalProductCode = `${m[1]}-${seq}`;
 
       const fd = new FormData();
-      fd.append("productCode", normalizedProductCode);
+      fd.append("productCode", canonicalProductCode);
 
       let pricePayload;
       try {

@@ -91,9 +91,13 @@ const VariantModal = ({
       alert('ProductCode is required');
       return;
     }
-    if (!/^[A-Z0-9]+-\d{2}$/.test(ProductCode.toUpperCase())) {
-      alert('ProductCode must be in BASE-XX format (e.g., 3897-01)');
-      return;
+    {
+      const m = ProductCode.toUpperCase().match(/^([A-Z0-9]+)-(\d+)$/);
+      const seq = m ? Number(m[2]) : NaN;
+      if (!m || !Number.isInteger(seq) || seq < 1) {
+        alert("ProductCode must be BASE-N (e.g., 3897-1 or 3897-01)");
+        return;
+      }
     }
     if (!variantForm.price.base) {
       alert('Please enter base price for this variant');
