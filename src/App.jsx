@@ -151,7 +151,7 @@ const AppContent = () => {
                 <Route path="/customer-care"   element={<CustomerCare onOpenAuth={openAuthModal} />} />
                 <Route path="/category/:slug"  element={<CatProducts />} />
                 <Route path="/contact"  element={<ContactUs />} />
-                <Route path="/products/:slug"  element={<ProductDetail />} />
+                <Route path="/products/:slug"  element={<ProductDetail onOpenAuth={openAuthModal} isLoggedIn={isLoggedIn} />} />
                   <Route path="/shopbyprice/:slug" element={<ShopByPrice />} />
 
                 {/* ── Admin auth routes (public — no AdminPrivateRoute) ───── */}

@@ -475,28 +475,29 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
           <div className="lg:hidden relative">
             <div className="flex items-center justify-between py-3 border-b border-gray-100">
 
-              {/* Logo */}
-              <Link
-                to="/"
-                className="relative flex items-center justify-center group flex-shrink-0"
-                onMouseEnter={() => setIsLogoHovered(true)}
-                onMouseLeave={() => setIsLogoHovered(false)}
-              >
-                {burstIcons.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`absolute z-[-1] ${item.color} animate-flush-continuous`}
-                    style={{ '--target-x': item.x, '--target-y': item.y, '--target-rot': item.rotation }}
-                  >
-                    {item.icon}
-                  </div>
-                ))}
-                <img
-                  className="relative z-10 object-contain w-[100px] h-auto transition-transform duration-300 group-hover:scale-105"
-                  src={logo}
-                  alt="Offer Wale Baba"
-                />
-              </Link>
+           
+            {/* Logo — fixed height container, no inline marginTop */}
+            <Link
+              to="/"
+              className="relative flex-shrink-0 flex items-center justify-center group"
+              onMouseEnter={() => setIsLogoHovered(true)}
+              onMouseLeave={() => setIsLogoHovered(false)}
+            >
+              {burstIcons.map((item) => (
+                <div
+                  key={item.id}
+                  className={`absolute z-[-1] ${item.color} animate-flush-continuous`}
+                  style={{ '--target-x': item.x, '--target-y': item.y, '--target-rot': item.rotation }}
+                >
+                  {item.icon}
+                </div>
+              ))}
+              <img
+                className="relative z-10 object-contain w-[140px] xl:w-[165px] h-auto transition-transform duration-500 group-hover:scale-105"
+                src={logo}
+                alt="Offer Wale Baba"
+              />
+            </Link>
 
               {/* Centered search trigger */}
               <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 z-10">

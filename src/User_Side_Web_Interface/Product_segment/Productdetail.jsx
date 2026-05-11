@@ -492,7 +492,7 @@ const RelatedCard = ({ product, index = 0 }) => {
 };
 
 // ─── Main ProductUI ───────────────────────────────────────────────────────────
-const ProductUI = () => {
+const ProductUI = ({onOpenAuth}) => {
   const { slug } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -1259,9 +1259,13 @@ const ProductUI = () => {
                           </form>
                         ) : (
                           <p className="text-sm text-gray-500">
-                            <Link to="/login" className="text-orange-600 font-semibold hover:underline">
-                              Log in
-                            </Link>{" "}
+                           <button
+  type="button"
+  onClick={() => onOpenAuth?.()}
+  className="text-orange-600 font-semibold hover:underline"
+>
+  Log in
+</button>
                             to leave a review.
                           </p>
                         )}
