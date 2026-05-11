@@ -171,4 +171,4 @@ const BestSellers = () => {
   );
 };
 
-export default BestSellers;
+export default BestSellers; 
