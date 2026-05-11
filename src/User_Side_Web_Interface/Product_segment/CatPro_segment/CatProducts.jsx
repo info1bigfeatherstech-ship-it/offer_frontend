@@ -81,6 +81,8 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
     overscan: 3,
   });
 
+
+
   return (
     <div ref={parentRef} style={{ width: "100%" }}>
       <div
@@ -354,7 +356,9 @@ const CatProducts = () => {
       dispatch(clearCurrentCategory());
       dispatch(fetchCategoryBySlug(slug));
       return () => dispatch(clearCurrentCategory());
+      console.log("img", currentCategory.image.url);
     }, [slug, dispatch]);
+
 
   // ── Filter Panel (shared between sidebar + drawer) ─────────────────────────
   const FilterPanel = () => (

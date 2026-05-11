@@ -249,15 +249,20 @@ const Footer = () => {
   </div>
 
   {/* Location Info - Takes 1 column on desktop */}
-  <div className="min-w-0">
-    <p className="text-[#f7a221] font-black text-[20px] tracking-widest uppercase mb-2">
-      Location
-    </p>
-    <p className="text-white text-base md:text-lg leading-relaxed">
-      Block no 277/553, sambhaji chowk, opp. tipcy-topcy society, Babasai Nagar,
-      Ulhasnagar, Maharashtra 421004
-    </p>
-  </div>
+ <a 
+  href="https://www.google.com/maps?q=19.2092622,73.1663272&z=16" 
+  target="_blank" 
+  rel="noopener noreferrer"
+  className="block min-w-0 group/link"
+>
+  <p className="text-[#f7a221] font-black text-[20px] tracking-widest uppercase mb-2">
+    Location
+  </p>
+  <p className="text-white text-base md:text-lg leading-relaxed group-hover/link:underline">
+    Block no 277/553, sambhaji chowk, opp. tipcy-topcy society, Babasai Nagar,
+    Ulhasnagar, Maharashtra 421004
+  </p>
+</a>
 
   {/* Working Hours - Spans full width at the bottom on desktop */}
   <div className="min-w-0 md:col-span-2 border-t border-white/10 pt-4 md:pt-0 md:border-none">

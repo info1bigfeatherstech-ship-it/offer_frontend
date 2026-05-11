@@ -1,6 +1,4 @@
 import {
-  MapPin,
-  ChevronDown,
   Smartphone,
   Home,
   Shirt,
@@ -150,59 +148,107 @@ export default function AboutUs() {
     window.scrollTo({ top: 0, behavior: "smooth" })
   }, [])
   return (
-    <div className="bg-[#0a0a0f] text-white overflow-hidden">
+    <div className="min-h-screen bg-white overflow-hidden font-sans page-transition-about" style={{ fontFamily: "'DM Sans', sans-serif" }}>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700;900&display=swap');
+        * { box-sizing: border-box; }
+        .page-transition-about {
+          animation: aboutPageFadeIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @keyframes aboutPageFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .about-animate-hero-pill {
+          animation: aboutFadeUp 0.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+        }
+        @keyframes aboutFadeUp {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .about-animate-hero-title {
+          animation: aboutSlideUp 0.75s cubic-bezier(0.22, 1, 0.36, 1) 0.05s forwards;
+          transform: translateY(100%);
+        }
+        @keyframes aboutSlideUp {
+          from { transform: translateY(100%); }
+          to { transform: translateY(0); }
+        }
+        .about-animate-hero-sub {
+          animation: aboutFadeIn 0.5s cubic-bezier(0.22, 1, 0.36, 1) 0.3s forwards;
+          opacity: 0;
+        }
+        @keyframes aboutFadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        .about-animate-glow-pulse {
+          animation: aboutGlowPulse 8s ease-in-out infinite;
+        }
+        @keyframes aboutGlowPulse {
+          0%, 100% { transform: scale(1); opacity: 0.7; }
+          50% { transform: scale(1.1); opacity: 1; }
+        }
+        .about-animate-glow-pulse-slow {
+          animation: aboutGlowPulseSlow 10s ease-in-out infinite;
+        }
+        @keyframes aboutGlowPulseSlow {
+          0%, 100% { transform: scale(1); }
+          50% { transform: scale(1.15); }
+        }
+      `}</style>
 
-      {/* HERO */}
-      <section className="relative min-h-screen flex items-center justify-center px-4 sm:px-6 lg:px-12 py-24 overflow-hidden">
+      {/* HERO — matches Policy.jsx header (dark gold, grid, wave) */}
+      <section
+        className="relative overflow-hidden text-white"
+        style={{
+          background: "linear-gradient(135deg, #050505 0%, #140B05 30%, #2A1408 65%, #090909 100%)",
+        }}
+      >
+        <div
+          className="pointer-events-none absolute top-0 left-1/4 h-[520px] w-[520px] rounded-full blur-[120px] about-animate-glow-pulse"
+          style={{ background: "radial-gradient(circle, rgba(255,140,0,0.28) 0%, transparent 72%)" }}
+        />
+        <div
+          className="pointer-events-none absolute bottom-0 right-1/4 h-[420px] w-[420px] rounded-full blur-[120px] about-animate-glow-pulse-slow"
+          style={{ background: "radial-gradient(circle, rgba(255,94,0,0.22) 0%, transparent 70%)" }}
+        />
+        <div
+          className="pointer-events-none absolute inset-0 opacity-[0.04]"
+          style={{
+            backgroundImage:
+              "linear-gradient(rgba(200,151,58,1) 1px,transparent 1px),linear-gradient(90deg,rgba(200,151,58,1) 1px,transparent 1px)",
+            backgroundSize: "64px 64px",
+          }}
+        />
 
-        {/* ORBS */}
-        <div className="absolute top-[-200px] right-[-150px] h-[500px] w-[500px] rounded-full bg-amber-500/20 blur-[120px]" />
-        <div className="absolute bottom-[-150px] left-[-100px] h-[400px] w-[400px] rounded-full bg-orange-500/20 blur-[120px]" />
-
-        {/* GRID */}
-        <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:60px_60px]" />
-
-        <div className="relative z-10 text-center max-w-5xl w-full">
-          {/* About Us - NOW BIGGER */}
-          <div className="inline-flex items-center gap-3 rounded-full border-2 border-amber-500/40 bg-amber-500/15 px-8 py-4 backdrop-blur-sm">
-            <span className="h-3 w-3 rounded-full bg-amber-400 animate-pulse" />
-            <span className="text-base sm:text-lg md:text-xl uppercase tracking-[4px] font-bold text-amber-400">
-              About Us
+        <div className="relative z-10 mx-auto max-w-7xl px-6 lg:px-12 pt-20 pb-32 text-center">
+          <div className="mb-7 inline-flex items-center gap-2 rounded-full border border-[#C8973A]/25 bg-[#C8973A]/10 px-5 py-2 about-animate-hero-pill">
+            <span className="h-1.5 w-1.5 rounded-full bg-[#C8973A] animate-pulse" />
+            <span className="text-[11px] font-semibold uppercase tracking-[0.25em] text-[#C8973A]/80">
+              Who we are
             </span>
           </div>
-
-          <h1 className="mt-8 text-2xl sm:text-3xl lg:text-4xl font- leading-[0.95] tracking-[-2px] sm:tracking-[-3px]">
-            Discover Products <br />
-            <span className="text-amber-400">You'll</span>  Love
-          </h1>
-
-          <p className="mx-auto mt-6 sm:mt-8 max-w-2xl text-base sm:text-lg leading-7 sm:leading-8 text-white/60 px-2">
-            From the heart of Ulhasnagar, Maharashtra —bringing trending products,
-            amazing deals, and a seamless shopping experience to businesses and
-            shoppers across PAN India.
+          <div className="overflow-hidden mb-5">
+            <h1 className="text-5xl sm:text-6xl lg:text-7xl text-white tracking-[-2px] leading-[0.92] about-animate-hero-title">
+              About Us
+            </h1>
+          </div>
+          <h2 className="mx-auto max-w-2xl text-lg sm:text-xl md:text-2xl font-medium leading-snug text-white/80 about-animate-hero-sub">
+            Discover Products You&apos;ll Love
+          </h2>
+          <p className="mx-auto mt-5 max-w-2xl text-sm sm:text-base leading-relaxed text-white/50 font-light about-animate-hero-sub">
+            From the heart of Ulhasnagar, Maharashtra — bringing trending products, amazing deals, and a seamless shopping experience to businesses and shoppers across PAN India.
           </p>
-
-          <div className="mt-8 flex items-center justify-center gap-2 text-sm text-white/40">
-            <MapPin className="h-4 w-4 text-amber-400" />
-            Ulhasnagar, Maharashtra · Delivering Happiness Across India
-          </div>
-
-          <div className="mt-10 flex w-full flex-col sm:flex-row justify-center gap-4">
-            <Link to="/" className="w-full sm:w-auto text-center rounded-full bg-amber-400 px-8 py-4 text-sm font-bold text-black transition hover:scale-105 hover:bg-amber-300">
-              Start Shopping
-            </Link>
-
-            <Link to="/contact" className="rounded-full border border-white/20 px-8 py-4 text-sm font-bold transition hover:border-amber-400 hover:text-amber-400">
-              Contact Us
-            </Link>
-          </div>
+          <p className="mt-7 text-[#C8973A]/55 text-xs sm:text-sm tracking-widest uppercase font-medium about-animate-hero-sub">
+            Ulhasnagar, Maharashtra · Delivering happiness across India
+          </p>
         </div>
 
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center text-white/30">
-          <ChevronDown className="animate-bounce" />
-          <span className="mt-2 text-xs tracking-[3px] uppercase">
-            Scroll
-          </span>
+        <div className="relative" style={{ marginBottom: "-2px" }}>
+          <svg viewBox="0 0 1440 90" xmlns="http://www.w3.org/2000/svg" className="w-full block" preserveAspectRatio="none">
+            <path d="M0,60 C240,90 480,20 720,50 C960,80 1200,15 1440,55 L1440,90 L0,90 Z" fill="white" />
+          </svg>
         </div>
       </section>
 
