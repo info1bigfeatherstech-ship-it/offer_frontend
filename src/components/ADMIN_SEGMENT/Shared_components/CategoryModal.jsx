@@ -410,13 +410,14 @@ const CategoryModal = ({ onSelect, onClose }) => {
     if (imageInputRef.current) imageInputRef.current.value = "";
   }, []);
 
-  const openEdit = useCallback((cat) => {
+ const openEdit = useCallback((cat) => {
     setEditingCat(cat);
     setFormName(cat.name || "");
     setFormDesc(cat.description || "");
     setFormImageFile(null);
-    existingImageUrlRef.current = getExistingImageUrl(cat);
-    // formImageSrc will be set to the server URL via the useEffect above
+    const existingUrl = getExistingImageUrl(cat);
+    existingImageUrlRef.current = existingUrl;
+    setFormImageSrc(existingUrl);   // ← force-set directly, don't rely on useEffect
     if (imageInputRef.current) imageInputRef.current.value = "";
     setTimeout(() => {
       formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });

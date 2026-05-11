@@ -630,7 +630,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
             Layout (left → right):
             [Home icon btn] | [All Categories ›] | [Todays' Deal] [Just Arrived] [Sale] | [Contact us ›]
         ════════════════════════════════════════════════════════════════════════ */}
-        <nav style={{ width: "60%", margin: "auto" }} className="shadow-inner hidden lg:block relative">
+        <nav style={{ width: "60%", margin: "auto" }} className=" hidden lg:block relative">
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-center gap-1 py-2">
 

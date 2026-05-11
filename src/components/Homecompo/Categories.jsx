@@ -28,11 +28,19 @@ const visibleCategories = categories.slice(0, endIndex);
   
   const { loading, error } = useSelector((state) => state.userCategories);
 
-  useEffect(() => {
+  // useEffect(() => {
+  //   dispatch(fetchAllCategories()).catch((err) => {
+  //     console.error("❌ Categories fetch failed:", err);
+  //   });
+  // }, [dispatch]);
+
+ useEffect(() => {
+  if (categories.length === 0) {
     dispatch(fetchAllCategories()).catch((err) => {
       console.error("❌ Categories fetch failed:", err);
     });
-  }, [dispatch]);
+  }
+}, [dispatch]);
 
   const handleCategoryClick = (category) => {
     const slug =
@@ -62,11 +70,19 @@ const visibleCategories = categories.slice(0, endIndex);
   }
 
   // ── Error ────────────────────────────────────────────────────────────────
-  if (error.categories) {
-    console.error("Failed to load categories:", error.categories);
-    return null;
-  }
-
+if (error.categories) {
+  return (
+    <div className="w-full py-8 flex flex-col items-center gap-3">
+      <p className="text-sm text-gray-500">Failed to load categories</p>
+      <button
+        onClick={() => dispatch(fetchAllCategories())}
+        className="px-5 py-2 bg-black text-white cursor-pointer text-sm font-semibold rounded-xl hover:bg-[#F7A221] transition"
+      >
+        Retry
+      </button>
+    </div>
+  );
+}
   // ── Empty ────────────────────────────────────────────────────────────────
   if (!categories || categories.length === 0) return null;
 

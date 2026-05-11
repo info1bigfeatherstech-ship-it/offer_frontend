@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useLayoutEffect, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useLocation } from 'react-router-dom';
 import {
@@ -13,35 +13,28 @@ import PriceBanners from '../Homecompo/PriceBanners';
 import BestSellers from '../Homecompo/BestSellers';
 import HeroSlider from '../Homecompo/HeroSlider';
 
-const Homepage = () => {
+const Homepage = ({ onOpenAuth }) => {
   const dispatch = useDispatch();
-
   const categories = useSelector(selectAllCategories);
-  // console.log(categories);
-
   const loading = useSelector(selectCategoriesLoading);
   const error = useSelector(selectCategoriesError);
   const location = useLocation();
 
-  useEffect(() => {
-    // console.log('🏠 [Homepage] Fetching all categories...');
-    dispatch(fetchAllCategories());
+  // ── Single source of truth — only Homepage fetches the list ──
+  useLayoutEffect(() => {
+    if (categories.length === 0) {
+      dispatch(fetchAllCategories()).catch(() => {});
+    }
   }, [dispatch]);
-// ✅ Added location hook
 
-// ✅ Scroll effect on hash change
-useEffect(() => {
-  if (location.hash === '#best-sellers') {
-    document.getElementById('best-sellers')?.scrollIntoView({ 
-      behavior: 'smooth' 
-    });
-  }
-}, [location]);
-
-// ✅ Wrapped BestSellers with ID
-<section id="best-sellers">
-  <BestSellers />
-</section>
+  // ── Scroll to #best-sellers on hash change ──
+  useEffect(() => {
+    if (location.hash === '#best-sellers') {
+      document.getElementById('best-sellers')?.scrollIntoView({
+        behavior: 'smooth',
+      });
+    }
+  }, [location]);
 
   return (
     <>
@@ -49,40 +42,121 @@ useEffect(() => {
         <HeroSlider />
       </div>
 
-      <main className="container mx-auto px-4 pt- pb-20">
+      <main className="container mx-auto px-4 pb-20">
+
+        {/* Top Categories strip — has its own loading/error/retry UI */}
         <Categories />
+
         <PriceBanners />
-        {/* <BestSellers /> */}
+
+        {/* Just Arrived / Best Sellers — independent, always renders */}
         <section id="best-sellers">
           <BestSellers />
         </section>
 
-        {/* ✅ Dynamic — driven by DB, zero hardcoding */}
-        {loading.categories && (
-          <div className="text-center py-10 text-gray-400">
-            Loading categories...
-          </div>
+        {/* Category product rows — only when list is ready */}
+        {!error.categories && !loading.categories && categories.length > 0 && (
+          categories.map((cat) => (
+            <CategorySection
+              key={cat.slug}
+              slug={cat.slug}
+              title={cat.name}
+            />
+          ))
         )}
 
-        {error.categories && (
-          <div className="text-center py-10 text-red-400">
-            Failed to load categories: {error.categories.message}
-          </div>
-        )}
-
-        {categories.map((cat) => (
-          <CategorySection
-            key={cat.slug}
-            slug={cat.slug}
-            title={cat.name}
-          />
-        ))}
       </main>
     </>
   );
 };
 
 export default Homepage;
+
+// import React, { useEffect } from 'react';
+// import { useDispatch, useSelector } from 'react-redux';
+// import { useLocation } from 'react-router-dom';
+// import {
+//   fetchAllCategories,
+//   selectAllCategories,
+//   selectCategoriesLoading,
+//   selectCategoriesError,
+// } from '../REDUX_FEATURES/REDUX_SLICES/userCategoriesSlice';
+// import CategorySection from '../Homecompo/CategorySection';
+// import Categories from '../Homecompo/Categories';
+// import PriceBanners from '../Homecompo/PriceBanners';
+// import BestSellers from '../Homecompo/BestSellers';
+// import HeroSlider from '../Homecompo/HeroSlider';
+
+// const Homepage = () => {
+//   const dispatch = useDispatch();
+
+//   const categories = useSelector(selectAllCategories);
+//   // console.log(categories);
+
+//   const loading = useSelector(selectCategoriesLoading);
+//   const error = useSelector(selectCategoriesError);
+//   const location = useLocation();
+
+//   useEffect(() => {
+//     // console.log('🏠 [Homepage] Fetching all categories...');
+//     dispatch(fetchAllCategories());
+//   }, [dispatch]);
+// // ✅ Added location hook
+
+// // ✅ Scroll effect on hash change
+// useEffect(() => {
+//   if (location.hash === '#best-sellers') {
+//     document.getElementById('best-sellers')?.scrollIntoView({ 
+//       behavior: 'smooth' 
+//     });
+//   }
+// }, [location]);
+
+// // ✅ Wrapped BestSellers with ID
+// <section id="best-sellers">
+//   <BestSellers />
+// </section>
+
+//   return (
+//     <>
+//       <div className="px-4 md:px-8 pt-6">
+//         <HeroSlider />
+//       </div>
+
+//       <main className="container mx-auto px-4 pt- pb-20">
+//         <Categories />
+//         <PriceBanners />
+//         {/* <BestSellers /> */}
+//         <section id="best-sellers">
+//           <BestSellers />
+//         </section>
+
+//         {/* ✅ Dynamic — driven by DB, zero hardcoding */}
+//         {/* {loading.categories && (
+//           <div className="text-center py-10 text-gray-400">
+//             Loading categories...
+//           </div>
+//         )} */}
+
+//         {/* {error.categories && (
+//           <div className="text-center py-10 text-red-400">
+//             Failed to load categories: {error.categories.message}
+//           </div>
+//         )} */}
+
+//         {categories.map((cat) => (
+//           <CategorySection
+//             key={cat.slug}
+//             slug={cat.slug}
+//             title={cat.name}
+//           />
+//         ))}
+//       </main>
+//     </>
+//   );
+// };
+
+// export default Homepage;
 
 // import React from 'react';
 // // import HeroSection from '../components/Homecompo/HeroSection';

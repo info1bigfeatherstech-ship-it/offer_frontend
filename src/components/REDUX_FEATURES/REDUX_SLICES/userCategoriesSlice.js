@@ -14,24 +14,25 @@ const logError = (context, error, info = {}) => {
 export const fetchAllCategories = createAsyncThunk(
   "userCategories/fetchAllCategories",
   async (_, { rejectWithValue }) => {
-    try {
-      // console.log("📚 Fetching all categories");
-      const response = await axiosInstance.get("/categories/categories");
-
-      if (!response.data.success) {
-        throw new Error(
-          response.data.message || "Failed to fetch categories"
-        );
+    let retries = 2;
+    while (retries > 0) {
+      try {
+        const response = await axiosInstance.get("/categories/categories");
+        if (!response.data.success) {
+          throw new Error(response.data.message || "Failed to fetch categories");
+        }
+        return response.data;
+      } catch (error) {
+        retries--;
+        if (retries === 0) {
+          logError("fetchAllCategories", error);
+          return rejectWithValue({
+            message: error.response?.data?.message || "Failed to load categories",
+            status: error.response?.status,
+          });
+        }
+        await new Promise((res) => setTimeout(res, 1000));
       }
-
-      return response.data;
-    } catch (error) {
-      logError("fetchAllCategories", error);
-      return rejectWithValue({
-        message:
-          error.response?.data?.message || "Failed to load categories",
-        status: error.response?.status,
-      });
     }
   }
 );

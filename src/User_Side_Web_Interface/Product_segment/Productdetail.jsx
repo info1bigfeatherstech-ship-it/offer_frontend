@@ -492,7 +492,7 @@ const RelatedCard = ({ product, index = 0 }) => {
 };
 
 // ─── Main ProductUI ───────────────────────────────────────────────────────────
-const ProductUI = () => {
+const ProductUI = ({ openAuthModal }) => {
   const { slug } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();
@@ -1069,110 +1069,111 @@ const ProductUI = () => {
               <div className="flex flex-col w-full gap-4 lg:gap-6 lg:border-r border-gray-100 lg:pr-4 min-w-0">
                 <div className="flex flex-row gap-6 min-w-0">
 
-                {images.length > 0 && (
-                  <div className="hidden lg:flex flex-col items-center gap-0 py-3 px-2 border-r border-gray-100 bg-gray-50 flex-shrink-0 w-[76px]">
-                    {images.length > 5 && (
-                      <button
-                        onClick={() => {
-                          const el = document.getElementById("thumb-list");
-                          if (el) el.scrollBy({ top: -70, behavior: "smooth" });
-                        }}
-                        className="w-8 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition flex-shrink-0"
-                      >
-                        ▲
-                      </button>
-                    )}
-
-                    <div
-                      id="thumb-list"
-                      className="flex flex-col gap-2 overflow-y-auto scrollbar-hide flex-1"
-                      style={{ maxHeight: 380 }}
-                    >
-                      {images.map((img, i) => (
+                  {images.length > 0 && (
+                    <div className="hidden lg:flex flex-col items-center gap-0 py-3 px-2 border-r border-gray-100 bg-gray-50 flex-shrink-0 w-[76px]">
+                      {images.length > 5 && (
                         <button
-                          key={i}
-                          onClick={() => { setActiveThumb(i); }}
-                          className={`flex-shrink-0 w-[56px] h-[56px] rounded-xl overflow-hidden border-2 transition-all duration-200 ${activeThumb === i
-                            ? "border-orange-400 shadow-md shadow-orange-100 scale-[1.04]"
-                            : "border-gray-200 hover:border-orange-300"
-                            }`}
+                          onClick={() => {
+                            const el = document.getElementById("thumb-list");
+                            if (el) el.scrollBy({ top: -70, behavior: "smooth" });
+                          }}
+                          className="w-8 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition flex-shrink-0"
                         >
-                          <img src={img.url} alt={`thumb-${i}`} className="w-full h-full object-cover" />
+                          ▲
                         </button>
-                      ))}
-                    </div>
+                      )}
 
-                    {images.length > 5 && (
-                      <button
-                        onClick={() => {
-                          const el = document.getElementById("thumb-list");
-                          if (el) el.scrollBy({ top: 70, behavior: "smooth" });
-                        }}
-                        className="w-8 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition flex-shrink-0"
-                      >
-                        ▼
-                      </button>
-                    )}
-                  </div>
-                )}
-
-                {/* ── Main image + mobile dot nav ── */}
-                <div className="flex-1 flex flex-col">
-                  <div
-                    ref={containerRef}
-                    className="relative w-full cursor-pointer flex items-center justify-center overflow-hidden"
-                    style={{ aspectRatio: "4/5", maxHeight: 880 }}
-                    onClick={() => { if (isMobile) setisVisible(true); }}
-                    onMouseEnter={() => { if (isMobile) return; setShowZoom(true); }}
-                    onMouseLeave={() => { if (isMobile) return; setShowZoom(false); }}
-                    onMouseMove={!isMobile ? handleMouseMove : undefined}
-                  >
-                    {activeImg ? (
-                      <img
-                        src={activeImg}
-                        alt={title}
-                        className="w-full h-full object-cover p-4 sm:p-6"
-                      />
-                    ) : (
-                      <div>No image</div>
-                    )}
-
-                    {/* 🔥 AMAZON DOTTED LENS */}
-                    {showZoom && !isMobile && (
                       <div
-                        ref={lensRef}
-                        className="absolute pointer-events-none"
-                        style={{
-                          width: "10rem",
-                          height: "11rem",
-                          transform: "translate(-50%, -50%)",
-                          backgroundColor: "rgba(163, 89, 223, 0.35)",
-                          backgroundImage: `radial-gradient(rgba(0,0,0,0.15) 1px, transparent 1px)`,
-                          backgroundSize: "6px 6px",
-                          border: "1px solid rgba(0,0,0,0.2)",
-                          boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-                        }}
-                        onContextMenu={(e) => e.preventDefault()}
-                      />
-                    )}
-                  </div>
+                        id="thumb-list"
+                        className="flex flex-col gap-2 overflow-y-auto scrollbar-hide flex-1"
+                        style={{ maxHeight: 380 }}
+                      >
+                        {images.map((img, i) => (
+                          <button
+                            key={i}
+                            onClick={() => { setActiveThumb(i); }}
+                            className={`flex-shrink-0 w-[56px] h-[56px] rounded-xl overflow-hidden border-2 transition-all duration-200 ${activeThumb === i
+                              ? "border-orange-400 shadow-md shadow-orange-100 scale-[1.04]"
+                              : "border-gray-200 hover:border-orange-300"
+                              }`}
+                          >
+                            <img src={img.url} alt={`thumb-${i}`} className="w-full h-full object-cover" />
+                          </button>
+                        ))}
+                      </div>
 
-                  {/* Mobile dots */}
-                  {images.length > 1 && (
-                    <div className="lg:hidden flex items-center justify-center gap-1.5 py-3">
-                      {images.map((_, i) => (
+                      {images.length > 5 && (
                         <button
-                          key={i}
-                          onClick={() => setActiveThumb(i)}
-                          className={`rounded-full transition-all duration-200 ${activeThumb === i
-                            ? "w-4 h-2 bg-orange-400"
-                            : "w-2 h-2 bg-gray-300 hover:bg-gray-400"
-                            }`}
-                        />
-                      ))}
+                          onClick={() => {
+                            const el = document.getElementById("thumb-list");
+                            if (el) el.scrollBy({ top: 70, behavior: "smooth" });
+                          }}
+                          className="w-8 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 text-gray-400 hover:text-gray-700 transition flex-shrink-0"
+                        >
+                          ▼
+                        </button>
+                      )}
                     </div>
                   )}
-                </div>
+
+                  {/* ── Main image + mobile dot nav ── */}
+                  <div className="flex-1 flex flex-col">
+                    <div
+                      ref={containerRef}
+                      className="relative w-full cursor-pointer flex items-center justify-center overflow-hidden"
+                      style={{ aspectRatio: "1/1" }}
+                      onClick={() => { if (isMobile) setisVisible(true); }}
+                      onMouseEnter={() => { if (isMobile) return; setShowZoom(true); }}
+                      onMouseLeave={() => { if (isMobile) return; setShowZoom(false); }}
+                      onMouseMove={!isMobile ? handleMouseMove : undefined}
+                    >
+                      {activeImg ? (
+                        <img
+                          src={activeImg}
+                          alt={title}
+                          // className="w-full h-full object-cover p-4 sm:p-6"
+                          className="w-full h-full object-contain"
+                        />
+                      ) : (
+                        <div>No image</div>
+                      )}
+
+                      {/* 🔥 AMAZON DOTTED LENS */}
+                      {showZoom && !isMobile && (
+                        <div
+                          ref={lensRef}
+                          className="absolute pointer-events-none"
+                          style={{
+                            width: "10rem",
+                            height: "11rem",
+                            transform: "translate(-50%, -50%)",
+                            backgroundColor: "rgba(163, 89, 223, 0.35)",
+                            backgroundImage: `radial-gradient(rgba(0,0,0,0.15) 1px, transparent 1px)`,
+                            backgroundSize: "6px 6px",
+                            border: "1px solid rgba(0,0,0,0.2)",
+                            boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+                          }}
+                          onContextMenu={(e) => e.preventDefault()}
+                        />
+                      )}
+                    </div>
+
+                    {/* Mobile dots */}
+                    {images.length > 1 && (
+                      <div className="lg:hidden flex items-center justify-center gap-1.5 py-3">
+                        {images.map((_, i) => (
+                          <button
+                            key={i}
+                            onClick={() => setActiveThumb(i)}
+                            className={`rounded-full transition-all duration-200 ${activeThumb === i
+                              ? "w-4 h-2 bg-orange-400"
+                              : "w-2 h-2 bg-gray-300 hover:bg-gray-400"
+                              }`}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>{/* end image row */}
 
                 {/* Reviews: directly under gallery; list grows downward / scrolls */}
@@ -1234,18 +1235,16 @@ const ProductUI = () => {
                                       setFilterStar(filterStar === star ? null : star);
                                       setVisibleCount(3);
                                     }}
-                                    className={`w-full flex items-center gap-2 sm:gap-3 px-2 py-1 rounded-lg transition-colors text-sm cursor-pointer ${
-                                      isActive ? "bg-amber-50" : "hover:bg-gray-50"
-                                    }`}
+                                    className={`w-full flex items-center gap-2 sm:gap-3 px-2 py-1 rounded-lg transition-colors text-sm cursor-pointer ${isActive ? "bg-amber-50" : "hover:bg-gray-50"
+                                      }`}
                                   >
                                     <span className="w-12 sm:w-14 text-left text-xs sm:text-sm text-gray-600 font-medium flex-shrink-0">
                                       {star} star
                                     </span>
                                     <div className="flex-1 h-2.5 sm:h-3 bg-gray-100 rounded-full overflow-hidden">
                                       <div
-                                        className={`h-full rounded-full transition-all duration-500 ${
-                                          isActive ? "bg-amber-500" : "bg-amber-400"
-                                        }`}
+                                        className={`h-full rounded-full transition-all duration-500 ${isActive ? "bg-amber-500" : "bg-amber-400"
+                                          }`}
                                         style={{ width: `${pct}%` }}
                                       />
                                     </div>
@@ -1271,9 +1270,13 @@ const ProductUI = () => {
                             {/* Login prompt for logged-out users */}
                             {!isLoggedIn && (
                               <p className="text-sm text-gray-500 mt-2">
-                                <Link to="/login" className="text-orange-600 font-bold hover:underline">
+                                <button
+                                  type="button"
+                                  onClick={openAuthModal}
+                                  className="text-orange-600 font-bold hover:underline"
+                                >
                                   Log in
-                                </Link>{" "}
+                                </button>{" "}
                                 to leave a review
                               </p>
                             )}
@@ -1337,11 +1340,10 @@ const ProductUI = () => {
                             <button
                               type="submit"
                               disabled={reviewSubmitting || reviewForm.rating === 0}
-                              className={`text-sm font-semibold px-5 py-2 rounded-lg transition cursor-pointer ${
-                                reviewForm.rating === 0
-                                  ? "bg-zinc-900 text-white opacity-40 cursor-not-allowed"
-                                  : "bg-zinc-900 text-white hover:bg-zinc-800"
-                              } disabled:opacity-40`}
+                              className={`text-sm font-semibold px-5 py-2 rounded-lg transition cursor-pointer ${reviewForm.rating === 0
+                                ? "bg-zinc-900 text-white opacity-40 cursor-not-allowed"
+                                : "bg-zinc-900 text-white hover:bg-zinc-800"
+                                } disabled:opacity-40`}
                             >
                               {reviewSubmitting ? (
                                 <span className="flex items-center gap-2">
@@ -1450,6 +1452,7 @@ const ProductUI = () => {
                         backgroundRepeat: "no-repeat",
                         backgroundSize: "250%",
                         transition: "background-position 0.1s ease-out",
+                        top: "-80px",
                       }}
                     />
                   )}

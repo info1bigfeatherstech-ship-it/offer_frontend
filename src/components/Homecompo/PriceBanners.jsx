@@ -127,9 +127,9 @@ const PriceBanners = () => {
                     Shop By Price
                 </h3>
                 
-                <button className="text-[#f7a221] font-black flex items-center gap-2 text-[10px] md:text-sm uppercase tracking-[0.2em] hover:opacity-80 transition-opacity">
+                {/* <button className="text-[#f7a221] font-black flex items-center gap-2 text-[10px] md:text-sm uppercase tracking-[0.2em] hover:opacity-80 transition-opacity">
                     View All <ArrowRight size={16} />
-                </button>
+                </button> */}
             </div>
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">

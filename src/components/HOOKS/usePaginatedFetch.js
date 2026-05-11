@@ -71,11 +71,12 @@ const usePaginatedFetch = ({
       if (!isMountedRef.current) return result;
 
       return result;
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        console.log('Fetch aborted');
-        return null;
-      }
+    }catch (error) {
+      // ← THIS is the fix — ConditionError means thunk was intentionally
+      // aborted by its condition callback, not a real error, just ignore it
+      if (error?.name === 'ConditionError') return null;
+      if (error?.name === 'AbortError') return null;
+      if (!isMountedRef.current) return null;
       throw error;
     } finally {
       if (abortControllerRef.current === controller) {
