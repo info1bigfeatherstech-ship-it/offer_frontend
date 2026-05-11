@@ -492,7 +492,7 @@ const RelatedCard = ({ product, index = 0 }) => {
 };
 
 // ─── Main ProductUI ───────────────────────────────────────────────────────────
-const ProductUI = () => {
+const ProductUI = ({onOpenAuth}) => {
   const { slug } = useParams();
   const dispatch = useDispatch();
   const navigate = useNavigate();

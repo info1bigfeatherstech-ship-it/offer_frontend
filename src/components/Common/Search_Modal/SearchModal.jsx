@@ -57,6 +57,8 @@ const getMaxDiscount = (product) => {
 
 // Product Item Component - Updated for variant images
 const ProductItem = memo(({ product, onClick }) => {
+  console.log("Product", product);
+  
   const fallbackImage = 'https://via.placeholder.com/64x64?text=No+Image';
   const productImage = getProductImage(product);
   const priceRange = getProductPriceRange(product);
@@ -115,7 +117,7 @@ const ProductItem = memo(({ product, onClick }) => {
           {product.rating && (
             <div className="flex items-center gap-1">
               <Star size={12} className="fill-[#F7A221] text-[#F7A221]" />
-              <span className="text-xs font-bold">{product.rating}</span>
+              <span className="text-xs font-bold">{product?.rating}</span>
             </div>
           )}
           {priceRange && (
@@ -633,7 +635,7 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
         </div>
       </div>
       
-      <style jsx>{`
+      <style>{`
         @keyframes fadeIn {
           from { opacity: 0; }
           to { opacity: 1; }

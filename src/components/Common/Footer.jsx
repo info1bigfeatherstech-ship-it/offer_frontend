@@ -48,16 +48,16 @@ const Footer = () => {
         { label: "Influencer Form", path: "/influencer-form" },
       ]
     },
-    {
-      title: "Policies",
-      items: [
-        { label: "Return & Refund", path: "/policies/return-refund" },
-        { label: "Order Cancellation Policy", path: "/policies/order-cancellation" },
-        { label: "Privacy Policy", path: "/policies/privacy-policy" },
-        { label: "Shipping Policy", path: "/policies/shipping-policy" },
-        { label: "Terms & Conditions", path: "/policies/terms-conditions" }
-      ]
-    }
+ {
+  title: "Policies",
+  items: [
+    { label: "Return & Refund", path: "/policies/return-refund" },
+    { label: "Order Cancellation Policy", path: "/policies/order-cancellation" },
+    { label: "Privacy Policy", path: "/policies/privacy-policy" },
+    { label: "Shipping Policy", path: "/policies/shipping-policy" },
+    { label: "Terms & Conditions", path: "/policies/terms-conditions" }
+  ]
+}
   ];
   // { title: "Solutions", items: ["Brand Drop Shipping", "Shopify Website", "B2B Drop Shipping", "Reseller Plan"] }
   const socialLinks = [
