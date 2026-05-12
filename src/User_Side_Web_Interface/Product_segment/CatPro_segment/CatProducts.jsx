@@ -58,9 +58,9 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-   useEffect(() => {
-      window.scrollTo({ top: 0, behavior: "smooth" })
-    }, [])
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }, [])
 
   // Chunk flat array into rows
   const rows = useMemo(() => {
@@ -847,7 +847,7 @@ const CatProducts = () => {
 };
 
 export default CatProducts;
-// update the code show 6 cards in lg screens and 2 cards in mobile 
+// update the code show 6 cards in lg screens and 2 cards in mobile
 // import React, { useEffect, useCallback, useState, useRef, useMemo, useLayoutEffect } from "react";
 // import { useParams, useNavigate, Link } from "react-router-dom";
 // import { useDispatch, useSelector } from "react-redux";

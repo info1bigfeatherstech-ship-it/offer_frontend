@@ -5,33 +5,39 @@ import { toast } from "react-toastify";
 import { verifyOTP, registerUser, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
 
 /*
-  CHANGED: This component now works with phone-based OTP.
-  
-  Props changed:
-    BEFORE: { email, name, onClose, onVerify }
-    AFTER:  { phone, name, onClose, onVerify }
-  
-  Backend endpoint: POST /auth/otp-verify-login
-    BEFORE: { email, otp }
-    AFTER:  { phone, otp }
-  
-  Resend OTP: still calls registerUser but phone is now required,
-  so we pass the phone from props to re-trigger SMS OTP.
+  ARCHITECTURE FIX — OtpVerification is NO LONGER a self-contained modal.
+
+  BEFORE (broken):
+    - Had its own  fixed inset-0 z-[200] bg-black/95 backdrop-blur-md overflow-y-auto
+    - When open: TWO full-screen fixed backdrops competed for scroll ownership
+    - iOS Safari double scroll-lock: user could not scroll OTP boxes on iPhone SE
+    - mt-auto on verify button pushed it behind home indicator with keyboard open
+
+  AFTER (fixed):
+    - Renders as a plain content panel inside LogRegister's existing card shell
+    - No fixed positioning, no backdrop, no z-index, no overflow-y-auto
+    - LogRegister's single backdrop handles everything
+    - Full height determined by content, not viewport — keyboard-safe by default
+    - Padding at bottom is handled by parent card's pb-[env(safe-area-inset-bottom)]
+
+  Props: { phone, name, onClose, onVerify }
+  Backend: POST /auth/otp-verify-login { phone, otp }
 */
 
 const OtpVerification = ({ phone, name, onClose, onVerify }) => {
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state) => state.auth);
 
-  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-  const [timer, setTimer] = useState(60);
-  const [canResend, setCanResend] = useState(false);
+  const [otp,        setOtp]        = useState(["", "", "", "", "", ""]);
+  const [timer,      setTimer]      = useState(60);
+  const [canResend,  setCanResend]  = useState(false);
   const [localError, setLocalError] = useState("");
   const inputRefs = useRef([]);
 
   useEffect(() => {
     dispatch(clearError());
-    setTimeout(() => inputRefs.current[0]?.focus(), 120);
+    // Small delay so the slide-up animation completes before keyboard opens
+    setTimeout(() => inputRefs.current[0]?.focus(), 180);
   }, [dispatch]);
 
   useEffect(() => {
@@ -42,6 +48,7 @@ const OtpVerification = ({ phone, name, onClose, onVerify }) => {
     if (localError) { toast.error(localError); setLocalError(""); }
   }, [localError]);
 
+  // Countdown timer
   useEffect(() => {
     if (timer > 0) {
       const id = setInterval(() => setTimer((s) => s - 1), 1000);
@@ -49,6 +56,7 @@ const OtpVerification = ({ phone, name, onClose, onVerify }) => {
     } else { setCanResend(true); }
   }, [timer]);
 
+  // ── OTP input handlers ─────────────────────────────────────────
   const handleChange = (idx, val) => {
     const c = val.replace(/\D/g, "");
     if (!c && val) return;
@@ -65,7 +73,7 @@ const OtpVerification = ({ phone, name, onClose, onVerify }) => {
         const next = [...otp]; next[idx] = ""; setOtp(next);
       } else if (idx > 0) { inputRefs.current[idx - 1]?.focus(); }
     }
-    if (e.key === "ArrowLeft" && idx > 0) inputRefs.current[idx - 1]?.focus();
+    if (e.key === "ArrowLeft"  && idx > 0) inputRefs.current[idx - 1]?.focus();
     if (e.key === "ArrowRight" && idx < 5) inputRefs.current[idx + 1]?.focus();
   };
 
@@ -78,6 +86,7 @@ const OtpVerification = ({ phone, name, onClose, onVerify }) => {
     setOtp(next);
     inputRefs.current[Math.min(pasted.length, 5)]?.focus();
   };
+  // ──────────────────────────────────────────────────────────────
 
   const handleResend = async () => {
     if (!canResend) return;
@@ -85,16 +94,12 @@ const OtpVerification = ({ phone, name, onClose, onVerify }) => {
     setCanResend(false);
     setOtp(["", "", "", "", "", ""]);
     inputRefs.current[0]?.focus();
-
-    // CHANGED: resend needs phone (not email) — backend requires phone for register
-    // We re-call register with the same phone to trigger a new OTP SMS
-    // The backend handles the "already pending unverified user" case gracefully
+    // Re-call register with same phone to trigger new OTP SMS
+    // Backend handles existing unverified user by phone
     const result = await dispatch(
       registerUser({
-        name: name || "User",
-        // email is not available here — backend will find user by phone
-        // Pass a placeholder; backend finds existing unverified user by phone
-        email: `resend_${Date.now()}@placeholder.com`,
+        name:     name || "User",
+        email:    `resend_${Date.now()}@placeholder.com`,
         password: "__resend__",
         phone,
       })
@@ -105,8 +110,6 @@ const OtpVerification = ({ phone, name, onClose, onVerify }) => {
   const handleVerify = async () => {
     const str = otp.join("");
     if (str.length !== 6) { setLocalError("Please enter all 6 digits"); return; }
-
-    // CHANGED: send { phone, otp } instead of { email, otp }
     const result = await dispatch(verifyOTP({ phone, otp: str }));
     if (verifyOTP.fulfilled.match(result)) {
       toast.success("Verified! Welcome aboard 🎉");
@@ -116,102 +119,322 @@ const OtpVerification = ({ phone, name, onClose, onVerify }) => {
 
   const isComplete = otp.join("").length === 6;
 
-  // Mask phone for display: show last 4 digits only e.g. ******6789
+  // Mask phone: show last 4 digits only — e.g. ******6789
   const maskedPhone = phone
     ? `${"*".repeat(Math.max(0, phone.length - 4))}${phone.slice(-4)}`
     : "";
 
   return (
-    <>
-      <style>{`
-        @keyframes lr-slideInUp {
-          from { opacity: 0; transform: translateY(20px); }
-          to   { opacity: 1; transform: translateY(0); }
-        }
-      `}</style>
+    /*
+      FIX: This is now a plain div — NO fixed, NO inset-0, NO z-index, NO overflow.
+      It is rendered as a sibling to Login/Register content inside LogRegister's card.
+      The lr-slide-up animation is applied by LogRegister's wrapper div on this panel.
+      Padding px-6 sm:px-8 matches the tab panels' p-5 sm:p-8.
+      pt-4 gives breathing room below the mobile top bar.
+      pb-6 bottom padding — safe-area is handled by parent card's
+      pb-[env(safe-area-inset-bottom)].
+    */
+    <div className="w-full px-5 sm:px-8 pt-4 pb-6">
 
-      <div
-        className="fixed inset-0 z-[200] flex items-start sm:items-center justify-center p-0 sm:p-4 bg-black/95 backdrop-blur-md overflow-y-auto"
-        style={{ animation: "lr-slideInUp 0.3s cubic-bezier(0.32,0.72,0,1) both" }}
+      {/* Back / change phone button */}
+      <button
+        onClick={onClose}
+        className="flex items-center cursor-pointer gap-1 text-[#f7a221] hover:text-white font-black text-[10px] tracking-widest transition-colors mb-6 sm:mb-8 uppercase self-start touch-manipulation"
       >
-        <div className="w-full sm:max-w-md my-0 sm:my-4 bg-[#0d0d0d] border-0 sm:border border-white/10 rounded-none sm:rounded-[2.5rem] shadow-2xl overflow-hidden p-6 sm:p-8 min-h-screen sm:min-h-0 flex flex-col">
+        <ChevronLeft size={16} /> Change Phone
+      </button>
 
-          <button
-            onClick={onClose}
-            className="flex items-center cursor-pointer gap-1 text-[#f7a221] hover:text-white font-bold text-[10px] tracking-widest transition-colors mb-6 sm:mb-8 uppercase self-start touch-manipulation"
-          >
-            <ChevronLeft size={16} /> Change Phone
-          </button>
-
-          {/* Icon + heading */}
-          <div className="flex flex-col items-center mb-6 sm:mb-8">
-            {/* CHANGED: Mail icon → Phone icon (OTP goes to phone now) */}
-            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-[#f7a221]/10 flex items-center justify-center mb-4 border border-[#f7a221]/20 rotate-3">
-              <Phone className="text-[#f7a221] -rotate-3" size={28} />
-            </div>
-            <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tighter mb-2">
-              VERIFY <span className="text-[#f7a221]">OTP</span>
-            </h3>
-            {/* CHANGED: shows masked phone number, not email */}
-            <p className="text-white/35 text-[11px] text-center uppercase tracking-widest leading-relaxed max-w-xs">
-              6-digit code sent to{" "}
-              <span className="text-white lowercase tracking-normal font-bold break-all">
-                {maskedPhone}
-              </span>
-            </p>
-          </div>
-
-          {/* OTP boxes */}
-          <div className="flex justify-between gap-1.5 sm:gap-2 mb-6 sm:mb-8" onPaste={handlePaste}>
-            {otp.map((digit, idx) => (
-              <input
-                key={idx}
-                ref={(el) => (inputRefs.current[idx] = el)}
-                type="text"
-                inputMode="numeric"
-                pattern="[0-9]*"
-                maxLength="1"
-                value={digit}
-                onChange={(e) => handleChange(idx, e.target.value)}
-                onKeyDown={(e) => handleKeyDown(idx, e)}
-                style={{ fontSize: "20px" }}
-                className="flex-1 min-w-0 aspect-square bg-white/[0.04] border border-white/10 rounded-xl sm:rounded-2xl text-center text-white font-black focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/40 transition-all caret-transparent touch-manipulation"
-                aria-label={`OTP digit ${idx + 1}`}
-              />
-            ))}
-          </div>
-
-          {/* Timer */}
-          <div className="flex items-center justify-center gap-2 text-white/30 mb-6 sm:mb-8">
-            <Clock size={13} className="shrink-0" />
-            <span className="text-[11px] font-bold tracking-widest">
-              {canResend ? (
-                <button
-                  onClick={handleResend}
-                  className="text-[#f7a221] hover:underline uppercase cursor-pointer touch-manipulation"
-                >
-                  RESEND CODE
-                </button>
-              ) : (
-                `RESEND IN ${timer}S`
-              )}
-            </span>
-          </div>
-
-          <button
-            onClick={handleVerify}
-            disabled={!isComplete || loading}
-            className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-30 text-black font-black py-4 rounded-2xl cursor-pointer transition-all flex items-center justify-center gap-2 text-sm shadow-[0_8px_20px_rgba(247,162,33,0.25)] touch-manipulation select-none mt-auto sm:mt-0"
-          >
-            {loading ? <Loader2 className="animate-spin" size={20} /> : "VERIFY & CONTINUE"}
-          </button>
+      {/* Phone icon + heading */}
+      <div className="flex flex-col items-center mb-6 sm:mb-8">
+        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-[#f7a221]/10 flex items-center justify-center mb-4 border border-[#f7a221]/20 rotate-3">
+          <Phone className="text-[#f7a221] -rotate-3" size={28} />
         </div>
+        <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tighter mb-2">
+          VERIFY <span className="text-[#f7a221]">OTP</span>
+        </h3>
+        <p className="text-white/35 text-[11px] text-center uppercase tracking-widest leading-relaxed max-w-xs">
+          6-digit code sent to{" "}
+          <span className="text-white lowercase tracking-normal font-bold break-all">
+            {maskedPhone}
+          </span>
+        </p>
       </div>
-    </>
+
+      {/* OTP digit boxes */}
+      <div
+        className="flex justify-between gap-1.5 sm:gap-2 mb-6 sm:mb-8"
+        onPaste={handlePaste}
+      >
+        {otp.map((digit, idx) => (
+          <input
+            key={idx}
+            ref={(el) => (inputRefs.current[idx] = el)}
+            type="text"
+            inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength="1"
+            value={digit}
+            onChange={(e) => handleChange(idx, e.target.value)}
+            onKeyDown={(e) => handleKeyDown(idx, e)}
+            /*
+              FIX: text-[20px] as Tailwind arbitrary value — single source of truth.
+              No inline style needed. 20px > 16px so iOS won't zoom.
+            */
+            className="flex-1 min-w-0 aspect-square bg-white/[0.04] border border-white/10 rounded-xl sm:rounded-2xl text-center text-white text-[20px] font-black focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/40 transition-all caret-transparent touch-manipulation"
+            aria-label={`OTP digit ${idx + 1}`}
+          />
+        ))}
+      </div>
+
+      {/* Resend timer */}
+      <div className="flex items-center justify-center gap-2 text-white/30 mb-6 sm:mb-8">
+        <Clock size={13} className="shrink-0" />
+        <span className="text-[11px] font-bold tracking-widest">
+          {canResend ? (
+            <button
+              onClick={handleResend}
+              className="text-[#f7a221] hover:underline uppercase cursor-pointer touch-manipulation"
+            >
+              RESEND CODE
+            </button>
+          ) : (
+            `RESEND IN ${timer}S`
+          )}
+        </span>
+      </div>
+
+      {/*
+        FIX: Removed mt-auto — it pushed the button to the absolute bottom of a
+        flex min-h-screen container, placing it behind keyboard/home indicator.
+        Now it sits naturally in flow, always visible above keyboard.
+      */}
+      <button
+        onClick={handleVerify}
+        disabled={!isComplete || loading}
+        className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-30 text-black font-black py-4 rounded-2xl cursor-pointer transition-all flex items-center justify-center gap-2 text-sm shadow-[0_8px_20px_rgba(247,162,33,0.25)] touch-manipulation select-none"
+      >
+        {loading ? <Loader2 className="animate-spin" size={20} /> : "VERIFY & CONTINUE"}
+      </button>
+    </div>
   );
 };
 
 export default OtpVerification;
+// try to make it responsive 
+// import React, { useState, useEffect, useRef } from "react";
+// import { Phone, ChevronLeft, Clock, Loader2 } from "lucide-react";
+// import { useDispatch, useSelector } from "react-redux";
+// import { toast } from "react-toastify";
+// import { verifyOTP, registerUser, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
+
+// /*
+//   CHANGED: This component now works with phone-based OTP.
+  
+//   Props changed:
+//     BEFORE: { email, name, onClose, onVerify }
+//     AFTER:  { phone, name, onClose, onVerify }
+  
+//   Backend endpoint: POST /auth/otp-verify-login
+//     BEFORE: { email, otp }
+//     AFTER:  { phone, otp }
+  
+//   Resend OTP: still calls registerUser but phone is now required,
+//   so we pass the phone from props to re-trigger SMS OTP.
+// */
+
+// const OtpVerification = ({ phone, name, onClose, onVerify }) => {
+//   const dispatch = useDispatch();
+//   const { loading, error } = useSelector((state) => state.auth);
+
+//   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+//   const [timer, setTimer] = useState(60);
+//   const [canResend, setCanResend] = useState(false);
+//   const [localError, setLocalError] = useState("");
+//   const inputRefs = useRef([]);
+
+//   useEffect(() => {
+//     dispatch(clearError());
+//     setTimeout(() => inputRefs.current[0]?.focus(), 120);
+//   }, [dispatch]);
+
+//   useEffect(() => {
+//     if (error) { toast.error(error); dispatch(clearError()); }
+//   }, [error, dispatch]);
+
+//   useEffect(() => {
+//     if (localError) { toast.error(localError); setLocalError(""); }
+//   }, [localError]);
+
+//   useEffect(() => {
+//     if (timer > 0) {
+//       const id = setInterval(() => setTimer((s) => s - 1), 1000);
+//       return () => clearInterval(id);
+//     } else { setCanResend(true); }
+//   }, [timer]);
+
+//   const handleChange = (idx, val) => {
+//     const c = val.replace(/\D/g, "");
+//     if (!c && val) return;
+//     if (c.length > 1) return;
+//     const next = [...otp];
+//     next[idx] = c;
+//     setOtp(next);
+//     if (c && idx < 5) inputRefs.current[idx + 1]?.focus();
+//   };
+
+//   const handleKeyDown = (idx, e) => {
+//     if (e.key === "Backspace") {
+//       if (otp[idx]) {
+//         const next = [...otp]; next[idx] = ""; setOtp(next);
+//       } else if (idx > 0) { inputRefs.current[idx - 1]?.focus(); }
+//     }
+//     if (e.key === "ArrowLeft" && idx > 0) inputRefs.current[idx - 1]?.focus();
+//     if (e.key === "ArrowRight" && idx < 5) inputRefs.current[idx + 1]?.focus();
+//   };
+
+//   const handlePaste = (e) => {
+//     e.preventDefault();
+//     const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+//     if (!pasted) return;
+//     const next = [...otp];
+//     pasted.split("").forEach((ch, i) => { if (i < 6) next[i] = ch; });
+//     setOtp(next);
+//     inputRefs.current[Math.min(pasted.length, 5)]?.focus();
+//   };
+
+//   const handleResend = async () => {
+//     if (!canResend) return;
+//     setTimer(60);
+//     setCanResend(false);
+//     setOtp(["", "", "", "", "", ""]);
+//     inputRefs.current[0]?.focus();
+
+//     // CHANGED: resend needs phone (not email) — backend requires phone for register
+//     // We re-call register with the same phone to trigger a new OTP SMS
+//     // The backend handles the "already pending unverified user" case gracefully
+//     const result = await dispatch(
+//       registerUser({
+//         name: name || "User",
+//         // email is not available here — backend will find user by phone
+//         // Pass a placeholder; backend finds existing unverified user by phone
+//         email: `resend_${Date.now()}@placeholder.com`,
+//         password: "__resend__",
+//         phone,
+//       })
+//     );
+//     if (registerUser.fulfilled.match(result)) toast.success("New OTP sent to your phone!");
+//   };
+
+//   const handleVerify = async () => {
+//     const str = otp.join("");
+//     if (str.length !== 6) { setLocalError("Please enter all 6 digits"); return; }
+
+//     // CHANGED: send { phone, otp } instead of { email, otp }
+//     const result = await dispatch(verifyOTP({ phone, otp: str }));
+//     if (verifyOTP.fulfilled.match(result)) {
+//       toast.success("Verified! Welcome aboard 🎉");
+//       onVerify();
+//     }
+//   };
+
+//   const isComplete = otp.join("").length === 6;
+
+//   // Mask phone for display: show last 4 digits only e.g. ******6789
+//   const maskedPhone = phone
+//     ? `${"*".repeat(Math.max(0, phone.length - 4))}${phone.slice(-4)}`
+//     : "";
+
+//   return (
+//     <>
+//       <style>{`
+//         @keyframes lr-slideInUp {
+//           from { opacity: 0; transform: translateY(20px); }
+//           to   { opacity: 1; transform: translateY(0); }
+//         }
+//       `}</style>
+
+//       <div
+//         className="fixed inset-0 z-[200] flex items-start sm:items-center justify-center p-0 sm:p-4 bg-black/95 backdrop-blur-md overflow-y-auto"
+//         style={{ animation: "lr-slideInUp 0.3s cubic-bezier(0.32,0.72,0,1) both" }}
+//       >
+//         <div className="w-full sm:max-w-md my-0 sm:my-4 bg-[#0d0d0d] border-0 sm:border border-white/10 rounded-none sm:rounded-[2.5rem] shadow-2xl overflow-hidden p-6 sm:p-8 min-h-screen sm:min-h-0 flex flex-col">
+
+//           <button
+//             onClick={onClose}
+//             className="flex items-center cursor-pointer gap-1 text-[#f7a221] hover:text-white font-bold text-[10px] tracking-widest transition-colors mb-6 sm:mb-8 uppercase self-start touch-manipulation"
+//           >
+//             <ChevronLeft size={16} /> Change Phone
+//           </button>
+
+//           {/* Icon + heading */}
+//           <div className="flex flex-col items-center mb-6 sm:mb-8">
+//             {/* CHANGED: Mail icon → Phone icon (OTP goes to phone now) */}
+//             <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-[#f7a221]/10 flex items-center justify-center mb-4 border border-[#f7a221]/20 rotate-3">
+//               <Phone className="text-[#f7a221] -rotate-3" size={28} />
+//             </div>
+//             <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tighter mb-2">
+//               VERIFY <span className="text-[#f7a221]">OTP</span>
+//             </h3>
+//             {/* CHANGED: shows masked phone number, not email */}
+//             <p className="text-white/35 text-[11px] text-center uppercase tracking-widest leading-relaxed max-w-xs">
+//               6-digit code sent to{" "}
+//               <span className="text-white lowercase tracking-normal font-bold break-all">
+//                 {maskedPhone}
+//               </span>
+//             </p>
+//           </div>
+
+//           {/* OTP boxes */}
+//           <div className="flex justify-between gap-1.5 sm:gap-2 mb-6 sm:mb-8" onPaste={handlePaste}>
+//             {otp.map((digit, idx) => (
+//               <input
+//                 key={idx}
+//                 ref={(el) => (inputRefs.current[idx] = el)}
+//                 type="text"
+//                 inputMode="numeric"
+//                 pattern="[0-9]*"
+//                 maxLength="1"
+//                 value={digit}
+//                 onChange={(e) => handleChange(idx, e.target.value)}
+//                 onKeyDown={(e) => handleKeyDown(idx, e)}
+//                 style={{ fontSize: "20px" }}
+//                 className="flex-1 min-w-0 aspect-square bg-white/[0.04] border border-white/10 rounded-xl sm:rounded-2xl text-center text-white font-black focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/40 transition-all caret-transparent touch-manipulation"
+//                 aria-label={`OTP digit ${idx + 1}`}
+//               />
+//             ))}
+//           </div>
+
+//           {/* Timer */}
+//           <div className="flex items-center justify-center gap-2 text-white/30 mb-6 sm:mb-8">
+//             <Clock size={13} className="shrink-0" />
+//             <span className="text-[11px] font-bold tracking-widest">
+//               {canResend ? (
+//                 <button
+//                   onClick={handleResend}
+//                   className="text-[#f7a221] hover:underline uppercase cursor-pointer touch-manipulation"
+//                 >
+//                   RESEND CODE
+//                 </button>
+//               ) : (
+//                 `RESEND IN ${timer}S`
+//               )}
+//             </span>
+//           </div>
+
+//           <button
+//             onClick={handleVerify}
+//             disabled={!isComplete || loading}
+//             className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-30 text-black font-black py-4 rounded-2xl cursor-pointer transition-all flex items-center justify-center gap-2 text-sm shadow-[0_8px_20px_rgba(247,162,33,0.25)] touch-manipulation select-none mt-auto sm:mt-0"
+//           >
+//             {loading ? <Loader2 className="animate-spin" size={20} /> : "VERIFY & CONTINUE"}
+//           </button>
+//         </div>
+//       </div>
+//     </>
+//   );
+// };
+
+// export default OtpVerification;
 
 // import React, { useState, useEffect, useRef } from "react";
 // import { Mail, ChevronLeft, Clock, Loader2 } from "lucide-react";

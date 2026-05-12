@@ -25,13 +25,13 @@ import usePaginatedFetch from "../../../components/HOOKS/usePaginatedFetch";
 // ── Constants ─────────────────────────────────────────────────────────────────
 const TAG_META = {
   "on-sale": {
-    title:       "On Sale",
-    subtitle:    "Best deals, handpicked for you",
+    title: "On Sale",
+    subtitle: "Best deals, handpicked for you",
     accentColor: "#F7A221",
   },
   "today-arrival": {
-    title:       "Today's Arrival",
-    subtitle:    "Fresh drops, just in",
+    title: "Todays' Deal",
+    subtitle: "Fresh drops, just in",
     accentColor: "#22C55E",
   },
 };
@@ -45,6 +45,9 @@ const getColumnCount = () => {
   return 1;
 };
 
+
+
+
 // ── FilterPanel — OUTSIDE TagProducts to fix Rules of Hooks violation ─────────
 const FilterPanel = ({ filters, toggleFilter, clearFilters, activeFilterCount }) => (
   <div className="space-y-7 font-['satoshi']">
@@ -53,21 +56,20 @@ const FilterPanel = ({ filters, toggleFilter, clearFilters, activeFilterCount })
       <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] text-zinc-800 mb-4">Price Range</h4>
       <div className="space-y-1.5">
         {[
-          { label: "Under ₹29", val: "u29"   },
+          { label: "Under ₹29", val: "u29" },
           { label: "₹29 - ₹49", val: "29-49" },
           { label: "₹49 - ₹79", val: "49-79" },
-          { label: "Over ₹99",  val: "o99"   },
+          { label: "Over ₹99", val: "o99" },
         ].map(({ label, val }) => (
           <label key={val} className="flex items-center gap-3 cursor-pointer group">
             <div
-              className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all ${
-                filters.price.includes(val) ? "bg-zinc-900 border-zinc-900" : "border-zinc-300 group-hover:border-zinc-500"
-              }`}
+              className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all ${filters.price.includes(val) ? "bg-zinc-900 border-zinc-900" : "border-zinc-300 group-hover:border-zinc-500"
+                }`}
               onClick={() => toggleFilter("price", val)}
             >
               {filters.price.includes(val) && (
                 <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 8">
-                  <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5"/>
+                  <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" />
                 </svg>
               )}
             </div>
@@ -89,19 +91,18 @@ const FilterPanel = ({ filters, toggleFilter, clearFilters, activeFilterCount })
       <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] text-zinc-800 mb-4">Availability</h4>
       <div className="space-y-1.5">
         {[
-          { label: "In stock",     val: "instock"    },
+          { label: "In stock", val: "instock" },
           { label: "Out of stock", val: "outofstock" },
         ].map(({ label, val }) => (
           <label key={val} className="flex items-center gap-3 cursor-pointer group">
             <div
-              className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all ${
-                filters.availability.includes(val) ? "bg-zinc-900 border-zinc-900" : "border-zinc-300 group-hover:border-zinc-500"
-              }`}
+              className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all ${filters.availability.includes(val) ? "bg-zinc-900 border-zinc-900" : "border-zinc-300 group-hover:border-zinc-500"
+                }`}
               onClick={() => toggleFilter("availability", val)}
             >
               {filters.availability.includes(val) && (
                 <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 8" fill="none">
-                  <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               )}
             </div>
@@ -129,14 +130,13 @@ const FilterPanel = ({ filters, toggleFilter, clearFilters, activeFilterCount })
         ].map(({ label, val }) => (
           <label key={val} className="flex items-center gap-3 cursor-pointer group">
             <div
-              className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all ${
-                filters.discount.includes(val) ? "bg-zinc-900 border-zinc-900" : "border-zinc-300 group-hover:border-zinc-500"
-              }`}
+              className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all ${filters.discount.includes(val) ? "bg-zinc-900 border-zinc-900" : "border-zinc-300 group-hover:border-zinc-500"
+                }`}
               onClick={() => toggleFilter("discount", val)}
             >
               {filters.discount.includes(val) && (
                 <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 10 8" fill="none">
-                  <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M1 4l3 3 5-6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                 </svg>
               )}
             </div>
@@ -182,13 +182,13 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
   }, [products, cols]);
 
   const skeletonRowCount = loadingMore ? Math.ceil(LOAD_MORE_SKELETON_COUNT / cols) : 0;
-  const totalRows        = rows.length + skeletonRowCount;
+  const totalRows = rows.length + skeletonRowCount;
 
   const rowVirtualizer = useVirtualizer({
-    count:            totalRows,
+    count: totalRows,
     getScrollElement: () => parentRef.current,
-    estimateSize:     () => 420,
-    overscan:         3,
+    estimateSize: () => 420,
+    overscan: 3,
   });
 
   return (
@@ -196,33 +196,33 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
       <div style={{ height: `${rowVirtualizer.getTotalSize()}px`, width: "100%", position: "relative" }}>
         {rowVirtualizer.getVirtualItems().map((virtualRow) => {
           const isSkeletonRow = virtualRow.index >= rows.length;
-          const rowItems      = isSkeletonRow ? Array(cols).fill(null) : rows[virtualRow.index];
+          const rowItems = isSkeletonRow ? Array(cols).fill(null) : rows[virtualRow.index];
           return (
             <div
               key={virtualRow.key}
               data-index={virtualRow.index}
               ref={rowVirtualizer.measureElement}
               style={{
-                position:  "absolute",
-                top:       0,
-                left:      0,
-                width:     "100%",
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
               <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8 pb-10">
                 {isSkeletonRow
                   ? Array(cols).fill(null).map((_, i) => (
-                      <SkeletonCard key={`skel-${virtualRow.index}-${i}`} />
-                    ))
+                    <SkeletonCard key={`skel-${virtualRow.index}-${i}`} />
+                  ))
                   : rowItems.map((product, i) => (
-                      <ProductCard
-                        key={product._id || i}
-                        product={product}
-                        index={virtualRow.index * cols + i}
-                        seed={i}
-                      />
-                    ))
+                    <ProductCard
+                      key={product._id || i}
+                      product={product}
+                      index={virtualRow.index * cols + i}
+                      seed={i}
+                    />
+                  ))
                 }
               </div>
             </div>
@@ -236,29 +236,34 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
 // ── TagProducts — Main Component ──────────────────────────────────────────────
 const TagProducts = (props) => {
   const { tag } = useParams();
-  const rawTag        = props?.tag || tag;
+  const rawTag = props?.tag || tag;
   const normalizedTag = rawTag.replace("_", "-");
 
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
   const meta = TAG_META[normalizedTag] || {
-    title:       normalizedTag,
-    subtitle:    "",
+    title: normalizedTag,
+    subtitle: "",
     accentColor: "#F7A221",
   };
 
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [sortBy, setSortBy]             = useState("default");
-  const [filters, setFilters]           = useState({
-    price:        [],
+  const [sortBy, setSortBy] = useState("default");
+  const [filters, setFilters] = useState({
+    price: [],
     availability: [],
-    discount:     [],
+    discount: [],
   });
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }, [])
+
+
   // ── Memoized selectors ────────────────────────────────────────────────────
-  const selectProducts   = useMemo(() => selectProductsByTag(normalizedTag),   [normalizedTag]);
-  const selectLoading    = useMemo(() => selectLoadingByTag(normalizedTag),    [normalizedTag]);
+  const selectProducts = useMemo(() => selectProductsByTag(normalizedTag), [normalizedTag]);
+  const selectLoading = useMemo(() => selectLoadingByTag(normalizedTag), [normalizedTag]);
   const selectPagination = useMemo(() => selectPaginationByTag(normalizedTag), [normalizedTag]);
 
   // ── fetchParams memoized — prevent new object reference every render ──────
@@ -273,9 +278,9 @@ const TagProducts = (props) => {
     loadMore: handleLoadMore,
     resetPage,
   } = usePaginatedFetch({
-    fetchAction:      fetchProductsByTag,
-    selectData:       selectProducts,
-    selectLoading:    selectLoading,
+    fetchAction: fetchProductsByTag,
+    selectData: selectProducts,
+    selectLoading: selectLoading,
     selectPagination: selectPagination,
     fetchParams,
     limit: 4,
@@ -286,6 +291,10 @@ const TagProducts = (props) => {
     setFilters({ price: [], availability: [], discount: [] });
     setSortBy("default");
   }, [normalizedTag]);
+
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }, [])
 
   // ── Cleanup on unmount ────────────────────────────────────────────────────
   useLayoutEffect(() => {
@@ -314,18 +323,18 @@ const TagProducts = (props) => {
   const filteredProducts = useMemo(() => {
     if (!products?.length) return [];
     return products.filter((product) => {
-      const variant  = product.variants?.[0];
-      const base     = variant?.price?.base ?? 0;
-      const sale     = variant?.price?.sale ?? base;
-      const qty      = variant?.inventory?.quantity ?? 0;
+      const variant = product.variants?.[0];
+      const base = variant?.price?.base ?? 0;
+      const sale = variant?.price?.sale ?? base;
+      const qty = variant?.inventory?.quantity ?? 0;
       const discount = base > 0 ? Math.round(((base - sale) / base) * 100) : 0;
 
       if (filters.price.length > 0) {
         const priceMatch = filters.price.some((p) => {
-          if (p === "u29")   return base < 29;
+          if (p === "u29") return base < 29;
           if (p === "29-49") return base >= 29 && base <= 49;
           if (p === "49-79") return base >= 49 && base <= 79;
-          if (p === "o99")   return base > 99;
+          if (p === "o99") return base > 99;
           return false;
         });
         if (!priceMatch) return false;
@@ -333,7 +342,7 @@ const TagProducts = (props) => {
 
       if (filters.availability.length > 0) {
         const stockMatch = filters.availability.some((a) => {
-          if (a === "instock")    return qty > 0;
+          if (a === "instock") return qty > 0;
           if (a === "outofstock") return qty <= 0;
           return false;
         });
@@ -373,16 +382,16 @@ const TagProducts = (props) => {
           };
           return getDiscount(b) - getDiscount(a);
         });
-      case "az":     return data.sort((a, b) => a.name.localeCompare(b.name));
-      case "za":     return data.sort((a, b) => b.name.localeCompare(a.name));
+      case "az": return data.sort((a, b) => a.name.localeCompare(b.name));
+      case "za": return data.sort((a, b) => b.name.localeCompare(a.name));
       case "newest": return data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      default:       return data;
+      default: return data;
     }
   }, [filteredProducts, sortBy]);
 
-  const error    = useSelector(selectErrorByTag(normalizedTag));
+  const error = useSelector(selectErrorByTag(normalizedTag));
   const hasError = !isLoading && !!error;
-  const hasMore  = pagination?.hasNextPage ?? false;
+  const hasMore = pagination?.hasNextPage ?? false;
 
   const handleRetry = useCallback(() => resetPage(), [resetPage]);
 
@@ -398,7 +407,7 @@ const TagProducts = (props) => {
               <ArrowLeft size={20} />
             </button>
             <nav className="flex items-center gap-2 text-[11px] font-medium uppercase tracking-widest text-zinc-400">
-              <Link to="/" className="hover:text-zinc-900">Home</Link>
+              <Link to="/" className="text-gray-700">Home</Link>
               <ChevronRight size={10} />
               <span className="text-zinc-900 font-bold">{meta.title}</span>
             </nav>

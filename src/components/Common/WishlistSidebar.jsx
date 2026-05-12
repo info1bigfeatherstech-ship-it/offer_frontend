@@ -393,7 +393,7 @@ const WishlistSidebar = ({ isOpen, onClose, onOpenAuth }) => {
             </div>
             <div>
               <h2 className="text-lg font-black uppercase tracking-tighter text-gray-900 leading-none">
-                Wishlist
+                Wish list
               </h2>
               <p className="text-[10px] font-bold text-gray-400 uppercase tracking-[0.2em] mt-1">
                 {displayCount} Saved Item{displayCount !== 1 ? 's' : ''}

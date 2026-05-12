@@ -48,16 +48,16 @@ const Footer = () => {
         { label: "Influencer Form", path: "/influencer-form" },
       ]
     },
- {
-  title: "Policies",
-  items: [
-    { label: "Return & Refund", path: "/policies/return-refund" },
-    { label: "Order Cancellation Policy", path: "/policies/order-cancellation" },
-    { label: "Privacy Policy", path: "/policies/privacy-policy" },
-    { label: "Shipping Policy", path: "/policies/shipping-policy" },
-    { label: "Terms & Conditions", path: "/policies/terms-conditions" }
-  ]
-}
+    {
+      title: "Policies",
+      items: [
+        { label: "Return & Refund", path: "/policies/return-refund" },
+        { label: "Order Cancellation Policy", path: "/policies/order-cancellation" },
+        { label: "Privacy Policy", path: "/policies/privacy-policy" },
+        { label: "Shipping Policy", path: "/policies/shipping-policy" },
+        { label: "Terms & Conditions", path: "/policies/terms-conditions" }
+      ]
+    }
   ];
   // { title: "Solutions", items: ["Brand Drop Shipping", "Shopify Website", "B2B Drop Shipping", "Reseller Plan"] }
   const socialLinks = [
@@ -234,46 +234,46 @@ const Footer = () => {
 
             {/* Responsive: Flex col on mobile, Flex row on desktop */}
             <div className="flex flex-col md:grid md:grid-cols-2 gap-8 md:gap-10">
-  {/* Support Info - Takes 1 column on desktop */}
-  <div className="min-w-0">
-    <p className="text-[#f7a221] font-black text-[20px] tracking-widest uppercase mb-2">
-      Support
-    </p>
-    <p className="text-white font-bold text-lg mb-1">+91 9370686008</p>
-    <a
-      href="mailto:support.offerwalebaba@gmail.com"
-      className="text-white text-sm break-all block hover:text-[#f7a221] transition-colors"
-    >
-      support.offerwalebaba@gmail.com
-    </a>
-  </div>
+              {/* Support Info - Takes 1 column on desktop */}
+              <div className="min-w-0">
+                <p className="text-[#f7a221] font-black text-[20px] tracking-widest uppercase mb-2">
+                  Support
+                </p>
+                <p className="text-white font-bold text-lg mb-1">+91 9370686008</p>
+                <a
+                  href="mailto:support.offerwalebaba@gmail.com"
+                  className="text-white text-sm break-all block hover:text-[#f7a221] transition-colors"
+                >
+                  support.offerwalebaba@gmail.com
+                </a>
+              </div>
 
-  {/* Location Info - Takes 1 column on desktop */}
- <a 
-  href="https://www.google.com/maps?q=19.2092622,73.1663272&z=16" 
-  target="_blank" 
-  rel="noopener noreferrer"
-  className="block min-w-0 group/link"
->
-  <p className="text-[#f7a221] font-black text-[20px] tracking-widest uppercase mb-2">
-    Location
-  </p>
-  <p className="text-white text-base md:text-lg leading-relaxed group-hover/link:underline">
-    Block no 277/553, sambhaji chowk, opp. tipcy-topcy society, Babasai Nagar,
-    Ulhasnagar, Maharashtra 421004
-  </p>
-</a>
+              {/* Location Info - Takes 1 column on desktop */}
+              <a
+                href="https://www.google.com/maps?q=19.2092622,73.1663272&z=16"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block min-w-0 group/link"
+              >
+                <p className="text-[#f7a221] font-black text-[20px] tracking-widest uppercase mb-2">
+                  Location
+                </p>
+                <p className="text-white text-base md:text-lg leading-relaxed group-hover/link:underline">
+                  Block no 277/553, sambhaji chowk, opp. tipcy-topcy society, Babasai Nagar,
+                  Ulhasnagar, Maharashtra 421004
+                </p>
+              </a>
 
-  {/* Working Hours - Spans full width at the bottom on desktop */}
-  <div className="min-w-0 md:col-span-2 border-t border-white/10 pt-4 md:pt-0 md:border-none">
-    <p className="text-[#f7a221] font-black text-[20px] tracking-widest uppercase mb-2">
-      Working Hours
-    </p>
-    <p className="text-white text-base md:text-lg leading-relaxed">
-      Tue–Sun, 1 PM – 11 PM
-    </p>
-  </div>
-</div>
+              {/* Working Hours - Spans full width at the bottom on desktop */}
+              <div className="min-w-0 md:col-span-2 border-t border-white/10 pt-4 md:pt-0 md:border-none">
+                <p className="text-[#f7a221] font-black text-[20px] tracking-widest uppercase mb-2">
+                  Working Hours
+                </p>
+                <p className="text-white text-base md:text-lg leading-relaxed">
+                  Tue–Sun, 1 PM – 10 PM
+                </p>
+              </div>
+            </div>
           </div>
 
           {/* Quick Links Section */}

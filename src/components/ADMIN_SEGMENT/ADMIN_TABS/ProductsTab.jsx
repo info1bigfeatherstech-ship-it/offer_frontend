@@ -1001,7 +1001,7 @@ useEffect(() => {
 
                 return (
                   <tr key={product._id} className={`hover:bg-gray-50 transition-colors group ${isChecked ? "bg-blue-50 hover:bg-blue-50" : ""}`}>
-                    { console.log(product.name, product.tags)}
+                    {/* { console.log(product.name, product.tags)} */}
                     <td className="px-4 py-4">
                       <input
                         type="checkbox"
