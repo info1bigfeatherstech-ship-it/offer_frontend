@@ -11,15 +11,15 @@ const getProductImage = (product) => {
   if (!product.variants || product.variants.length === 0) {
     return null;
   }
-  
+
   // Find active variant first, then any variant with images
   const activeVariant = product.variants.find(v => v.isActive === true);
   const variantToUse = activeVariant || product.variants[0];
-  
+
   if (variantToUse?.images && variantToUse.images.length > 0) {
     return variantToUse.images[0].url;
   }
-  
+
   return null;
 };
 
@@ -28,21 +28,29 @@ const getProductPriceRange = (product) => {
   if (!product.variants || product.variants.length === 0) {
     return null;
   }
-  
+
   const prices = product.variants
     .filter(v => v.isActive)
     .map(v => v.finalPrice || v.price?.sale || v.price?.base);
-  
+
   if (prices.length === 0) return null;
-  
+
   const minPrice = Math.min(...prices);
   const maxPrice = Math.max(...prices);
-  
+
   if (minPrice === maxPrice) {
     return `₹${minPrice.toLocaleString('en-IN')}`;
   }
-  
+
   return `₹${minPrice.toLocaleString('en-IN')} - ₹${maxPrice.toLocaleString('en-IN')}`;
+};
+
+const getProductRating = (product) => {
+  const r = product?.rating;
+  if (!r) return null;
+  if (typeof r === "number") return r;
+  if (typeof r === "object" && r.value != null) return Number(r.value);
+  return null;
 };
 
 // Helper function to get discount percentage
@@ -50,20 +58,20 @@ const getMaxDiscount = (product) => {
   if (!product.variants || product.variants.length === 0) {
     return null;
   }
-  
+
   const maxDiscount = Math.max(...product.variants.map(v => v.discountPercentage || 0));
   return maxDiscount > 0 ? maxDiscount : null;
 };
 
 // Product Item Component - Updated for variant images
 const ProductItem = memo(({ product, onClick }) => {
-  console.log("Product", product);
-  
+  // console.log("Product", product);
+
   const fallbackImage = 'https://via.placeholder.com/64x64?text=No+Image';
   const productImage = getProductImage(product);
   const priceRange = getProductPriceRange(product);
   const maxDiscount = getMaxDiscount(product);
-  
+
   return (
     <div
       data-result-item
@@ -84,9 +92,9 @@ const ProductItem = memo(({ product, onClick }) => {
     >
       <div className="w-16 h-16 bg-gradient-to-br from-gray-100 to-gray-200 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:scale-110 transition-transform overflow-hidden">
         {productImage ? (
-          <img 
-            src={productImage} 
-            alt={product.name} 
+          <img
+            src={productImage}
+            alt={product.name}
             className="w-full h-full object-cover rounded-xl"
             loading="lazy"
             onError={(e) => {
@@ -114,10 +122,12 @@ const ProductItem = memo(({ product, onClick }) => {
           <p className="text-xs text-gray-400 mt-1 line-clamp-1">{product.description}</p>
         )}
         <div className="flex items-center gap-2 mt-2">
-          {product.rating && (
+          {getProductRating(product) && (
             <div className="flex items-center gap-1">
               <Star size={12} className="fill-[#F7A221] text-[#F7A221]" />
-              <span className="text-xs font-bold">{product?.rating}</span>
+              <span className="text-xs font-bold">
+                {Number(getProductRating(product)).toFixed(1)}
+              </span>
             </div>
           )}
           {priceRange && (
@@ -172,27 +182,27 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
   const [totalResults, setTotalResults] = useState(0);
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
-  
+
   // Refs
   const inputRef = useRef(null);
   const modalRef = useRef(null);
   const scrollRef = useRef(null);
   const latestQueryRef = useRef('');
   const isLoadingRef = useRef(false);
-  
+
   const navigate = useNavigate();
-  
+
   // Cache
   const cacheRef = useRef(new SearchCache(300000, 50));
-  
+
   // RTK Query hook
   const [triggerSearch, { data, isLoading, isFetching, error, isError }] = useLazySearchProductsQuery();
-  
+
   // Normalize query
   const normalizeQuery = useCallback((query) => {
     return query?.trim().toLowerCase() || '';
   }, []);
-  
+
   // Virtual scrolling
   const rowVirtualizer = useVirtualizer({
     count: allProducts.length,
@@ -200,7 +210,7 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
     estimateSize: () => 120,
     overscan: 5,
   });
-  
+
   // Load recent searches
   useEffect(() => {
     if (isOpen) {
@@ -217,11 +227,11 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
       }, 100);
     }
   }, [isOpen]);
-  
+
   // Update search results
   const updateSearchResults = useCallback((query, newProducts, total, currentPage, hasMoreResults) => {
     const normalizedQuery = normalizeQuery(query);
-    
+
     if (currentPage === 1) {
       setAllProducts(newProducts);
       cacheRef.current.set(normalizedQuery, {
@@ -237,7 +247,7 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
         const uniqueNewProducts = newProducts.filter(p => !existingIds.has(p._id));
         return [...prev, ...uniqueNewProducts];
       });
-      
+
       const cached = cacheRef.current.get(normalizedQuery);
       if (cached) {
         cacheRef.current.set(normalizedQuery, {
@@ -252,14 +262,14 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
     setTotalResults(total);
     setHasMore(hasMoreResults);
   }, [normalizeQuery]);
-  
+
   // Perform search with cancellation
   const performSearch = useCallback(async (query, pageNum = 1) => {
     if (!query || query.trim().length < 2) return;
-    
+
     const normalizedQuery = normalizeQuery(query);
     latestQueryRef.current = normalizedQuery;
-    
+
     // Check cache for first page
     if (pageNum === 1) {
       const cached = cacheRef.current.get(normalizedQuery);
@@ -271,19 +281,19 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
         return;
       }
     }
-    
+
     // Prevent duplicate requests
     if (isLoadingRef.current && pageNum > 1) return;
     isLoadingRef.current = true;
-    
+
     try {
       const result = await triggerSearch({ q: query, page: pageNum, limit: 20 });
-      
+
       // Check if response is still relevant
       if (latestQueryRef.current !== normalizedQuery) {
         return;
       }
-      
+
       if (result?.data?.products) {
         updateSearchResults(query, result.data.products, result.data.total, pageNum, result.data.hasMore);
         setPage(pageNum);
@@ -294,7 +304,7 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
       isLoadingRef.current = false;
     }
   }, [triggerSearch, updateSearchResults, normalizeQuery]);
-  
+
   // Debounced search
   const debouncedSearch = useCallback(
     debounce((value) => {
@@ -310,13 +320,13 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
     }, 500),
     [performSearch, normalizeQuery]
   );
-  
+
   const handleSearchChange = (e) => {
     const value = e.target.value;
     setSearchTerm(value);
     debouncedSearch(value);
   };
-  
+
   const handleSearchSubmit = (e) => {
     e.preventDefault();
     const normalizedTerm = normalizeQuery(searchTerm);
@@ -327,11 +337,11 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
       performSearch(searchTerm, 1);
     }
   };
-  
+
   const saveToRecentSearches = useCallback((term) => {
     const normalizedTerm = normalizeQuery(term);
     if (!normalizedTerm || normalizedTerm.length < 2) return;
-    
+
     setRecentSearches(prev => {
       const filtered = prev.filter(t => normalizeQuery(t) !== normalizedTerm);
       const updated = [term, ...filtered].slice(0, 10);
@@ -339,7 +349,7 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
       return updated;
     });
   }, [normalizeQuery]);
-  
+
   const handleProductClick = (product) => {
     if (activeSearchTerm) {
       saveToRecentSearches(activeSearchTerm);
@@ -347,7 +357,7 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
     onClose();
     navigate(`/products/${product.slug}`);
   };
-  
+
   const handleRecentSearchClick = (term) => {
     const normalizedTerm = normalizeQuery(term);
     if (normalizedTerm.length >= 2) {
@@ -359,18 +369,18 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
       inputRef.current?.focus();
     }
   };
-  
+
   const clearRecentSearches = () => {
     localStorage.removeItem('recentSearches');
     setRecentSearches([]);
   };
-  
+
   const removeRecentSearch = (termToRemove) => {
     const updated = recentSearches.filter(t => t !== termToRemove);
     setRecentSearches(updated);
     localStorage.setItem('recentSearches', JSON.stringify(updated));
   };
-  
+
   const clearSearch = () => {
     setSearchTerm('');
     setActiveSearchTerm('');
@@ -379,15 +389,15 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
     latestQueryRef.current = '';
     inputRef.current?.focus();
   };
-  
+
   // Throttled scroll
   const handleScroll = useCallback(
     throttle(() => {
       if (!scrollRef.current) return;
-      
+
       const { scrollTop, scrollHeight, clientHeight } = scrollRef.current;
       const distanceFromBottom = scrollHeight - scrollTop - clientHeight;
-      
+
       if (distanceFromBottom < 150 && hasMore && !isFetching && !isLoadingMore && activeSearchTerm) {
         setIsLoadingMore(true);
         const nextPage = page + 1;
@@ -398,7 +408,7 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
     }, 200),
     [hasMore, isFetching, isLoadingMore, activeSearchTerm, page, performSearch]
   );
-  
+
   // Attach scroll listener
   useEffect(() => {
     const scrollElement = scrollRef.current;
@@ -407,49 +417,49 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
       return () => scrollElement.removeEventListener('scroll', handleScroll);
     }
   }, [handleScroll]);
-  
+
   // Keyboard and outside click handlers
   const handleKeyDown = useCallback((e) => {
     if (e.key === 'Escape') {
       onClose();
     }
   }, [onClose]);
-  
+
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (modalRef.current && !modalRef.current.contains(e.target)) {
         onClose();
       }
     };
-    
+
     if (isOpen) {
       document.addEventListener('mousedown', handleClickOutside);
       document.addEventListener('keydown', handleKeyDown);
       document.body.style.overflow = 'hidden';
     }
-    
+
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
       document.body.style.overflow = '';
     };
   }, [isOpen, onClose, handleKeyDown]);
-  
+
   if (!isOpen) return null;
-  
+
   const hasActiveSearch = activeSearchTerm && normalizeQuery(activeSearchTerm).length >= 2;
   const showRecentSearches = !hasActiveSearch && recentSearches.length > 0;
   const showTrending = !hasActiveSearch && !showRecentSearches;
   const showResults = hasActiveSearch || (searchTerm && normalizeQuery(searchTerm).length >= 2);
   const isLoadingInitial = isLoading && page === 1;
-  
+
   // Trending products using actual product data structure
   const trendingProducts = allProducts.slice(0, 3);
-  
+
   return (
     <div className="fixed inset-0 bg-black/70 z-[1000] backdrop-blur-sm animate-fadeIn">
       <div className="min-h-screen px-4 sm:px-6 lg:px-8 py-8 sm:py-16">
-        <div 
+        <div
           ref={modalRef}
           className="max-w-4xl mx-auto bg-white rounded-2xl shadow-2xl overflow-hidden animate-slideUp"
         >
@@ -467,7 +477,7 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
               <X size={20} />
             </button>
           </div>
-          
+
           {/* Search Input */}
           <div className="p-4 border-b">
             <form onSubmit={handleSearchSubmit}>
@@ -495,9 +505,9 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
               </div>
             </form>
           </div>
-          
+
           {/* Results Area */}
-          <div 
+          <div
             ref={scrollRef}
             className="max-h-[60vh] overflow-y-auto"
           >
@@ -507,7 +517,7 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
                 <SearchSkeleton count={5} />
               </div>
             )}
-            
+
             {/* Error State */}
             {isError && !isLoading && (
               <div className="p-8 text-center">
@@ -524,7 +534,7 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
                 </button>
               </div>
             )}
-            
+
             {/* Search Results */}
             {!isLoadingInitial && !isError && showResults && (
               <div>
@@ -577,7 +587,7 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
                 )}
               </div>
             )}
-            
+
             {/* Recent Searches */}
             {showRecentSearches && (
               <div>
@@ -605,7 +615,7 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
                 </div>
               </div>
             )}
-            
+
             {/* Trending Products - Show actual products from search or fallback */}
             {showTrending && trendingProducts.length > 0 && (
               <div className="p-4">
@@ -620,7 +630,7 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
                 </div>
               </div>
             )}
-            
+
             {/* Empty state when no trending products */}
             {showTrending && trendingProducts.length === 0 && !isLoading && (
               <div className="p-12 text-center">
@@ -634,7 +644,7 @@ const SearchModal = ({ isOpen, onClose, initialQuery = '' }) => {
           </div>
         </div>
       </div>
-      
+
       <style>{`
         @keyframes fadeIn {
           from { opacity: 0; }
