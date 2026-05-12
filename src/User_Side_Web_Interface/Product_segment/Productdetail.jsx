@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { IoLogoWhatsapp, IoLogoFacebook, IoLogoInstagram } from "react-icons/io5";
 import { ChevronDown, FileText, Globe, Receipt } from "lucide-react";
@@ -1701,28 +1701,27 @@ const ProductUI = ({ openAuthModal }) => {
                             </div>
                           </div>
 
-                          {/* ── BUY NOW ── */}
-                          <Link to="/checkout" className="w-full">
+                          {/* ── BUY NOW (logged-out → auth modal; logged-in → checkout) ── */}
+                          <div className="w-full">
                             <button
+                              type="button"
                               disabled={!inStock || localLoading.add || localLoading.buyNow}
                               onClick={async () => {
-                                if (isInCart) { navigate("/checkout"); return; }
+                                if (!isLoggedIn) {
+                                  openAuthModal?.();
+                                  return;
+                                }
+                                if (isInCart) {
+                                  navigate("/checkout");
+                                  return;
+                                }
                                 setL("buyNow", true);
                                 try {
-                                  if (isLoggedIn) {
-                                    await dispatch(addToCart({
-                                      productSlug: product.slug,
-                                      variantId: variant?._id?.toString(),
-                                      quantity: 1,
-                                    })).unwrap();
-                                  } else {
-                                    dispatch(addGuestCartItem({
-                                      productId: product._id,
-                                      productSlug: product.slug,
-                                      variantId: variant?._id?.toString() || "",
-                                      quantity: 1,
-                                    }));
-                                  }
+                                  await dispatch(addToCart({
+                                    productSlug: product.slug,
+                                    variantId: variant?._id?.toString(),
+                                    quantity: 1,
+                                  })).unwrap();
                                   navigate("/checkout");
                                 } catch (err) {
                                   toast.error(err?.message || "Failed to proceed");
@@ -1737,7 +1736,7 @@ const ProductUI = ({ openAuthModal }) => {
                                 : "Buy Now"
                               }
                             </button>
-                          </Link>
+                          </div>
                         </>
                       )}
                     </div>
