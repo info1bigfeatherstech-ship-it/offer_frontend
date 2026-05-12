@@ -40,17 +40,17 @@ import MobileBottomNav from './Mobilebottomnav';
 const ActionIcon = memo(({ item, onClick, isLoggedIn }) => (
   <div
     onClick={onClick}
-    className="flex flex-col items-center cursor-pointer relative group text-black hover:text-[#F7A221] transition-colors min-w-[50px]"
+    className="flex flex-col items-center cursor-pointer relative group text-black hover:text-[#F7A221] transition-colors min-w-[40px] xl:min-w-[50px]"
   >
-    <div className="p-1 md:p-2 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
+    <div className="p-1 lg:p-1.5 xl:p-2 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
       {item.icon}
     </div>
     {item.count !== undefined && (
-      <span className={`absolute top-0 right-1 md:top-1 md:right-2 ${item.badge} text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white font-bold shadow-sm group-hover:animate-bounce`}>
+      <span className={`absolute top-0 right-0 lg:right-1 xl:top-1 xl:right-2 ${item.badge} text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border-2 border-white font-bold shadow-sm group-hover:animate-bounce`}>
         {item.count}
       </span>
     )}
-    <span className="text-[9px] md:text-[10px] mt-0.5 font-bold uppercase tracking-tighter whitespace-nowrap">
+    <span className="text-[9px] lg:text-[10px] mt-0.5 font-bold uppercase tracking-tighter whitespace-nowrap">
       {item.label}
     </span>
   </div>
@@ -448,23 +448,27 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
 
   return (
     <>
-      {/* ── Top Info Bar (desktop only) ─────────────────────────────────────── */}
-      <div className="bg-black text-white py-3 px-4 hidden lg:block border-b border-white/10">
-        <div className="container mx-auto flex justify-between text-[11px] font-bold uppercase tracking-wider">
-          <div className="flex items-center gap-8">
+      {/* ── Top Info Bar (tablet + desktop) ─────────────────────────────────
+          • Shows from md: (768+). On tablets we render a condensed version
+            (phone + short delivery text). On lg+ we render the full content
+            (phone + email + full delivery text). Hidden on phones. ──────── */}
+      <div className="bg-black text-white py-2 lg:py-3 px-4 hidden md:block border-b border-white/10">
+        <div className="container mx-auto flex justify-between items-center text-[10px] lg:text-[11px] font-bold uppercase tracking-wider">
+          <div className="flex items-center gap-4 lg:gap-8">
             <span className="flex items-center gap-2 hover:text-[#F7A221] cursor-pointer transition-colors group">
               <Phone size={12} className="text-[#F7A221] group-hover:animate-shake" /> +91 93706 86008
             </span>
             <a
               href="mailto:support.offerwalebaba@gmail.com"
-              className="flex items-center gap-2 hover:text-[#F7A221] cursor-pointer transition-colors group"
+              className="hidden lg:flex items-center gap-2 hover:text-[#F7A221] cursor-pointer transition-colors group"
             >
               <Mail size={12} className="text-[#F7A221] group-hover:scale-110" /> support.offerwalebaba@gmail.com
             </a>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 lg:gap-4">
             <Clock size={12} className="text-[#F7A221] animate-pulse" />
-            <span className="text-white/90">Pan India Delivery • 24/7 Support</span>
+            <span className="text-white/90 hidden lg:inline">Pan India Delivery • 24/7 Support</span>
+            <span className="text-white/90 lg:hidden">24/7 Support</span>
           </div>
         </div>
       </div>
@@ -475,7 +479,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
 
           {/* ══ MOBILE LAYOUT (lg:hidden) ════════════════════════════════════ */}
           <div className="lg:hidden relative">
-            <div className="flex items-center justify-between py-3 border-b border-gray-100">
+            <div className="flex items-center justify-between py-3 md:py-4 border-b border-gray-100">
 
            
             {/* Logo — fixed height container, no inline marginTop */}
@@ -495,16 +499,42 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                 </div>
               ))}
               <img
-                className="relative z-10 object-contain w-[140px] xl:w-[165px] h-auto transition-transform duration-500 group-hover:scale-105"
+                className="relative z-10 object-contain w-[120px] sm:w-[140px] md:w-[170px] h-auto transition-transform duration-500 group-hover:scale-105"
                 src={logo}
                 alt="Offer Wale Baba"
               />
             </Link>
 
-              {/* Centered search trigger */}
-              <div className="absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 z-10">
+              {/* ══ Inline search bar — tablet only (md → lg) ══════════════════
+                  Replaces the cramped centered-icon trigger on tablet widths
+                  where there's enough room for a real search input. Hidden on
+                  phones (where the centered icon below is used) and on desktop
+                  (where the full-size search bar in the desktop layout is
+                  used). Clicking opens the same SearchModal via handleSearchFocus. */}
+              <div className="hidden md:flex flex-1 items-center relative max-w-md mx-2">
+                <input
+                  type="text"
+                  placeholder="Search products, brands and more..."
+                  onClick={handleSearchFocus}
+                  readOnly
+                  className="w-full py-2.5 pl-10 pr-20 rounded-xl text-black focus:outline-none bg-gray-100 border-2 border-transparent focus:border-[#F7A221] focus:bg-white transition-all font-bold text-xs cursor-pointer"
+                />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
+                <button
+                  onClick={handleSearchFocus}
+                  className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-black text-white py-1.5 px-3 rounded-lg hover:bg-[#F7A221] transition-all shadow-md font-bold text-[10px] uppercase tracking-wider"
+                >
+                  Search
+                </button>
+              </div>
+
+              {/* Centered search trigger — phones only (md:hidden).
+                  At md+ we render the inline search bar above instead.
+                  Bug fix: was `-translate-x-1` (4px shift) — now properly
+                  centered with `-translate-x-1/2`. */}
+              <div className="md:hidden absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 z-10">
                 {showSearchTooltip && (
-                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[9px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap z-20 backdrop-blur-sm">
+                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[9px] md:text-[10px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap z-20 backdrop-blur-sm">
                     🔍 Tap to search
                     <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-black/80 rotate-45" />
                   </div>
@@ -513,41 +543,41 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                   onClick={handleSearchFocus}
                   className="flex flex-col items-center cursor-pointer group hover:scale-105 active:scale-95 transition-transform duration-200 animate-float-slow"
                 >
-                  <div className="p-1 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300 animate-spin-3d">
-                    <Search size={20} className="text-gray-700 group-hover:text-[#F7A221] transition-colors" strokeWidth={2} />
+                  <div className="p-1 md:p-1.5 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300 animate-spin-3d">
+                    <Search size={20} className="w-5 h-5 sm:w-[22px] sm:h-[22px] md:w-6 md:h-6 text-gray-700 group-hover:text-[#F7A221] transition-colors" strokeWidth={2} />
                   </div>
-                  <span className="text-[9px] font-bold mt-0.5 uppercase tracking-tighter text-gray-600 group-hover:text-[#F7A221] transition-colors">
+                  <span className="text-[9px] sm:text-[10px] md:text-[11px] font-bold mt-0.5 uppercase tracking-tighter text-gray-600 group-hover:text-[#F7A221] transition-colors">
                     Search
                   </span>
                 </button>
               </div>
 
               {/* Right actions */}
-              <div className="flex items-center gap-3 relative z-[500]">
+              <div className="flex items-center gap-3 sm:gap-4 md:gap-5 relative z-[500]">
                 {/* User */}
                 <div onClick={handleAccountClick} className="relative flex flex-col items-center cursor-pointer group">
-                  <div className="p-1 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
-                    <User size={20} className="text-gray-700 group-hover:text-[#F7A221] transition-colors" />
+                  <div className="p-1 md:p-1.5 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
+                    <User size={20} className="w-5 h-5 sm:w-[22px] sm:h-[22px] md:w-6 md:h-6 text-gray-700 group-hover:text-[#F7A221] transition-colors" />
                   </div>
-                  <span className="text-[9px] font-bold mt-0.5 uppercase tracking-tighter text-gray-600 group-hover:text-[#F7A221]">
+                  <span className="text-[9px] sm:text-[10px] md:text-[11px] font-bold mt-0.5 uppercase tracking-tighter text-gray-600 group-hover:text-[#F7A221]">
                     {isLoggedIn ? (user?.name?.split(' ')[0]?.slice(0, 6) || "Hi") : "Login"}
                   </span>
                   {isLoggedIn && (
-                    <div className="absolute -top-0.5 -right-0.5 w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    <div className="absolute -top-0.5 -right-0.5 w-2 h-2 md:w-2.5 md:h-2.5 bg-green-500 rounded-full animate-pulse" />
                   )}
                 </div>
 
                 {/* Cart */}
                 <div onClick={() => setIsCartOpen(true)} className="relative flex flex-col items-center cursor-pointer group">
-                  <div className="p-1 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
-                    <ShoppingCart size={20} className="text-gray-700 group-hover:text-[#F7A221] transition-colors" />
+                  <div className="p-1 md:p-1.5 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
+                    <ShoppingCart size={20} className="w-5 h-5 sm:w-[22px] sm:h-[22px] md:w-6 md:h-6 text-gray-700 group-hover:text-[#F7A221] transition-colors" />
                   </div>
                   {cartCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 bg-black text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center border border-white font-bold shadow-sm">
+                    <span className="absolute -top-0.5 -right-0.5 bg-black text-white text-[9px] md:text-[10px] w-4 h-4 md:w-[18px] md:h-[18px] rounded-full flex items-center justify-center border border-white font-bold shadow-sm">
                       {cartCount > 99 ? '99+' : cartCount}
                     </span>
                   )}
-                  <span className="text-[9px] font-bold mt-0.5 uppercase tracking-tighter text-gray-600 group-hover:text-[#F7A221]">Cart</span>
+                  <span className="text-[9px] sm:text-[10px] md:text-[11px] font-bold mt-0.5 uppercase tracking-tighter text-gray-600 group-hover:text-[#F7A221]">Cart</span>
                 </div>
 
                 {/* Menu */}
@@ -555,10 +585,10 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                   onClick={() => setIsMenuOpen(true)}
                   className="flex flex-col items-center cursor-pointer group bg-transparent border-0 p-0"
                 >
-                  <div className="p-1 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
-                    <Menu size={20} className="text-gray-700 group-hover:text-[#F7A221] transition-colors" />
+                  <div className="p-1 md:p-1.5 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
+                    <Menu size={20} className="w-5 h-5 sm:w-[22px] sm:h-[22px] md:w-6 md:h-6 text-gray-700 group-hover:text-[#F7A221] transition-colors" />
                   </div>
-                  <span className="text-[9px] font-bold mt-0.5 uppercase tracking-tighter text-gray-600 group-hover:text-[#F7A221]">Menu</span>
+                  <span className="text-[9px] sm:text-[10px] md:text-[11px] font-bold mt-0.5 uppercase tracking-tighter text-gray-600 group-hover:text-[#F7A221]">Menu</span>
                 </button>
 
                 {/* Account dropdown — mobile */}
@@ -570,13 +600,13 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
           </div>
 
           {/* ══ DESKTOP LAYOUT (lg:flex) ══════════════════════════════════════ */}
-          <div className="hidden lg:flex items-center justify-between gap-2 md:gap-8 h-30 md:h-24">
+          <div className="hidden lg:flex items-center justify-between lg:gap-3 xl:gap-6 2xl:gap-8 h-24 overflow-visible">
 
-            {/* Logo */}
-            <div className="flex items-center gap-2">
+            {/* Logo — positioned to span both header row + bottom nav row */}
+            <div className="flex items-end gap-2 self-end overflow-visible">
               <Link
                 to="/"
-                className="relative flex-shrink-0 flex items-center justify-center p-1 group"
+                className="relative flex-shrink-0 flex items-center justify-center p-1 group translate-y-[45%]"
                 onMouseEnter={() => setIsLogoHovered(true)}
                 onMouseLeave={() => setIsLogoHovered(false)}
               >
@@ -590,8 +620,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                   </div>
                 ))}
                 <img
-                  style={{ margin: "auto", display: "flex", justifyContent: "center", alignItems: "center", marginTop: "75px" }}
-                  className="relative z-10 object-contain transition-transform duration-500 w-[175px] h-50 flex justify-center items-center"
+                  className="relative z-10 object-contain transition-transform duration-500 w-[130px] xl:w-[160px] 2xl:w-[175px] h-auto group-hover:scale-105"
                   src={logo}
                   alt="Logo"
                 />
@@ -602,22 +631,22 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
             <LocationDisplay isLoggedIn={isLoggedIn} onOpenAuth={onOpenAuth} userAddress={userAddress} />
 
             {/* Search bar */}
-            <div className="flex-1 max-w-xl relative">
+            <div className="flex-1 lg:max-w-sm xl:max-w-lg 2xl:max-w-xl relative">
               <input
                 type="text"
                 placeholder="Search products, brands and more..."
-                className="w-full py-3.5 px-14 rounded-2xl text-black focus:outline-none bg-gray-100 border-2 border-transparent focus:border-[#F7A221] focus:bg-white transition-all font-bold text-sm"
+                className="w-full lg:py-3 xl:py-3.5 lg:px-10 xl:px-14 rounded-2xl text-black focus:outline-none bg-gray-100 border-2 border-transparent focus:border-[#F7A221] focus:bg-white transition-all font-bold lg:text-xs xl:text-sm"
                 onClick={handleSearchFocus}
                 readOnly
               />
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
-              <button className="absolute right-2 top-1/2 -translate-y-1/2 bg-black text-white py-2 px-5 rounded-xl hover:bg-[#F7A221] transition-all shadow-md font-bold text-xs uppercase hover:tracking-widest duration-300">
+              <Search className="absolute lg:left-3 xl:left-5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
+              <button className="absolute right-1.5 lg:right-1 xl:right-2 top-1/2 -translate-y-1/2 bg-black text-white lg:py-1.5 lg:px-3 xl:py-2 xl:px-5 rounded-xl hover:bg-[#F7A221] transition-all shadow-md font-bold text-[10px] xl:text-xs uppercase hover:tracking-widest duration-300">
                 Search
               </button>
             </div>
 
             {/* Action icons */}
-            <div className="flex items-center gap-2 md:gap-4 lg:gap-8 relative z-[500]">
+            <div className="flex items-center lg:gap-3 xl:gap-5 2xl:gap-8 relative z-[500]">
               {actionIcons.map((item, idx) => (
                 <ActionIcon key={idx} item={item} onClick={item.onClick} isLoggedIn={isLoggedIn} />
               ))}
@@ -629,81 +658,102 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
         </div>
 
         {/* ══ DESKTOP BOTTOM NAV ════════════════════════════════════════════════
-            Layout (left → right):
-            [Home icon btn] | [All Categories ›] | [Todays' Deal] [Just Arrived] [Sale] | [Contact us ›]
+            Mirrors the TOP header's flex layout 1:1 so each bottom zone aligns
+            vertically beneath its corresponding top element:
+
+            TOP   : [Logo 175px] [gap-8] [Address]         [gap-8] [Search flex-1 max-w-xl] [gap-8] [Office|Wishlist|Cart]
+            BOTTOM: [Spacer 175px] [gap-8] [Home+Categories] [gap-8] [Deal/Arrived/Sale flex-1 max-w-xl] [gap-8] [Contact us]
+
+            • Same container (`container mx-auto px-4`), same gaps, same flex-1 max-w-xl
+              on the center → guarantees vertical alignment across every viewport.
+            • Spacer width = logo width (175px) so the LEFT zone starts exactly
+              under the address/location component.
+            • Responsive variants shrink padding/icons/text at narrow lg (1024px+)
+              and scale back up at xl/2xl — no overflow, no overlap, ever.
         ════════════════════════════════════════════════════════════════════════ */}
-        <nav style={{ width: "60%", margin: "auto" }} className=" hidden lg:block relative">
+        <nav className="hidden lg:block relative w-full">
           <div className="container mx-auto px-4">
-            <div className="flex items-center justify-center gap-1 py-2">
+            <div className="flex items-center justify-between lg:gap-3 xl:gap-6 2xl:gap-8 py-2">
 
-              {/* ── 1. HOME button — homeIcon + "Home" label ── */}
-              <Link
-                to="/"
-                className="home-nav-btn flex items-center gap-2 px-3 py-2 rounded-xl
-                           font-bold text-xs uppercase tracking-wide transition-all duration-200
-                           hover:bg-[#F7A221]/10 text-gray-700 hover:text-[#F7A221] group"
-              >
-                <img
-                  src={homeIcon}
-                  alt="Home"
-                  className="w-5 h-5 object-cover animate-bounce-soft group-hover:scale-110 transition-transform"
+              {/* ══ LOGO SPACER (aligns the row with top header) ══════════════ */}
+              <div className="w-[130px] xl:w-[160px] 2xl:w-[175px] shrink-0" aria-hidden="true" />
+
+              {/* ══ LEFT ZONE: Home + All Categories (under address box) ═════ */}
+              <div className="flex items-center gap-1 xl:gap-2 shrink-0 min-w-0">
+
+                {/* ── 1. HOME button — homeIcon + "Home" label ── */}
+                <Link
+                  to="/"
+                  className="home-nav-btn flex items-center gap-1.5 lg:gap-2 px-2 lg:px-2.5 xl:px-3 py-2 rounded-xl
+                             font-bold text-[11px] lg:text-xs uppercase tracking-wide transition-all duration-200
+                             hover:bg-[#F7A221]/10 text-gray-700 hover:text-[#F7A221] group whitespace-nowrap"
+                >
+                  <img
+                    src={homeIcon}
+                    alt="Home"
+                    className="w-4 h-4 lg:w-5 lg:h-5 object-cover animate-bounce-soft group-hover:scale-110 transition-transform shrink-0"
+                  />
+                  <span>Home</span>
+                </Link>
+
+                {/* Divider */}
+                <div className="h-6 w-[1px] bg-gray-200 mx-0.5 lg:mx-1 shrink-0" />
+
+                {/* ── 2. ALL CATEGORIES — no icon, orange active bg, chevron kept ── */}
+                <NavItemWithDropdown
+                  link={{ label: "All Categories" }}
                 />
-                <span>Home</span>
-              </Link>
+              </div>
 
-              {/* Divider */}
-              <div className="h-6 w-[1px] bg-gray-200 mx-1" />
-
-              {/* ── 2. ALL CATEGORIES — no icon, orange active bg, chevron kept ── */}
-              <NavItemWithDropdown
-                link={{ label: "All Categories" }}
-              />
-
-              {/* Divider */}
-              <div className="h-6 w-[1px] bg-gray-200 mx-1" />
-
-              {/* ── 3. Todays' Deal / Just Arrived / Sale ── */}
-              <div className="flex items-center relative">
+              {/* ══ CENTER ZONE: Deal/Arrived/Sale (starts at search-bar left edge) ══
+                  • `shrink-0` on every Link → `.nav-link`'s `overflow-hidden` can
+                    never clip labels (items always keep natural width).
+                  • `[&_img]:!w-X` overrides ImageIcon's hardcoded 40px down to
+                    28px at lg / 36px at xl / 40px at 2xl — so the 3 items + gaps
+                    always fit inside the center zone at every viewport. The
+                    override is scoped to this render only; the same ImageIcon
+                    used in the mobile sidebar keeps its original 40px size. ══ */}
+              <div className="flex-1 lg:max-w-sm xl:max-w-lg 2xl:max-w-xl flex items-center justify-start gap-1 lg:gap-2 xl:gap-4 min-w-0">
                 {bottomNavLinks.map((link, idx) => (
                   <Link
                     key={idx}
                     to={link.path}
-                    className="nav-link text-center justify-center flex items-center px-2 py-3 gap-2 hover:bg-white/10 group"
+                    className="shrink-0 text-center justify-center flex items-center px-1 lg:px-1.5 xl:px-3 py-2 lg:py-2.5 gap-1 lg:gap-1.5 xl:gap-2 hover:bg-gray-50 rounded-xl transition-all duration-200 group whitespace-nowrap"
                   >
-                    <div className="transition-transform duration-300 group-hover:scale-125">
+                    <div className="transition-transform duration-300 group-hover:scale-125 shrink-0 [&_img]:w-6! [&_img]:h-6! lg:[&_img]:w-7! lg:[&_img]:h-7! xl:[&_img]:w-9! xl:[&_img]:h-9! 2xl:[&_img]:w-10! 2xl:[&_img]:h-10!">
                       {link.icon}
                     </div>
-                    <span className="font-bold text-black text-md md:text-[0.75rem] relative z-10">
+                    <span className="font-bold text-black text-[11px] lg:text-xs xl:text-[0.85rem] relative z-10">
                       {link.label}
                     </span>
                   </Link>
                 ))}
+              </div>
 
-                {/* ── 4. Contact us — kept exactly as original ── */}
-                <div className="w-fit h-fit p-2 absolute -right-80 rounded-lg">
-                  <Link
-                    to="/contact"
-                    className="group relative flex items-center gap-3 px-4 py-3 rounded-2xl overflow-hidden transition-all duration-300 hover:bg-white/10"
+              {/* ══ RIGHT ZONE: Contact us (under Office/Wishlist/Cart) ═══════ */}
+              <div className="flex items-center shrink-0 min-w-0">
+                <Link
+                  to="/contact"
+                  className="group relative flex items-center gap-2 lg:gap-2.5 xl:gap-3 px-2.5 lg:px-3 xl:px-4 py-2 lg:py-2.5 xl:py-3 rounded-2xl overflow-hidden transition-all duration-300 hover:bg-white/10 whitespace-nowrap"
+                >
+                  <span className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-white/5 to-white/10 blur-sm" />
+                  <div className="relative z-10 flex-shrink-0 w-8 h-8 lg:w-9 lg:h-9 xl:w-10 xl:h-10 flex items-center justify-center rounded-xl bg-white/5 group-hover:bg-white/10 transition-all duration-300 group-hover:scale-110 group-hover:-rotate-6">
+                    <ImageIcon
+                      className="w-4 h-4 lg:w-8 lg:h-8 object-cover text-zinc-300 group-hover:text-white transition-colors duration-300"
+                      src={audio}
+                      alt="Contact"
+                    />
+                  </div>
+                  <span className="relative z-10 font-semibold text-zinc-900 group-hover:text-yellow-500 text-[11px] lg:text-xs xl:text-sm tracking-wide transition-colors duration-300 whitespace-nowrap">
+                    Contact us
+                  </span>
+                  <svg
+                    className="relative z-10 w-3 h-3 lg:w-3.5 lg:h-3.5 text-zinc-600 group-hover:text-zinc-300 group-hover:translate-x-1 transition-all duration-300 ml-1 shrink-0"
+                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
                   >
-                    <span className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-white/5 to-white/10 blur-sm" />
-                    <div className="relative z-10 flex-shrink-0 w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 group-hover:bg-white/10 transition-all duration-300 group-hover:scale-110 group-hover:-rotate-6">
-                      <ImageIcon
-                        className="w-5 h-5 object-cover text-zinc-300 group-hover:text-white transition-colors duration-300"
-                        src={audio}
-                        alt="Contact"
-                      />
-                    </div>
-                    <span className="relative z-10 font-semibold text-zinc-900 group-hover:text-yellow-500 text-sm tracking-wide transition-colors duration-300 whitespace-nowrap">
-                      Contact us
-                    </span>
-                    <svg
-                      className="relative z-10 w-3.5 h-3.5 text-zinc-600 group-hover:text-zinc-300 group-hover:translate-x-1 transition-all duration-300 ml-auto"
-                      fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
-                    >
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                    </svg>
-                  </Link>
-                </div>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </Link>
               </div>
 
             </div>

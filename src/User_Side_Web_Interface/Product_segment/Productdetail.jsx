@@ -32,7 +32,7 @@ import Breadcrumb from "./Breadcrumb/Breadcrumb";
 import CatProducts from "./CatPro_segment/CatProducts";
 import { fetchCategories } from "../../components/ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/categoriesSlice";
 import axiosInstance from "../../SERVICES/axiosInstance";
-import { getProductRatingDisplay } from "../../utils/productRatingDisplay";
+import { getProductRatingDisplay, getFallbackDistribution } from "../../utils/productRatingDisplay";
 import StarRatingInput from "./StarRatingInput";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -964,7 +964,7 @@ const ProductUI = ({ openAuthModal }) => {
     <>
       <Breadcrumb product={product} />
       <div className="min-h-screen bg-gray-50">
-        <div className="max-w-6xl mx-auto px-3 sm:px-4 py-4 sm:py-8 sm:space-y-z">
+        <div className="max-w-6xl mx-auto px-3 sm:px-4 py sm:py-8 sm:space-y-z">
           {isVisible && (
             <div
               className="ImageCard fixed inset-0 z-50 md:hidden bg-black/60 backdrop-blur-sm flex items-end"
@@ -1175,15 +1175,24 @@ const ProductUI = ({ openAuthModal }) => {
                     )}
                   </div>
                 </div>{/* end image row */}
+              </div>{/* end left column */}
 
-                {/* Reviews: directly under gallery; list grows downward / scrolls */}
+              <div className="order-3 lg:order-none lg:col-start-1 lg:row-start-2 lg:border-r border-gray-100 lg:pr-4 mt-4 lg:mt-0">
+                {/* Reviews: directly under gallery on desktop; after product info on mobile */}
                 {/* START REVIEWS SECTION */}
                 {(() => {
-                  const starCounts = [5, 4, 3, 2, 1].map((star) => ({
-                    star,
-                    count: reviewsList.filter((r) => Math.round(r.rating) === star).length,
-                  }));
                   const totalReviews = reviewsList.length;
+                  const starCounts = ratingIsPlaceholder
+                    ? getFallbackDistribution(product).map(({ star, pct }) => ({
+                        star,
+                        count: 0,
+                        pct,
+                      }))
+                    : [5, 4, 3, 2, 1].map((star) => {
+                        const count = reviewsList.filter((r) => Math.round(r.rating) === star).length;
+                        const pct = totalReviews > 0 ? Math.round((count / totalReviews) * 100) : 0;
+                        return { star, count, pct };
+                      });
                   const filteredReviews = filterStar
                     ? reviewsList.filter((r) => Math.round(r.rating) === filterStar)
                     : reviewsList;
@@ -1224,8 +1233,7 @@ const ProductUI = ({ openAuthModal }) => {
 
                             {/* Star distribution bars */}
                             <div className="space-y-1.5 mb-4">
-                              {starCounts.map(({ star, count }) => {
-                                const pct = totalReviews > 0 ? Math.round((count / totalReviews) * 100) : 0;
+                              {starCounts.map(({ star, pct }) => {
                                 const isActive = filterStar === star;
                                 return (
                                   <button
@@ -1438,9 +1446,9 @@ const ProductUI = ({ openAuthModal }) => {
                   );
                 })()}
                 {/* END REVIEWS SECTION */}
-              </div>{/* end left column */}
+              </div>{/* end reviews wrapper */}
 
-              <div className="flex flex-col min-w-0">
+              <div className="order-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-2 flex flex-col min-w-0">
                 {/* ── RIGHT: Info panel ── */}
                 <div className="flex relative flex-col gap-3 p-4 sm:p-6 lg:p-7">
                   {showZoom && !isMobile && (
@@ -1550,7 +1558,7 @@ const ProductUI = ({ openAuthModal }) => {
 
                   </div>
 
-                  <div className="flex flex-col gap-2">
+                  <div className="flex flex-col gap-2 ">
                     <div className="w-full h-px bg-gray-200"></div>
 
                     {/* ── Wishlist + Share bar ── */}
@@ -1566,19 +1574,26 @@ const ProductUI = ({ openAuthModal }) => {
                       {/* IN STOCK */}
                       {inStock && (
                         <>
-                          <div className="flex items-center">
+                          {/* All three buttons in ONE row at every viewport.
+                              • Add to Cart takes the remaining space (flex-1)
+                              • Wishlist+Share stays compact (shrink-0)
+                              • Labels hide on mobile (icon-only) so Add to Cart
+                                always has enough room for its full "Add to Cart"
+                                text on one line. Equal py-3 → same height. */}
+                          <div className="flex items-center gap-2 sm:gap-3">
                             {/* ── ADD TO CART ── */}
                             {!isInCart && (
                               <button
                                 onClick={handleAddToCart}
                                 disabled={localLoading.add}
                                 className="
-    w-full sm:w-auto
+    flex-1 min-w-0
     px-4 sm:px-6 md:px-8
-    py-2.5 sm:py-3
+    py-3
     rounded-xl
-    text-xs sm:text-sm md:text-base
+    text-sm md:text-base
     font-semibold
+    whitespace-nowrap
     flex items-center justify-center gap-2
     bg-black text-white
     hover:bg-[#F7A221]
@@ -1591,8 +1606,7 @@ const ProductUI = ({ openAuthModal }) => {
                                 ) : (
                                   <>
                                     <ShoppingCart size={16} />
-                                    <span className="hidden xs:inline sm:inline">Add to Cart</span>
-                                    <span className="inline xs:hidden sm:hidden">Add to Cart</span>
+                                    <span>Add to Cart</span>
                                   </>
                                 )}
                               </button>
@@ -1600,7 +1614,7 @@ const ProductUI = ({ openAuthModal }) => {
 
                             {/* ── QTY CONTROLS ── */}
                             {isInCart && (
-                              <div className="flex items-center w-full border border-zinc-200 rounded-xl overflow-hidden">
+                              <div className="flex items-center flex-1 min-w-0 border border-zinc-200 rounded-xl overflow-hidden">
                                 <button
                                   onClick={handleDecrement}
                                   disabled={isProcessing}
@@ -1627,14 +1641,16 @@ const ProductUI = ({ openAuthModal }) => {
                               </div>
                             )}
 
-                            {/* ── WISHLIST + SHARE ── */}
-                            <div className="relative flex rounded-2xl overflow-visible bg-gray-50 mt-1">
+                            {/* ── WISHLIST + SHARE ──
+                                Compact natural width on mobile (icon-only),
+                                grows with labels at sm+. */}
+                            <div className="relative shrink-0 flex rounded-2xl overflow-visible bg-gray-50">
 
                               {/* Wishlist */}
                               <button
                                 onClick={handleWishlist}
                                 disabled={localLoading.wishlist}
-                                className={`px-3 py-2 flex items-center gap-2 cursor-pointer text-sm font-semibold transition-all duration-200 rounded-l-2xl active:scale-[0.98]
+                                className={`px-3 sm:px-4 py-3 flex items-center justify-center gap-2 cursor-pointer text-sm font-semibold transition-all duration-200 rounded-l-2xl active:scale-[0.98]
                                   ${wishlisted
                                     ? "text-red-500 bg-red-50"
                                     : "text-gray-600 hover:bg-gray-50 hover:text-red-400"
@@ -1643,29 +1659,26 @@ const ProductUI = ({ openAuthModal }) => {
                                 {localLoading.wishlist
                                   ? <Loader2 size={16} className="animate-spin" />
                                   : <Heart size={16} className={wishlisted ? "fill-red-500 text-red-500" : ""} />}
-                                <span className="hidden sm:inline">
-                                  {wishlisted ? "Wishlisted" : "Wishlist"}
-                                </span>
-                                <span className="sm:hidden text-xs">
+                                <span className="hidden sm:inline whitespace-nowrap">
                                   {wishlisted ? "Wishlisted" : "Wishlist"}
                                 </span>
                               </button>
 
                               {/* Divider */}
-                              <div className="w-px self-stretch bg-gray-200 flex-shrink-0" />
+                              <div className="w-px self-stretch bg-gray-200 shrink-0" />
 
                               {/* Share */}
-                              <div className="relative flex-shrink-0">
+                              <div className="relative shrink-0">
                                 <button
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     setShareOpen((v) => !v);
                                   }}
-                                  className={`h-full py-3.5 px-5 sm:px-7 flex items-center cursor-pointer gap-2 text-sm font-semibold transition-all duration-200 rounded-r-2xl active:scale-[0.98]
+                                  className={`h-full py-3 px-3 sm:px-5 md:px-6 flex items-center justify-center cursor-pointer gap-2 text-sm font-semibold transition-all duration-200 rounded-r-2xl active:scale-[0.98]
                                     ${shareOpen ? "bg-gray-900 text-white" : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"}`}
                                 >
                                   <Share2 size={15} />
-                                  <span>Share</span>
+                                  <span className="hidden sm:inline">Share</span>
                                 </button>
 
                                 {/* SHARE POPUP */}

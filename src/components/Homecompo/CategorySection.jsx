@@ -23,11 +23,16 @@ const WAVE_PATHS = [
   "M0,60 C300,120 600,0 900,60 L1200,60 L1200,120 L0,120 Z",
 ];
 
-// ── Column count: 2 mobile, 6 desktop ───────────────────────────────────
+// ── Column count: 2 mobile, 3 tablet/desktop, 6 xl ──────────────────────
+// Must stay in sync with the CSS grid breakpoints below
+// (grid-cols-2 md:grid-cols-3 xl:grid-cols-6). If JS `cols` and CSS columns
+// disagree, the virtualizer reserves the wrong row height and cards either
+// overlap (JS > CSS) or leave empty trailing slots (JS < CSS).
 const getColumnCount = () => {
   const w = window.innerWidth;
-  if (w >= 1024) return 6; // LG: 6 cards
-  return 2;                // Mobile + Tablet: 2 cards
+  if (w >= 1280) return 6; // XL: 6 cards
+  if (w >= 768)  return 3; // MD and LG: 3 cards
+  return 2;                // < MD: 2 cards
 };
 
 const LOAD_MORE_SKELETON_COUNT = 12; // Changed from 8 to 12 for 6 cards layout (2 rows × 6 cards)
@@ -92,8 +97,8 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              {/* 2 cols mobile+tablet, 6 cols desktop */}
-              <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4 md:gap-6 pb-4 md:pb-6">
+              {/* 2 cols mobile, 3 cols tablet/desktop, 6 cols xl — matches Bestseller */}
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-x-4 gap-y-10 md:gap-x-6 lg:gap-x-8 pb-4 md:pb-6">
                 {isSkeletonRow
                   ? Array(cols).fill(null).map((_, i) => (
                       <SkeletonCard
@@ -207,7 +212,7 @@ const CategorySection = ({ slug, title }) => {
           </div>
 
           {/* ── Skeleton grid: 2 cols mobile+tablet, 6 cols lg ── */}
-          <div className="grid grid-cols-2 lg:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-x-4 gap-y-10 md:gap-x-6 lg:gap-x-8">
             {[...Array(12)].map((_, i) => ( // Changed from 8 to 12
               <SkeletonCard key={i} seed={i % 6} /> // Changed from i % 4 to i % 6
             ))}

@@ -800,7 +800,7 @@ useEffect(() => {
             </div>
             <div className="flex items-center gap-3">
   <FlagToggle
-    label="Today Arrival"
+    label="Today Deals"
     checked={todayArrival}
     indeterminate={todayIndeterminate}
     loading={flagLoading}

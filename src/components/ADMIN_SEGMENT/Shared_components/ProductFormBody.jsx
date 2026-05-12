@@ -581,7 +581,7 @@ const ProductFormBody = ({
           </div>
           <div className="p-4">
             {actionError && isEditMode && (
-              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg"><p className="text-red-700 text-sm">❌ {actionError}</p></div>
+              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg"><p className="text-red-700 text-sm">❌😢 {actionError}</p></div>
             )}
             {extraVariants.length === 0 ? (
               <div className="text-center py-8 border-2 border-dashed border-gray-200 rounded-lg">

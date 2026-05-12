@@ -80,6 +80,9 @@ const ProductCard = ({ product, index = 0 }) => {
   const currentQty   = cartItem?.quantity ?? 0;
   const isAtMaxStock = currentQty >= maxStock && maxStock !== Infinity;
 
+  const isOnSale = Array.isArray(product?.appliedTags)
+    && product.appliedTags.includes("on-sale");
+
   const category = typeof product?.category === "object"
     ? product.category?.name
     : product?.category || "";
@@ -243,12 +246,18 @@ const ProductCard = ({ product, index = 0 }) => {
           </div>
         )}
 
-        {/* Discount badge */}
+        {/* Discount + Sale badge stack */}
         {discountPct && inStock && (
-          <div className="absolute top-2 left-2 z-10">
+          <div className="absolute top-2 left-2 z-10 flex flex-col gap-1 items-start">
             <span className="text-[10px] md:text-[15px] bg-[#EB4C4C] text-white px-2 py-0.5 rounded-md shadow-sm">
               {discountPct}% OFF
             </span>
+
+            {isOnSale && (
+              <span className="text-[10px] md:text-[12px] font-bold bg-green-500 text-white px-2 py-0.5 rounded-md shadow-sm tracking-wide leading-none">
+                SALE
+              </span>
+            )}
           </div>
         )}
 
@@ -303,7 +312,7 @@ const ProductCard = ({ product, index = 0 }) => {
           </h3>
           <div className="flex items-center gap-0.5 flex-shrink-0 mt-0.5">
             <Star size={14} className="text-yellow-400 fill-yellow-400" />
-            <span className="text-[10px] md:text-[15px] font-semibold text-zinc-600">
+            <span className="text-[10px] md:text-[12px] font-semibold text-zinc-600">
               {Number(ratingUi.average).toFixed(1)}
             </span>
           </div>

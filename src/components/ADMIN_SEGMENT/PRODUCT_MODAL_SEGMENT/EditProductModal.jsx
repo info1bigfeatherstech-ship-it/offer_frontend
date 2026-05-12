@@ -344,12 +344,12 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
 
         {(updateError || submitError) && (
           <div className="mx-6 mt-4 p-4 bg-red-50 border border-red-200 rounded-xl">
-            <p className="text-red-700 text-sm font-medium">❌ {submitError || updateError}</p>
+            <p className="text-red-700 text-sm font-medium">❌😢 {submitError || updateError}</p>
           </div>
         )}
         {actionError && (
           <div className="mx-6 mt-2 p-3 bg-red-50 border border-red-200 rounded-xl">
-            <p className="text-red-700 text-sm font-medium">❌ {actionError}</p>
+            <p className="text-red-700 text-sm font-medium">❌ 😁{actionError}</p>
           </div>
         )}
         {isAnySaving && (

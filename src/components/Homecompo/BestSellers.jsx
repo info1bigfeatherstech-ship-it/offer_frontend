@@ -52,7 +52,7 @@ const BestSellers = () => {
   // ── Error
   if (hasError && !hasProducts) {
     return (
-      <section className="max-w-[1500px] mx-auto px-4 md:px-12 lg:px-20 py-12 md:py-20 font-sans">
+      <section className="container mx-auto px-4 py-12 md:py-20 font-sans">
         <div className="flex items-end justify-between mb-10 border-b border-zinc-100 pb-6" id="just-arrived">
           <h2 className="text-3xl md:text-5xl font-outfit tracking-tighter uppercase">
             Just <span className="text-yellow-600 font-outfit">Arrived</span>
@@ -76,7 +76,7 @@ const BestSellers = () => {
   }
 
   return (
-    <section className="max-w-[1500px] mx-auto px-4 md:px-12 lg:px-20 py-12 md:py-20 font-">
+    <section className="container mx-auto px-4 py-12 md:py-20 font-">
 
       {/* Header */}
       <div className="flex items-end justify-between mb-10 border-b border-zinc-100 pb-6">
