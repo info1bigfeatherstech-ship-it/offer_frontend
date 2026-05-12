@@ -9,6 +9,7 @@ import { useDispatch, useSelector } from 'react-redux';
  * - AbortController for race condition prevention
  * - Memoized fetch params comparison
  * - Prevents loadMore button when no more products
+ * - FIXED: Properly re-fetches when fetchParams changes
  */
 const usePaginatedFetch = ({
   fetchAction,
@@ -17,7 +18,7 @@ const usePaginatedFetch = ({
   selectPagination,
   fetchParams = {},
   limit = 500,
-  enabled = true, // NEW: can disable auto-fetch
+  enabled = true,
 }) => {
   const dispatch = useDispatch();
   const [page, setPage] = useState(1);
@@ -28,26 +29,8 @@ const usePaginatedFetch = ({
   const isLoading = useSelector(selectLoading);
   const pagination = useSelector(selectPagination);
 
-  // Stable refs to prevent unnecessary re-renders
-  const fetchActionRef = useRef(fetchAction);
-  const fetchParamsRef = useRef(fetchParams);
-  const limitRef = useRef(limit);
-
-  // Update refs when values change
-  useEffect(() => { fetchActionRef.current = fetchAction; }, [fetchAction]);
-  useEffect(() => { fetchParamsRef.current = fetchParams; }, [fetchParams]);
-  useEffect(() => { limitRef.current = limit; }, [limit]);
-  useEffect(() => { isMountedRef.current = true; return () => { isMountedRef.current = false; }; }, []);
-
-  // Memoized comparison of fetchParams to avoid infinite loops
-  const getFetchParamsHash = useCallback(() => {
-    return JSON.stringify({
-      ...fetchParamsRef.current,
-      limit: limitRef.current,
-    });
-  }, []);
-
-  const prevParamsHash = useRef(getFetchParamsHash());
+  // Store previous fetchParams for comparison
+  const prevFetchParamsRef = useRef();
 
   // Core fetch function with abort support
   const executeFetch = useCallback(async (pageToFetch, shouldAppend = false) => {
@@ -61,19 +44,16 @@ const usePaginatedFetch = ({
 
     try {
       const result = await dispatch(
-        fetchActionRef.current({
-          ...fetchParamsRef.current,
+        fetchAction({
+          ...fetchParams,
           page: pageToFetch,
-          limit: limitRef.current,
+          limit: limit,
         })
       ).unwrap();
 
       if (!isMountedRef.current) return result;
-
       return result;
-    }catch (error) {
-      // ← THIS is the fix — ConditionError means thunk was intentionally
-      // aborted by its condition callback, not a real error, just ignore it
+    } catch (error) {
       if (error?.name === 'ConditionError') return null;
       if (error?.name === 'AbortError') return null;
       if (!isMountedRef.current) return null;
@@ -83,39 +63,64 @@ const usePaginatedFetch = ({
         abortControllerRef.current = null;
       }
     }
-  }, [dispatch]);
+  }, [dispatch, fetchAction, fetchParams, limit]);
 
-  // Effect for initial load and page changes
+  // 🔥 CRITICAL FIX: Detect when fetchParams changes and reset everything
   useEffect(() => {
     if (!enabled) return;
 
-    const currentParamsHash = getFetchParamsHash();
-    const paramsChanged = prevParamsHash.current !== currentParamsHash;
+    // Check if fetchParams changed
+    const currentParamsStr = JSON.stringify(fetchParams);
+    const prevParamsStr = prevFetchParamsRef.current ? JSON.stringify(prevFetchParamsRef.current) : null;
 
-    if (paramsChanged) {
-      // Params changed - reset to page 1
+    if (prevParamsStr !== currentParamsStr) {
+      // Params changed - reset to page 1 and refetch
       setPage(1);
-      prevParamsHash.current = currentParamsHash;
+      // Cancel any ongoing requests
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+        abortControllerRef.current = null;
+      }
+      // Fetch new data
       executeFetch(1, false);
-    } else {
-      // Normal page fetch
-      executeFetch(page, page > 1);
     }
-  }, [page, enabled, getFetchParamsHash, executeFetch]);
+
+    // Store current params for next comparison
+    prevFetchParamsRef.current = fetchParams;
+  }, [fetchParams, enabled, executeFetch]);
+
+  // Effect for page changes
+  useEffect(() => {
+    if (!enabled) return;
+    if (page === 1) return; // Page 1 is handled by the params change effect
+
+    executeFetch(page, true);
+  }, [page, enabled, executeFetch]);
 
   // Reset function for manual refresh
   const resetPage = useCallback(() => {
     setPage(1);
-    prevParamsHash.current = getFetchParamsHash();
-  }, [getFetchParamsHash]);
+    // Force refetch by resetting params ref
+    prevFetchParamsRef.current = null;
+  }, []);
 
-  // Load more function - ONLY works if hasNextPage is true
+  // Load more function
   const loadMore = useCallback(() => {
-    // CRITICAL FIX: Check hasNextPage before loading more
     if (pagination?.hasNextPage === true && !isLoading && page < (pagination?.totalPages || Infinity)) {
       setPage(prev => prev + 1);
     }
   }, [pagination?.hasNextPage, isLoading, page, pagination?.totalPages]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   // Derived state
   const isFetchingMore = isLoading && page > 1;
@@ -126,8 +131,8 @@ const usePaginatedFetch = ({
     data: data || [],
     isLoading,
     isFetchingMore,
-    hasNoMoreProducts,     // NEW: true when all products loaded
-    shouldShowLoadMore,    // NEW: use this to conditionally render button
+    hasNoMoreProducts,
+    shouldShowLoadMore,
     pagination,
     page,
     loadMore,
@@ -138,8 +143,149 @@ const usePaginatedFetch = ({
 };
 
 export default usePaginatedFetch;
+// fixing some issue in refetch todays arrival  or  sale page
 
-// bottom code have 
+// import { useState, useEffect, useRef, useCallback } from 'react';
+// import { useDispatch, useSelector } from 'react-redux';
+
+// /**
+//  * ROBUST usePaginatedFetch Hook
+//  * - No unnecessary API calls
+//  * - Correct hasNextPage calculation
+//  * - AbortController for race condition prevention
+//  * - Memoized fetch params comparison
+//  * - Prevents loadMore button when no more products
+//  */
+// const usePaginatedFetch = ({
+//   fetchAction,
+//   selectData,
+//   selectLoading,
+//   selectPagination,
+//   fetchParams = {},
+//   limit = 500,
+//   enabled = true, // NEW: can disable auto-fetch
+// }) => {
+//   const dispatch = useDispatch();
+//   const [page, setPage] = useState(1);
+//   const abortControllerRef = useRef(null);
+//   const isMountedRef = useRef(true);
+
+//   const data = useSelector(selectData);
+//   const isLoading = useSelector(selectLoading);
+//   const pagination = useSelector(selectPagination);
+
+//   // Stable refs to prevent unnecessary re-renders
+//   const fetchActionRef = useRef(fetchAction);
+//   const fetchParamsRef = useRef(fetchParams);
+//   const limitRef = useRef(limit);
+
+//   // Update refs when values change
+//   useEffect(() => { fetchActionRef.current = fetchAction; }, [fetchAction]);
+//   useEffect(() => { fetchParamsRef.current = fetchParams; }, [fetchParams]);
+//   useEffect(() => { limitRef.current = limit; }, [limit]);
+//   useEffect(() => { isMountedRef.current = true; return () => { isMountedRef.current = false; }; }, []);
+
+//   // Memoized comparison of fetchParams to avoid infinite loops
+//   const getFetchParamsHash = useCallback(() => {
+//     return JSON.stringify({
+//       ...fetchParamsRef.current,
+//       limit: limitRef.current,
+//     });
+//   }, []);
+
+//   const prevParamsHash = useRef(getFetchParamsHash());
+
+//   // Core fetch function with abort support
+//   const executeFetch = useCallback(async (pageToFetch, shouldAppend = false) => {
+//     // Cancel any ongoing request
+//     if (abortControllerRef.current) {
+//       abortControllerRef.current.abort();
+//     }
+
+//     const controller = new AbortController();
+//     abortControllerRef.current = controller;
+
+//     try {
+//       const result = await dispatch(
+//         fetchActionRef.current({
+//           ...fetchParamsRef.current,
+//           page: pageToFetch,
+//           limit: limitRef.current,
+//         })
+//       ).unwrap();
+
+//       if (!isMountedRef.current) return result;
+
+//       return result;
+//     }catch (error) {
+//       // ← THIS is the fix — ConditionError means thunk was intentionally
+//       // aborted by its condition callback, not a real error, just ignore it
+//       if (error?.name === 'ConditionError') return null;
+//       if (error?.name === 'AbortError') return null;
+//       if (!isMountedRef.current) return null;
+//       throw error;
+//     } finally {
+//       if (abortControllerRef.current === controller) {
+//         abortControllerRef.current = null;
+//       }
+//     }
+//   }, [dispatch]);
+
+//   // Effect for initial load and page changes
+//   useEffect(() => {
+//     if (!enabled) return;
+
+//     const currentParamsHash = getFetchParamsHash();
+//     const paramsChanged = prevParamsHash.current !== currentParamsHash;
+
+//     if (paramsChanged) {
+//       // Params changed - reset to page 1
+//       setPage(1);
+//       prevParamsHash.current = currentParamsHash;
+//       executeFetch(1, false);
+//     } else {
+//       // Normal page fetch
+//       executeFetch(page, page > 1);
+//     }
+//   }, [page, enabled, getFetchParamsHash, executeFetch]);
+
+//   // Reset function for manual refresh
+//   const resetPage = useCallback(() => {
+//     setPage(1);
+//     prevParamsHash.current = getFetchParamsHash();
+//   }, [getFetchParamsHash]);
+
+//   // Load more function - ONLY works if hasNextPage is true
+//   const loadMore = useCallback(() => {
+//     // CRITICAL FIX: Check hasNextPage before loading more
+//     if (pagination?.hasNextPage === true && !isLoading && page < (pagination?.totalPages || Infinity)) {
+//       setPage(prev => prev + 1);
+//     }
+//   }, [pagination?.hasNextPage, isLoading, page, pagination?.totalPages]);
+
+//   // Derived state
+//   const isFetchingMore = isLoading && page > 1;
+//   const hasNoMoreProducts = pagination?.hasNextPage === false && data?.length > 0;
+//   const shouldShowLoadMore = pagination?.hasNextPage === true && !hasNoMoreProducts;
+
+//   return {
+//     data: data || [],
+//     isLoading,
+//     isFetchingMore,
+//     hasNoMoreProducts,     // NEW: true when all products loaded
+//     shouldShowLoadMore,    // NEW: use this to conditionally render button
+//     pagination,
+//     page,
+//     loadMore,
+//     resetPage,
+//     totalProducts: pagination?.total || 0,
+//     loadedProducts: data?.length || 0,
+//   };
+// };
+
+// export default usePaginatedFetch;
+
+// bottom code have
 // Over-fetching risk - The fetchKey + page dependency triggers unnecessary API calls when dependency changes
 
 // Race condition potential - No abort controller; rapid param changes could have responses arriving out of order

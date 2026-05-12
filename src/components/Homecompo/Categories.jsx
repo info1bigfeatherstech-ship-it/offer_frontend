@@ -42,6 +42,20 @@ const visibleCategories = categories.slice(0, endIndex);
   }
 }, [dispatch]);
 
+const CATEGORY_THUMBNAILS = {
+  "home-and-kitchen": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572784/sve/frere/Home_Kitchen.jpg",
+  "smart-life-gadgets": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572772/sve/frere/Smart_Life_Gadget.jpg",
+  "fashion-world": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572775/sve/frere/Fashion.jpg",
+  "sports-and-fitness": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572776/sve/frere/sports_Fitness.jpg",
+  "tours-and-travels": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572778/sve/frere/tours_travels.jpg",
+  "stationary": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572785/sve/frere/Stationary.jpg",
+  "baby-items": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572780/sve/frere/Baby_Items.jpg",
+  "cleaning-&housekeeping-supplies": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572769/sve/frere/Cleaning_housekeeping_supplies.jpg",
+  "gifts": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572782/sve/frere/Gift.jpg",
+  "mix-items": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572771/sve/frere/mix_items.jpg",
+  "car-accessories": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572774/sve/frere/Car_Accessories.jpg",
+};
+
   const handleCategoryClick = (category) => {
     const slug =
       category.slug || category.name?.toLowerCase().replace(/\s+/g, "-");
@@ -112,7 +126,12 @@ if (error.categories) {
             >
               <div className="w-full aspect-square rounded-2xl sm:rounded-[2rem] md:rounded-[3rem] flex items-center justify-center transition-all shadow-sm group-hover:shadow-md group-hover:-translate-y-1 overflow-hidden relative border border-gray-100">
                 <img
-                  src={cat.image?.url || cat.img || "/placeholder-category.jpg"}
+                  // src={cat.image?.url || cat.img || "/placeholder-category.jpg"}
+                                      src={
+                      CATEGORY_THUMBNAILS[cat.slug] ||
+                      cat.image?.url ||
+                      "/placeholder-category.jpg"
+                    }
                   alt={cat.name}
                   className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                   loading="lazy"

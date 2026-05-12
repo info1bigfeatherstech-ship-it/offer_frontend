@@ -30,7 +30,7 @@ const TAG_META = {
     accentColor: "#F7A221",
   },
   "today-arrival": {
-    title: "Todays' Deal",
+    title: "Todays' Arrival",
     subtitle: "Fresh drops, just in",
     accentColor: "#22C55E",
   },

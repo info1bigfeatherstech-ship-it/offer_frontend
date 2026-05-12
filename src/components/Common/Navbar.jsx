@@ -185,21 +185,22 @@ const MegaDropdown = ({ isOpen }) => {
 
   // Row 1 — first 6 categories
   const topCategories = [
-    { label: "Smart Life Gadgets",   path: "/category/smart-life-gadgets" },
     { label: "Home & Kitchen",        path: "/category/home-and-kitchen" },
-    { label: "Fashion World",         path: "/category/fashion-world" },
-    { label: "Sports & Fitness",      path: "/category/sports-and-fitness" },
-    { label: "Tours & Travels",       path: "/category/tours-and-travels" },
+    { label: "Smart Life Gadgets",   path: "/category/smart-life-gadgets" },
+    { label: "Baby Items",                        path: "/category/baby-items" },
     { label: "Stationary",            path: "/category/stationary" },
+    { label: "Cleaning & Housekeeping Supplies",  path: "/category/cleaning-&housekeeping-supplies" },
+    { label: "Sports & Fitness",      path: "/category/sports-and-fitness" },
+ 
   ];
 
   // Row 2 — remaining 5 categories
   const bottomCategories = [
-    { label: "Baby Items",                        path: "/category/baby-items" },
-    { label: "Car Accessories",                   path: "/category/car-accessories" },
-    { label: "Cleaning & Housekeeping Supplies",  path: "/category/cleaning-&housekeeping-supplies" },
+     { label: "Tours & Travels",       path: "/category/tours-and-travels" },
+    { label: "Fashion World",         path: "/category/fashion-world" },
     { label: "Gifts",                             path: "/category/gifts" },
     { label: "Mix-items",                               path: "/category/mix-items-daily-use" },
+    { label: "Car Accessories",                   path: "/category/car-accessories" },
   ];
 
   return (
@@ -432,16 +433,17 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
   ];
 
   const mobileCategories = [
-    { label: "Smart Life",                        path: "/category/smart-life-gadgets" },
     { label: "Home & Kitchen",                    path: "/category/home-and-kitchen" },
-    { label: "Fashion World",                     path: "/category/fashion-world" },
-    { label: "Sports & Fitness",                  path: "/category/sports-and-fitness" },
-    { label: "Tours & Travels",                   path: "/category/tours-and-travels" },
-    { label: "Stationary",                        path: "/category/stationary" },
+    { label: "Smart Life",                        path: "/category/smart-life-gadgets" },
     { label: "Baby Items",                        path: "/category/baby-items" },
-    { label: "Car Accessories",                   path: "/category/car-accessories" },
-    { label: "Cleaning & Housekeeping Supplies",  path: "/category/mix-items-daily-use" },
+    { label: "Stationary",                        path: "/category/stationary" },
+     { label: "Cleaning & Housekeeping Supplies",  path: "/category/cleaning-&housekeeping-supplies" },
+     { label: "Sports & Fitness",                  path: "/category/sports-and-fitness" },
+     { label: "Tours & Travels",                   path: "/category/tours-and-travels" },
+    { label: "Fashion World",                     path: "/category/fashion-world" },
     { label: "Gifts",                             path: "/category/gifts" },
+    { label: "Cleaning & Housekeeping Supplies",  path: "/category/mix-items-daily-use" },
+    { label: "Car Accessories",                   path: "/category/car-accessories" },
   ];
 
   return (

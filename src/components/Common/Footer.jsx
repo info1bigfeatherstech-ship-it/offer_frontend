@@ -45,7 +45,7 @@ const Footer = () => {
         { label: "Contact Us", path: "/contact" },
         // { label: "Influencer Form", path: "/influencer-form" },
         { label: "Customer Care", path: "/customer-care" },
-        { label: "Influencer Form", path: "/influencer-form" },
+        { label: "Influencer Form", path: "/Influencer" },
       ]
     },
     {

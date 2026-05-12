@@ -37,6 +37,7 @@ import ContactUs from "./components/Common/Contact";
 import TagProducts from "./User_Side_Web_Interface/User_Dash_Segment/UserSubPages/TagProducts";
 import AboutUs from "./components/Common/AboutUs";
 import Policy from "./components/Common/Policy";
+import InfluencerFormPage from "./components/ADMIN_SEGMENT/Influencer/Influencer";
 // import SideVideo from "./components/Common/SideVideo/SideVideo";
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -222,6 +223,7 @@ const AppContent = () => {
                 />
                 <Route path="/on-sale"       element={<TagProducts tag="on-sale" />} />
                 <Route path="/today-arrival" element={<TagProducts tag="today-arrival" />} />
+                <Route path="/Influencer" element={<InfluencerFormPage/>} />
 
                     <Route path="/checkout" element={<Checkout />} />
 
