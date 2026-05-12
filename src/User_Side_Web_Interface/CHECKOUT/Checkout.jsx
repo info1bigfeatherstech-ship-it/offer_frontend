@@ -699,9 +699,7 @@ const Checkout = () => {
 
   const policyPartialPercent = getServerPartialPercent(checkoutPolicy);
   const partialPlanEnabled = checkoutPolicy?.partialPaymentEnabled === true;
-  const showCodOption =
-    checkoutPolicy?.codEnabled !== false &&
-    (quote ? quote.codAvailable !== false : true);
+  const showCodOption = checkoutPolicy?.codEnabled !== false;
 
   const checkoutMode =
     paymentMethod === "cod"
@@ -911,7 +909,7 @@ const Checkout = () => {
     }
     setStep(2);
     if (!quote) {
-      requestQuote();
+      requestQuote({ paymentHint: "cod" });
     }
   };
 

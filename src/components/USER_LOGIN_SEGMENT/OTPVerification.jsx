@@ -20,16 +20,27 @@ import { verifyOTP, registerUser, clearError } from "../REDUX_FEATURES/REDUX_SLI
     - Full height determined by content, not viewport — keyboard-safe by default
     - Padding at bottom is handled by parent card's pb-[env(safe-area-inset-bottom)]
 
-  Props: { phone, name, onClose, onVerify }
-  Backend: POST /auth/otp-verify-login { phone, otp }
+  Props: { phone, name, email, onClose, onVerify }
+  Backend: POST /auth/otp-verify-login { phone, otp }   (identifier-friendly)
 */
 
-const OtpVerification = ({ phone, name, onClose, onVerify }) => {
+// Matches backend OTP_EXPIRY_MINUTES (default 5). Centralised here so any
+// future tweak only happens in one spot.
+const OTP_TIMER_SECONDS = 5 * 60;
+
+const formatTimer = (totalSec) => {
+  const safe = Math.max(0, Number(totalSec) || 0);
+  const m = Math.floor(safe / 60);
+  const s = safe % 60;
+  return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+};
+
+const OtpVerification = ({ phone, name, email, onClose, onVerify }) => {
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state) => state.auth);
 
   const [otp,        setOtp]        = useState(["", "", "", "", "", ""]);
-  const [timer,      setTimer]      = useState(60);
+  const [timer,      setTimer]      = useState(OTP_TIMER_SECONDS);
   const [canResend,  setCanResend]  = useState(false);
   const [localError, setLocalError] = useState("");
   const inputRefs = useRef([]);
@@ -90,21 +101,27 @@ const OtpVerification = ({ phone, name, onClose, onVerify }) => {
 
   const handleResend = async () => {
     if (!canResend) return;
-    setTimer(60);
+    setTimer(OTP_TIMER_SECONDS);
     setCanResend(false);
     setOtp(["", "", "", "", "", ""]);
     inputRefs.current[0]?.focus();
-    // Re-call register with same phone to trigger new OTP SMS
-    // Backend handles existing unverified user by phone
+    // Re-call register with same phone + ORIGINAL email to trigger a new OTP.
+    // Critical: we MUST pass the user's real email here — backend uses it as
+    // the recipient when OTP_DELIVERY_MODE=email. Sending a placeholder would
+    // overwrite the user's email in DB and silently misroute the OTP.
     const result = await dispatch(
       registerUser({
         name:     name || "User",
-        email:    `resend_${Date.now()}@placeholder.com`,
+        email:    email || `resend_${Date.now()}@placeholder.com`,
         password: "__resend__",
         phone,
       })
     );
-    if (registerUser.fulfilled.match(result)) toast.success("New OTP sent to your phone!");
+    if (registerUser.fulfilled.match(result)) {
+      // Use backend-provided message so the text reflects the actual
+      // delivery channel (email / phone / both).
+      toast.success(result.payload?.message || "New OTP sent!");
+    }
   };
 
   const handleVerify = async () => {
@@ -198,7 +215,7 @@ const OtpVerification = ({ phone, name, onClose, onVerify }) => {
               RESEND CODE
             </button>
           ) : (
-            `RESEND IN ${timer}S`
+            `RESEND IN ${formatTimer(timer)}`
           )}
         </span>
       </div>

@@ -41,7 +41,10 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showOtpPanel, setShowOtpPanel]     = useState(false);
   const [otpPhone, setOtpPhone]             = useState("");
-  const [otpName, setOtpName]               = useState("");
+  const [otpName, setOtpName]                 = useState("");
+  // Track the email used at register so the OTP panel's resend can deliver
+  // to the real address when OTP_DELIVERY_MODE=email on the backend.
+  const [otpEmail, setOtpEmail]               = useState("");
 
   // ── Swipe tracking ─────────────────────────────────────────────
   const touchStartX   = useRef(null);
@@ -105,23 +108,41 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
   }, [isOpen]);
 
   // ── Browser back button handler ─────────────────────────────────
-  // FIX: This useEffect must be BEFORE the if (!isOpen) return null check
-   // ── Browser back button handler ─────────────────────────────────
+  // FIX: This useEffect must be BEFORE the if (!isOpen) return null check.
+  //
+  // CRITICAL BUG FIX (auth-modal-auto-close):
+  //   Previously this effect depended on [isOpen, onClose]. Because the
+  //   parent (App.jsx) passes `onClose={() => setIsAuthOpen(false)}` — a NEW
+  //   function on every render — and AppContent re-renders whenever
+  //   state.auth changes (Redux Toolkit / Immer hand out new object refs on
+  //   every mutation), this effect's cleanup ran on every dispatch.
+  //
+  //   The cleanup calls `window.history.back()` which fires a popstate
+  //   event AFTER the new effect has already re-registered its listener →
+  //   the new listener invoked onClose() → modal silently auto-closed
+  //   right after registerUser/loginUser dispatched.
+  //
+  //   Fix: stash onClose in a ref so its identity churn does NOT retrigger
+  //   the effect. The effect now only re-runs when isOpen flips, which is
+  //   the only thing that actually matters here.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => { onCloseRef.current = onClose; }, [onClose]);
+
   useEffect(() => {
     if (!isOpen) return;
-    
+
     // Push a new history state when modal opens
     window.history.pushState({ modalOpen: true }, '', window.location.href);
-    
+
     const handlePopState = () => {
       // User pressed back button - close the modal
-      onClose();
+      onCloseRef.current?.();
       // Push another state to keep us on the same page
       window.history.pushState({ modalOpen: true }, '', window.location.href);
     };
-    
+
     window.addEventListener('popstate', handlePopState);
-    
+
     return () => {
       window.removeEventListener('popstate', handlePopState);
       // Clean up: remove our history entry if modal closes normally
@@ -129,7 +150,7 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
         window.history.back();
       }
     };
-  }, [isOpen, onClose]);
+  }, [isOpen]);
   // ───────────────────────────────────────────────────────────────
   // ───────────────────────────────────────────────────────────────
 
@@ -162,10 +183,13 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
     setShowForgotPassword(false);
   };
 
-  // OTP panel — receives (phone, name) from Register
-  const handleShowOtp = (phone, name) => {
+  // OTP panel — receives (phone, name, email) from Register.
+  // email is optional (kept for backward compat with any caller that still
+  // omits it) — but required for resend to work in email/both delivery modes.
+  const handleShowOtp = (phone, name, email = "") => {
     setOtpPhone(phone);
     setOtpName(name);
+    setOtpEmail(email);
     setShowOtpPanel(true);
   };
 
@@ -173,6 +197,7 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
     setShowOtpPanel(false);
     setOtpPhone("");
     setOtpName("");
+    setOtpEmail("");
   };
 
   const handleOtpVerify = () => {
@@ -315,6 +340,7 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
                   <OtpVerification
                     phone={otpPhone}
                     name={otpName}
+                    email={otpEmail}
                     onClose={handleOtpClose}
                     onVerify={handleOtpVerify}
                   />

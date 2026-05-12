@@ -31,16 +31,32 @@ export const previewCSV = createAsyncThunk(
         invalidCount   : summary.invalidProducts ?? rawProducts.filter(p =>  p.hasErrors).length,
         hasImageUrls   : rawProducts.some(p => p.hasImages),
         uploadType     : data.uploadType || 'CSV only',
-        // Map backend product shape → frontend preview table shape
+        // Map backend product shape → frontend preview table shape.
+        //
+        // IMPORTANT: keep the `variants` array intact. Each variant carries
+        // its own `errors` and `warnings` (e.g. duplicate productCode,
+        // invalid basePrice, missing image folder). Stripping it here would
+        // mean the preview table can only show product-level errors and
+        // admins would see "⚠" with no message for variant-level issues.
         preview: rawProducts.map(p => ({
           name          : p.name,
           category      : p.category,
           variantCount  : p.variantCount   ?? 0,
-          productCode       : (p.variants || []).map(v => v.productCode).filter(Boolean),
+          productCode   : (p.variants || []).map(v => v.productCode).filter(Boolean),
           totalQuantity : p.totalQuantity  ?? 0,
           imageUrlCount : p.variants?.reduce((s, v) => s + (v.imageCount || 0), 0) ?? (p.hasImages ? 1 : 0),
           hasErrors     : p.hasErrors      ?? false,
           errors        : p.errors         || [],
+          // Preserve per-variant errors/warnings for granular display.
+          variants      : (p.variants || []).map(v => ({
+            rowNumber  : v.rowNumber,
+            productCode: v.productCode,
+            isValid    : v.isValid,
+            errors     : v.errors   || [],
+            warnings   : v.warnings || [],
+            hasImages  : v.hasImages,
+            imageCount : v.imageCount,
+          })),
         })),
       };
 

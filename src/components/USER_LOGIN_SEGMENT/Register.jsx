@@ -3,7 +3,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { Phone, Mail, User, Lock } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { registerUser, googleLogin } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
+import { registerUser, googleLogin, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
 import { GoogleIcon } from "./Login";
 import LOGO from "../../assets/logo2.svg";
 
@@ -17,7 +17,14 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
   const [phone,    setPhone]    = useState("");
   const [password, setPassword] = useState("");
 
-  useEffect(() => { if (error) toast.error(error); }, [error]);
+  // Show error toast — then immediately clear so the same error doesn't
+  // re-trigger on the next mount (e.g. user closes & reopens the modal).
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearError());
+    }
+  }, [error, dispatch]);
 
   // ── Google OAuth ───────────────────────────────────────────────
   const handleGoogleClick = () => {
@@ -73,9 +80,13 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
       ).unwrap();
 
       if (result) {
-        toast.success("OTP sent to your phone!");
-        // pendingPhone from Redux is source of truth; fall back to local state
-        onShowOtp(pendingPhone || cleanPhone, name);
+        // Backend message reflects the configured OTP_DELIVERY_MODE
+        // (e.g. "OTP sent to your email" / "phone" / "phone and email").
+        toast.success(result.message || "OTP sent!");
+        // pendingPhone from Redux is source of truth; fall back to local state.
+        // Email is forwarded so the OTP screen's "resend" can deliver to the
+        // real address when OTP_DELIVERY_MODE=email.
+        onShowOtp(pendingPhone || cleanPhone, name, email);
       }
     } catch (_) {
       // Error shown via Redux error state + useEffect toast above

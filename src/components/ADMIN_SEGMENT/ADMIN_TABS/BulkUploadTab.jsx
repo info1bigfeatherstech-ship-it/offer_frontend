@@ -472,21 +472,97 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                       </tr>
                     </thead>
                     <tbody>
-                      {previewData.preview?.map((p, i) => (
-                        <tr key={i} className={`border-b border-slate-50 ${p.hasErrors ? 'bg-red-50/30' : ''}`}>
-                          <td className="py-2 px-3 text-xs font-medium text-slate-800 max-w-[140px] truncate">{p.name}</td>
-                          <td className="py-2 px-3 text-xs text-slate-500">{p.category}</td>
-                          <td className="py-2 px-3 text-xs text-center">{p.variantCount}</td>
-                          <td className="py-2 px-3 text-xs text-slate-500 max-w-[100px] truncate">{p.productCode?.join(', ')}</td>
-                          <td className="py-2 px-3 text-xs text-center">{fmt(p.totalQuantity)}</td>
-                          <td className="py-2 px-3 text-xs text-center">{imageMode === 'url' ? (p.imageUrlCount || '—') : '(ZIP)'}</td>
-                          <td className="py-2 px-3">
-                            {p.hasErrors
-                              ? <span className="text-xs text-red-600">⚠ {p.errors?.join('; ')}</span>
-                              : <span className="text-xs text-emerald-600">✓ OK</span>}
-                          </td>
-                        </tr>
-                      ))}
+                      {previewData.preview?.map((p, i) => {
+                        // Aggregate ALL error sources for this product:
+                        //   1. Product-level errors (e.g. category missing, series clash)
+                        //   2. Variant-level errors (e.g. productCode already exists,
+                        //      invalid basePrice, duplicate productCode in same product).
+                        // Backend already segregates these; the preview row should
+                        // surface BOTH so the admin can see exactly why a row is invalid.
+                        const productLevelErrors = (p.errors || []).map((e) => ({
+                          scope: 'product',
+                          text: e
+                        }));
+                        const variantLevelErrors = (p.variants || []).flatMap((v) =>
+                          (v.errors || []).map((e) => ({
+                            scope: 'variant',
+                            productCode: v.productCode,
+                            text: e
+                          }))
+                        );
+                        const allErrors = [...productLevelErrors, ...variantLevelErrors];
+
+                        // Variant warnings (e.g. images missing) — non-blocking,
+                        // shown alongside but visually distinct.
+                        const variantWarnings = (p.variants || []).flatMap((v) =>
+                          (v.warnings || []).map((w) => ({
+                            productCode: v.productCode,
+                            text: w
+                          }))
+                        );
+
+                        return (
+                          <tr key={i} className={`border-b border-slate-50 ${p.hasErrors ? 'bg-red-50/30' : ''}`}>
+                            <td className="py-2 px-3 text-xs font-medium text-slate-800 max-w-[140px] truncate">{p.name}</td>
+                            <td className="py-2 px-3 text-xs text-slate-500">{p.category}</td>
+                            <td className="py-2 px-3 text-xs text-center">{p.variantCount}</td>
+                            <td className="py-2 px-3 text-xs text-slate-500 max-w-[100px] truncate">{p.productCode?.join(', ')}</td>
+                            <td className="py-2 px-3 text-xs text-center">{fmt(p.totalQuantity)}</td>
+                            <td className="py-2 px-3 text-xs text-center">{imageMode === 'url' ? (p.imageUrlCount || '—') : '(ZIP)'}</td>
+                            <td className="py-2 px-3 align-top">
+                              {p.hasErrors ? (
+                                <div className="space-y-1 max-w-[360px]">
+                                  {allErrors.map((err, idx) => (
+                                    <div
+                                      key={idx}
+                                      className="text-[11px] leading-snug text-red-600 break-words"
+                                      title={err.text}
+                                    >
+                                      <span className="font-semibold">⚠</span>{' '}
+                                      {err.scope === 'variant' && err.productCode && err.productCode !== 'N/A' && (
+                                        <span className="font-mono text-red-700">[{err.productCode}]</span>
+                                      )}{' '}
+                                      <span>{err.text}</span>
+                                    </div>
+                                  ))}
+                                  {variantWarnings.map((w, idx) => (
+                                    <div
+                                      key={`w-${idx}`}
+                                      className="text-[11px] leading-snug text-amber-700 break-words"
+                                      title={w.text}
+                                    >
+                                      <span className="font-semibold">ⓘ</span>{' '}
+                                      {w.productCode && w.productCode !== 'N/A' && (
+                                        <span className="font-mono text-amber-700">[{w.productCode}]</span>
+                                      )}{' '}
+                                      <span>{w.text}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : variantWarnings.length > 0 ? (
+                                <div className="space-y-1 max-w-[360px]">
+                                  <div className="text-xs text-emerald-600">✓ OK</div>
+                                  {variantWarnings.map((w, idx) => (
+                                    <div
+                                      key={`w-${idx}`}
+                                      className="text-[11px] leading-snug text-amber-700 break-words"
+                                      title={w.text}
+                                    >
+                                      <span className="font-semibold">ⓘ</span>{' '}
+                                      {w.productCode && w.productCode !== 'N/A' && (
+                                        <span className="font-mono text-amber-700">[{w.productCode}]</span>
+                                      )}{' '}
+                                      <span>{w.text}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              ) : (
+                                <span className="text-xs text-emerald-600">✓ OK</span>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
