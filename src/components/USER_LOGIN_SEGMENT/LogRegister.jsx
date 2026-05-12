@@ -104,6 +104,36 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
     };
   }, [isOpen]);
 
+  // ── Browser back button handler ─────────────────────────────────
+  // FIX: This useEffect must be BEFORE the if (!isOpen) return null check
+   // ── Browser back button handler ─────────────────────────────────
+  useEffect(() => {
+    if (!isOpen) return;
+    
+    // Push a new history state when modal opens
+    window.history.pushState({ modalOpen: true }, '', window.location.href);
+    
+    const handlePopState = () => {
+      // User pressed back button - close the modal
+      onClose();
+      // Push another state to keep us on the same page
+      window.history.pushState({ modalOpen: true }, '', window.location.href);
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      // Clean up: remove our history entry if modal closes normally
+      if (window.history.state?.modalOpen) {
+        window.history.back();
+      }
+    };
+  }, [isOpen, onClose]);
+  // ───────────────────────────────────────────────────────────────
+  // ───────────────────────────────────────────────────────────────
+
+  // Don't render anything if modal is closed
   if (!isOpen) return null;
 
   const handleTabChange = (tab) => {
@@ -647,44 +677,7 @@ export default LogRegister;
 // };
 
 // export default LogRegister;
-
-// import React, { useState } from "react";
-// import { X } from "lucide-react";
-// import Login from "./Login";
-// import Register from "./Register";
-// import ForgotPassword from "./ForgotPassword";
-// import OtpVerification from "./OTPVerification";
-// import { useDispatch } from "react-redux";
-// import { clearError, clearSuccess } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
-
-// const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
-//   const dispatch = useDispatch();
-//   const [activeTab, setActiveTab] = useState("login");
-//   const [showForgotPassword, setShowForgotPassword] = useState(false);
-
-//   // ✅ FIX 1: OTP state lifted to TOP-LEVEL so it renders above the slider
-//   const [showOtpModal, setShowOtpModal] = useState(false);
-//   const [otpEmail, setOtpEmail] = useState("");
-//   const [otpName, setOtpName] = useState("");
-
-//   if (!isOpen) return null;
-
-//   const handleTabChange = (tab) => {
-//     setActiveTab(tab);
-//     setShowForgotPassword(false);
-//     dispatch(clearError());
-//     dispatch(clearSuccess());
-//   };
-
-//   const handleClose = () => {
-//     dispatch(clearError());
-//     dispatch(clearSuccess());
-//     onClose();
-//   };
-
-//   const handleForgotPasswordClick = () => {
-//     dispatch(clearError());
-//     dispatch(clearSuccess());
+// uccess());
 //     setShowForgotPassword(true);
 //   };
 
