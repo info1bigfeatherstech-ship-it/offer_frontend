@@ -1702,42 +1702,38 @@ const ProductUI = ({ openAuthModal }) => {
                           </div>
 
                           {/* ── BUY NOW ── */}
-                          <Link to="/checkout" className="w-full">
-                            <button
-                              disabled={!inStock || localLoading.add || localLoading.buyNow}
-                              onClick={async () => {
-                                if (isInCart) { navigate("/checkout"); return; }
-                                setL("buyNow", true);
-                                try {
-                                  if (isLoggedIn) {
-                                    await dispatch(addToCart({
-                                      productSlug: product.slug,
-                                      variantId: variant?._id?.toString(),
-                                      quantity: 1,
-                                    })).unwrap();
-                                  } else {
-                                    dispatch(addGuestCartItem({
-                                      productId: product._id,
-                                      productSlug: product.slug,
-                                      variantId: variant?._id?.toString() || "",
-                                      quantity: 1,
-                                    }));
-                                  }
-                                  navigate("/checkout");
-                                } catch (err) {
-                                  toast.error(err?.message || "Failed to proceed");
-                                } finally {
-                                  setL("buyNow", false);
-                                }
-                              }}
-                              className="w-full py-3 rounded-xl text-sm font-semibold bg-zinc-900 text-white hover:bg-[#F7A221] transition active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-2"
-                            >
-                              {localLoading.buyNow
-                                ? <><Loader2 size={16} className="animate-spin" /> Processing...</>
-                                : "Buy Now"
+                          <button
+                            disabled={!inStock || localLoading.add || localLoading.buyNow}
+                            onClick={async () => {
+                              // ── Auth gate: non-logged-in users see the login modal ──
+                              if (!isLoggedIn) {
+                                openAuthModal();
+                                return;
                               }
-                            </button>
-                          </Link>
+
+                              if (isInCart) { navigate("/checkout"); return; }
+                              setL("buyNow", true);
+                              try {
+                                await dispatch(addToCart({
+                                  productSlug: product.slug,
+                                  variantId: variant?._id?.toString(),
+                                  quantity: 1,
+                                })).unwrap();
+                                navigate("/checkout");
+                              } catch (err) {
+                                toast.error(err?.message || "Failed to proceed");
+                              } finally {
+                                setL("buyNow", false);
+                              }
+                            }}
+                            className="w-full py-3 rounded-xl text-sm font-semibold bg-zinc-900 text-white hover:bg-[#F7A221] transition active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            {localLoading.buyNow
+                              ? <><Loader2 size={16} className="animate-spin" /> Processing...</>
+                              : "Buy Now"
+                            }
+                          </button>
+
                         </>
                       )}
                     </div>
