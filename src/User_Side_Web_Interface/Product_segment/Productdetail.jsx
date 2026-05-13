@@ -789,6 +789,15 @@ const ProductUI = ({ openAuthModal }) => {
   const images = selectedVariant?.images ?? [];
   const activeImg = images[activeThumb]?.url ?? null;
 
+  // ── Auto-slide: advance every 3s on mobile, pause when fullscreen sheet is open ──
+  useEffect(() => {
+    if (!isMobile || isVisible || images.length <= 1) return;
+    const timer = setInterval(() => {
+      setActiveThumb((prev) => (prev + 1) % images.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [isMobile, isVisible, images.length, activeThumb]);
+
   const salePrice = selectedVariant?.finalPrice ?? selectedVariant?.price?.sale ?? selectedVariant?.price?.base ?? null;
   const basePrice = selectedVariant?.price?.base ?? null;
   const hasDisc = basePrice != null && salePrice != null && basePrice > salePrice;
@@ -1137,6 +1146,26 @@ const ProductUI = ({ openAuthModal }) => {
                         />
                       ) : (
                         <div>No image</div>
+                      )}
+
+                      {/* ── Mobile prev/next arrows (inline gallery) ── */}
+                      {images.length > 1 && (
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setActiveThumb((p) => (p - 1 + images.length) % images.length); }}
+                            className="lg:hidden absolute left-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm shadow-md flex items-center justify-center text-gray-700 active:scale-90 transition-all z-10"
+                            aria-label="Previous image"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setActiveThumb((p) => (p + 1) % images.length); }}
+                            className="lg:hidden absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm shadow-md flex items-center justify-center text-gray-700 active:scale-90 transition-all z-10"
+                            aria-label="Next image"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                          </button>
+                        </>
                       )}
 
                       {/* 🔥 AMAZON DOTTED LENS */}
