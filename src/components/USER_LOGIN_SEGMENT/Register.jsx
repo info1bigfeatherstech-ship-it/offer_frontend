@@ -98,160 +98,135 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
       {/* Hidden Google button mount point */}
       <div ref={googleBtnRef} style={{ display: "none" }} />
 
-      {/*
-        FIX: h-24 md:h-32 — valid Tailwind classes.
-        h-25 does not exist in Tailwind's scale and generated no CSS.
-      */}
-      <div className="flex justify-center mb-3 sm:mb-5">
+      {/* Logo — compact on all screens */}
+      <div className="flex justify-center mb-2.5">
         <img
           src={LOGO}
           alt="OfferWale Baba"
-          className="h-14 sm:h-24 md:h-28 w-auto object-contain rounded"
+          className="h-12 sm:h-16 w-auto object-contain rounded"
         />
       </div>
 
-      <h2 className="text-xl sm:text-2xl text-center text-white mb-1 tracking-tighter font-black">
+      <h2 className="text-lg sm:text-xl text-center text-white mb-0.5 tracking-tighter font-black">
         JOIN THE <span className="text-[#f7a221]">CLUB</span>
       </h2>
-      <p className="text-gray-200 text-center text-[10px] tracking-widest uppercase mb-3 sm:mb-5">
+      <p className="text-gray-400 text-center text-[10px] tracking-widest uppercase mb-2.5">
         Exclusive deals await
       </p>
 
       {error && (
-        <div className="mb-4 p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-[11px] text-center font-medium">
+        <div className="mb-2.5 p-2 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-[11px] text-center font-medium">
           {error}
         </div>
       )}
 
-      <div className="lr-slide-up">
-        {/* Google Sign-up */}
-        <button
-          onClick={handleGoogleClick}
-          className="w-full bg-white hover:bg-gray-50 active:bg-gray-100 text-black cursor-pointer font-bold py-2.5 sm:py-3 px-4 rounded-2xl transition-all flex items-center justify-center gap-3 mb-2 sm:mb-3 shadow-md active:scale-[0.98] touch-manipulation select-none"
-        >
-          <GoogleIcon />
-          <span className="text-sm">Sign up with Google</span>
-        </button>
+      {/* Google Sign-up */}
+      <button
+        onClick={handleGoogleClick}
+        className="w-full bg-white hover:bg-gray-50 active:bg-gray-100 text-black cursor-pointer font-bold py-2.5 px-4 rounded-2xl transition-all flex items-center justify-center gap-3 mb-2 shadow-md active:scale-[0.98] touch-manipulation select-none"
+      >
+        <GoogleIcon />
+        <span className="text-sm">Sign up with Google</span>
+      </button>
 
-        {/* OR divider */}
-        <div className="relative my-2 sm:my-4">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-white/25" />
-          </div>
-          <div className="relative flex justify-center text-[9px] uppercase tracking-[0.3em]">
-            <span className="px-4 bg-[#0d0d0d] text-gray-200">OR REGISTER WITH DETAILS</span>
-          </div>
+      {/* OR divider */}
+      <div className="relative my-2.5">
+        <div className="absolute inset-0 flex items-center">
+          <div className="w-full border-t border-white/20" />
+        </div>
+        <div className="relative flex justify-center text-[9px] uppercase tracking-[0.3em]">
+          <span className="px-3 bg-[#0d0d0d] text-gray-400">OR REGISTER WITH DETAILS</span>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-2">
+        {/* Full Name */}
+        <div className="relative">
+          <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={16} />
+          <input
+            type="text"
+            placeholder="Full Name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            autoComplete="name"
+            className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-white text-base placeholder:text-white/30 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 transition-all"
+            required
+          />
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-3">
-          {/* Full Name */}
-          <div className="relative">
-            <User
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none"
-              size={17}
-            />
-            {/*
-              FIX: text-base (16px) everywhere on inputs.
-              Single source of truth — no text-sm competing with inline fontSize.
-            */}
-            <input
-              type="text"
-              placeholder="Full Name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              autoComplete="name"
-              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-2.5 sm:py-3 pl-11 pr-4 text-white text-base placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 transition-all"
-              required
-            />
-          </div>
+        {/* Email */}
+        <div className="relative">
+          <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={16} />
+          <input
+            type="email"
+            placeholder="Email Address"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-white text-base placeholder:text-white/30 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 transition-all"
+            required
+          />
+        </div>
 
-          {/* Email */}
-          <div className="relative">
-            <Mail
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none"
-              size={17}
-            />
-            <input
-              type="email"
-              placeholder="Email Address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
-              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-2.5 sm:py-3 pl-11 pr-4 text-white text-base placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 transition-all"
-              required
-            />
-          </div>
+        {/* Phone */}
+        <div className="relative">
+          <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={16} />
+          <input
+            type="tel"
+            placeholder="Phone Number (10 digits)"
+            value={phone}
+            onChange={(e) => {
+              const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
+              setPhone(digits);
+            }}
+            autoComplete="tel"
+            inputMode="numeric"
+            className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-white text-base placeholder:text-white/30 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 transition-all"
+            required
+            minLength={10}
+            maxLength={10}
+          />
+        </div>
 
-          {/*
-            Phone — REQUIRED.
-            Backend validates /^[0-9]{10}$/ — exactly 10 digits.
-            OTP is sent to this number via SMS.
-            Input strips non-digits and caps at 10 characters client-side.
-          */}
-          <div className="relative">
-            <Phone
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none"
-              size={17}
-            />
-            <input
-              type="tel"
-              placeholder="Phone Number (10 digits)"
-              value={phone}
-              onChange={(e) => {
-                const digits = e.target.value.replace(/\D/g, "").slice(0, 10);
-                setPhone(digits);
-              }}
-              autoComplete="tel"
-              inputMode="numeric"
-              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-2.5 sm:py-3 pl-11 pr-4 text-white text-base placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 transition-all"
-              required
-              minLength={10}
-              maxLength={10}
-            />
-          </div>
+        {/* Password */}
+        <div className="relative">
+          <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={16} />
+          <input
+            type="password"
+            placeholder="Password (min 6 chars)"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="new-password"
+            className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-2.5 pl-10 pr-4 text-white text-base placeholder:text-white/30 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 transition-all"
+            required
+            minLength="6"
+          />
+        </div>
 
-          {/* Password */}
-          <div className="relative">
-            <Lock
-              className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none"
-              size={17}
-            />
-            <input
-              type="password"
-              placeholder="Password (min 6 chars)"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              autoComplete="new-password"
-              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-2.5 sm:py-3 pl-11 pr-4 text-white text-base placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 transition-all"
-              required
-              minLength="6"
-            />
-          </div>
+        <button
+          type="submit"
+          disabled={loading}
+          className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-50 text-black font-black py-3 rounded-xl cursor-pointer transition-all shadow-[0_6px_18px_rgba(247,162,33,0.3)] text-sm uppercase touch-manipulation select-none"
+        >
+          {loading ? "SENDING OTP..." : "REGISTER"}
+        </button>
+      </form>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-50 text-black font-black py-3 sm:py-3.5 rounded-xl cursor-pointer transition-all shadow-[0_8px_20px_rgba(247,162,33,0.25)] text-sm uppercase touch-manipulation select-none"
-          >
-            {loading ? "SENDING OTP..." : "REGISTER"}
-          </button>
-        </form>
-
-        <p className="text-center text-gray-200 text-[11px] mt-3 sm:mt-4 tracking-wide">
-          Already a member?{" "}
-          <button
-            onClick={onLoginClick}
-            className="text-[#f7a221] text-[15px] hover:underline cursor-pointer touch-manipulation"
-          >
-            Login here
-          </button>
-        </p>
-      </div>
+      <p className="text-center text-gray-400 text-[11px] mt-2.5 tracking-wide">
+        Already a member?{" "}
+        <button
+          onClick={onLoginClick}
+          className="text-[#f7a221] font-bold hover:underline cursor-pointer touch-manipulation"
+        >
+          Login here
+        </button>
+      </p>
     </div>
   );
 };
 
 export default Register;
+
 // try to make it responsive 
 
 // import React, { useState, useEffect, useRef } from "react";
