@@ -38,7 +38,8 @@ const useInViewFetch = (
   onVisible,
   { rootMargin = '1500px', threshold = 0, disabled = false } = {}
 ) => {
-  const ref         = useRef(null);
+  const ref = useRef(null);
+
   const callbackRef = useRef(onVisible);
 
   // Keep callbackRef current on every render without re-running the observer effect
@@ -82,9 +83,9 @@ const useInViewFetch = (
       observer.disconnect();
     };
 
-  // Re-run only when `disabled` flips (e.g. data loaded from cache on first render).
-  // rootMargin/threshold are static config values — deliberately excluded from deps.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Re-run only when `disabled` flips (e.g. data loaded from cache on first render).
+    // rootMargin/threshold are static config values — deliberately excluded from deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [disabled]);
 
   return { ref };
