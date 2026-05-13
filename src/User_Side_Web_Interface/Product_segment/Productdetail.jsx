@@ -821,6 +821,7 @@ const ProductUI = ({ openAuthModal }) => {
   const soldInfo = product?.soldInfo?.count ?? 0;
   const brand = product?.brand ?? null;
   const variant = selectedVariant || {};
+  const productCode = variant?.productCode || product?.code || "";
 
   // ── handlers ───────────────────────────────────────────────────────────────
   const handleAddToCart = async (e) => {
@@ -1476,6 +1477,12 @@ const ProductUI = ({ openAuthModal }) => {
                     {brand && brand.toLowerCase() !== "generic" && (
                       <span className="text-sm text-gray-500">
                         by <span className="text-orange-500 font-semibold">{brand}</span>
+                      </span>
+                    )}
+                    {/* PRODUCT CODE */}
+                    {productCode && (
+                      <span className="text-[15px] text-gray-700 font-mon">
+                        {productCode}
                       </span>
                     )}
                     <div className="flex items-center w-fit px-1 py-2 rounded-lg gap-2 bg-gray-100">

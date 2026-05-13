@@ -44,40 +44,41 @@ const logError = (ctx, err, info = {}) => {
 const ProductCard = ({ product, index = 0 }) => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-    const { categories } = useSelector((s) => s.categories);    
+  const { categories } = useSelector((s) => s.categories);
 
   const { isLoggedIn } = useSelector((state) => state.auth);
-  const wishlisted     = useSelector(selectIsWishlisted(product?.slug));
-  const cartItem       = useSelector(selectCartItemBySlug(product?.slug));
+  const wishlisted = useSelector(selectIsWishlisted(product?.slug));
+  const cartItem = useSelector(selectCartItemBySlug(product?.slug));
 
   const [localLoading, setLocalLoading] = useState({
     add: false, update: false, remove: false, wishlist: false,
   });
   const setL = (k, v) => setLocalLoading((p) => ({ ...p, [k]: v }));
   const isProcessing = localLoading.add || localLoading.update || localLoading.remove;
-   const getCategoryName = (productCategory) => {
-     
-     if (!productCategory) return "Uncategorized";
-     const found = categories.find((cat) => cat._id === productCategory || cat.name === productCategory
+  const getCategoryName = (productCategory) => {
+
+    if (!productCategory) return "Uncategorized";
+    const found = categories.find((cat) => cat._id === productCategory || cat.name === productCategory
     );
     return found ? found.name : "Uncategorized";
   };
 
   // ── Derived ───────────────────────────────────────────────────────────────
-  const variant     = product?.variants?.[0] ?? {};
-  const name       = product?.name || product?.title;
-  const title       = product?.title || product?.name || "Product";
-  const salePrice   = variant.price?.sale ?? variant.price?.base ?? null;
-  const basePrice   = variant.price?.base ?? null;
+  const variant = product?.variants?.[0] ?? {};
+  const name = product?.name || product?.title;
+  const title = product?.title || product?.name || "Product";
+
+  const salePrice = variant.price?.sale ?? variant.price?.base ?? null;
+  const basePrice = variant.price?.base ?? null;
   const hasDiscount = basePrice != null && salePrice != null && basePrice > salePrice;
   const discountPct = variant.discountPercentage ??
     (hasDiscount ? Math.round(((basePrice - salePrice) / basePrice) * 100) : null);
-  const imgUrl      = variant.images?.[0]?.url || null;
-  const maxStock    = variant.inventory?.trackInventory
+  const imgUrl = variant.images?.[0]?.url || null;
+  const maxStock = variant.inventory?.trackInventory
     ? (variant.inventory?.quantity ?? 0) : Infinity;
-  const inStock      = maxStock > 0;
-  const isInCart     = !!cartItem;
-  const currentQty   = cartItem?.quantity ?? 0;
+  const inStock = maxStock > 0;
+  const isInCart = !!cartItem;
+  const currentQty = cartItem?.quantity ?? 0;
   const isAtMaxStock = currentQty >= maxStock && maxStock !== Infinity;
 
   const isOnSale = Array.isArray(product?.appliedTags)
@@ -89,12 +90,12 @@ const ProductCard = ({ product, index = 0 }) => {
 
   const ratingUi = useMemo(() => getProductRatingDisplay(product, null), [product]);
 
-    useEffect(()=>{
-      dispatch(fetchCategories());
-      // console.log("I m being rendered");
-      
-    }, [dispatch])
-    
+  useEffect(() => {
+    dispatch(fetchCategories());
+    // console.log("I m being rendered");
+
+  }, [dispatch])
+
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleCardClick = () => {
@@ -272,11 +273,10 @@ const ProductCard = ({ product, index = 0 }) => {
             onClick={handleWishlist}
             disabled={localLoading.wishlist}
             aria-label="Toggle wishlist"
-            className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90 ${
-              wishlisted
-                ? "bg-red-500 text-white"
-                : "bg-white/90 backdrop-blur-sm text-zinc-600 hover:bg-red-500 hover:text-white"
-            } disabled:opacity-50`}
+            className={`w-8 h-8 rounded-full flex items-center justify-center shadow-md transition-all active:scale-90 ${wishlisted
+              ? "bg-red-500 text-white"
+              : "bg-white/90 backdrop-blur-sm text-zinc-600 hover:bg-red-500 hover:text-white"
+              } disabled:opacity-50`}
           >
             {localLoading.wishlist
               ? <Loader2 size={13} className="animate-spin" />
@@ -327,15 +327,20 @@ const ProductCard = ({ product, index = 0 }) => {
         )}
 
         {/* Price */}
-        <div className="flex items-center gap-1.5 mt-0.5">
-          <span className="text-sm sm:text-base font-bold text-zinc-900">
-            ₹{formatPrice(salePrice)}
-          </span>
-          {hasDiscount && (
-            <span className="text-[10px] sm:text-xs text-zinc-400 line-through">
-              ₹{formatPrice(basePrice)}
+        {/* Price */}
+        <div className="flex items-center justify-between mt-0.5">
+          <div className="flex items-center gap-1.5">
+            <span className="text-sm sm:text-base font-bold text-zinc-900">
+              ₹{formatPrice(salePrice)}
             </span>
-          )}
+            {hasDiscount && (
+              <span className="text-[10px] sm:text-xs text-zinc-400 line-through">
+                ₹{formatPrice(basePrice)}
+              </span>
+            )}
+          </div>
+
+
         </div>
 
         {/* ── CART ACTIONS ── */}
@@ -353,11 +358,10 @@ const ProductCard = ({ product, index = 0 }) => {
             <button
               onClick={handleAddToCart}
               disabled={localLoading.add}
-              className={`w-full py-2 sm:py-3.5 cursor-pointer text-[10px] sm:text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 ${
-                localLoading.add
-                  ? "bg-zinc-300 text-white hover:bg-[#F7A221] cursor-wait"
-                  : "bg-zinc-900 text-white hover:bg-[#F7A221]"
-              } disabled:opacity-60`}
+              className={`w-full py-2 sm:py-3.5 cursor-pointer text-[10px] sm:text-xs font-bold rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95 ${localLoading.add
+                ? "bg-zinc-300 text-white hover:bg-[#F7A221] cursor-wait"
+                : "bg-zinc-900 text-white hover:bg-[#F7A221]"
+                } disabled:opacity-60`}
             >
               {localLoading.add ? (
                 <><Loader2 size={12} className="animate-spin" /> Adding...</>
@@ -366,7 +370,7 @@ const ProductCard = ({ product, index = 0 }) => {
           )}
 
           {/* Qty controls */}
-         
+
           {inStock && isInCart && (
             <div className="flex flex-col gap-1">
               <div className="flex items-center w-full border-2 border-zinc-900 rounded-xl overflow-hidden">
