@@ -152,18 +152,18 @@ const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
         w-auto preserves aspect ratio. object-contain prevents distortion.
         mx-auto centres in flex column.
       */}
-      <div className="flex justify-center mb-6">
+      <div className="flex justify-center mb-4 sm:mb-6">
         <img
           src={LOGO}
           alt="OfferWale Baba"
-          className="h-24 md:h-32 w-auto object-contain rounded"
+          className="h-16 sm:h-24 md:h-28 w-auto object-contain rounded"
         />
       </div>
 
-      <h2 className="text-2xl text-center text-white mb-1 tracking-tighter font-black">
+      <h2 className="text-xl sm:text-2xl text-center text-white mb-1 tracking-tighter font-black">
         WELCOME <span className="text-[#f7a221]">BACK</span>
       </h2>
-      <p className="text-gray-200 text-[10px] tracking-widest mb-5 sm:mb-6 text-center uppercase">
+      <p className="text-gray-200 text-[10px] tracking-widest mb-4 sm:mb-5 text-center uppercase">
         Access your premium dashboard
       </p>
 
@@ -201,7 +201,7 @@ const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
       </button>
 
       {/* OR divider */}
-      <div className="relative my-5">
+      <div className="relative my-3 sm:my-5">
         <div className="absolute inset-0 flex items-center">
           <div className="w-full border-t border-white/25" />
         </div>
@@ -289,7 +289,7 @@ const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
         </p>
       )}
 
-      <p className="text-center text-gray-200 text-[11px] mt-5 tracking-wide">
+      <p className="text-center text-gray-200 text-[11px] mt-4 sm:mt-5 tracking-wide">
         No account?{" "}
         <button
           onClick={onRegisterClick}

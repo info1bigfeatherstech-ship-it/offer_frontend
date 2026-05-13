@@ -107,6 +107,27 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
     };
   }, [isOpen]);
 
+  // ── Real viewport height CSS variable ───────────────────────────
+  // Sets --lr-vh so the card max-height tracks the *visual* viewport.
+  // On mobile, window.innerHeight shrinks/grows as the browser address
+  // bar hides/shows; dvh/svh/lvh are not yet universally supported.
+  // Updating on resize + visualViewport.resize covers all browsers.
+  useEffect(() => {
+    if (!isOpen) return;
+    const setVh = () => {
+      const h = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+      document.documentElement.style.setProperty("--lr-vh", `${h}px`);
+    };
+    setVh();
+    window.addEventListener("resize", setVh);
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", setVh);
+    return () => {
+      window.removeEventListener("resize", setVh);
+      if (window.visualViewport) window.visualViewport.removeEventListener("resize", setVh);
+    };
+  }, [isOpen]);
+  // ───────────────────────────────────────────────────────────────
+
   // ── Browser back button handler ─────────────────────────────────
   // FIX: This useEffect must be BEFORE the if (!isOpen) return null check.
   //
@@ -215,7 +236,7 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
 
   return (
     <>
-      {/* ── Global animation keyframes ── */}
+      {/* ── Global animation keyframes + responsive modal CSS ── */}
       <style>{`
         @keyframes lr-slideInRight {
           from { opacity: 0; transform: translateX(36px); }
@@ -233,18 +254,50 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
           from { opacity: 0; }
           to   { opacity: 1; }
         }
+        @keyframes lr-sheetUp {
+          from { opacity: 0; transform: translateY(60px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
         .lr-slide-right { animation: lr-slideInRight 0.32s cubic-bezier(0.32,0.72,0,1) both; }
         .lr-slide-left  { animation: lr-slideInLeft  0.32s cubic-bezier(0.32,0.72,0,1) both; }
         .lr-slide-up    { animation: lr-slideInUp    0.30s cubic-bezier(0.32,0.72,0,1) both; }
         .lr-fade        { animation: lr-fadeIn        0.25s ease both; }
+        .lr-sheet-up    { animation: lr-sheetUp       0.35s cubic-bezier(0.32,0.72,0,1) both; }
+
+        /* ── Responsive card scroll container ── */
+        .lr-card-scroll {
+          overflow-y: auto;
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior: contain;
+          /* Mobile: bottom-sheet with max 92% of real viewport height */
+          max-height: 92dvh;
+          max-height: calc(var(--lr-vh, 100vh) * 0.92);
+        }
+        @media (min-width: 640px) {
+          /* Tablet/Desktop: centred modal, max 90dvh */
+          .lr-card-scroll {
+            max-height: 90dvh;
+            max-height: calc(var(--lr-vh, 100vh) * 0.90);
+          }
+        }
+        /* Tiny screens: allow almost full height */
+        @media (max-height: 600px) {
+          .lr-card-scroll {
+            max-height: 96dvh;
+            max-height: calc(var(--lr-vh, 100vh) * 0.96);
+          }
+        }
+
+        /* Scrollbar cosmetics inside card */
+        .lr-card-scroll::-webkit-scrollbar { width: 3px; }
+        .lr-card-scroll::-webkit-scrollbar-track { background: transparent; }
+        .lr-card-scroll::-webkit-scrollbar-thumb { background: rgba(247,162,33,0.3); border-radius: 99px; }
       `}</style>
 
       {/*
         ══════════════════════════════════════════════════════════════
         LAYER 1 — BACKDROP
-        fixed inset-0, z-[100], bg overlay, NO overflow property here.
-        overflow-y-auto is REMOVED from backdrop — it caused the entire
-        backdrop to scroll with content on iOS Safari ("leaky modal").
+        fixed inset-0, z-[100], bg overlay, NO overflow property.
         Click on backdrop closes modal.
         ══════════════════════════════════════════════════════════════
       */}
@@ -258,37 +311,30 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
         {/*
           ══════════════════════════════════════════════════════════════
           LAYER 2 — SHELL
-          flex container that centres the card.
-          Items-end on mobile = card slides up from bottom (native sheet feel).
-          Items-center on sm+ = centred modal.
-          This layer also handles the dvh height and safe-area padding.
-          The desktop close button lives HERE — outside overflow-hidden,
-          so it is never clipped.
+          Mobile:  items-end  → bottom-sheet slides up from bottom
+          sm+:     items-center → centred modal
           ══════════════════════════════════════════════════════════════
         */}
         <div
-          className="flex items-end sm:items-center justify-center w-full min-h-[var(--vh,100dvh)] p-0 sm:p-4"
+          className="flex items-end sm:items-center justify-center w-full h-full p-0 sm:p-4"
           onClick={handleClose}
         >
           {/*
             ══════════════════════════════════════════════════════════════
-            POSITIONING WRAPPER — relative, no overflow.
-            Close button is positioned relative to this element.
-            This wrapper does NOT have overflow-hidden.
+            POSITIONING WRAPPER
+            w-full on mobile, max-w-md (448px) on sm+
+            no overflow here — overflow is on the card scroll div below
             ══════════════════════════════════════════════════════════════
           */}
           <div
-            className="relative w-full sm:max-w-md"
+            className="relative w-full sm:max-w-md lr-sheet-up"
             onClick={(e) => e.stopPropagation()}
             onTouchStart={handleTouchStart}
             onTouchEnd={handleTouchEnd}
             onTouchCancel={handleTouchCancel}
             style={{ touchAction: "pan-y" }}
           >
-            {/*
-              FIX: Desktop close button — lives in the positioning wrapper
-              ABOVE the overflow-hidden card. Never clipped.
-            */}
+            {/* Desktop close button — sits above the card, never clipped */}
             <button
               onClick={handleClose}
               className="absolute -top-3 -right-3 z-10 bg-[#f7a221] text-black p-2 rounded-full shadow-2xl active:scale-95 transition-transform border-2 border-[#0d0d0d] cursor-pointer hidden sm:flex items-center justify-center"
@@ -299,28 +345,25 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
 
             {/*
               ══════════════════════════════════════════════════════════════
-              LAYER 3 — CARD
-              overflow-hidden lives here and ONLY here.
-              Solely responsible for clipping the tab slider animation
-              and providing the card's visual border-radius + background.
-              Height is content-driven — no min-h-screen here.
-              FIX: pb-[env(safe-area-inset-bottom)] pads bottom content
-              above iOS home indicator and Android gesture bar.
+              LAYER 3 — CARD SCROLL CONTAINER
+              overflow-y: auto lives HERE.
+              rounded-t-[2rem] on mobile (bottom sheet), full rounding on sm+.
+              Safe-area padding prevents content hiding behind iOS home bar.
               ══════════════════════════════════════════════════════════════
             */}
             <div
               className="
+                lr-card-scroll
                 bg-[#0d0d0d]
                 border-0 sm:border border-white/10
                 rounded-t-[2rem] sm:rounded-[2.5rem]
-                shadow-[0_20px_50px_rgba(0,0,0,0.5)]
-                overflow-hidden
-                pb-[env(safe-area-inset-bottom)]
+                shadow-[0_20px_60px_rgba(0,0,0,0.6)]
+                pb-[env(safe-area-inset-bottom,12px)]
               "
             >
 
               {/* ── Mobile top bar (drag pill + close btn) ── */}
-              <div className="flex items-center px-5 pt-4 pb-0 sm:hidden">
+              <div className="flex items-center px-4 pt-3 pb-0 sm:hidden sticky top-0 bg-[#0d0d0d] z-10">
                 <div className="flex-1 flex justify-center pl-8">
                   <div className="w-8 h-1 bg-white/15 rounded-full" />
                 </div>
@@ -348,7 +391,7 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
               )}
 
               {currentView === "forgot" && (
-                <div key="forgot-view" className="p-5 sm:p-8 lr-slide-right">
+                <div key="forgot-view" className="p-4 sm:p-8 lr-slide-right">
                   <ForgotPassword
                     onBack={handleBackFromForgot}
                     onLoginClick={() => {
@@ -361,11 +404,11 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
 
               {currentView === "tabs" && (
                 <>
-                  {/* ── Tab bar ── */}
-                  <div className="flex border-b border-white/5 relative mt-2 sm:mt-0">
+                  {/* ── Tab bar — sticky so it stays visible while scrolling ── */}
+                  <div className="flex border-b border-white/5 relative mt-2 sm:mt-0 sticky top-0 sm:top-0 bg-[#0d0d0d] z-[5]">
                     <button
                       onClick={() => handleTabChange("login")}
-                      className={`flex-1 py-4 sm:py-5 text-center cursor-pointer font-black text-[11px] tracking-[0.2em] transition-colors duration-300 z-10 touch-manipulation ${
+                      className={`flex-1 py-3.5 sm:py-5 text-center cursor-pointer font-black text-[11px] tracking-[0.2em] transition-colors duration-300 z-10 touch-manipulation ${
                         activeTab === "login" ? "text-[#f7a221]" : "text-white/40"
                       }`}
                     >
@@ -373,7 +416,7 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
                     </button>
                     <button
                       onClick={() => handleTabChange("register")}
-                      className={`flex-1 py-4 sm:py-5 text-center font-black cursor-pointer text-[11px] tracking-[0.2em] transition-colors duration-300 z-10 touch-manipulation ${
+                      className={`flex-1 py-3.5 sm:py-5 text-center font-black cursor-pointer text-[11px] tracking-[0.2em] transition-colors duration-300 z-10 touch-manipulation ${
                         activeTab === "register" ? "text-[#f7a221]" : "text-white/40"
                       }`}
                     >
@@ -387,27 +430,23 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
                   </div>
 
                   {/* Swipe indicator dots — mobile only */}
-                  <div className="flex justify-center gap-2 pt-2.5 pb-0 sm:hidden" aria-hidden="true">
+                  <div className="flex justify-center gap-2 pt-2 pb-0 sm:hidden" aria-hidden="true">
                     <div className={`rounded-full transition-all duration-400 ${activeTab === "login"    ? "w-5 h-1 bg-[#f7a221]" : "w-1 h-1 bg-white/20"}`} />
                     <div className={`rounded-full transition-all duration-400 ${activeTab === "register" ? "w-5 h-1 bg-[#f7a221]" : "w-1 h-1 bg-white/20"}`} />
                   </div>
 
                   {/*
                     ── Tab slider ──
-                    FIX: overflow-hidden is on the PARENT card (Layer 3),
-                    not on this div — so this div can be overflow-visible
-                    without fighting its parent. The parent clips it.
-                    FIX: Using overflow-y-auto here (on the inner scroll
-                    container) — NOT on the backdrop — so only the form
-                    content scrolls, backdrop stays fixed.
+                    No individual max-h or overflow here — the parent lr-card-scroll
+                    handles all scrolling. This keeps a single clean scroll context.
                   */}
-                  <div className="relative">
+                  <div className="relative overflow-hidden">
                     <div
                       className="flex transition-transform duration-500 ease-in-out"
                       style={{ transform: activeTab === "login" ? "translateX(0%)" : "translateX(-100%)" }}
                     >
                       {/* Login panel */}
-                      <div className="w-full shrink-0 p-5 sm:p-8 overflow-y-auto max-h-[calc(var(--vh,100dvh)-140px)] sm:max-h-none">
+                      <div className="w-full shrink-0 p-4 sm:p-8">
                         <Login
                           onLoginSuccess={onLoginSuccess}
                           onRegisterClick={() => handleTabChange("register")}
@@ -415,7 +454,7 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
                         />
                       </div>
                       {/* Register panel */}
-                      <div className="w-full shrink-0 p-5 sm:p-8 overflow-y-auto max-h-[calc(var(--vh,100dvh)-140px)] sm:max-h-none">
+                      <div className="w-full shrink-0 p-4 sm:p-8">
                         <Register
                           onRegisterSuccess={onLoginSuccess}
                           onLoginClick={() => handleTabChange("login")}
@@ -428,7 +467,7 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
               )}
 
             </div>
-            {/* end Layer 3 — Card */}
+            {/* end Layer 3 — Card Scroll Container */}
           </div>
           {/* end Positioning Wrapper */}
         </div>

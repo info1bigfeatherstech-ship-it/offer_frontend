@@ -102,18 +102,18 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
         FIX: h-24 md:h-32 — valid Tailwind classes.
         h-25 does not exist in Tailwind's scale and generated no CSS.
       */}
-      <div className="flex justify-center mb-5">
+      <div className="flex justify-center mb-3 sm:mb-5">
         <img
           src={LOGO}
           alt="OfferWale Baba"
-          className="h-24 md:h-32 w-auto object-contain rounded"
+          className="h-14 sm:h-24 md:h-28 w-auto object-contain rounded"
         />
       </div>
 
-      <h2 className="text-2xl text-center text-white mb-1 tracking-tighter font-black">
+      <h2 className="text-xl sm:text-2xl text-center text-white mb-1 tracking-tighter font-black">
         JOIN THE <span className="text-[#f7a221]">CLUB</span>
       </h2>
-      <p className="text-gray-200 text-center text-[10px] tracking-widest uppercase mb-5">
+      <p className="text-gray-200 text-center text-[10px] tracking-widest uppercase mb-3 sm:mb-5">
         Exclusive deals await
       </p>
 
@@ -127,14 +127,14 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
         {/* Google Sign-up */}
         <button
           onClick={handleGoogleClick}
-          className="w-full bg-white hover:bg-gray-50 active:bg-gray-100 text-black cursor-pointer font-bold py-3 px-4 rounded-2xl transition-all flex items-center justify-center gap-3 mb-3 shadow-md active:scale-[0.98] touch-manipulation select-none"
+          className="w-full bg-white hover:bg-gray-50 active:bg-gray-100 text-black cursor-pointer font-bold py-2.5 sm:py-3 px-4 rounded-2xl transition-all flex items-center justify-center gap-3 mb-2 sm:mb-3 shadow-md active:scale-[0.98] touch-manipulation select-none"
         >
           <GoogleIcon />
           <span className="text-sm">Sign up with Google</span>
         </button>
 
         {/* OR divider */}
-        <div className="relative my-4">
+        <div className="relative my-2 sm:my-4">
           <div className="absolute inset-0 flex items-center">
             <div className="w-full border-t border-white/25" />
           </div>
@@ -143,7 +143,7 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-2 sm:space-y-3">
           {/* Full Name */}
           <div className="relative">
             <User
@@ -160,7 +160,7 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoComplete="name"
-              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white text-base placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 transition-all"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-2.5 sm:py-3 pl-11 pr-4 text-white text-base placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 transition-all"
               required
             />
           </div>
@@ -177,7 +177,7 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
-              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white text-base placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 transition-all"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-2.5 sm:py-3 pl-11 pr-4 text-white text-base placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 transition-all"
               required
             />
           </div>
@@ -203,7 +203,7 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
               }}
               autoComplete="tel"
               inputMode="numeric"
-              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white text-base placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 transition-all"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-2.5 sm:py-3 pl-11 pr-4 text-white text-base placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 transition-all"
               required
               minLength={10}
               maxLength={10}
@@ -222,7 +222,7 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="new-password"
-              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-3 pl-11 pr-4 text-white text-base placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 transition-all"
+              className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-2.5 sm:py-3 pl-11 pr-4 text-white text-base placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 transition-all"
               required
               minLength="6"
             />
@@ -231,13 +231,13 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-50 text-black font-black py-3.5 rounded-xl cursor-pointer transition-all shadow-[0_8px_20px_rgba(247,162,33,0.25)] text-sm uppercase touch-manipulation select-none"
+            className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-50 text-black font-black py-3 sm:py-3.5 rounded-xl cursor-pointer transition-all shadow-[0_8px_20px_rgba(247,162,33,0.25)] text-sm uppercase touch-manipulation select-none"
           >
             {loading ? "SENDING OTP..." : "REGISTER"}
           </button>
         </form>
 
-        <p className="text-center text-gray-200 text-[11px] mt-4 tracking-wide">
+        <p className="text-center text-gray-200 text-[11px] mt-3 sm:mt-4 tracking-wide">
           Already a member?{" "}
           <button
             onClick={onLoginClick}
