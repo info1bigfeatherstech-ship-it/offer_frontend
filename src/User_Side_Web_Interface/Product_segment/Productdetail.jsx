@@ -1737,44 +1737,6 @@ const ProductUI = ({ openAuthModal }) => {
                             </div>
                           </div>
 
-<<<<<<< HEAD
-                          {/* ── BUY NOW (logged-out → auth modal; logged-in → checkout) ── */}
-                          <div className="w-full">
-                            <button
-                              type="button"
-                              disabled={!inStock || localLoading.add || localLoading.buyNow}
-                              onClick={async () => {
-                                if (!isLoggedIn) {
-                                  openAuthModal?.();
-                                  return;
-                                }
-                                if (isInCart) {
-                                  navigate("/checkout");
-                                  return;
-                                }
-                                setL("buyNow", true);
-                                try {
-                                  await dispatch(addToCart({
-                                    productSlug: product.slug,
-                                    variantId: variant?._id?.toString(),
-                                    quantity: 1,
-                                  })).unwrap();
-                                  navigate("/checkout");
-                                } catch (err) {
-                                  toast.error(err?.message || "Failed to proceed");
-                                } finally {
-                                  setL("buyNow", false);
-                                }
-                              }}
-                              className="w-full py-3 rounded-xl text-sm font-semibold bg-zinc-900 text-white hover:bg-[#F7A221] transition active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-2"
-                            >
-                              {localLoading.buyNow
-                                ? <><Loader2 size={16} className="animate-spin" /> Processing...</>
-                                : "Buy Now"
-                              }
-                            </button>
-                          </div>
-=======
                           {/* ── BUY NOW ── */}
                           <button
                             disabled={!inStock || localLoading.add || localLoading.buyNow}
@@ -1807,8 +1769,6 @@ const ProductUI = ({ openAuthModal }) => {
                               : "Buy Now"
                             }
                           </button>
-
->>>>>>> cbcf7839c4f0e2566d599392c708a2982700fca1
                         </>
                       )}
                     </div>
