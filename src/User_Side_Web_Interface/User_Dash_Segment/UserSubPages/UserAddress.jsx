@@ -17,6 +17,11 @@ import {
   clearAddressErrors, selectDefaultAddress, selectOtherAddresses,
   selectAddressLoading, selectAddressError,
 } from "../../../components/REDUX_FEATURES/REDUX_SLICES/Useraddressslice";
+import {
+  validateAddressFormStep2,
+  ADDRESS_LINE1_MIN_LEN,
+  ADDRESS_LINE_MAX_LEN
+} from "../../../utils/addressValidation";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Constants
@@ -398,35 +403,47 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
   const toggleBoolean = (key) => setForm((p) => ({ ...p, [key]: !p[key] }));
   const setType = (type) => setForm((p) => ({ ...p, addressType: type }));
 
-  // Validation
+  // Validation (pure — callers set formError / step)
   const validateStep = (s) => {
-    setFormError(null);
     if (s === 1) {
       if (!form.fullName.trim()) return "Full Name is required";
-      if (form.phone.length !== 10) return "Phone must be exactly 10 digits";
+      const digits = String(form.phone || "").replace(/\D/g, "");
+      if (digits.length !== 10) return "Phone must be exactly 10 digits";
       if (!/^\d{6}$/.test(form.postalCode)) return "Pincode must be 6 digits";
       if (!form.city) return "Invalid pincode — city not found";
     }
     if (s === 2) {
-      if (!form.houseNumber?.trim()) return "House/Flat number is required";
-      if (!form.area?.trim()) return "Area/Locality is required";
-      if (!form.city?.trim()) return "City is required";
-      if (!form.state?.trim()) return "State is required";
+      const r = validateAddressFormStep2(form);
+      if (!r.ok) return r.message;
     }
     return null;
   };
 
   const handleNext = () => {
     const err = validateStep(step);
-    if (err) { setFormError(err); return; }
+    if (err) {
+      setFormError(err);
+      return;
+    }
     setFormError(null);
-    setStep((s) => s + 1);
+    setStep((prev) => prev + 1);
   };
 
   const handleFinalSubmit = (e) => {
     e.preventDefault();
-    const err = validateStep(step);
-    if (err) { setFormError(err); return; }
+    const err1 = validateStep(1);
+    if (err1) {
+      setFormError(err1);
+      setStep(1);
+      return;
+    }
+    const err2 = validateStep(2);
+    if (err2) {
+      setFormError(err2);
+      setStep(2);
+      return;
+    }
+    setFormError(null);
 
     const payload = { ...form };
     Object.keys(payload).forEach((k) => {
@@ -543,20 +560,25 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
 
                 {/* Address Line 1 - Simple text input */}
                 <Field
-                  label="Address Line 1"
+                  label={`Address line 1 (min. ${ADDRESS_LINE1_MIN_LEN} chars)`}
                   name="addressLine1"
                   value={form.addressLine1}
                   onChange={handleChange}
-                  placeholder="Street name, building name, road (optional)"
+                  required
+                  maxLength={ADDRESS_LINE_MAX_LEN}
+                  placeholder="Street, building, road — not only flat number"
                 />
+                <p className="text-[10px] font-bold text-gray-400 -mt-3 ml-1">
+                  Couriers need a full street line (at least {ADDRESS_LINE1_MIN_LEN} characters).
+                </p>
 
-                {/* Address Line 2 - Simple text input */}
                 <Field
-                  label="Address Line 2 (optional)"
+                  label="Address line 2 (optional)"
                   name="addressLine2"
                   value={form.addressLine2}
                   onChange={handleChange}
-                  placeholder="Floor, wing, apartment number"
+                  maxLength={ADDRESS_LINE_MAX_LEN}
+                  placeholder="Floor, wing, apartment details"
                 />
 
                 <div className="grid grid-cols-2 gap-4">
@@ -715,7 +737,11 @@ const UserAddress = () => {
       }
       closeModal();
     } catch (e) {
-      toast.error(e?.message || "Failed to save address", { theme: "dark" });
+      const detail =
+        Array.isArray(e?.errors) && e.errors.length
+          ? e.errors.map((x) => x.message).filter(Boolean).join(" ")
+          : "";
+      toast.error(detail || e?.message || "Failed to save address", { theme: "dark" });
     }
   };
 

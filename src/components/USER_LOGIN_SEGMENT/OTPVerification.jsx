@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { Phone, ChevronLeft, Clock, Loader2 } from "lucide-react";
+import { Phone, Mail, ChevronLeft, Clock, Loader2 } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { verifyOTP, registerUser, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
@@ -20,8 +20,8 @@ import { verifyOTP, registerUser, clearError } from "../REDUX_FEATURES/REDUX_SLI
     - Full height determined by content, not viewport — keyboard-safe by default
     - Padding at bottom is handled by parent card's pb-[env(safe-area-inset-bottom)]
 
-  Props: { phone, name, email, onClose, onVerify }
-  Backend: POST /auth/otp-verify-login { phone, otp }   (identifier-friendly)
+  Props: { identifier, phone, name, email, registrationPassword, deliveryMessage, onClose, onVerify }
+  Backend: POST /auth/otp-verify-login { identifier, otp } — identifier is email or 10-digit phone
 */
 
 // Matches backend OTP_EXPIRY_MINUTES (default 5). Centralised here so any
@@ -35,9 +35,21 @@ const formatTimer = (totalSec) => {
   return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
 };
 
-const OtpVerification = ({ phone, name, email, onClose, onVerify }) => {
+const OtpVerification = ({
+  identifier,
+  phone,
+  name,
+  email,
+  registrationPassword,
+  deliveryMessage,
+  onClose,
+  onVerify,
+}) => {
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state) => state.auth);
+
+  const verifyId = String(identifier || "").trim();
+  const isEmailChannel = verifyId.includes("@");
 
   const [otp,        setOtp]        = useState(["", "", "", "", "", ""]);
   const [timer,      setTimer]      = useState(OTP_TIMER_SECONDS);
@@ -101,33 +113,41 @@ const OtpVerification = ({ phone, name, email, onClose, onVerify }) => {
 
   const handleResend = async () => {
     if (!canResend) return;
+    const digits = String(phone || "").replace(/\D/g, "");
+    if (digits.length !== 10) {
+      toast.error("Phone on file is invalid. Go back and register again.");
+      return;
+    }
+    if (!registrationPassword || String(registrationPassword).length < 6) {
+      toast.error("Unable to resend code. Go back and use Register again.");
+      return;
+    }
     setTimer(OTP_TIMER_SECONDS);
     setCanResend(false);
     setOtp(["", "", "", "", "", ""]);
     inputRefs.current[0]?.focus();
-    // Re-call register with same phone + ORIGINAL email to trigger a new OTP.
-    // Critical: we MUST pass the user's real email here — backend uses it as
-    // the recipient when OTP_DELIVERY_MODE=email. Sending a placeholder would
-    // overwrite the user's email in DB and silently misroute the OTP.
     const result = await dispatch(
       registerUser({
-        name:     name || "User",
-        email:    email || `resend_${Date.now()}@placeholder.com`,
-        password: "__resend__",
-        phone,
+        name: name || "User",
+        email: String(email || "").trim(),
+        password: registrationPassword,
+        phone: digits,
       })
     );
     if (registerUser.fulfilled.match(result)) {
-      // Use backend-provided message so the text reflects the actual
-      // delivery channel (email / phone / both).
-      toast.success(result.payload?.message || "New OTP sent!");
+      const msg = result.payload?.message;
+      toast.success(typeof msg === "string" && msg ? msg : "New OTP sent!");
     }
   };
 
   const handleVerify = async () => {
     const str = otp.join("");
     if (str.length !== 6) { setLocalError("Please enter all 6 digits"); return; }
-    const result = await dispatch(verifyOTP({ phone, otp: str }));
+    if (!verifyId) {
+      setLocalError("Missing verification destination. Go back and try again.");
+      return;
+    }
+    const result = await dispatch(verifyOTP({ identifier: verifyId, otp: str }));
     if (verifyOTP.fulfilled.match(result)) {
       toast.success("Verified! Welcome aboard 🎉");
       onVerify();
@@ -136,10 +156,21 @@ const OtpVerification = ({ phone, name, email, onClose, onVerify }) => {
 
   const isComplete = otp.join("").length === 6;
 
-  // Mask phone: show last 4 digits only — e.g. ******6789
-  const maskedPhone = phone
-    ? `${"*".repeat(Math.max(0, phone.length - 4))}${phone.slice(-4)}`
-    : "";
+  /** Mask email or phone for display */
+  const maskedDestination = (() => {
+    if (!verifyId) return "";
+    if (isEmailChannel) {
+      const at = verifyId.indexOf("@");
+      const local = verifyId.slice(0, at);
+      const host = verifyId.slice(at + 1);
+      const dot = host.lastIndexOf(".");
+      const dom = dot === -1 ? host : host.slice(0, dot);
+      const tld = dot === -1 ? "" : host.slice(dot);
+      const uShow = local.length <= 2 ? local.slice(0, 1) : local.slice(0, 2);
+      return `${uShow}••••@${dom.length ? `${dom[0]}•••` : "•••"}${tld}`;
+    }
+    return `${"•".repeat(Math.max(0, verifyId.length - 4))}${verifyId.slice(-4)}`;
+  })();
 
   return (
     /*
@@ -156,23 +187,33 @@ const OtpVerification = ({ phone, name, email, onClose, onVerify }) => {
       {/* Back / change phone button */}
       <button
         onClick={onClose}
-        className="flex items-center cursor-pointer gap-1 text-[#f7a221] hover:text-white font-black text-[10px] tracking-widest transition-colors mb-6 sm:mb-8 uppercase self-start touch-manipulation"
+        className="flex items-center cursor-pointer gap-1 text-[#f7a221] hover:text-white font-black text-[10px] tracking-widest transition-colors mb-4 sm:mb-5 uppercase self-start touch-manipulation"
       >
-        <ChevronLeft size={16} /> Change Phone
+        <ChevronLeft size={16} /> Back
       </button>
 
-      {/* Phone icon + heading */}
+      {deliveryMessage ? (
+        <div className="mb-4 rounded-xl border border-[#f7a221]/35 bg-[#f7a221]/12 px-3 py-2.5 text-[11px] text-[#f7a221] text-center leading-relaxed font-semibold">
+          {deliveryMessage}
+        </div>
+      ) : null}
+
+      {/* Icon + heading */}
       <div className="flex flex-col items-center mb-6 sm:mb-8">
         <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-[#f7a221]/10 flex items-center justify-center mb-4 border border-[#f7a221]/20 rotate-3">
-          <Phone className="text-[#f7a221] -rotate-3" size={28} />
+          {isEmailChannel ? (
+            <Mail className="text-[#f7a221] -rotate-3" size={28} />
+          ) : (
+            <Phone className="text-[#f7a221] -rotate-3" size={28} />
+          )}
         </div>
         <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tighter mb-2">
           VERIFY <span className="text-[#f7a221]">OTP</span>
         </h3>
         <p className="text-white/35 text-[11px] text-center uppercase tracking-widest leading-relaxed max-w-xs">
           6-digit code sent to{" "}
-          <span className="text-white lowercase tracking-normal font-bold break-all">
-            {maskedPhone}
+          <span className="text-white tracking-normal font-bold break-all">
+            {maskedDestination || "—"}
           </span>
         </p>
       </div>

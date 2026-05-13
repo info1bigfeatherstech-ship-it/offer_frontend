@@ -151,8 +151,13 @@ const CategorySection = ({ slug, title }) => {
     dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 })); // Changed from 8 to 12
   }, [slug, dispatch]);
 
+  // rootMargin: '1500px' — fires the API call when the section is ~1500px
+  // (≈ 2–3 full sections) below the viewport edge. This gives the network
+  // request time to resolve before the user actually scrolls there.
+  // Rule of thumb: rootMargin = (avg section height) × (sections to pre-load)
+  // Each section ≈ 500–700px → 2 sections ahead = 1500px.
   const { ref: sentinelRef } = useInViewFetch(triggerFetch, {
-    rootMargin: '300px',
+    rootMargin: '1500px',
     disabled:   status === 'success' || status === 'error',
   });
 
@@ -188,6 +193,9 @@ const CategorySection = ({ slug, title }) => {
   }, [waveActive]);
 
   // ── IDLE sentinel ────────────────────────────────────────────────────────────
+  // This placeholder holds the layout space while data loads.
+  // sentinelRef is on this element — IntersectionObserver fires 1500px BEFORE
+  // this div enters the viewport, so the API call starts 2-3 sections early.
   if (status === 'idle') {
     return (
       <div

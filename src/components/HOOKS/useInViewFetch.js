@@ -1,52 +1,76 @@
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef } from 'react';
 
 /**
  * useInViewFetch
  * ──────────────
  * Attaches an IntersectionObserver to the returned `ref`.
- * Fires `onVisible` exactly ONCE when the element enters the viewport.
+ * Fires `onVisible` exactly ONCE when the element enters the (expanded) viewport.
  * After firing, the observer disconnects — zero ongoing overhead.
  *
- * @param {() => void} onVisible   Callback to run when element is visible
- * @param {object}     options
- * @param {string}     options.rootMargin   How far before viewport to trigger (default '300px')
- * @param {number}     options.threshold    0–1 intersection ratio needed (default 0)
- * @param {boolean}    options.disabled     If true, observer never attaches (e.g. data already loaded)
+ * WHY IT FIRES EXACTLY ONCE (even in React Strict Mode):
+ *   React 18 Strict Mode mounts → unmounts → remounts every component in dev.
+ *   A plain useRef resets on each mount, so a naive implementation fires twice.
+ *   We use a module-level WeakSet keyed on the DOM element itself.
+ *   The DOM node persists across Strict Mode remounts, so the WeakSet correctly
+ *   tracks "has this physical element already triggered a fetch?" across mounts.
  *
- * @returns {{ ref: React.RefObject }}  Attach `ref` to your sentinel element
+ * @param {() => void} onVisible   Callback to run when element enters view
+ * @param {object}     options
+ * @param {string}     options.rootMargin   Expand root before triggering (default '500px')
+ * @param {number}     options.threshold    0–1 intersection ratio needed   (default 0)
+ * @param {boolean}    options.disabled     Skip observer entirely when true
+ *
+ * @returns {{ ref: React.RefObject }}  Attach `ref` to your sentinel / section element
  *
  * Usage:
- *   const { ref } = useInViewFetch(() => dispatch(fetchSomething()), { disabled: alreadyLoaded });
- *   <div ref={ref} />
+ *   const { ref } = useInViewFetch(() => dispatch(fetchProducts()), {
+ *     disabled: products.length > 0,   // skip if already loaded
+ *     rootMargin: '500px',             // fetch 500px before section appears
+ *   });
+ *   <div ref={ref} aria-hidden="true" />
  */
-const useInViewFetch = (onVisible, { rootMargin = '300px', threshold = 0, disabled = false } = {}) => {
-  const ref     = useRef(null);
-  const hasFired = useRef(false);
 
-  // Stable callback ref so changing `onVisible` identity doesn't re-run the effect
+// Module-level WeakSet — survives React Strict Mode remounts.
+// Keys are the actual DOM elements, so each physical element tracks its own state.
+const firedElements = new WeakSet();
+
+const useInViewFetch = (
+  onVisible,
+  { rootMargin = '1500px', threshold = 0, disabled = false } = {}
+) => {
+  const ref = useRef(null);
+
   const callbackRef = useRef(onVisible);
-  useEffect(() => { callbackRef.current = onVisible; }, [onVisible]);
+
+  // Keep callbackRef current on every render without re-running the observer effect
+  callbackRef.current = onVisible;
 
   useEffect(() => {
-    // Skip if already fired, explicitly disabled, or element not mounted
-    if (disabled || hasFired.current || !ref.current) return;
+    // Skip if explicitly disabled (e.g. data already loaded, not authenticated, etc.)
+    if (disabled) return;
 
-    // Skip if browser doesn't support IntersectionObserver (very old browsers)
+    const el = ref.current;
+    if (!el) return;
+
+    // Skip if this DOM element has already triggered a fetch.
+    // This is the key guard against React 18 Strict Mode's intentional
+    // double-mount in development: the DOM node survives the unmount/remount
+    // cycle, so the WeakSet correctly prevents a second callback invocation.
+    if (firedElements.has(el)) return;
+
+    // Fallback for very old browsers without IntersectionObserver
     if (typeof IntersectionObserver === 'undefined') {
-      // Fallback: fire immediately
+      firedElements.add(el);
       callbackRef.current();
-      hasFired.current = true;
       return;
     }
 
-    const el = ref.current;
-
     const observer = new IntersectionObserver(
       ([entry]) => {
-        if (entry.isIntersecting && !hasFired.current) {
-          hasFired.current = true;
+        if (entry.isIntersecting && !firedElements.has(el)) {
+          firedElements.add(el);
           callbackRef.current();
-          observer.disconnect(); // clean up immediately — no ongoing cost
+          observer.disconnect();
         }
       },
       { rootMargin, threshold }
@@ -54,12 +78,15 @@ const useInViewFetch = (onVisible, { rootMargin = '300px', threshold = 0, disabl
 
     observer.observe(el);
 
-    // Cleanup: if component unmounts before firing, disconnect observer
-    return () => observer.disconnect();
+    // Cleanup: disconnect if component unmounts before firing
+    return () => {
+      observer.disconnect();
+    };
 
-  // Only re-run if disabled changes (e.g. data got loaded from cache on first render)
-  // rootMargin/threshold are stable config values — no need to re-run
-  }, [disabled]); // eslint-disable-line react-hooks/exhaustive-deps
+    // Re-run only when `disabled` flips (e.g. data loaded from cache on first render).
+    // rootMargin/threshold are static config values — deliberately excluded from deps.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [disabled]);
 
   return { ref };
 };

@@ -147,41 +147,35 @@ const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
       {/* Hidden Google button mount point */}
       <div ref={googleBtnRef} style={{ display: "none" }} />
 
-      {/*
-        FIX: h-24 md:h-32 — valid Tailwind classes (h-25 does not exist).
-        w-auto preserves aspect ratio. object-contain prevents distortion.
-        mx-auto centres in flex column.
-      */}
-      <div className="flex justify-center mb-6">
+      {/* Logo — compact on all screens */}
+      <div className="flex justify-center mb-3">
         <img
           src={LOGO}
           alt="OfferWale Baba"
-          className="h-24 md:h-32 w-auto object-contain rounded"
+          className="h-14 sm:h-[72px] w-auto object-contain rounded"
         />
       </div>
 
-      <h2 className="text-2xl text-center text-white mb-1 tracking-tighter font-black">
+      <h2 className="text-lg sm:text-xl text-center text-white mb-0.5 tracking-tighter font-black">
         WELCOME <span className="text-[#f7a221]">BACK</span>
       </h2>
-      <p className="text-gray-200 text-[10px] tracking-widest mb-5 sm:mb-6 text-center uppercase">
+      <p className="text-gray-400 text-[10px] tracking-widest mb-3 text-center uppercase">
         Access your premium dashboard
       </p>
 
-      {/* Error banner — only show when not locked */}
+      {/* Error banner */}
       {error && !isLocked && (
-        <div className="mb-4 p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-[11px] text-center font-medium">
+        <div className="mb-3 p-2.5 bg-red-500/10 border border-red-500/20 rounded-xl text-red-400 text-[11px] text-center font-medium">
           {error}
         </div>
       )}
 
       {/* Lockout banner */}
       {isLocked && (
-        <div className="mb-4 p-3 bg-orange-500/10 border border-orange-500/25 rounded-xl flex items-center gap-2.5">
-          <ShieldAlert size={16} className="text-orange-400 shrink-0" />
+        <div className="mb-3 p-2.5 bg-orange-500/10 border border-orange-500/25 rounded-xl flex items-center gap-2">
+          <ShieldAlert size={15} className="text-orange-400 shrink-0" />
           <div>
-            <p className="text-orange-400 text-[11px] font-black uppercase tracking-wide">
-              Account temporarily locked
-            </p>
+            <p className="text-orange-400 text-[11px] font-black uppercase tracking-wide">Account temporarily locked</p>
             <p className="text-orange-400/70 text-[10px] mt-0.5">
               Try again in <span className="font-bold text-orange-300">{formatLockTime(lockSecondsLeft)}</span>
             </p>
@@ -194,34 +188,26 @@ const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
         type="button"
         onClick={handleGoogleClick}
         disabled={isLocked}
-        className="w-full bg-white hover:bg-gray-50 active:bg-gray-100 disabled:opacity-40 text-black cursor-pointer font-bold py-3.5 px-4 rounded-2xl transition-all flex items-center justify-center gap-3 mb-3 shadow-md active:scale-[0.98] touch-manipulation select-none"
+        className="w-full bg-white hover:bg-gray-50 active:bg-gray-100 disabled:opacity-40 text-black cursor-pointer font-bold py-3 px-4 rounded-2xl transition-all flex items-center justify-center gap-3 mb-2.5 shadow-md active:scale-[0.98] touch-manipulation select-none"
       >
         <GoogleIcon />
         <span className="text-sm">Sign in with Google</span>
       </button>
 
       {/* OR divider */}
-      <div className="relative my-5">
+      <div className="relative my-3">
         <div className="absolute inset-0 flex items-center">
-          <div className="w-full border-t border-white/25" />
+          <div className="w-full border-t border-white/20" />
         </div>
         <div className="relative flex justify-center text-[9px] uppercase tracking-[0.3em] font-bold">
-          <span className="px-4 bg-[#0d0d0d] text-gray-200">OR</span>
+          <span className="px-4 bg-[#0d0d0d] text-gray-400">OR</span>
         </div>
       </div>
 
-      <form onSubmit={handleLogin} className="space-y-3">
-        {/* Identifier input — email or phone */}
+      <form onSubmit={handleLogin} className="space-y-2.5">
+        {/* Email / Phone */}
         <div className="relative">
-          <User
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none"
-            size={17}
-          />
-          {/*
-            FIX: Removed text-sm (14px) and inline style={{ fontSize:"16px" }}.
-            Using text-base (16px) as single source of truth.
-            16px prevents iOS Safari auto-zoom on input focus.
-          */}
+          <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={16} />
           <input
             type="text"
             placeholder="Email or Phone Number"
@@ -229,17 +215,14 @@ const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
             onChange={(e) => setIdentifier(e.target.value)}
             disabled={isLocked}
             autoComplete="username"
-            className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-4 text-white text-base placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 disabled:opacity-40 transition-all"
+            className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-3 pl-10 pr-4 text-white text-base placeholder:text-white/30 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 disabled:opacity-40 transition-all"
             required
           />
         </div>
 
-        {/* Password input */}
+        {/* Password */}
         <div className="relative">
-          <Lock
-            className="absolute left-4 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none"
-            size={17}
-          />
+          <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={16} />
           <input
             type={showPass ? "text" : "password"}
             placeholder="Password"
@@ -247,26 +230,26 @@ const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
             disabled={isLocked}
-            className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-4 pl-11 pr-12 text-white text-base placeholder:text-white/35 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 disabled:opacity-40 transition-all"
+            className="w-full bg-white/[0.04] border border-white/10 rounded-xl py-3 pl-10 pr-11 text-white text-base placeholder:text-white/30 focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/30 disabled:opacity-40 transition-all"
             required
           />
           <button
             type="button"
             onClick={() => setShowPass((v) => !v)}
-            className="absolute right-4 top-1/2 -translate-y-1/2 cursor-pointer text-white/40 hover:text-white transition touch-manipulation"
+            className="absolute right-3.5 top-1/2 -translate-y-1/2 cursor-pointer text-white/35 hover:text-white transition touch-manipulation"
             tabIndex={-1}
             aria-label={showPass ? "Hide password" : "Show password"}
           >
-            {showPass ? <EyeOff size={18} /> : <Eye size={18} />}
+            {showPass ? <EyeOff size={17} /> : <Eye size={17} />}
           </button>
         </div>
 
-        {/* Forgot password link */}
-        <div className="flex justify-end pt-0.5">
+        {/* Forgot password */}
+        <div className="flex justify-end">
           <button
             type="button"
             onClick={onForgotPasswordClick}
-            className="text-[11px] text-white/40 hover:text-[#f7a221] uppercase font-bold tracking-tight cursor-pointer transition-colors py-1 touch-manipulation"
+            className="text-[10px] text-white/35 hover:text-[#f7a221] uppercase font-bold tracking-tight cursor-pointer transition-colors py-0.5 touch-manipulation"
           >
             Forgot Password?
           </button>
@@ -276,24 +259,24 @@ const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
         <button
           type="submit"
           disabled={loading || isLocked}
-          className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-50 text-black font-black py-4 rounded-xl transition-all flex items-center justify-center gap-2 text-sm shadow-[0_8px_20px_rgba(247,162,33,0.25)] cursor-pointer touch-manipulation select-none"
+          className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-50 text-black font-black py-3.5 rounded-xl transition-all flex items-center justify-center gap-2 text-sm shadow-[0_6px_18px_rgba(247,162,33,0.3)] cursor-pointer touch-manipulation select-none"
         >
           {loading ? "PROCESSING..." : isLocked ? `LOCKED — ${formatLockTime(lockSecondsLeft)}` : "LOGIN"}
         </button>
       </form>
 
-      {/* Attempts remaining warning */}
+      {/* Attempts warning */}
       {failCount > 0 && failCount < 4 && !isLocked && (
-        <p className="text-center text-orange-400/60 text-[10px] mt-3 tracking-wide">
+        <p className="text-center text-orange-400/60 text-[10px] mt-2 tracking-wide">
           {4 - failCount} attempt{4 - failCount !== 1 ? "s" : ""} left before longer lockout
         </p>
       )}
 
-      <p className="text-center text-gray-200 text-[11px] mt-5 tracking-wide">
+      <p className="text-center text-gray-400 text-[11px] mt-3 tracking-wide">
         No account?{" "}
         <button
           onClick={onRegisterClick}
-          className="text-[#f7a221] text-[15px] hover:underline cursor-pointer touch-manipulation"
+          className="text-[#f7a221] font-bold hover:underline cursor-pointer touch-manipulation"
         >
           Register here
         </button>
@@ -303,6 +286,7 @@ const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
 };
 
 export default Login;
+
 // try to make it more responsive 
 // import React, { useState, useEffect, useRef } from "react";
 // import { User, Lock, ShieldAlert, Eye, EyeOff } from "lucide-react";

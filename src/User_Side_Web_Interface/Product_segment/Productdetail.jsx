@@ -789,6 +789,15 @@ const ProductUI = ({ openAuthModal }) => {
   const images = selectedVariant?.images ?? [];
   const activeImg = images[activeThumb]?.url ?? null;
 
+  // ── Auto-slide: advance every 3s on mobile, pause when fullscreen sheet is open ──
+  useEffect(() => {
+    if (!isMobile || isVisible || images.length <= 1) return;
+    const timer = setInterval(() => {
+      setActiveThumb((prev) => (prev + 1) % images.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [isMobile, isVisible, images.length, activeThumb]);
+
   const salePrice = selectedVariant?.finalPrice ?? selectedVariant?.price?.sale ?? selectedVariant?.price?.base ?? null;
   const basePrice = selectedVariant?.price?.base ?? null;
   const hasDisc = basePrice != null && salePrice != null && basePrice > salePrice;
@@ -821,6 +830,7 @@ const ProductUI = ({ openAuthModal }) => {
   const soldInfo = product?.soldInfo?.count ?? 0;
   const brand = product?.brand ?? null;
   const variant = selectedVariant || {};
+  const productCode = variant?.productCode || product?.code || "";
 
   // ── handlers ───────────────────────────────────────────────────────────────
   const handleAddToCart = async (e) => {
@@ -1138,6 +1148,26 @@ const ProductUI = ({ openAuthModal }) => {
                         <div>No image</div>
                       )}
 
+                      {/* ── Mobile prev/next arrows (inline gallery) ── */}
+                      {images.length > 1 && (
+                        <>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setActiveThumb((p) => (p - 1 + images.length) % images.length); }}
+                            className="lg:hidden absolute left-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm shadow-md flex items-center justify-center text-gray-700 active:scale-90 transition-all z-10"
+                            aria-label="Previous image"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); setActiveThumb((p) => (p + 1) % images.length); }}
+                            className="lg:hidden absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm shadow-md flex items-center justify-center text-gray-700 active:scale-90 transition-all z-10"
+                            aria-label="Next image"
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+                          </button>
+                        </>
+                      )}
+
                       {/* 🔥 AMAZON DOTTED LENS */}
                       {showZoom && !isMobile && (
                         <div
@@ -1184,15 +1214,15 @@ const ProductUI = ({ openAuthModal }) => {
                   const totalReviews = reviewsList.length;
                   const starCounts = ratingIsPlaceholder
                     ? getFallbackDistribution(product).map(({ star, pct }) => ({
-                        star,
-                        count: 0,
-                        pct,
-                      }))
+                      star,
+                      count: 0,
+                      pct,
+                    }))
                     : [5, 4, 3, 2, 1].map((star) => {
-                        const count = reviewsList.filter((r) => Math.round(r.rating) === star).length;
-                        const pct = totalReviews > 0 ? Math.round((count / totalReviews) * 100) : 0;
-                        return { star, count, pct };
-                      });
+                      const count = reviewsList.filter((r) => Math.round(r.rating) === star).length;
+                      const pct = totalReviews > 0 ? Math.round((count / totalReviews) * 100) : 0;
+                      return { star, count, pct };
+                    });
                   const filteredReviews = filterStar
                     ? reviewsList.filter((r) => Math.round(r.rating) === filterStar)
                     : reviewsList;
@@ -1467,8 +1497,8 @@ const ProductUI = ({ openAuthModal }) => {
 
                   {/* Title */}
                   <h1 className="text-sm sm:text-2xl  text-gray-900 leading-snug tracking-tight">
-                    {/* {title} */}
-                    {product.title.length > 60 ? `${product.title.substring(0, 60)}...` : product.title}
+                    {title}
+                    {/* {product.title.length > 60 ? `${product.title}...` : product.title} */}
                   </h1>
 
                   {/* Brand + Rating */}
@@ -1476,6 +1506,12 @@ const ProductUI = ({ openAuthModal }) => {
                     {brand && brand.toLowerCase() !== "generic" && (
                       <span className="text-sm text-gray-500">
                         by <span className="text-orange-500 font-semibold">{brand}</span>
+                      </span>
+                    )}
+                    {/* PRODUCT CODE */}
+                    {productCode && (
+                      <span className="text-[15px] text-gray-700 font-mon">
+                        {productCode}
                       </span>
                     )}
                     <div className="flex items-center w-fit px-1 py-2 rounded-lg gap-2 bg-gray-100">
@@ -1701,6 +1737,7 @@ const ProductUI = ({ openAuthModal }) => {
                             </div>
                           </div>
 
+<<<<<<< HEAD
                           {/* ── BUY NOW (logged-out → auth modal; logged-in → checkout) ── */}
                           <div className="w-full">
                             <button
@@ -1737,6 +1774,41 @@ const ProductUI = ({ openAuthModal }) => {
                               }
                             </button>
                           </div>
+=======
+                          {/* ── BUY NOW ── */}
+                          <button
+                            disabled={!inStock || localLoading.add || localLoading.buyNow}
+                            onClick={async () => {
+                              // ── Auth gate: non-logged-in users see the login modal ──
+                              if (!isLoggedIn) {
+                                openAuthModal();
+                                return;
+                              }
+
+                              if (isInCart) { navigate("/checkout"); return; }
+                              setL("buyNow", true);
+                              try {
+                                await dispatch(addToCart({
+                                  productSlug: product.slug,
+                                  variantId: variant?._id?.toString(),
+                                  quantity: 1,
+                                })).unwrap();
+                                navigate("/checkout");
+                              } catch (err) {
+                                toast.error(err?.message || "Failed to proceed");
+                              } finally {
+                                setL("buyNow", false);
+                              }
+                            }}
+                            className="w-full py-3 rounded-xl text-sm font-semibold bg-zinc-900 text-white hover:bg-[#F7A221] transition active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
+                          >
+                            {localLoading.buyNow
+                              ? <><Loader2 size={16} className="animate-spin" /> Processing...</>
+                              : "Buy Now"
+                            }
+                          </button>
+
+>>>>>>> cbcf7839c4f0e2566d599392c708a2982700fca1
                         </>
                       )}
                     </div>
@@ -1931,11 +2003,11 @@ const ProductUI = ({ openAuthModal }) => {
 
                         {/* Footer */}
                         {(() => {
-                          const countryOfOrigin = "India";
+                          const countryOfOrigin = product?.origin?.country;  // Removed the "null" fallback
                           const gst = product?.gst || product?.tax?.gst || null;
 
                           const items = [
-                            { key: "Country of Origin", value: countryOfOrigin },
+                            ...(countryOfOrigin ? [{ key: "Country of Origin", value: countryOfOrigin }] : []),
                             ...(gst ? [{ key: "GST", value: `${gst}%` }] : [])
                           ];
 
@@ -1943,7 +2015,7 @@ const ProductUI = ({ openAuthModal }) => {
 
                           return (
                             <div className="px-5 sm:px-6 py-5">
-                              <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">Tax & Compliance</p>
+                              <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">GST</p>
                               <div className="flex flex-col gap-3">
                                 {items.map((item, i) => (
                                   <div key={`${item.key}-${i}`} className="flex items-start gap-3 text-sm">

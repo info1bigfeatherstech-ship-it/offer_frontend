@@ -1,0 +1,285 @@
+function ProductCustomerReviewsSection({
+  product,
+  reviewsList,
+  reviewsLoading,
+  displayAvg,
+  displayCount,
+  ratingIsPlaceholder,
+  filterStar,
+  setFilterStar,
+  visibleCount,
+  setVisibleCount,
+  isLoggedIn,
+  openAuthModal,
+  myReview,
+  reviewForm,
+  setReviewForm,
+  showReviewComment,
+  setShowReviewComment,
+  reviewSubmitting,
+  submitProductReview,
+}) {
+    const totalReviews = reviewsList.length;
+    const starCounts = ratingIsPlaceholder
+      ? getFallbackDistribution(product).map(({ star, pct }) => ({
+        star,
+        count: 0,
+        pct,
+      }))
+      : [5, 4, 3, 2, 1].map((star) => {
+        const count = reviewsList.filter((r) => Math.round(r.rating) === star).length;
+        const pct = totalReviews > 0 ? Math.round((count / totalReviews) * 100) : 0;
+        return { star, count, pct };
+      });
+    const filteredReviews = filterStar
+      ? reviewsList.filter((r) => Math.round(r.rating) === filterStar)
+      : reviewsList;
+    const visibleReviews = filteredReviews.slice(0, visibleCount);
+
+  return (
+      <div className="border border-zinc-100 rounded-2xl overflow-hidden bg-white flex flex-col min-h-0 w-full">
+        {/* ── SECTION 1: HEADER ── */}
+        <div className="px-4 py-5 sm:px-6 sm:pt-6 sm:pb-4 flex-shrink-0 border-b border-zinc-100/90">
+          <p className="text-lg font-bold text-gray-900 mb-3">Customer reviews</p>
+
+          {reviewsLoading ? (
+            <p className="text-sm text-gray-500 py-2">Loading reviews…</p>
+          ) : (
+            <>
+              {/* Average + stars + count */}
+              <div className="flex flex-wrap items-center gap-2 mb-4">
+                <span className="text-3xl font-bold text-gray-900">
+    {Number(displayAvg).toFixed(1)}
+                </span>
+                <div className="flex items-center gap-0.5">
+    {[1, 2, 3, 4, 5].map((s) => (
+      <Star
+        key={s}
+        size={18}
+        className={s <= Math.round(Number(displayAvg))
+          ? "text-amber-400 fill-amber-400"
+          : "text-gray-200 fill-gray-200"}
+      />
+    ))}
+                </div>
+                <span className="text-sm text-gray-500">
+    {ratingIsPlaceholder
+      ? `${displayCount} ratings`
+      : `${displayCount} published ${displayCount === 1 ? "review" : "reviews"}`}
+                </span>
+              </div>
+
+              {/* Star distribution bars */}
+              <div className="space-y-1.5 mb-4">
+                {starCounts.map(({ star, pct }) => {
+    const isActive = filterStar === star;
+    return (
+      <button
+        key={star}
+        type="button"
+        onClick={() => {
+          setFilterStar(filterStar === star ? null : star);
+          setVisibleCount(3);
+        }}
+        className={`w-full flex items-center gap-2 sm:gap-3 px-2 py-1 rounded-lg transition-colors text-sm cursor-pointer ${isActive ? "bg-amber-50" : "hover:bg-gray-50"
+          }`}
+      >
+        <span className="w-12 sm:w-14 text-left text-xs sm:text-sm text-gray-600 font-medium flex-shrink-0">
+          {star} star
+        </span>
+        <div className="flex-1 h-2.5 sm:h-3 bg-gray-100 rounded-full overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all duration-500 ${isActive ? "bg-amber-500" : "bg-amber-400"
+              }`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+        <span className="w-10 text-right text-xs text-gray-500 flex-shrink-0">
+          {pct}%
+        </span>
+      </button>
+    );
+                })}
+              </div>
+
+              {/* Clear filter button */}
+              {filterStar !== null && (
+                <button
+    type="button"
+    onClick={() => { setFilterStar(null); setVisibleCount(3); }}
+    className="text-xs font-semibold text-amber-600 hover:text-amber-700 hover:underline mb-3 cursor-pointer"
+                >
+    × Clear filter
+                </button>
+              )}
+
+              {/* Login prompt for logged-out users */}
+              {!isLoggedIn && (
+                <p className="text-sm text-gray-500 mt-2">
+    <button
+      type="button"
+      onClick={openAuthModal}
+      className="text-orange-600 font-bold hover:underline"
+    >
+      Log in
+    </button>{" "}
+    to leave a review
+                </p>
+              )}
+            </>
+          )}
+        </div>
+
+        {/* ── SECTION 2: YOUR REVIEW BOX (logged in only) ── */}
+        {isLoggedIn && !reviewsLoading && (
+          <div className="px-4 sm:px-6 pt-4">
+            <form
+              onSubmit={submitProductReview}
+              className="rounded-xl border border-gray-200 bg-gray-50/80 p-3 sm:p-4 space-y-3"
+            >
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                {myReview?._id ? "Your review" : "Rate this product"}
+              </p>
+
+              <StarRatingInput
+                value={reviewForm.rating}
+                onChange={(n) => setReviewForm((f) => ({ ...f, rating: n }))}
+                disabled={reviewSubmitting}
+                size={30}
+              />
+
+              {!showReviewComment ? (
+                <button
+    type="button"
+    onClick={() => setShowReviewComment(true)}
+    className="text-sm font-bold text-orange-600 hover:text-orange-700 hover:underline cursor-pointer"
+                >
+    Write a comment{" "}
+    <span className="font-normal text-gray-500">(optional)</span>
+                </button>
+              ) : (
+                <div className="space-y-2">
+    <label className="block text-xs font-medium text-gray-500 mb-1">
+      Comment (optional)
+    </label>
+    <textarea
+      value={reviewForm.comment}
+      onChange={(e) =>
+        setReviewForm((f) => ({ ...f, comment: e.target.value }))
+      }
+      rows={3}
+      maxLength={2000}
+      placeholder="Share your thoughts about this product…"
+      className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300 transition"
+    />
+    <button
+      type="button"
+      disabled={reviewSubmitting}
+      onClick={() => setShowReviewComment(false)}
+      className="text-xs font-medium text-gray-500 hover:text-gray-800 cursor-pointer"
+    >
+      Hide comment
+    </button>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={reviewSubmitting || reviewForm.rating === 0}
+                className={`text-sm font-semibold px-5 py-2 rounded-lg transition cursor-pointer ${reviewForm.rating === 0
+    ? "bg-zinc-900 text-white opacity-40 cursor-not-allowed"
+    : "bg-zinc-900 text-white hover:bg-zinc-800"
+    } disabled:opacity-40`}
+              >
+                {reviewSubmitting ? (
+    <span className="flex items-center gap-2">
+      <Loader2 size={14} className="animate-spin" />
+      Saving…
+    </span>
+                ) : myReview?._id ? "Update review" : "Submit review"}
+              </button>
+            </form>
+          </div>
+        )}
+
+        {/* ── SECTION 3: PUBLISHED REVIEWS LIST ── */}
+        <div
+          className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 overscroll-y-contain [scrollbar-gutter:stable]"
+          aria-label="Published reviews list"
+        >
+          {reviewsLoading ? null : reviewsList.length === 0 ? (
+            <p className="text-sm text-gray-500">No published reviews yet.</p>
+          ) : filteredReviews.length === 0 && filterStar !== null ? (
+            <p className="text-sm text-gray-500">No reviews with {filterStar} stars.</p>
+          ) : (
+            <>
+              <ul className="space-y-3 sm:space-y-4 pb-2">
+                {visibleReviews.map((r) => (
+    <li
+      key={r._id}
+      className="border border-gray-100 rounded-xl p-3 sm:p-4 bg-white"
+    >
+      <div className="flex items-start gap-3">
+        {/* Avatar */}
+        <div className="w-9 h-9 rounded-full bg-zinc-100 flex items-center justify-center flex-shrink-0">
+          <span className="text-sm font-semibold text-zinc-700 uppercase">
+            {(typeof r.author === "string" && r.author.length > 0)
+              ? r.author.charAt(0)
+              : "?"}
+          </span>
+        </div>
+
+        <div className="flex-1 min-w-0">
+          {/* Author + Date */}
+          <div className="flex items-center justify-between gap-2 mb-0.5">
+            <span className="text-sm font-semibold text-gray-900 truncate">
+              {r.author}
+            </span>
+            <span className="text-xs text-gray-400 flex-shrink-0">
+              {r.createdAt
+                ? new Date(r.createdAt).toLocaleDateString()
+                : ""}
+            </span>
+          </div>
+
+          {/* Stars */}
+          <div className="flex items-center gap-0.5 mb-1.5">
+            {Array.from({ length: Math.round(r.rating) }).map((_, i) => (
+              <Star key={i} size={13} className="text-amber-400 fill-amber-400" />
+            ))}
+          </div>
+
+          {/* Comment */}
+          {r.comment ? (
+            <p className="text-sm text-gray-600 leading-relaxed">{r.comment}</p>
+          ) : (
+            <p className="text-xs text-gray-400 italic">No comment left</p>
+          )}
+        </div>
+      </div>
+    </li>
+                ))}
+              </ul>
+
+              {/* Load more */}
+              {visibleCount < filteredReviews.length && (
+                <div className="flex flex-col items-center gap-2 pt-3">
+    <button
+      type="button"
+      onClick={() => setVisibleCount((prev) => prev + 3)}
+      className="border border-zinc-200 rounded-xl px-6 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:border-zinc-300 transition cursor-pointer"
+    >
+      Load more reviews
+    </button>
+    <p className="text-xs text-gray-400 text-center">
+      Showing {Math.min(visibleCount, filteredReviews.length)} of{" "}
+      {filteredReviews.length} reviews
+    </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+  );
+}

@@ -116,7 +116,7 @@ export default function InfluencerFormPage() {
                     </h1>
 
                     <p className="mt-4 text-slate-500 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
-                        Join hands with India’s growing wholesale & ecommerce brand.
+                        Join hands with India’s growing ecommerce brand.
                         Let’s create impactful content together.
                     </p>
                 </div>

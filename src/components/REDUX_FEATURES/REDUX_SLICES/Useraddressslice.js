@@ -48,8 +48,11 @@ export const addAddress = createAsyncThunk(
       return response.data.address;
     } catch (error) {
       logError("addAddress", error, { addressData });
+      const data = error.response?.data;
       return rejectWithValue({
-        message: error.response?.data?.message || "Failed to add address",
+        message: data?.message || error.message || "Failed to add address",
+        code: data?.code,
+        errors: data?.errors,
         status: error.response?.status,
       });
     }
@@ -69,8 +72,11 @@ export const updateAddress = createAsyncThunk(
       return response.data.address;
     } catch (error) {
       logError("updateAddress", error, { id });
+      const data = error.response?.data;
       return rejectWithValue({
-        message: error.response?.data?.message || "Failed to update address",
+        message: data?.message || error.message || "Failed to update address",
+        code: data?.code,
+        errors: data?.errors,
         status: error.response?.status,
       });
     }

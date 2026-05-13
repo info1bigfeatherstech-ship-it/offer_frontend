@@ -416,14 +416,21 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
   // ── Bottom nav links (used in desktop nav + mobile sidebar) ────────────────
   const bottomNavLinks = [
     {
-      label: "Todays' Deal",
+      label: "Today's Deal",
       path: "/today-arrival",
       icon: <ImageIcon src={deal} alt="Deal" animation="animate-swing" />,
     },
     {
       label: "Just Arrived",
       path: "/#best-sellers",
-      icon: <ImageIcon src={arrivals} alt="Just Arrived" animation="animate-float" />,
+      icon: (
+        <ImageIcon
+          src={arrivals}
+          alt="Just Arrived"
+          animation="animate-float"
+          className="!w-[46px] !h-[46px] lg:!w-8 lg:!h-8 xl:!w-10 xl:!h-10 2xl:!w-11 2xl:!h-11"
+        />
+      ),
     },
     {
       label: "Sale",
@@ -434,7 +441,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
 
   const mobileCategories = [
     { label: "Home & Kitchen",                    path: "/category/home-and-kitchen" },
-    { label: "Smart Life",                        path: "/category/smart-life-gadgets" },
+    { label: "Smart Life Gadgets",                        path: "/category/smart-life-gadgets" },
     { label: "Baby Items",                        path: "/category/baby-items" },
     { label: "Stationary",                        path: "/category/stationary" },
      { label: "Cleaning & Housekeeping Supplies",  path: "/category/cleaning-&housekeeping-supplies" },
@@ -442,7 +449,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
      { label: "Tours & Travels",                   path: "/category/tours-and-travels" },
     { label: "Fashion World",                     path: "/category/fashion-world" },
     { label: "Gifts",                             path: "/category/gifts" },
-    { label: "Cleaning & Housekeeping Supplies",  path: "/category/mix-items-daily-use" },
+    { label: "Mix-items",  path: "/category/mix-items-daily-use" },
     { label: "Car Accessories",                   path: "/category/car-accessories" },
   ];
 
@@ -499,7 +506,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                 </div>
               ))}
               <img
-                className="relative z-10 object-contain w-[120px] sm:w-[140px] md:w-[170px] h-auto transition-transform duration-500 group-hover:scale-105"
+                className="relative z-10 object-contain w-[120px] sm:w-[140px] md:w-[170px] h-auto transition-transform duration-500"
                 src={logo}
                 alt="Offer Wale Baba"
               />
@@ -620,7 +627,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                   </div>
                 ))}
                 <img
-                  className="relative z-10 object-contain transition-transform duration-500 w-[130px] xl:w-[160px] 2xl:w-[175px] h-auto group-hover:scale-105"
+                  className="relative z-10 object-contain transition-transform duration-500 w-[130px] xl:w-[160px] 2xl:w-[175px] h-auto"
                   src={logo}
                   alt="Logo"
                 />

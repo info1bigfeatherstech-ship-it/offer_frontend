@@ -31,7 +31,7 @@ const Footer = () => {
         { label: "Car Accessories", path: "/category/car-accessories" },
         { label: "Cleaning & Housekeeping Supplies", path: "/category/cleaning-&housekeeping-supplies" },
         { label: "Gifts", path: "/category/gifts" },
-        { label: "Mix-items", path: "/category/stationary" },
+        { label: "Mix-items", path: "/category/mix-items-daily-use" },
       ]
     },
     // { 

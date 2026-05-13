@@ -46,7 +46,7 @@ export const fetchCategoryById = createAsyncThunk(
       const response = await axiosInstance.get(`/categories/categories/${id}`);
 
       if (!response.data.success) {
-        throw new Error(response.data.message || "Category not found");
+        throw new Error(response.data.message || "Category Updated soon");
       }
 
       return response.data;
@@ -75,7 +75,7 @@ export const fetchCategoryBySlug = createAsyncThunk(
       );
 
       if (!response.data.success) {
-        throw new Error(response.data.message || "Category not found");
+        throw new Error(response.data.message || "Category Updated soon 📁");
       }
 
       // We only need the category object here; products are fetched separately
