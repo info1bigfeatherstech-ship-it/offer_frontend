@@ -908,9 +908,14 @@ const Checkout = () => {
       return;
     }
     setStep(2);
-    if (!quote) {
-      requestQuote({ paymentHint: "cod" });
-    }
+    // Always refresh quote when entering payment step. Stale quotes (e.g. partial+COD Shiprocket
+    // `advance_balance_cod` totals) + later "pay full online" causes backend confirm mismatch.
+    const hint = paymentMethod === "cod" ? "cod" : "online";
+    const isAdvanceCod =
+      paymentMethod === "online" && paymentPlan === "advance" && balanceCollection === "cod";
+    const plan = paymentMethod === "cod" || !isAdvanceCod ? "full" : "advance";
+    const balance = paymentMethod === "cod" || !isAdvanceCod ? "online" : "cod";
+    requestQuote({ paymentHint: hint, plan, balance });
   };
 
   const selectCheckoutPaymentMode = (mode) => {
@@ -932,7 +937,9 @@ const Checkout = () => {
       dispatch(setPaymentPlan("advance"));
       dispatch(setBalanceCollection("cod"));
     }
-    if (quote && selectedAddressId) {
+    // Refetch whenever payment mode changes and we have an address (even if quote is null so
+    // totals stay in sync with Shiprocket pricing mode for confirmCheckout).
+    if (selectedAddressId) {
       dispatch(resetQuote());
       dispatch(setSelectedAddress(selectedAddressId));
       const hint = mode === "cod" ? "cod" : "online";
@@ -988,7 +995,11 @@ const Checkout = () => {
       setShowAddressModal(false);
       dispatch(clearAddressErrors());
     } catch (e) {
-      toast.error(e?.message || "Failed to save address", { theme: "dark" });
+      const detail =
+        Array.isArray(e?.errors) && e.errors.length
+          ? e.errors.map((x) => x.message).filter(Boolean).join(" ")
+          : "";
+      toast.error(detail || e?.message || "Failed to save address", { theme: "dark" });
     }
   };
 
