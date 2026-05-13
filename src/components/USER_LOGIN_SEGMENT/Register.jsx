@@ -143,9 +143,9 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
         </div>
       </div>
 
-      <p className="text-[10px] text-gray-500 text-center leading-snug px-1 -mt-1 mb-2">
+      {/* <p className="text-[10px] text-gray-500 text-center leading-snug px-1 -mt-1 mb-2">
         A one-time code is sent by the server (commonly to your email; SMS only if enabled). The next step shows exactly where it was sent.
-      </p>
+      </p> */}
 
       <form onSubmit={handleSubmit} className="space-y-2">
         {/* Full Name */}
