@@ -30,7 +30,7 @@ const TAG_META = {
     accentColor: "#F7A221",
   },
   "today-arrival": {
-    title: "Todays' Deal",
+    title: "Today's Deal",
     subtitle: "Fresh drops, just in",
     accentColor: "#22C55E",
   },
@@ -424,8 +424,28 @@ const TagProducts = (props) => {
       </div>
 
       {/* HERO */}
-      <section className="relative h-[40vh] md:h-[50vh] flex items-end overflow-hidden bg-gray-900">
-        <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+      {/* HERO */}
+      <section className="relative h-[40vh] md:h-[50vh] flex items-end overflow-hidden">
+        {/* BACKGROUND IMAGE - DIFFERENT FOR EACH TAG */}
+        <div className="absolute inset-0">
+          {normalizedTag === "on-sale" && (
+            <img
+              src="/Sale.png"  /* CHANGE THIS TO YOUR SALE IMAGE PATH */
+              alt="Sale Banner"
+              className="w-full h-full object-cover"
+            />
+          )}
+          {normalizedTag === "today-arrival" && (
+            <img
+              src="Today.png"  /* CHANGE THIS TO YOUR TODAY'S DEAL IMAGE PATH */
+              alt="Today's Deal Banner"
+              className="w-full h-full object-cover"
+            />
+          )}
+          {/* Dark overlay for text readability */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/50 to-black/30" />
+        </div>
+
         <div className="absolute top-0 left-0 right-0 h-[3px]" style={{ backgroundColor: meta.accentColor }} />
         <div className="relative z-10 w-full max-w-7xl mx-auto px-4 md:px-8 pb-10 md:pb-14">
           <div className="flex items-end justify-between gap-6">
@@ -437,14 +457,14 @@ const TagProducts = (props) => {
               <h1 className="text-5xl md:text-7xl font-black text-white uppercase leading-none tracking-tighter">
                 {meta.title}
               </h1>
-              <p className="mt-4 max-w-md text-gray-400 text-sm leading-relaxed font-medium">
+              <p className="mt-4 max-w-md text-gray-200 text-sm leading-relaxed font-medium">
                 {meta.subtitle}
               </p>
             </div>
             {!isLoading && (
               <div className="hidden md:flex flex-col items-end flex-shrink-0">
                 <span className="text-5xl font-black text-white leading-none">{pagination?.total || 0}</span>
-                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-500 mt-1">Products</span>
+                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300 mt-1">Products</span>
               </div>
             )}
           </div>

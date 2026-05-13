@@ -1184,15 +1184,15 @@ const ProductUI = ({ openAuthModal }) => {
                   const totalReviews = reviewsList.length;
                   const starCounts = ratingIsPlaceholder
                     ? getFallbackDistribution(product).map(({ star, pct }) => ({
-                        star,
-                        count: 0,
-                        pct,
-                      }))
+                      star,
+                      count: 0,
+                      pct,
+                    }))
                     : [5, 4, 3, 2, 1].map((star) => {
-                        const count = reviewsList.filter((r) => Math.round(r.rating) === star).length;
-                        const pct = totalReviews > 0 ? Math.round((count / totalReviews) * 100) : 0;
-                        return { star, count, pct };
-                      });
+                      const count = reviewsList.filter((r) => Math.round(r.rating) === star).length;
+                      const pct = totalReviews > 0 ? Math.round((count / totalReviews) * 100) : 0;
+                      return { star, count, pct };
+                    });
                   const filteredReviews = filterStar
                     ? reviewsList.filter((r) => Math.round(r.rating) === filterStar)
                     : reviewsList;
@@ -1467,8 +1467,8 @@ const ProductUI = ({ openAuthModal }) => {
 
                   {/* Title */}
                   <h1 className="text-sm sm:text-2xl  text-gray-900 leading-snug tracking-tight">
-                    {/* {title} */}
-                    {product.title.length > 60 ? `${product.title.substring(0, 60)}...` : product.title}
+                    {title}
+                    {/* {product.title.length > 60 ? `${product.title}...` : product.title} */}
                   </h1>
 
                   {/* Brand + Rating */}
@@ -1928,11 +1928,11 @@ const ProductUI = ({ openAuthModal }) => {
 
                         {/* Footer */}
                         {(() => {
-                          const countryOfOrigin = "India";
+                          const countryOfOrigin = product?.origin?.country;  // Removed the "null" fallback
                           const gst = product?.gst || product?.tax?.gst || null;
 
                           const items = [
-                            { key: "Country of Origin", value: countryOfOrigin },
+                            ...(countryOfOrigin ? [{ key: "Country of Origin", value: countryOfOrigin }] : []),
                             ...(gst ? [{ key: "GST", value: `${gst}%` }] : [])
                           ];
 
@@ -1940,7 +1940,7 @@ const ProductUI = ({ openAuthModal }) => {
 
                           return (
                             <div className="px-5 sm:px-6 py-5">
-                              <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">Tax & Compliance</p>
+                              <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">GST</p>
                               <div className="flex flex-col gap-3">
                                 {items.map((item, i) => (
                                   <div key={`${item.key}-${i}`} className="flex items-start gap-3 text-sm">

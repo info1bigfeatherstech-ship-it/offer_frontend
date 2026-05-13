@@ -193,7 +193,7 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
           <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 text-white/25 pointer-events-none" size={16} />
           <input
             type="password"
-            placeholder="Password (min 6 chars)"
+            placeholder="Password (min 6 Characters)"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="new-password"

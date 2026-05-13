@@ -568,10 +568,10 @@ const CatProducts = () => {
             <img
               src={currentCategory.image.url}
               alt={categoryName}
-              className="absolute inset-0 w-full h-full object-cover opacity-50"
+              className="absolute i w-full h-full object-cover"
             />
           )}
-          <div className="absolute inset-0 bg-gradient-to-t from-black via-black/40 to-transparent" />
+          <div className="absolute inset-0 " />
           <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#F7A221]" />
           <div className="relative z-10 w-full max-w-7xl mx-auto px-4 md:px-8 pb-10 md:pb-14">
             <div className="flex items-end justify-between gap-6">
@@ -580,7 +580,7 @@ const CatProducts = () => {
                   <span className="w-6 h-[2px] bg-[#F7A221] inline-block" />
                   Collection
                 </p>
-                <h1 className="text-5xl md:text-6xl font-['satoshi'] text-white font-bold leading-none tracking-wide">
+                <h1 className="text-5xl md:text-6xl font-['satoshi'] text-white leading-none tracking-wide">
                   {categoryName}
                 </h1>
                 {currentCategory?.description && (

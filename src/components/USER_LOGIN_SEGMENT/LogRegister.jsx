@@ -1,4 +1,4 @@
-﻿import React, { useState, useRef, useCallback, useEffect } from "react";
+import React, { useState, useRef, useCallback, useEffect } from "react";
 import { X } from "lucide-react";
 import Login from "./Login";
 import Register from "./Register";
@@ -27,7 +27,7 @@ import { clearError, clearSuccess } from "../REDUX_FEATURES/REDUX_SLICES/authSli
    SWIPE: threshold 65px, 2.0x ratio, dy < 30 guard, touchCancel handler.
 ─────────────────────────────────────────────────────────────────────────────*/
 
-// const INTERACTIVE_TAGS = ["INPUT", "TEXTAREA", "BUTTON", "SELECT", "A", "LABEL"];
+const INTERACTIVE_TAGS = ["INPUT", "TEXTAREA", "BUTTON", "SELECT", "A", "LABEL"];
 const isInteractive = (el) => {
   let node = el;
   while (node && node !== document.body) {
@@ -39,24 +39,24 @@ const isInteractive = (el) => {
 
 const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
   const dispatch = useDispatch();
-  const [activeTab, setActiveTab]                   = useState("login");
+  const [activeTab, setActiveTab] = useState("login");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [showOtpPanel, setShowOtpPanel]             = useState(false);
-  const [otpPhone, setOtpPhone]                     = useState("");
-  const [otpName, setOtpName]                       = useState("");
-  const [otpEmail, setOtpEmail]                     = useState("");
+  const [showOtpPanel, setShowOtpPanel] = useState(false);
+  const [otpPhone, setOtpPhone] = useState("");
+  const [otpName, setOtpName] = useState("");
+  const [otpEmail, setOtpEmail] = useState("");
 
   // ── Swipe tracking ────────────────────────────────────────────────────────
-  const touchStartX  = useRef(null);
-  const touchStartY  = useRef(null);
+  const touchStartX = useRef(null);
+  const touchStartY = useRef(null);
   const swipeEnabled = useRef(false);
 
   const handleTouchStart = useCallback((e) => {
     if (showForgotPassword || showOtpPanel) { swipeEnabled.current = false; return; }
-    if (isInteractive(e.target))            { swipeEnabled.current = false; return; }
+    if (isInteractive(e.target)) { swipeEnabled.current = false; return; }
     swipeEnabled.current = true;
-    touchStartX.current  = e.touches[0].clientX;
-    touchStartY.current  = e.touches[0].clientY;
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
   }, [showForgotPassword, showOtpPanel]);
 
   const handleTouchEnd = useCallback((e) => {
@@ -64,18 +64,18 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
     const dx = e.changedTouches[0].clientX - touchStartX.current;
     const dy = e.changedTouches[0].clientY - touchStartY.current;
     if (Math.abs(dx) >= 65 && Math.abs(dx) > Math.abs(dy) * 2.0 && Math.abs(dy) < 30) {
-      if (dx < 0 && activeTab === "login")    handleTabChange("register");
+      if (dx < 0 && activeTab === "login") handleTabChange("register");
       if (dx > 0 && activeTab === "register") handleTabChange("login");
     }
     swipeEnabled.current = false;
-    touchStartX.current  = null;
-    touchStartY.current  = null;
+    touchStartX.current = null;
+    touchStartY.current = null;
   }, [activeTab]);
 
   const handleTouchCancel = useCallback(() => {
     swipeEnabled.current = false;
-    touchStartX.current  = null;
-    touchStartY.current  = null;
+    touchStartX.current = null;
+    touchStartY.current = null;
   }, []);
   // ─────────────────────────────────────────────────────────────────────────
 
@@ -84,16 +84,16 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
     if (!isOpen) return;
     const origOverflow = document.body.style.overflow;
     const origPosition = document.body.style.position;
-    const scrollY      = window.scrollY;
+    const scrollY = window.scrollY;
     document.body.style.overflow = "hidden";
     document.body.style.position = "fixed";
-    document.body.style.top      = `-${scrollY}px`;
-    document.body.style.width    = "100%";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
     return () => {
       document.body.style.overflow = origOverflow;
       document.body.style.position = origPosition;
-      document.body.style.top      = "";
-      document.body.style.width    = "";
+      document.body.style.top = "";
+      document.body.style.width = "";
       window.scrollTo(0, scrollY);
     };
   }, [isOpen]);
@@ -214,8 +214,8 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
         /* Tablet / Laptop / Desktop: centred modal card */
         @media (min-width: 640px) {
           .lr-modal-card {
-            max-height: min(88vh, 640px);
-            max-height: min(calc(var(--lr-vh, 100vh) * 0.88), 640px);
+            max-height: min(92vh, 720px);
+            max-height: min(calc(var(--lr-vh, 100vh) * 0.92), 720px);
             border-radius: 2rem;
             box-shadow: 0 24px 64px rgba(0,0,0,0.6);
             border: 1px solid rgba(255,255,255,0.08);
@@ -223,10 +223,10 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
         }
 
         /* Short screens (landscape phone / small laptop) — allow more height */
-        @media (max-height: 700px) and (min-width: 640px) {
+        @media (max-height: 720px) and (min-width: 640px) {
           .lr-modal-card {
-            max-height: 94vh;
-            max-height: calc(var(--lr-vh, 100vh) * 0.94);
+            max-height: 96vh;
+            max-height: calc(var(--lr-vh, 100vh) * 0.96);
           }
         }
 
@@ -319,17 +319,15 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
                 <div className="flex-shrink-0 flex border-b border-white/5 relative mt-1 sm:mt-0 bg-[#0d0d0d]">
                   <button
                     onClick={() => handleTabChange("login")}
-                    className={`flex-1 py-3 sm:py-4 text-center cursor-pointer font-black text-[11px] tracking-[0.2em] transition-colors duration-200 z-10 touch-manipulation ${
-                      activeTab === "login" ? "text-[#f7a221]" : "text-white/35 hover:text-white/60"
-                    }`}
+                    className={`flex-1 py-3 sm:py-4 text-center cursor-pointer font-black text-[11px] tracking-[0.2em] transition-colors duration-200 z-10 touch-manipulation ${activeTab === "login" ? "text-[#f7a221]" : "text-white/35 hover:text-white/60"
+                      }`}
                   >
                     LOGIN
                   </button>
                   <button
                     onClick={() => handleTabChange("register")}
-                    className={`flex-1 py-3 sm:py-4 text-center font-black cursor-pointer text-[11px] tracking-[0.2em] transition-colors duration-200 z-10 touch-manipulation ${
-                      activeTab === "register" ? "text-[#f7a221]" : "text-white/35 hover:text-white/60"
-                    }`}
+                    className={`flex-1 py-3 sm:py-4 text-center font-black cursor-pointer text-[11px] tracking-[0.2em] transition-colors duration-200 z-10 touch-manipulation ${activeTab === "register" ? "text-[#f7a221]" : "text-white/35 hover:text-white/60"
+                      }`}
                   >
                     REGISTER
                   </button>
