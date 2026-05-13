@@ -42,7 +42,10 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
   const [activeTab, setActiveTab] = useState("login");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [showOtpPanel, setShowOtpPanel] = useState(false);
+  const [otpIdentifier, setOtpIdentifier] = useState("");
   const [otpPhone, setOtpPhone] = useState("");
+  const [otpRegistrationPassword, setOtpRegistrationPassword] = useState("");
+  const [otpDeliveryMessage, setOtpDeliveryMessage] = useState("");
   const [otpName, setOtpName] = useState("");
   const [otpEmail, setOtpEmail] = useState("");
 
@@ -160,8 +163,18 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
     setShowForgotPassword(false);
   };
 
-  const handleShowOtp = (phone, name, email = "") => {
-    setOtpPhone(phone);
+  const handleShowOtp = ({
+    identifier,
+    phone,
+    name,
+    email = "",
+    password = "",
+    deliveryMessage = "",
+  }) => {
+    setOtpIdentifier(String(identifier || "").trim());
+    setOtpPhone(String(phone || "").replace(/\D/g, "").slice(0, 10));
+    setOtpRegistrationPassword(password);
+    setOtpDeliveryMessage(typeof deliveryMessage === "string" ? deliveryMessage : "");
     setOtpName(name);
     setOtpEmail(email);
     setShowOtpPanel(true);
@@ -169,7 +182,10 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
 
   const handleOtpClose = () => {
     setShowOtpPanel(false);
+    setOtpIdentifier("");
     setOtpPhone("");
+    setOtpRegistrationPassword("");
+    setOtpDeliveryMessage("");
     setOtpName("");
     setOtpEmail("");
   };
@@ -309,9 +325,12 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
             {currentView === "otp" && (
               <div className="lr-panel-body lr-slide-up">
                 <OtpVerification
+                  identifier={otpIdentifier}
                   phone={otpPhone}
                   name={otpName}
                   email={otpEmail}
+                  registrationPassword={otpRegistrationPassword}
+                  deliveryMessage={otpDeliveryMessage}
                   onClose={handleOtpClose}
                   onVerify={handleOtpVerify}
                 />

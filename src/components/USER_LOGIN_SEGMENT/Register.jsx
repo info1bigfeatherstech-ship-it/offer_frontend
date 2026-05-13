@@ -3,13 +3,13 @@ import React, { useState, useEffect, useRef } from "react";
 import { Phone, Mail, User, Lock } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { registerUser, googleLogin, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
+import { registerUser, googleLogin, clearError, pickRegisterOtpIdentifier } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
 import { GoogleIcon } from "./Login";
 import LOGO from "../../assets/logo2.svg";
 
 const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
   const dispatch = useDispatch();
-  const { loading, error, pendingPhone } = useSelector((state) => state.auth);
+  const { loading, error } = useSelector((state) => state.auth);
   const googleBtnRef = useRef(null);
 
   const [name,     setName]     = useState("");
@@ -80,13 +80,17 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
       ).unwrap();
 
       if (result) {
-        // Backend message reflects the configured OTP_DELIVERY_MODE
-        // (e.g. "OTP sent to your email" / "phone" / "phone and email").
-        toast.success(result.message || "OTP sent!");
-        // pendingPhone from Redux is source of truth; fall back to local state.
-        // Email is forwarded so the OTP screen's "resend" can deliver to the
-        // real address when OTP_DELIVERY_MODE=email.
-        onShowOtp(pendingPhone || cleanPhone, name, email);
+        const verifyId = pickRegisterOtpIdentifier(result, { email, phone: cleanPhone });
+        const msg = typeof result.message === "string" ? result.message : "";
+        toast.success(msg || "OTP sent!");
+        onShowOtp({
+          identifier: verifyId,
+          phone: cleanPhone,
+          name,
+          email,
+          password,
+          deliveryMessage: msg,
+        });
       }
     } catch (_) {
       // Error shown via Redux error state + useEffect toast above
@@ -138,6 +142,10 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
           <span className="px-3 bg-[#0d0d0d] text-gray-400">OR REGISTER WITH DETAILS</span>
         </div>
       </div>
+
+      <p className="text-[10px] text-gray-500 text-center leading-snug px-1 -mt-1 mb-2">
+        A one-time code is sent by the server (commonly to your email; SMS only if enabled). The next step shows exactly where it was sent.
+      </p>
 
       <form onSubmit={handleSubmit} className="space-y-2">
         {/* Full Name */}

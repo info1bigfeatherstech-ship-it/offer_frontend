@@ -2,14 +2,30 @@ import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "../../../SERVICES/axiosInstance";
 import { USER_ACCESS_TOKEN_KEY } from "../../../SERVICES/axiosInstance";
 
+/**
+ * Choose phone or email for POST /auth/otp-verify-login `identifier`
+ * so the correct verification flag is set (matches OTP_DELIVERY_MODE / deliveredVia).
+ */
+export const pickRegisterOtpIdentifier = (payload = {}, metaArg = {}) => {
+  const mode = String(payload.deliveryMode || "").toLowerCase();
+  const via = Array.isArray(payload.deliveredVia) ? payload.deliveredVia : [];
+  if (mode === "email" || (via.length === 1 && via[0] === "email")) {
+    return String(payload.email || metaArg.email || "").trim();
+  }
+  if (mode === "sms" || (via.length === 1 && via[0] === "sms")) {
+    return String(payload.phone || metaArg.phone || "").trim();
+  }
+  if (via.includes("email")) return String(payload.email || metaArg.email || "").trim();
+  return String(payload.phone || metaArg.phone || "").trim();
+};
+
 // ─────────────────────────────────────────────────────────────
 // THUNKS
 // ─────────────────────────────────────────────────────────────
 
 // ✅ REGISTER
-// Backend now requires: name, email, phone (required, 10-digit), password
-// Sends OTP to PHONE (not email anymore)
-// Response: { success, message, phone, requiresOTPVerification }
+// Backend: name, email, phone (10-digit), password — OTP channel from OTP_DELIVERY_MODE
+// Response: { success, message, phone, email, deliveryMode, deliveredVia, requiresOTPVerification }
 export const registerUser = createAsyncThunk(
   "auth/register",
   async ({ name, email, password, phone }, { rejectWithValue }) => {
@@ -30,14 +46,13 @@ export const registerUser = createAsyncThunk(
 );
 
 // ✅ VERIFY OTP & AUTO-LOGIN
-// Backend now expects: { phone, otp } — NOT { email, otp }
-// Endpoint: POST /auth/otp-verify-login
+// Backend: POST /auth/otp-verify-login — prefers { identifier, otp } (phone or email)
 export const verifyOTP = createAsyncThunk(
   "auth/verifyOTP",
-  async ({ phone, otp }, { rejectWithValue }) => {
+  async ({ identifier, otp }, { rejectWithValue }) => {
     try {
       const res = await axiosInstance.post("/auth/otp-verify-login", {
-        phone,
+        identifier,
         otp,
       });
       if (res.data.accessToken) {
@@ -238,8 +253,8 @@ const initialState = {
   loading: false,
   error: null,
   successMessage: null,
-  // Changed from pendingEmail → pendingPhone (OTP is now phone-based)
-  pendingPhone: null,
+  /** Phone or email string used for registration OTP verify step */
+  pendingOtpIdentifier: null,
   // Keep identifier for forgot password flow across 3 steps
   forgotPasswordIdentifier: null,
 };
@@ -258,8 +273,8 @@ const authSlice = createSlice({
     clearSuccess: (state) => {
       state.successMessage = null;
     },
-    clearPendingPhone: (state) => {
-      state.pendingPhone = null;
+    clearPendingOtpIdentifier: (state) => {
+      state.pendingOtpIdentifier = null;
     },
     clearForgotPasswordState: (state) => {
       state.forgotPasswordIdentifier = null;
@@ -273,7 +288,7 @@ const authSlice = createSlice({
       state.isLoggedIn = false;
       state.error = null;
       state.successMessage = null;
-      state.pendingPhone = null;
+      state.pendingOtpIdentifier = null;
       state.forgotPasswordIdentifier = null;
       localStorage.removeItem(USER_ACCESS_TOKEN_KEY);
     },
@@ -305,25 +320,26 @@ const authSlice = createSlice({
 
     builder
       // ── REGISTER ──────────────────────────────────────────
-      // Now stores pendingPhone (OTP sent to phone, not email)
       .addCase(registerUser.pending, setPending)
       .addCase(registerUser.fulfilled, (state, action) => {
         state.loading = false;
         state.successMessage = action.payload.message;
-        // Backend returns { phone } in response — store it
-        state.pendingPhone = action.payload.phone || action.meta.arg.phone;
+        state.pendingOtpIdentifier = pickRegisterOtpIdentifier(
+          action.payload,
+          action.meta.arg
+        );
       })
       .addCase(registerUser.rejected, setRejected)
 
-      // ── VERIFY OTP (phone-based) ──────────────────────────
+      // ── VERIFY OTP ──────────────────────────────────────────
       .addCase(verifyOTP.pending, setPending)
       .addCase(verifyOTP.fulfilled, (state, action) => {
         state.loading = false;
         state.isLoggedIn = true;
         state.accessToken = action.payload.accessToken;
         state.user = action.payload.user;
-        state.pendingPhone = null;
-        state.successMessage = "Phone verified! Welcome!";
+        state.pendingOtpIdentifier = null;
+        state.successMessage = "Account verified! Welcome!";
       })
       .addCase(verifyOTP.rejected, setRejected)
 
@@ -360,7 +376,7 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = null;
         state.successMessage = null;
-        state.pendingPhone = null;
+        state.pendingOtpIdentifier = null;
         state.forgotPasswordIdentifier = null;
       })
       .addCase(logoutUser.rejected, (state) => {
@@ -433,7 +449,7 @@ const authSlice = createSlice({
 export const {
   clearError,
   clearSuccess,
-  clearPendingPhone,
+  clearPendingOtpIdentifier,
   clearForgotPasswordState,
   forceLogout,
 } = authSlice.actions;
@@ -450,7 +466,9 @@ export const selectAccessToken = (state) => state.auth.accessToken;
 export const selectAuthLoading = (state) => state.auth.loading;
 export const selectAuthError = (state) => state.auth.error;
 export const selectSuccessMessage = (state) => state.auth.successMessage;
-export const selectPendingPhone = (state) => state.auth.pendingPhone;
+export const selectPendingOtpIdentifier = (state) => state.auth.pendingOtpIdentifier;
+/** @deprecated use selectPendingOtpIdentifier */
+export const selectPendingPhone = selectPendingOtpIdentifier;
 export const selectForgotPasswordIdentifier = (state) => state.auth.forgotPasswordIdentifier;
 export default authSlice.reducer;
 
