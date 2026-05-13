@@ -50,6 +50,7 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
   const touchStartX = useRef(null);
   const touchStartY = useRef(null);
   const swipeEnabled = useRef(false);
+  const backdropRef = useRef(null);
 
   const handleTouchStart = useCallback((e) => {
     if (showForgotPassword || showOtpPanel) { swipeEnabled.current = false; return; }
@@ -79,23 +80,21 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
   }, []);
   // ─────────────────────────────────────────────────────────────────────────
 
-  // ── Body scroll lock ──────────────────────────────────────────────────────
+  // ── No body scroll lock: window / page stays scrollable (native scrollbar).
+  //    Wheel on dimmed overlay scrolls the document; wheel on .lr-modal-card stays inside the form.
+
   useEffect(() => {
     if (!isOpen) return;
-    const origOverflow = document.body.style.overflow;
-    const origPosition = document.body.style.position;
-    const scrollY = window.scrollY;
-    document.body.style.overflow = "hidden";
-    document.body.style.position = "fixed";
-    document.body.style.top = `-${scrollY}px`;
-    document.body.style.width = "100%";
-    return () => {
-      document.body.style.overflow = origOverflow;
-      document.body.style.position = origPosition;
-      document.body.style.top = "";
-      document.body.style.width = "";
-      window.scrollTo(0, scrollY);
+    const el = backdropRef.current;
+    if (!el) return;
+    const onWheel = (e) => {
+      const t = e.target;
+      if (t instanceof Element && t.closest(".lr-modal-card")) return;
+      window.scrollBy({ top: e.deltaY, left: e.deltaX, behavior: "auto" });
+      e.preventDefault();
     };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
   }, [isOpen]);
 
   // ── Real viewport height (defeats mobile browser address-bar 100vh bug) ───
@@ -203,6 +202,8 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
           display: flex;
           flex-direction: column;
           background: #0d0d0d;
+          min-height: 0; /* lets flex children shrink so overflow-y can scroll */
+          min-width: 0;
           /* Mobile: bottom-sheet, max 88% viewport height */
           max-height: 88dvh;
           max-height: calc(var(--lr-vh, 100vh) * 0.88);
@@ -230,31 +231,48 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
           }
         }
 
-        /* ── Scrollable panel body ── */
+        /* ── Scrollable panel body (login / register / forgot / OTP) ── */
         .lr-panel-body {
-          flex: 1;
+          flex: 1 1 0%;
+          min-height: 0;
           overflow-y: auto;
           overflow-x: hidden;
           -webkit-overflow-scrolling: touch;
           overscroll-behavior: contain;
+          scrollbar-gutter: stable;
+          scrollbar-width: auto;
+          scrollbar-color: #f7a221 #2a2a2a;
         }
-        .lr-panel-body::-webkit-scrollbar { width: 3px; }
-        .lr-panel-body::-webkit-scrollbar-track { background: transparent; }
-        .lr-panel-body::-webkit-scrollbar-thumb { background: rgba(247,162,33,0.25); border-radius: 99px; }
+        .lr-panel-body::-webkit-scrollbar { width: 8px; }
+        .lr-panel-body::-webkit-scrollbar-track {
+          background: #2a2a2a;
+          border-radius: 99px;
+          margin: 4px 0;
+        }
+        .lr-panel-body::-webkit-scrollbar-thumb {
+          background: #f7a221;
+          border-radius: 99px;
+          border: 2px solid #2a2a2a;
+          background-clip: padding-box;
+          min-height: 48px;
+        }
+        .lr-panel-body::-webkit-scrollbar-thumb:hover {
+          background: #ffb03d;
+        }
       `}</style>
 
       {/* ── BACKDROP ── */}
       <div
-        className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/95 backdrop-blur-sm lr-fade"
+        ref={backdropRef}
+        className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/95 backdrop-blur-sm lr-fade min-h-0 p-0 sm:p-4"
         onClick={handleClose}
         aria-modal="true"
         role="dialog"
         aria-label="Authentication"
-        style={{ padding: "0" }}
       >
-        {/* ── POSITIONING WRAPPER ── */}
+        {/* ── POSITIONING WRAPPER — caps height so inner card can scroll on short viewports ── */}
         <div
-          className="relative w-full sm:max-w-[420px] sm:mx-4 lr-sheet-up"
+          className="relative w-full min-h-0 min-w-0 sm:max-w-[420px] sm:mx-4 lr-sheet-up"
           onClick={(e) => e.stopPropagation()}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}
@@ -271,7 +289,7 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
           </button>
 
           {/* ── MODAL CARD ── */}
-          <div className="lr-modal-card">
+          <div className="lr-modal-card w-full min-h-0">
 
             {/* Mobile drag pill + close — flex-shrink:0, never scrolls */}
             <div className="flex-shrink-0 flex items-center px-4 pt-3 pb-0 sm:hidden bg-[#0d0d0d]">

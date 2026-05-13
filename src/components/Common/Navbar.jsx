@@ -423,7 +423,14 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
     {
       label: "Just Arrived",
       path: "/#best-sellers",
-      icon: <ImageIcon src={arrivals} alt="Just Arrived" animation="animate-float" />,
+      icon: (
+        <ImageIcon
+          src={arrivals}
+          alt="Just Arrived"
+          animation="animate-float"
+          className="!w-[46px] !h-[46px] lg:!w-8 lg:!h-8 xl:!w-10 xl:!h-10 2xl:!w-11 2xl:!h-11"
+        />
+      ),
     },
     {
       label: "Sale",

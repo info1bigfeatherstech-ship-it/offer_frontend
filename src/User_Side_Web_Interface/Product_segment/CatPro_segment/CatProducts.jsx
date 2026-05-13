@@ -58,10 +58,6 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" })
-  }, [])
-
   // Chunk flat array into rows
   const rows = useMemo(() => {
     const result = [];
@@ -211,6 +207,23 @@ const CatProducts = () => {
   const hasError = !isLoading && !!categoryErrorState;
   const hasMore = pagination?.hasNextPage ?? false;
 
+  // Friendly copy for bad slug / missing category (API still returns e.g. "Category not found")
+  const categoryErrorUserMessage = useMemo(() => {
+    const raw = (categoryErrorState?.message || "").trim();
+    const low = raw.toLowerCase();
+    if (!low) return "Category updated soon";
+    if (low.includes("category not found") || low.includes("not found")) {
+      return "Category updated soon";
+    }
+    if (low.includes("failed to load category") || low.includes("failed to fetch category")) {
+      return "Category updated soon";
+    }
+    if (low.includes("404") || low.includes("status code 404")) {
+      return "Category updated soon";
+    }
+    return raw;
+  }, [categoryErrorState]);
+
   // ── Filter logic ───────────────────────────────────────────────────────────
   const filteredProducts = useMemo(() => {
     if (!products?.length) return [];
@@ -331,6 +344,31 @@ const CatProducts = () => {
       todayArrival: false,
     });
   }, []);
+
+  // ── Scroll to top on every category navigation (incl. wrong slug / error UI) ─
+  // Must live on CatProducts, not VirtualizedProductGrid — the grid only mounts
+  // after successful load with products; loading/error left the window at footer scroll.
+  // useLayoutEffect runs before paint. Use behavior: "instant" so CSS scroll-behavior: smooth
+  // on html/body cannot turn this into a slow animated scroll; microtask re-runs after any
+  // sync layout churn in the same turn without waiting a full frame (unlike rAF).
+  useLayoutEffect(() => {
+    if (!slug) return;
+    const toTop = () => {
+      const html = document.documentElement;
+      const prev = html.style.scrollBehavior;
+      html.style.scrollBehavior = "auto";
+      try {
+        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
+      } catch {
+        window.scrollTo(0, 0);
+      }
+      html.scrollTop = 0;
+      document.body.scrollTop = 0;
+      html.style.scrollBehavior = prev;
+    };
+    toTop();
+    queueMicrotask(toTop);
+  }, [slug]);
 
   // ── Category metadata fetch ────────────────────────────────────────────────
   useEffect(() => {
@@ -719,7 +757,7 @@ const CatProducts = () => {
                   </div>
 
                   <p className="text-zinc-600 text-sm mb-6 max-w-sm">
-                    {categoryErrorState?.message || "Something went wrong while loading products."}
+                    {categoryErrorUserMessage}
                   </p>
 
                   <button
