@@ -146,6 +146,8 @@ const AppContent = () => {
                 />
             )}
 
+            {!isAdminRoute && <WhatsAppFloat />}
+
             <Routes>
                 {/* ── Public routes ──────────────────────────────────────── */}
                 <Route path="/"                element={<Homepage onOpenAuth={openAuthModal} />} />
@@ -241,7 +243,7 @@ const AppContent = () => {
                 />
             )}
             {/* <SideVideo /> */}
-            <WhatsAppFloat />
+            {/* <WhatsAppFloat /> */}
         </div>
     );
 };
