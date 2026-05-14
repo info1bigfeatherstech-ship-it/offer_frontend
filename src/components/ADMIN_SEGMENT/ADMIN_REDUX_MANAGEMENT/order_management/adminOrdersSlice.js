@@ -1,4 +1,4 @@
-import { createSlice } from '@reduxjs/toolkit';
+import { createSlice, createSelector } from '@reduxjs/toolkit';
 
 /**
  * Maps UI tab labels (OrderTab) → backend `bucket` query param.
@@ -162,11 +162,12 @@ function buildDateQueryArgs(ui) {
   return { rangePreset: 'last30' };
 }
 
+const selectAdminOrdersUi = (state) => state.adminOrdersUi;
+
 /**
- * Build RTK Query args for list endpoint from Redux state.
+ * Build RTK Query args for list endpoint from Redux state (memoized — stable ref when UI slice unchanged).
  */
-export function selectAdminOrdersListQueryArgs(state) {
-  const ui = state.adminOrdersUi;
+export const selectAdminOrdersListQueryArgs = createSelector([selectAdminOrdersUi], (ui) => {
   const bucket = ORDER_TAB_LABEL_TO_BUCKET[ui.activeTabLabel] || 'all';
   const dateArgs = buildDateQueryArgs(ui);
   return {
@@ -178,12 +179,11 @@ export function selectAdminOrdersListQueryArgs(state) {
     search: ui.search,
     ...dateArgs,
   };
-}
+});
 
 /**
  * Build summary query args (same range as list).
  */
-export function selectAdminOrdersSummaryQueryArgs(state) {
-  const ui = state.adminOrdersUi;
-  return buildDateQueryArgs(ui);
-}
+export const selectAdminOrdersSummaryQueryArgs = createSelector([selectAdminOrdersUi], (ui) =>
+  buildDateQueryArgs(ui)
+);

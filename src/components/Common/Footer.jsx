@@ -409,7 +409,7 @@ const Footer = () => {
         </div>
       </div>
 
-      <style jsx>{`
+      <style>{`
         @keyframes blob {
           0% { transform: translate(0px, 0px) scale(1); }
           50% { transform: translate(20px, -30px) scale(1.05); }

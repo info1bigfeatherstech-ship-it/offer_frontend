@@ -6,7 +6,7 @@ const UserTicket = () => {
 
   // Mock data for tickets
   const tickets = [
-    { id: 'TKT-9921', subject: 'Late Delivery - Order #ORD-88291', status: 'Open', priority: 'High', date: 'Mar 18, 2026' },
+    { id: 'TKT-9921', subject: 'Late Delivery - Order #OWB-ECOMM-88291', status: 'Open', priority: 'High', date: 'Mar 18, 2026' },
     { id: 'TKT-8840', subject: 'Refund Status for Returned Item', status: 'Resolved', priority: 'Medium', date: 'Feb 12, 2026' },
   ];
 
@@ -68,7 +68,7 @@ const UserTicket = () => {
             </div>
             <div className="space-y-2">
               <label className="text-[11px] font-black uppercase text-gray-400 ml-1">Related Order (Optional)</label>
-              <input type="text" placeholder="#ORD-0000" className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl outline-none font-bold" />
+              <input type="text" placeholder="#OWB-ECOMM-…" className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-black rounded-2xl outline-none font-bold" />
             </div>
             <div className="col-span-full space-y-2">
               <label className="text-[11px] font-black uppercase text-gray-400 ml-1">Explain your problem</label>

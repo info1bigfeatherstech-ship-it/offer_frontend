@@ -150,6 +150,15 @@ function carrierFulfilmentPaymentReady(order, gateFromApi) {
   return false;
 }
 
+/** RTK mutation / axios-style errors from adminOrdersApi */
+function fulfillmentActionErrorText(e, fallback = "Request failed.") {
+  const d = e?.data;
+  if (typeof d === "object" && d && d.message) return String(d.message);
+  if (typeof d === "string" && d.trim()) return d;
+  if (e?.message && String(e.message).trim()) return String(e.message);
+  return fallback;
+}
+
 /**
  * Rich admin order detail — data-driven from GET /orders/items/:orderId (staff sees customer + SKUs).
  */
@@ -169,6 +178,7 @@ export default function AdminOrderDetailView({
   const [pickupDate, setPickupDate] = useState(localYmdTomorrow);
   const [actionMsg, setActionMsg] = useState(null);
   const [invoiceBusy, setInvoiceBusy] = useState(false);
+  const [labelDownloadBusy, setLabelDownloadBusy] = useState(false);
 
   const [ensureShipment, ensureState] = useAdminFulfillmentEnsureShipmentMutation();
   const [assignShip, assignState] = useAdminFulfillmentAssignShipMutation();
@@ -217,7 +227,7 @@ export default function AdminOrderDetailView({
       setTimeout(() => URL.revokeObjectURL(url), 120000);
     } catch (e) {
       if (url) URL.revokeObjectURL(url);
-      setActionMsg({ type: "err", text: invoiceErrorMessage(e) });
+      setActionMsg({ type: "err", text: invoiceErrorMessage(e), surface: "invoice" });
     } finally {
       setInvoiceBusy(false);
     }
@@ -242,7 +252,7 @@ export default function AdminOrderDetailView({
       setTimeout(() => URL.revokeObjectURL(url), 8000);
     } catch (e) {
       if (url) URL.revokeObjectURL(url);
-      setActionMsg({ type: "err", text: invoiceErrorMessage(e) });
+      setActionMsg({ type: "err", text: invoiceErrorMessage(e), surface: "invoice" });
     } finally {
       setInvoiceBusy(false);
     }
@@ -261,6 +271,7 @@ export default function AdminOrderDetailView({
         setActionMsg({
           type: "err",
           text: "Pop-up blocked — allow pop-ups for this site to print, or use Open / Download.",
+          surface: "invoice",
         });
         return;
       }
@@ -279,13 +290,61 @@ export default function AdminOrderDetailView({
       setTimeout(() => URL.revokeObjectURL(url), 180000);
     } catch (e) {
       if (url) URL.revokeObjectURL(url);
-      setActionMsg({ type: "err", text: invoiceErrorMessage(e) });
+      setActionMsg({ type: "err", text: invoiceErrorMessage(e), surface: "invoice" });
     } finally {
       setInvoiceBusy(false);
     }
   }, [orderId, fetchInvoiceObjectUrl]);
+
+  const downloadShippingLabelFile = useCallback(async () => {
+    if (!orderId) return;
+    setActionMsg(null);
+    setLabelDownloadBusy(true);
+    try {
+      const res = await axiosInstance.get(
+        `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/shipping-label-file`,
+        { responseType: "blob" }
+      );
+      let filename = `Shiprocket-label-${String(orderId).replace(/[^\w.-]+/g, "_").slice(0, 80)}.pdf`;
+      const dispo = res.headers["content-disposition"];
+      if (dispo) {
+        const m = /filename\*?=(?:UTF-8''|"?)([^";\n]+)/i.exec(dispo);
+        if (m && m[1]) {
+          filename = decodeURIComponent(m[1].replace(/"/g, "").trim());
+        }
+      }
+      const blob = new Blob([res.data], { type: res.headers["content-type"] || "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+      setActionMsg({ type: "ok", text: "Shipping label file downloaded." });
+    } catch (e) {
+      let msg = e?.message || "Label download failed.";
+      if (e?.response?.data instanceof Blob) {
+        try {
+          const t = await e.response.data.text();
+          const j = JSON.parse(t);
+          if (j?.message) msg = j.message;
+        } catch (_) {
+          /* ignore */
+        }
+      } else if (e?.response?.data && typeof e.response.data === "object" && e.response.data.message) {
+        msg = e.response.data.message;
+      }
+      setActionMsg({ type: "err", text: msg });
+    } finally {
+      setLabelDownloadBusy(false);
+    }
+  }, [orderId]);
+
   const addr = order?.addressSnapshot || {};
   const ship = order?.shipmentInfo || {};
+  const hasCarrierAwb = Boolean(ship.awbCode || ship.trackingNumber);
   const quoteShip = order?.shippingSnapshot || {};
   const coupon = order?.appliedCoupon;
 
@@ -296,7 +355,7 @@ export default function AdminOrderDetailView({
     return `https://wa.me/91${last10}`;
   }, [addr.phone, order?.customer?.phone]);
 
-  if (loading) {
+  if (loading && !order) {
     return (
       <div className="p-6 bg-[#F8FAFC] min-h-screen">
         <div className="max-w-6xl mx-auto animate-pulse space-y-4">
@@ -401,6 +460,18 @@ export default function AdminOrderDetailView({
           </div>
         </div>
 
+        {carrierPaymentHint && (
+          <div
+            className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+            role="status"
+            aria-live="polite"
+          >
+            <div className="rounded-lg px-3 py-2 text-xs text-amber-900 bg-amber-50 border border-amber-100">
+              {carrierPaymentHint}
+            </div>
+          </div>
+        )}
+
         {/* Shipment strip */}
         {(ship.trackingNumber || ship.courier || providerStatus) && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
@@ -441,9 +512,9 @@ export default function AdminOrderDetailView({
                 <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Your store</p>
                 <h3 className="text-lg font-black tracking-tight">GST tax invoice</h3>
                 <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
-                  Ye aapka statutory-style bill hai (server se HTML). Shiprocket dashboard par jo &quot;invoice&quot; / chalan
-                  dikhta hai wo unka logistics document hai — GST return ke liye aap is{" "}
-                  <strong className="text-white">Tax invoice</strong> ko maaney.
+                  This is your store&apos;s tax invoice (HTML from your server). Anything named &quot;invoice&quot; on
+                  Shiprocket&apos;s site is usually a logistics document. For GST and the customer, use this{" "}
+                  <strong className="text-white">tax invoice</strong>.
                 </p>
               </div>
               <div className="flex flex-col items-stretch sm:items-end gap-2 shrink-0">
@@ -474,40 +545,35 @@ export default function AdminOrderDetailView({
                   </button>
                 </div>
                 <p className="text-[10px] text-slate-400 text-right max-w-xs leading-snug">
-                  AWB assign ke baad dubara print/download — invoice par AWB line update ho jati hai. PDF ke liye
-                  Print dialog se &quot;Save as PDF&quot; chun sakte ho.
+                  After AWB is saved, open or print again so the AWB line updates. Use the browser print dialog
+                  &quot;Save as PDF&quot; if you need a PDF file.
                 </p>
+                {actionMsg?.surface === "invoice" && actionMsg?.text ? (
+                  <div
+                    className={`w-full max-w-sm rounded-lg px-3 py-2 text-xs border sm:ml-auto ${
+                      actionMsg.type === "err"
+                        ? "bg-red-950/90 border-red-400/50 text-red-50"
+                        : "bg-emerald-950/80 border-emerald-400/40 text-emerald-50"
+                    }`}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {actionMsg.text}
+                  </div>
+                ) : null}
               </div>
             </div>
 
             <div className="p-4 sm:p-5 space-y-4 border-t border-slate-100">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                <div className="min-w-0">
-                  <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500">
-                    Logistics (Shiprocket)
-                  </h3>
-                  <ol className="text-xs text-slate-600 mt-2 space-y-1.5 list-decimal list-inside leading-relaxed max-w-2xl">
-                    <li>
-                      <span className="font-semibold text-slate-800">Ship now</span> — pehle Shiprocket par shipment /
-                      order create hota hai (agar pehle se nahi),{" "}
-                      <strong className="text-slate-800">phir usi flow mein</strong> courier choose karke{" "}
-                      <span className="font-semibold text-slate-800">AWB assign</span> hota hai. Matlab: alag se
-                      &quot;pehle sirf AWB&quot; user ko dabane ki zaroorat nahi — AWB{" "}
-                      <em className="not-italic text-slate-700">Ship now / assign</em> ke andar generate hota hai.
-                    </li>
-                    <li>
-                      Advanced menu mein split hai: pehle sirf create, baad mein sirf AWB — troubleshooting ke liye.
-                    </li>
-                    <li>
-                      <span className="font-semibold text-slate-800">Pickup date</span> +{" "}
-                      <span className="font-semibold text-slate-800">Schedule pickup</span>, phir{" "}
-                      <span className="font-semibold text-slate-800">Shipping label</span> print.
-                    </li>
-                  </ol>
-                  <p className="text-[11px] text-slate-500 mt-2">
-                    Online orders: payment gate server jaisa hi — rules poori hone par hi buttons enabled.
-                  </p>
-                </div>
+              <div>
+                <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500">
+                  Logistics (Shiprocket)
+                </h3>
+                <p className="text-xs text-slate-600 mt-2 max-w-2xl leading-relaxed">
+                  Checkout shows an <span className="font-semibold">estimated</span> courier and delivery charge from our
+                  rates. Shiprocket uses its own live partners and prices when the shipment is booked — they are not
+                  always the same as checkout.
+                </p>
               </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
@@ -542,25 +608,6 @@ export default function AdminOrderDetailView({
               </div>
             )}
 
-            {actionMsg?.text && (
-              <div
-                className={`rounded-lg px-3 py-2 text-xs ${
-                  actionMsg.type === "err"
-                    ? "bg-red-50 text-red-800 border border-red-100"
-                    : "bg-emerald-50 text-emerald-900 border border-emerald-100"
-                }`}
-              >
-                {actionMsg.text}
-              </div>
-            )}
-
-            {carrierPaymentHint && (
-              <div className="rounded-lg px-3 py-2 text-xs text-amber-900 bg-amber-50 border border-amber-100">
-                {carrierPaymentHint}
-              </div>
-            )}
-
-            <div className="space-y-4 pt-1 border-t border-slate-100">
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Step 1 · Create &amp; assign</p>
                 <div className="flex flex-wrap items-center gap-2">
@@ -576,18 +623,51 @@ export default function AdminOrderDetailView({
                       setActionMsg(null);
                       try {
                         const r = await ensureShipment(orderId).unwrap();
-                        const si = r?.order?.shipmentInfo || {};
-                        if ((!si.awbCode && !si.trackingNumber) && si.shipmentId) {
-                          await assignShip({ orderId }).unwrap();
+                        if (!r?.success) {
+                          throw new Error(r?.message || "Shipment step failed.");
                         }
+                        const si = r?.order?.shipmentInfo || {};
+                        const sr = r?.shipment || {};
+                        const awbFromResp = Boolean(
+                          si.awbCode ||
+                            si.trackingNumber ||
+                            sr.awb_code ||
+                            sr.awbCode ||
+                            sr.tracking_number
+                        );
+                        let assignResult = null;
+                        if (!awbFromResp) {
+                          try {
+                            assignResult = await assignShip({ orderId }).unwrap();
+                          } catch (ae) {
+                            if (ae?.data?.code === "AWB_ALREADY_ASSIGNED") {
+                              setActionMsg({
+                                type: "ok",
+                                text: "Shipment already has an AWB. Details will refresh shortly.",
+                              });
+                              return;
+                            }
+                            throw ae;
+                          }
+                        }
+                        const siFinal = assignResult?.order?.shipmentInfo || si;
+                        const srFinal = assignResult?.shipment || sr;
+                        const awbDisp =
+                          siFinal.awbCode ||
+                          siFinal.trackingNumber ||
+                          srFinal.awb_code ||
+                          srFinal.awbCode ||
+                          srFinal.tracking_number;
                         setActionMsg({
                           type: "ok",
-                          text: "Shipment updated. Details will refresh automatically.",
+                          text: awbDisp
+                            ? `Courier booked. AWB / tracking: ${awbDisp}. Details refresh in a moment.`
+                            : "Shipment updated. Details will refresh shortly.",
                         });
                       } catch (e) {
                         setActionMsg({
                           type: "err",
-                          text: e?.data?.message || e?.message || "Ship now failed.",
+                          text: fulfillmentActionErrorText(e, "Ship now failed."),
                         });
                       }
                     }}
@@ -596,9 +676,22 @@ export default function AdminOrderDetailView({
                     {ensureState.isLoading || assignState.isLoading ? "Working…" : "Ship now"}
                   </button>
                 </div>
-                <p className="text-[11px] text-slate-500 mt-1.5 max-w-xl">
-                  Normal path: one click creates the Shiprocket order and requests AWB. Use advanced only if something failed halfway.
-                </p>
+                {actionMsg?.text && actionMsg.surface !== "invoice" ? (
+                  <div
+                    className={`mt-3 rounded-lg px-3 py-2.5 text-sm border ${
+                      actionMsg.type === "err"
+                        ? "bg-red-50 text-red-800 border-red-100"
+                        : "bg-emerald-50 text-emerald-900 border-emerald-100"
+                    }`}
+                    role="status"
+                    aria-live="polite"
+                  >
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
+                      Shiprocket status
+                    </p>
+                    {actionMsg.text}
+                  </div>
+                ) : null}
               </div>
 
               <details className="group rounded-lg border border-slate-200 bg-slate-50/90 px-3 py-2">
@@ -625,7 +718,7 @@ export default function AdminOrderDetailView({
                       } catch (e) {
                         setActionMsg({
                           type: "err",
-                          text: e?.data?.message || e?.message || "Ensure failed.",
+                          text: fulfillmentActionErrorText(e, "Ensure failed."),
                         });
                       }
                     }}
@@ -650,7 +743,7 @@ export default function AdminOrderDetailView({
                       } catch (e) {
                         setActionMsg({
                           type: "err",
-                          text: e?.data?.message || e?.message || "Assign failed.",
+                          text: fulfillmentActionErrorText(e, "Assign failed."),
                         });
                       }
                     }}
@@ -689,7 +782,7 @@ export default function AdminOrderDetailView({
                       } catch (e) {
                         setActionMsg({
                           type: "err",
-                          text: e?.data?.message || e?.message || "Pickup schedule failed.",
+                          text: fulfillmentActionErrorText(e, "Pickup schedule failed."),
                         });
                       }
                     }}
@@ -700,39 +793,48 @@ export default function AdminOrderDetailView({
                 </div>
               </div>
 
-              <div>
+              <div id="admin-shipping-label-step">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Step 3 · Label</p>
-                <button
-                  type="button"
-                  disabled={fulfillmentBusy || !carrierPaymentReady || !ship.shipmentId}
-                  onClick={async () => {
-                    setActionMsg(null);
-                    try {
-                      const r = await shippingLabel(orderId).unwrap();
-                      const u = r?.labelUrl;
-                      setActionMsg({
-                        type: "ok",
-                        text: u ? "Opening shipping label in a new tab." : "Label request completed.",
-                      });
-                      if (u) window.open(u, "_blank", "noopener,noreferrer");
-                    } catch (e) {
-                      setActionMsg({
-                        type: "err",
-                        text: e?.data?.message || e?.message || "Label failed.",
-                      });
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={fulfillmentBusy || !carrierPaymentReady || !ship.shipmentId || !hasCarrierAwb}
+                    onClick={async () => {
+                      setActionMsg(null);
+                      try {
+                        const r = await shippingLabel(orderId).unwrap();
+                        const u = r?.labelUrl;
+                        setActionMsg({
+                          type: "ok",
+                          text: u ? "Opening shipping label in a new tab." : "Label request completed.",
+                        });
+                        if (u) window.open(u, "_blank", "noopener,noreferrer");
+                      } catch (e) {
+                        setActionMsg({
+                          type: "err",
+                          text: fulfillmentActionErrorText(e, "Label failed."),
+                        });
+                      }
+                    }}
+                    className="px-3 py-2 text-xs font-semibold border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    {labelState.isLoading ? "Working…" : "Open label"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      fulfillmentBusy ||
+                      labelDownloadBusy ||
+                      !carrierPaymentReady ||
+                      !ship.shipmentId ||
+                      !hasCarrierAwb
                     }
-                  }}
-                  className="px-3 py-2 text-xs font-semibold border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-50"
-                >
-                  {labelState.isLoading ? "Working…" : "Shipping label"}
-                </button>
-                <p className="text-[11px] text-slate-500 mt-2 max-w-xl leading-relaxed">
-                  AWB / tracking ID aam taur par <strong className="text-slate-700">numeric ya alphanumeric text</strong>{" "}
-                  hota hai (panel + DB). Package par hub scan ke liye{" "}
-                  <strong className="text-slate-700">barcode</strong> isi ID se banta hai — wo{" "}
-                  <strong className="text-slate-700">Shipping label</strong> PDF/link par milta hai; courier / format ke
-                  hisaab se kabhi QR bhi ho sakta hai, fixed rule nahin.
-                </p>
+                    onClick={downloadShippingLabelFile}
+                    className="px-3 py-2 text-xs font-semibold border border-slate-800 rounded-lg bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {labelDownloadBusy ? "Downloading…" : "Download label (PDF)"}
+                  </button>
+                </div>
               </div>
 
               <div className="pt-2 border-t border-slate-100">
@@ -749,7 +851,7 @@ export default function AdminOrderDetailView({
                     } catch (e) {
                       setActionMsg({
                         type: "err",
-                        text: e?.data?.message || e?.message || "Cancel failed.",
+                        text: fulfillmentActionErrorText(e, "Cancel failed."),
                       });
                     }
                   }}
@@ -770,7 +872,6 @@ export default function AdminOrderDetailView({
               </p>
             </div>
           </div>
-        </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
