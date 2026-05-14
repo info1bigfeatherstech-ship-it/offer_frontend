@@ -168,6 +168,31 @@ export const placeOrder = createAsyncThunk(
 );
 
 /**
+ * POST /api/orders/items/:orderId/abandon-online-checkout
+ * After user dismisses Razorpay on checkout: void pending unpaid online order, restore cart server-side.
+ */
+export const abandonOnlineCheckout = createAsyncThunk(
+  "checkout/abandonOnlineCheckout",
+  async (orderId, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.post(
+        `/orders/items/${encodeURIComponent(String(orderId))}/abandon-online-checkout`
+      );
+      if (!res.data?.success) {
+        throw new Error(res.data?.message || "Could not return to checkout");
+      }
+      return res.data;
+    } catch (err) {
+      return rejectWithValue({
+        message: err.response?.data?.message || err.message || "Could not return to checkout",
+        code: err.response?.data?.code,
+        status: err.response?.status,
+      });
+    }
+  }
+);
+
+/**
  * GET /api/public/razorpay-key
  * Fetches Razorpay key_id from backend
  */
@@ -349,6 +374,7 @@ const initialState = {
     quote: false,
     confirm: false,
     placeOrder: false,
+    abandonCheckout: false,
   },
 
   // Errors
@@ -412,6 +438,12 @@ const checkoutSlice = createSlice({
     },
     resetPaymentVerification: (state) => {
       state.paymentVerification = initialState.paymentVerification;
+    },
+    /** Clears server-backed checkout snapshot after Razorpay dismiss + successful cart restore */
+    clearPlacedOrderForDismissedGateway: (state) => {
+      state.placedOrder = null;
+      state.confirmed = null;
+      state.error.placeOrder = null;
     },
   },
   extraReducers: (builder) => {
@@ -565,6 +597,16 @@ const checkoutSlice = createSlice({
         state.error.placeOrder = action.payload || { message: "Failed to place order" };
       })
 
+      .addCase(abandonOnlineCheckout.pending, (state) => {
+        state.loading.abandonCheckout = true;
+      })
+      .addCase(abandonOnlineCheckout.fulfilled, (state) => {
+        state.loading.abandonCheckout = false;
+      })
+      .addCase(abandonOnlineCheckout.rejected, (state) => {
+        state.loading.abandonCheckout = false;
+      })
+
       // ── getRazorpayKey ───────────────────────────────────────────────────
       .addCase(getRazorpayKey.pending, (state) => {
         state.razorpayKeyLoading = true;
@@ -614,6 +656,7 @@ export const {
   clearCheckoutErrors,
   setDeliveryResult,
   resetPaymentVerification,
+  clearPlacedOrderForDismissedGateway,
 } = checkoutSlice.actions;
 
 // ─────────────────────────────────────────────────────────────────────────────

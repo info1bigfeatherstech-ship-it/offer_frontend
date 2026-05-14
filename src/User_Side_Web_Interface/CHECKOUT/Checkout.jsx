@@ -46,6 +46,8 @@ import {
   verifyRazorpayPayment,
   selectPaymentVerification,
   resetPaymentVerification,
+  abandonOnlineCheckout,
+  clearPlacedOrderForDismissedGateway,
 } from "../../components/REDUX_FEATURES/REDUX_SLICES/checkoutSlice/checkoutSlice";
 
 // Redux — address
@@ -59,6 +61,7 @@ import {
 import {
   selectCartItems, selectDisplayCartCount,
   updateCartItem, removeCartItem,
+  fetchCart,
 } from "../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice";
 
 // Redux — auth
@@ -692,6 +695,8 @@ const Checkout = () => {
   const placeOrderInFlight = useRef(false);
   const checkoutAttemptKeyRef = useRef(null);
   const shouldEvaluateCodNudgeRef = useRef(false);
+  const gatewayDismissRecoveryInFlight = useRef(false);
+  const gatewayDismissHandlerRef = useRef(async () => {});
 
   // Derived
   const allAddresses = [...(defaultAddr ? [defaultAddr] : []), ...otherAddrs];
@@ -884,6 +889,96 @@ const Checkout = () => {
       loading.quote,
     ]
   );
+
+  // RazorpayCheckout mounts with a stale `onClose` if we pass an inline async handler; keep latest logic in a ref.
+  useEffect(() => {
+    gatewayDismissHandlerRef.current = async () => {
+      if (gatewayDismissRecoveryInFlight.current) {
+        return;
+      }
+      gatewayDismissRecoveryInFlight.current = true;
+
+      try {
+        setShowRazorpay(false);
+        setRazorpayOrderData(null);
+        setRazorpayPaymentState(PAYMENT_STATE.CANCELLED);
+
+        const oid = placedOrder?.order?.orderId;
+        if (!oid) {
+          setRazorpayPaymentState(PAYMENT_STATE.IDLE);
+          return;
+        }
+
+        try {
+          await dispatch(abandonOnlineCheckout(oid)).unwrap();
+        } catch (err) {
+          const msg =
+            err?.message ||
+            "Could not return to checkout. Your order may still be pending.";
+          toast.error(msg, { theme: "dark" });
+          toast.info("You can complete payment from My orders if this keeps happening.", {
+            theme: "dark",
+          });
+          setRazorpayPaymentState(PAYMENT_STATE.IDLE);
+          return;
+        }
+
+        checkoutAttemptKeyRef.current = null;
+        dispatch(resetQuote());
+        dispatch(resetPaymentVerification());
+
+        let cartOk = false;
+        let lastCartErr = null;
+        for (let attempt = 0; attempt < 3; attempt += 1) {
+          try {
+            await dispatch(fetchCart()).unwrap();
+            cartOk = true;
+            break;
+          } catch (e) {
+            lastCartErr = e;
+            await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+          }
+        }
+        if (!cartOk) {
+          console.error("[checkout] fetchCart after abandon failed", lastCartErr);
+          toast.error(
+            "Your order was released on the server, but this page could not reload your bag. Please refresh the browser.",
+            { theme: "dark", autoClose: 8000 }
+          );
+          dispatch(clearPlacedOrderForDismissedGateway());
+          setRazorpayPaymentState(PAYMENT_STATE.IDLE);
+          return;
+        }
+
+        if (selectedAddressId && step === 2) {
+          try {
+            await requestQuote({ unwrap: true });
+          } catch (qe) {
+            toast.error(
+              qe?.message ||
+                "Could not refresh totals. Change payment option or address and try again.",
+              { theme: "dark" }
+            );
+          }
+        }
+
+        dispatch(clearPlacedOrderForDismissedGateway());
+        setRazorpayPaymentState(PAYMENT_STATE.IDLE);
+        toast.success(
+          "Payment window closed. Your bag was restored — pick COD, full pay, or partial, then confirm.",
+          { theme: "dark", autoClose: 5000 }
+        );
+      } finally {
+        gatewayDismissRecoveryInFlight.current = false;
+      }
+    };
+  }, [
+    dispatch,
+    placedOrder,
+    selectedAddressId,
+    step,
+    requestQuote,
+  ]);
 
   const handleQuoteRefreshAfterCartMutation = useCallback(async () => {
     checkoutAttemptKeyRef.current = null;
@@ -1162,14 +1257,9 @@ const Checkout = () => {
   checkoutAttemptKeyRef.current = null;
 };
 
- const handleRazorpayClose = () => {
-  setShowRazorpay(false);
-  setRazorpayPaymentState(PAYMENT_STATE.CANCELLED);
-  
-  toast.info("Payment cancelled. Choose COD or try again.", { theme: "dark" });
-  navigate("/account/userorders");
-  setTimeout(() => dispatch(resetCheckout()), 100);
-};
+ const handleRazorpayClose = useCallback(() => {
+  void gatewayDismissHandlerRef.current();
+}, []);
 
   const handleRetryPayment = () => {
     setShowPaymentErrorModal(false);
@@ -1194,6 +1284,7 @@ const Checkout = () => {
     loading.quote ||
     loading.confirm ||
     loading.placeOrder ||
+    loading.abandonCheckout ||
     isPlacingOrder ||
     paymentVerification.loading ||
     (paymentMethod === "online" && !razorpayKey && !razorpayKeyLoading && !razorpayKeyError);
