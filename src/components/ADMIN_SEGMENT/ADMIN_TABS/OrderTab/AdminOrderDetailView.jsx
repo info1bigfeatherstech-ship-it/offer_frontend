@@ -168,6 +168,7 @@ export default function AdminOrderDetailView({
 }) {
   const [pickupDate, setPickupDate] = useState(localYmdTomorrow);
   const [actionMsg, setActionMsg] = useState(null);
+  const [invoiceBusy, setInvoiceBusy] = useState(false);
 
   const [ensureShipment, ensureState] = useAdminFulfillmentEnsureShipmentMutation();
   const [assignShip, assignState] = useAdminFulfillmentAssignShipMutation();
@@ -190,27 +191,99 @@ export default function AdminOrderDetailView({
         ? "Complete payment (or COD rules) before Shiprocket actions."
         : null;
 
+  const fetchInvoiceObjectUrl = useCallback(async () => {
+    const res = await axiosInstance.get(
+      `/orders/admin/items/${encodeURIComponent(String(orderId))}/invoice-html`,
+      { responseType: "text", headers: { Accept: "text/html" } }
+    );
+    const blob = new Blob([res.data], { type: "text/html;charset=utf-8" });
+    return URL.createObjectURL(blob);
+  }, [orderId]);
+
+  const invoiceErrorMessage = (e) =>
+    e?.response?.data?.message ||
+    (typeof e?.response?.data === "string" ? e.response.data : null) ||
+    e?.message ||
+    "Could not load invoice.";
+
   const openTaxInvoice = useCallback(async () => {
     if (!orderId) return;
     setActionMsg(null);
+    setInvoiceBusy(true);
+    let url;
     try {
-      const res = await axiosInstance.get(
-        `/orders/admin/items/${encodeURIComponent(String(orderId))}/invoice-html`,
-        { responseType: "text", headers: { Accept: "text/html" } }
-      );
-      const blob = new Blob([res.data], { type: "text/html;charset=utf-8" });
-      const url = URL.createObjectURL(blob);
+      url = await fetchInvoiceObjectUrl();
       window.open(url, "_blank", "noopener,noreferrer");
       setTimeout(() => URL.revokeObjectURL(url), 120000);
     } catch (e) {
-      const msg =
-        e?.response?.data?.message ||
-        (typeof e?.response?.data === "string" ? e.response.data : null) ||
-        e?.message ||
-        "Could not open invoice.";
-      setActionMsg({ type: "err", text: msg });
+      if (url) URL.revokeObjectURL(url);
+      setActionMsg({ type: "err", text: invoiceErrorMessage(e) });
+    } finally {
+      setInvoiceBusy(false);
     }
-  }, [orderId]);
+  }, [orderId, fetchInvoiceObjectUrl]);
+
+  const downloadTaxInvoice = useCallback(async () => {
+    if (!orderId) return;
+    setActionMsg(null);
+    setInvoiceBusy(true);
+    let url;
+    try {
+      url = await fetchInvoiceObjectUrl();
+      const safeId = String(orderId)
+        .replace(/[^a-zA-Z0-9-_]/g, "_")
+        .slice(0, 80);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `Tax-invoice-${safeId}.html`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 8000);
+    } catch (e) {
+      if (url) URL.revokeObjectURL(url);
+      setActionMsg({ type: "err", text: invoiceErrorMessage(e) });
+    } finally {
+      setInvoiceBusy(false);
+    }
+  }, [orderId, fetchInvoiceObjectUrl]);
+
+  const printTaxInvoice = useCallback(async () => {
+    if (!orderId) return;
+    setActionMsg(null);
+    setInvoiceBusy(true);
+    let url;
+    try {
+      url = await fetchInvoiceObjectUrl();
+      const w = window.open(url, "_blank", "noopener,noreferrer");
+      if (!w) {
+        URL.revokeObjectURL(url);
+        setActionMsg({
+          type: "err",
+          text: "Pop-up blocked — allow pop-ups for this site to print, or use Open / Download.",
+        });
+        return;
+      }
+      const runPrint = () => {
+        try {
+          w.focus();
+          w.print();
+        } catch (_) {
+          /* ignore */
+        }
+      };
+      w.addEventListener("load", runPrint, { once: true });
+      if (w.document?.readyState === "complete") {
+        setTimeout(runPrint, 0);
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 180000);
+    } catch (e) {
+      if (url) URL.revokeObjectURL(url);
+      setActionMsg({ type: "err", text: invoiceErrorMessage(e) });
+    } finally {
+      setInvoiceBusy(false);
+    }
+  }, [orderId, fetchInvoiceObjectUrl]);
   const addr = order?.addressSnapshot || {};
   const ship = order?.shipmentInfo || {};
   const quoteShip = order?.shippingSnapshot || {};
@@ -373,13 +446,38 @@ export default function AdminOrderDetailView({
                   <strong className="text-white">Tax invoice</strong> ko maaney.
                 </p>
               </div>
-              <button
-                type="button"
-                onClick={openTaxInvoice}
-                className="shrink-0 px-5 py-2.5 rounded-lg text-sm font-bold bg-white text-slate-900 hover:bg-slate-100 shadow-sm"
-              >
-                Open tax invoice
-              </button>
+              <div className="flex flex-col items-stretch sm:items-end gap-2 shrink-0">
+                <div className="flex flex-wrap gap-2 justify-end">
+                  <button
+                    type="button"
+                    onClick={openTaxInvoice}
+                    disabled={invoiceBusy || !orderId}
+                    className="px-4 py-2.5 rounded-lg text-xs font-bold bg-white text-slate-900 hover:bg-slate-100 shadow-sm disabled:opacity-50"
+                  >
+                    {invoiceBusy ? "…" : "Open"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={printTaxInvoice}
+                    disabled={invoiceBusy || !orderId}
+                    className="px-4 py-2.5 rounded-lg text-xs font-bold bg-slate-700 text-white hover:bg-slate-600 border border-slate-600 disabled:opacity-50"
+                  >
+                    Print
+                  </button>
+                  <button
+                    type="button"
+                    onClick={downloadTaxInvoice}
+                    disabled={invoiceBusy || !orderId}
+                    className="px-4 py-2.5 rounded-lg text-xs font-bold bg-emerald-700 text-white hover:bg-emerald-600 disabled:opacity-50"
+                  >
+                    Download
+                  </button>
+                </div>
+                <p className="text-[10px] text-slate-400 text-right max-w-xs leading-snug">
+                  AWB assign ke baad dubara print/download — invoice par AWB line update ho jati hai. PDF ke liye
+                  Print dialog se &quot;Save as PDF&quot; chun sakte ho.
+                </p>
+              </div>
             </div>
 
             <div className="p-4 sm:p-5 space-y-4 border-t border-slate-100">
@@ -628,6 +726,13 @@ export default function AdminOrderDetailView({
                 >
                   {labelState.isLoading ? "Working…" : "Shipping label"}
                 </button>
+                <p className="text-[11px] text-slate-500 mt-2 max-w-xl leading-relaxed">
+                  AWB / tracking ID aam taur par <strong className="text-slate-700">numeric ya alphanumeric text</strong>{" "}
+                  hota hai (panel + DB). Package par hub scan ke liye{" "}
+                  <strong className="text-slate-700">barcode</strong> isi ID se banta hai — wo{" "}
+                  <strong className="text-slate-700">Shipping label</strong> PDF/link par milta hai; courier / format ke
+                  hisaab se kabhi QR bhi ho sakta hai, fixed rule nahin.
+                </p>
               </div>
 
               <div className="pt-2 border-t border-slate-100">
@@ -976,14 +1081,32 @@ export default function AdminOrderDetailView({
                   <span aria-hidden>💬</span> WhatsApp customer
                 </a>
               )}
-              <button
-                type="button"
-                onClick={openTaxInvoice}
-                disabled={!orderId}
-                className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium text-slate-900 hover:bg-slate-50 border border-slate-200 disabled:opacity-50"
-              >
-                View tax invoice
-              </button>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={openTaxInvoice}
+                  disabled={invoiceBusy || !orderId}
+                  className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium text-slate-900 hover:bg-slate-50 border border-slate-200 disabled:opacity-50"
+                >
+                  Open tax invoice
+                </button>
+                <button
+                  type="button"
+                  onClick={printTaxInvoice}
+                  disabled={invoiceBusy || !orderId}
+                  className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium text-slate-900 hover:bg-slate-50 border border-slate-200 disabled:opacity-50"
+                >
+                  Print tax invoice
+                </button>
+                <button
+                  type="button"
+                  onClick={downloadTaxInvoice}
+                  disabled={invoiceBusy || !orderId}
+                  className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium text-slate-900 hover:bg-slate-50 border border-slate-200 disabled:opacity-50"
+                >
+                  Download tax invoice (.html)
+                </button>
+              </div>
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-[11px] text-slate-500 leading-relaxed">
