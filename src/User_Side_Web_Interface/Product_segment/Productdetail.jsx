@@ -1075,9 +1075,10 @@ const ProductUI = ({ openAuthModal }) => {
           <div className="bg-gray-50 rounded-2xl sm:rounded-3xl overflow-hidden ">
             <div className="flex flex-col lg:grid lg:grid-cols-2">
 
-              {/* ── LEFT: Gallery + customer reviews below ── */}
-              <div className="flex flex-col w-full gap-4 lg:gap-6 lg:border-r border-gray-100 lg:pr-4 min-w-0">
-                <div className="flex flex-row gap-6 min-w-0">
+              {/* ── LEFT: gallery + reviews = one grid cell on lg (avoids 2-row + row-span-2 height glitches); max-lg:contents keeps mobile order gallery → product → reviews ── */}
+              <div className="max-lg:contents lg:flex lg:flex-col lg:gap-6 lg:min-w-0 lg:border-r lg:border-gray-100 lg:pr-4">
+                <div className="order-1 lg:order-none flex flex-col w-full gap-4 lg:gap-6 min-w-0">
+                  <div className="flex flex-row gap-6 min-w-0">
 
                   {images.length > 0 && (
                     <div className="hidden lg:flex flex-col items-center gap-0 py-3 px-2 border-r border-gray-100 bg-gray-50 flex-shrink-0 w-[76px]">
@@ -1205,9 +1206,9 @@ const ProductUI = ({ openAuthModal }) => {
                     )}
                   </div>
                 </div>{/* end image row */}
-              </div>{/* end left column */}
+                </div>{/* end gallery stack */}
 
-              <div className="order-3 lg:order-none lg:col-start-1 lg:row-start-2 lg:border-r border-gray-100 lg:pr-4 mt-4 lg:mt-0">
+              <div className="order-3 lg:order-none w-full mt-4 lg:mt-0">
                 {/* Reviews: directly under gallery on desktop; after product info on mobile */}
                 {/* START REVIEWS SECTION */}
                 {(() => {
@@ -1477,8 +1478,9 @@ const ProductUI = ({ openAuthModal }) => {
                 })()}
                 {/* END REVIEWS SECTION */}
               </div>{/* end reviews wrapper */}
+              </div>{/* end merge: gallery + reviews (lg) / contents (mobile) */}
 
-              <div className="order-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-2 flex flex-col min-w-0">
+              <div className="order-2 lg:order-none lg:col-start-2 lg:self-start flex flex-col min-w-0">
                 {/* ── RIGHT: Info panel ── */}
                 <div className="flex relative flex-col gap-3 p-4 sm:p-6 lg:p-7">
                   {showZoom && !isMobile && (
@@ -1625,13 +1627,14 @@ const ProductUI = ({ openAuthModal }) => {
                                 className="
                                   flex-1 min-w-0
                                   px-4 sm:px-6 md:px-8
+                                  cursor-pointer
                                   py-3
                                   rounded-xl
                                   text-sm md:text-base
                                   font-semibold
                                   whitespace-nowrap
                                   flex items-center justify-center gap-2
-                                  bg-[#F7A221] text-white
+                                  bg-[#F7A221] text-dark-900
                                   hover:bg-[#F7A221]
                                   transition active:scale-[0.97]
                                   disabled:opacity-70 disabled:cursor-not-allowed

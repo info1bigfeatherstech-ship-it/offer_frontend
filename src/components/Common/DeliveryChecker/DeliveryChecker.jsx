@@ -36,20 +36,17 @@ const DeliveryChecker = ({
   const loading = useSelector(selectCheckoutLoading);
   const error = useSelector(selectCheckoutError);
 
-  const [pincode, setPincode] = useState(prefillPincode || "");
-  const hasAutoChecked = useRef(false);
+  const [pincode, setPincode] = useState(() => String(prefillPincode || "").trim());
 
-  // Auto-check when prefillPincode is provided
+  // Sync + auto-check when prefill becomes available or changes (e.g. default address loads after mount)
+  const lastPrefillSynced = useRef("");
   useEffect(() => {
-    if (
-      prefillPincode &&
-      /^\d{6}$/.test(prefillPincode) &&
-      !hasAutoChecked.current
-    ) {
-      hasAutoChecked.current = true;
-      setPincode(prefillPincode);
-      dispatch(checkDelivery({ pincode: prefillPincode }));
-    }
+    const p = String(prefillPincode || "").trim();
+    if (!/^\d{6}$/.test(p)) return;
+    if (lastPrefillSynced.current === p) return;
+    lastPrefillSynced.current = p;
+    setPincode(p);
+    dispatch(checkDelivery({ pincode: p }));
   }, [prefillPincode, dispatch]);
 
   // Fire onResult callback whenever delivery state changes

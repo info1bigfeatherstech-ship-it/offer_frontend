@@ -655,11 +655,7 @@ const CatProducts = () => {
                     <SlidersHorizontal size={15} />
                     <span className="text-sm font-bold uppercase tracking-widest">Filters</span>
                   </div>
-                  <Link to="/" className="text-zinc-900 flex items-center gap-2 hover:text-yellow-500 transition-colors">
-                    <Home size={16} /> {/* or House, HomeIcon depending on your icon library */}
-                    <span className="text-sm">Go  home</span>
-                    <ChevronRight size={14} />
-                  </Link>
+                
                 </div>
                 {activeFilterCount > 0 && (
                   <span className="text-[10px] font-bold bg-zinc-900 text-white px-2 py-0.5 rounded-full">

@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import {
   X, ShoppingBag, Trash2, Plus, Minus, ArrowRight,
-  RefreshCw, AlertCircle, Star, MapPin, CheckCircle2,
-  XCircle, Loader2, Truck, Edit2,
+  RefreshCw, AlertCircle, Star, CheckCircle2,
+  XCircle, Loader2,
 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 
@@ -22,16 +22,14 @@ import {
   selectDisplayCartCount,
 } from '../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice';
 
-import {
-  checkDelivery,
-  selectDelivery,
-  selectCheckoutLoading,
-  selectCheckoutError,
-} from '../../components/REDUX_FEATURES/REDUX_SLICES/checkoutSlice/checkoutSlice';
-
 import { selectDefaultAddress } from '../../components/REDUX_FEATURES/REDUX_SLICES/Useraddressslice';
 
 import axiosInstance from '../../SERVICES/axiosInstance';
+
+import CartDeliverySection from './CartDeliverySection';
+
+import { fetchCategories } from '../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/categoriesSlice';
+import { getProductCategoryDisplayName } from '../../utils/getProductCategoryDisplayName';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -53,246 +51,9 @@ const logError = (context, error, info = {}) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// DeliverySection
-// ─────────────────────────────────────────────────────────────────────────────
-const DeliverySection = ({ isLoggedIn, userPincode }) => {
-  const dispatch        = useDispatch();
-  const delivery        = useSelector(selectDelivery);
-  const checkoutLoading = useSelector(selectCheckoutLoading);
-  const checkoutError   = useSelector(selectCheckoutError);
-
-  // pincode used for the "free-type" input when no saved address / guest
-  const [pincode,           setPincode]           = useState('');
-  // editing mode — logged-in user with saved address wants to check a different pincode
-  const [isEditing,         setIsEditing]         = useState(false);
-  const [tempPincode,       setTempPincode]       = useState('');
-  const [isDeliveryLoading, setIsDeliveryLoading] = useState(false);
-
-  // Prevent double auto-check on strict-mode double-mount
-  const hasAutoChecked = useRef(false);
-
-  // ── Auto-check saved pincode when the sidebar opens ──────────
-  useEffect(() => {
-    if (
-      isLoggedIn &&
-      userPincode &&
-      /^\d{6}$/.test(userPincode) &&
-      !hasAutoChecked.current
-    ) {
-      hasAutoChecked.current = true;
-      /* eslint-disable react-hooks/set-state-in-effect -- sync local pincode with saved address before checkDelivery */
-      setPincode(userPincode);
-      setIsDeliveryLoading(true);
-      /* eslint-enable react-hooks/set-state-in-effect */
-      dispatch(checkDelivery({ pincode: userPincode }))
-        .finally(() => setIsDeliveryLoading(false));
-    }
-  }, [userPincode, dispatch, isLoggedIn]);
-
-  // ── Reset auto-check flag if userPincode changes (e.g. address updated) ──
-  useEffect(() => {
-    hasAutoChecked.current = false;
-  }, [userPincode]);
-
-  // ── Handlers ─────────────────────────────────────────────────
-  const handleCheck = () => {
-    if (!/^\d{6}$/.test(pincode)) return;
-    setIsDeliveryLoading(true);
-    dispatch(checkDelivery({ pincode }))
-      .finally(() => setIsDeliveryLoading(false));
-  };
-
-  const handleEditClick = () => {
-    setTempPincode('');
-    setIsEditing(true);
-  };
-
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-    setTempPincode('');
-    // Restore auto-checked result for saved pincode (already in Redux, no re-fetch needed)
-  };
-
-  const handleTempCheck = () => {
-    if (!/^\d{6}$/.test(tempPincode)) return;
-    setIsDeliveryLoading(true);
-    setPincode(tempPincode);
-    dispatch(checkDelivery({ pincode: tempPincode }))
-      .finally(() => {
-        setIsDeliveryLoading(false);
-        setIsEditing(false);
-        setTempPincode('');
-      });
-  };
-
-  const isChecking = !!(checkoutLoading?.delivery) || isDeliveryLoading;
-
-  // "Has result" means Redux has a checked pincode that matches what we're showing
-  const hasResult =
-    delivery.isDeliverable !== null &&
-    delivery.checkedPincode === pincode &&
-    !isEditing;
-
-  // ── View: spinner while auto-checking saved pincode ──────────
-  if (isChecking && isLoggedIn && userPincode && !isEditing) {
-    return (
-      <div className="flex items-center gap-2 rounded-xl px-3.5 py-2.5 bg-gray-50 border border-gray-100">
-        <Loader2 size={14} className="animate-spin text-[#F7A221]" />
-        <span className="text-[11px] font-medium text-gray-500">Checking delivery to {userPincode}…</span>
-      </div>
-    );
-  }
-
-  // ── View: saved pincode delivery result (not editing) ────────
-  if (isLoggedIn && userPincode && !isEditing && hasResult) {
-    return (
-      <div className="flex flex-col gap-2">
-        <div
-          className={`flex items-center justify-between rounded-xl px-3.5 py-2.5 border ${
-            delivery.isDeliverable
-              ? 'bg-green-50 border-green-100'
-              : 'bg-red-50 border-red-100'
-          }`}
-        >
-          <div className="flex items-start gap-2.5">
-            {delivery.isDeliverable ? (
-              <>
-                <Truck size={14} className="text-green-500 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-[11px] font-black text-green-800">
-                    Delivery to{' '}
-                    <span className="text-green-600">{delivery.checkedPincode}</span>
-                  </p>
-                  {delivery.estimatedDays && (
-                    <p className="text-[10px] text-green-600 font-bold mt-0.5">
-                      Arrives in{' '}
-                      <span className="font-black">{delivery.estimatedDays} business days</span>
-                      {delivery.courierName ? ` via ${delivery.courierName}` : ''}
-                    </p>
-                  )}
-                </div>
-              </>
-            ) : (
-              <>
-                <XCircle size={14} className="text-red-400 mt-0.5 flex-shrink-0" />
-                <div>
-                  <p className="text-[11px] font-black text-red-700">
-                    Not deliverable to {delivery.checkedPincode}
-                  </p>
-                  <p className="text-[10px] text-red-500 font-medium mt-0.5">
-                    {delivery.message || "We don't deliver to this pincode yet"}
-                  </p>
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Edit / check different pincode */}
-          <button
-            onClick={handleEditClick}
-            className="p-1.5 hover:bg-white/70 rounded-full transition-colors flex-shrink-0 cursor-pointer ml-2"
-            aria-label="Change pincode"
-            title="Check a different pincode"
-          >
-            <Edit2 size={14} className="text-gray-500" />
-          </button>
-        </div>
-
-        {checkoutError?.delivery && (
-          <p className="text-[10px] text-red-500 font-bold flex items-center gap-1">
-            <XCircle size={11} /> {checkoutError.delivery.message}
-          </p>
-        )}
-      </div>
-    );
-  }
-
-  // ── View: input field for guests / no saved address / editing mode ──
-  // When in editing mode for a logged-in user with saved address, we show
-  // the temp input. For guests / no address, we show the regular input.
-  const inputValue    = isEditing ? tempPincode    : pincode;
-  const setInputValue = isEditing ? setTempPincode : setPincode;
-  const checkHandler  = isEditing ? handleTempCheck : handleCheck;
-  const checkDisabled = inputValue.length !== 6 || isChecking;
-
-  return (
-    <div className="flex flex-col gap-2">
-      {/* If editing, show a small hint */}
-      {isEditing && (
-        <p className="text-[10px] text-gray-500 font-medium flex items-center gap-1">
-          <MapPin size={10} className="text-[#F7A221]" />
-          Check delivery for a different pincode (saved: {userPincode})
-        </p>
-      )}
-
-      <div className="flex items-center gap-2">
-        <div className="flex items-center gap-1.5 bg-gray-50 border border-gray-200 rounded-full px-3 py-2 flex-1">
-          <MapPin size={12} className="text-gray-400 flex-shrink-0" />
-          <input
-            type="text"
-            inputMode="numeric"
-            value={inputValue}
-            onChange={(e) => {
-              const v = e.target.value.replace(/\D/g, '').slice(0, 6);
-              setInputValue(v);
-            }}
-            onKeyDown={(e) => e.key === 'Enter' && checkHandler()}
-            placeholder="Enter pincode"
-            className="bg-transparent text-xs font-bold outline-none w-full placeholder-gray-400"
-            maxLength={6}
-            autoFocus={isEditing}
-          />
-        </div>
-
-        <button
-          onClick={checkHandler}
-          disabled={checkDisabled}
-          className="text-xs font-black uppercase tracking-widest text-[#F7A221] hover:text-black disabled:opacity-40 transition-colors cursor-pointer flex-shrink-0"
-        >
-          {isChecking ? <Loader2 size={12} className="animate-spin" /> : 'Check'}
-        </button>
-
-        {/* Cancel only in editing mode */}
-        {isEditing && (
-          <button
-            onClick={handleCancelEdit}
-            className="text-xs font-black uppercase tracking-widest text-gray-400 hover:text-red-500 transition-colors cursor-pointer flex-shrink-0"
-          >
-            Cancel
-          </button>
-        )}
-
-        {/* Inline result pill — only for guest / no-address check (not editing mode) */}
-        {!isChecking && !isEditing && hasResult && (
-          delivery.isDeliverable ? (
-            <div className="flex items-center gap-1 text-green-600 flex-shrink-0">
-              <CheckCircle2 size={13} />
-              <span className="text-[11px] font-black whitespace-nowrap">
-                {delivery.estimatedDays ? `${delivery.estimatedDays}d` : '✓'}
-              </span>
-            </div>
-          ) : (
-            <div className="flex items-center gap-1 text-red-500 flex-shrink-0">
-              <XCircle size={13} />
-              <span className="text-[11px] font-black whitespace-nowrap">N/A</span>
-            </div>
-          )
-        )}
-      </div>
-
-      {checkoutError?.delivery && (
-        <p className="text-[10px] text-red-500 font-bold flex items-center gap-1">
-          <XCircle size={11} /> {checkoutError.delivery.message}
-        </p>
-      )}
-    </div>
-  );
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
 // CartItem — cart line (guest rows get `product` merged in CartSidebar after fetch)
 // ─────────────────────────────────────────────────────────────────────────────
-const CartItem = ({ item, onUpdateQty, onRemove, isUpdating, isRemoving, productPath, onClose }) => {
+const CartItem = ({ item, onUpdateQty, onRemove, isUpdating, isRemoving, productPath, onClose, categories = [] }) => {
   const product = item.product ?? null;
 
   const matchedVariant = product
@@ -318,10 +79,14 @@ const CartItem = ({ item, onUpdateQty, onRemove, isUpdating, isRemoving, product
 
   const basePrice      = item.price?.base ?? null;
   const discountPct    = item.price?.discountPercentage ?? 0;
-  const brand          = product?.brand || null;
-  const variantAttrs   = item.variantAttributesSnapshot ?? matchedVariant?.attributes ?? [];
   const qty            = item.quantity || 1;
   const itemTotal      = price != null ? price * qty : null;
+
+  const categoryLabel = useMemo(
+    () => getProductCategoryDisplayName(product?.category, categories),
+    [product?.category, categories]
+  );
+  const showCategory = categoryLabel !== 'Uncategorized';
 
   const handleUpdateQty = (e, newQty) => { e.stopPropagation(); onUpdateQty(item, newQty); };
   const handleRemove    = (e)         => { e.stopPropagation(); onRemove(item); };
@@ -356,18 +121,13 @@ const CartItem = ({ item, onUpdateQty, onRemove, isUpdating, isRemoving, product
             )}
           </div>
 
-          <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
-            {brand && (
+          {showCategory && (
+            <div className="flex items-center gap-1.5 flex-wrap mt-0.5">
               <span className="text-[10px] text-gray-400 uppercase font-medium tracking-wider">
-                {brand}
+                {categoryLabel}
               </span>
-            )}
-            {variantAttrs.map((a) => (
-              <span key={a._id || a.key} className="text-[10px] text-gray-400 uppercase font-medium tracking-wider">
-                · {a.key}: {a.value}
-              </span>
-            ))}
-          </div>
+            </div>
+          )}
 
           <div className="flex items-center gap-1.5 mt-0.5 flex-wrap">
             {price != null && <p className="text-xs text-gray-400">{fmt(price)} × {qty}</p>}
@@ -420,6 +180,7 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth }) => {
   const loading      = useSelector(selectCartLoading);
   const error        = useSelector(selectCartError);
   const { isLoggedIn } = useSelector((state) => state.auth);
+  const categories = useSelector((state) => state.categories?.categories ?? []);
 
   // Same approach as Navbar — read from the address slice directly.
   // Navbar already dispatches fetchAddresses() when logged in,
@@ -521,6 +282,11 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth }) => {
         .catch((e) => logError('fetchCart on open', e));
     }
   }, [isOpen, isLoggedIn, dispatch]);
+
+  useEffect(() => {
+    if (!isOpen || categories.length > 0) return;
+    dispatch(fetchCategories()).catch(() => {});
+  }, [isOpen, categories.length, dispatch]);
 
   // ── Lock body scroll when open ────────────────────────────────
   useEffect(() => {
@@ -754,6 +520,7 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth }) => {
                       isRemoving={loadingState.removing}
                       productPath={path}
                       onClose={handleClose}
+                      categories={categories}
                     />
                   </div>
                 );
@@ -807,7 +574,7 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth }) => {
         {/* Footer — only shown when cart has items */}
         {currentItems.length > 0 && (
           <div className="border-t px-6 py-5 bg-gray-50/50 space-y-3">
-            <DeliverySection isLoggedIn={isLoggedIn} userPincode={userPincode} />
+            <CartDeliverySection isLoggedIn={isLoggedIn} userPincode={userPincode} />
 
             <div className="border-t border-gray-100 pt-3 space-y-3">
               <div className="flex justify-between items-center">
