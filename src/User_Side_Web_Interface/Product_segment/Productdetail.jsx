@@ -789,14 +789,16 @@ const ProductUI = ({ openAuthModal }) => {
   const images = selectedVariant?.images ?? [];
   const activeImg = images[activeThumb]?.url ?? null;
 
-  // ── Auto-slide: advance every 3s on mobile, pause when fullscreen sheet is open ──
+  // ── Auto-advance gallery every 3s (same as mobile) on all breakpoints.
+  // Pause when fullscreen image sheet is open, or while desktop hover-zoom lens is active.
   useEffect(() => {
-    if (!isMobile || isVisible || images.length <= 1) return;
+    if (isVisible || images.length <= 1) return;
+    if (!isMobile && showZoom) return;
     const timer = setInterval(() => {
       setActiveThumb((prev) => (prev + 1) % images.length);
     }, 3000);
     return () => clearInterval(timer);
-  }, [isMobile, isVisible, images.length, activeThumb]);
+  }, [isMobile, isVisible, images.length, showZoom, selectedVariant?._id]);
 
   const salePrice = selectedVariant?.finalPrice ?? selectedVariant?.price?.sale ?? selectedVariant?.price?.base ?? null;
   const basePrice = selectedVariant?.price?.base ?? null;

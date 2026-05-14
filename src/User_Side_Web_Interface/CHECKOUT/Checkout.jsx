@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
@@ -6,7 +6,7 @@ import {
   Loader2, MapPin, CreditCard, Truck, CheckCircle2,
   Package, AlertCircle, ArrowLeft, ShoppingBag,
   Banknote, X, Clock, ChevronDown, ChevronUp, Gift,
-  Minus, Plus, Trash2,
+  Minus, Plus, Trash2, PartyPopper,
 } from "lucide-react";
 
 // Redux — checkout
@@ -70,6 +70,7 @@ import { selectUser } from "../../components/REDUX_FEATURES/REDUX_SLICES/authSli
 // Components
 import AddressSelector from "./AddressSelector/AddressSelector";
 import PriceBreakdown from "./PriceBreakdown/PriceBreakdown";
+import { computeCheckoutPsychologyPricing, getCartLineUnitPay } from "../../utils/checkoutPriceDisplay";
 import { AddressFormModal } from "../User_Dash_Segment/UserSubPages/UserAddress";
 import RazorpayCheckout, {
   PaymentErrorModal, PaymentLoadingModal,
@@ -96,6 +97,9 @@ const fmt = (n) =>
   new Intl.NumberFormat("en-IN", {
     style: "currency", currency: "INR", maximumFractionDigits: 0,
   }).format(n ?? 0);
+
+/** Same figure as COD nudge / “Get extra discount” — full online vs COD handling. */
+const ONLINE_FULL_VS_COD_SAVINGS_INR = 49;
 
 const createCheckoutAttemptKey = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
@@ -260,8 +264,7 @@ const StepIndicator = ({ step }) => (
 );
 
 const PrepaidSavingsPopup = ({ onSwitchToPrepaid, onContinueCod, onClose }) => {
-  const codHandlingFee = 49;
-  const totalSavings = codHandlingFee;
+  const totalSavings = ONLINE_FULL_VS_COD_SAVINGS_INR;
 
   return (
     <>
@@ -284,22 +287,66 @@ const PrepaidSavingsPopup = ({ onSwitchToPrepaid, onContinueCod, onClose }) => {
           30% { opacity: 1; }
           100% { opacity: 0; transform: translateY(-8px) scale(1.1); }
         }
+        .prepaid-popup-primary:hover {
+          filter: brightness(0.96);
+          box-shadow: 0 8px 24px rgba(247, 162, 33, 0.45);
+        }
+        .prepaid-popup-primary:active {
+          transform: scale(0.98);
+        }
+        .prepaid-popup-cod:hover {
+          background: #d6d3d1 !important;
+        }
+        .prepaid-popup-cod:active {
+          transform: scale(0.98);
+        }
+        /* Fluid title: scales on all viewports; EXTRA uses em so it stays proportionally larger */
+        .prepaid-savings-title {
+          font-size: clamp(0.875rem, 2.2vw + 0.55rem, 1.375rem);
+          line-height: 1.28;
+          color: #111;
+        }
+        .prepaid-savings-extra {
+          color: #dc2626;
+          font-size: 1.08em;
+          font-weight: 800;
+          line-height: 1.15;
+        }
+        .prepaid-savings-card {
+          width: min(100%, 28rem);
+          max-width: min(100%, calc(100vw - 1.25rem));
+        }
+        .prepaid-popup-primary {
+          border: 0 !important;
+          outline: none;
+          box-shadow: none;
+        }
+        .prepaid-popup-primary:focus-visible {
+          outline: 2px solid #d97706;
+          outline-offset: 3px;
+        }
       `}</style>
       <div
-        className="fixed inset-0 z-[120] flex items-center justify-center p-4"
-        style={{ background: "rgba(17, 24, 39, 0.55)", animation: "prepaid-overlay-fade 220ms ease-out" }}
+        className="fixed inset-0 z-[120] flex items-center justify-center p-3 min-[380px]:p-4 sm:p-5"
+        style={{
+          background: "rgba(17, 24, 39, 0.55)",
+          animation: "prepaid-overlay-fade 220ms ease-out",
+          paddingBottom: "max(0.75rem, env(safe-area-inset-bottom, 0px))",
+        }}
         role="dialog"
         aria-modal="true"
+        aria-labelledby="prepaid-savings-title"
         aria-label="Pay online discount offer"
         onClick={onClose}
       >
         <div
-          className="relative w-full max-w-md rounded-3xl p-4 sm:p-6 overflow-hidden"
+          className="prepaid-savings-card relative rounded-2xl sm:rounded-3xl p-4 min-[380px]:p-5 sm:p-6 overflow-hidden mx-auto min-w-0"
           style={{
             background: "#fff",
             border: "1px solid #f0e8d8",
             boxShadow: "0 30px 80px rgba(0,0,0,0.28)",
             animation: "prepaid-card-pop 320ms cubic-bezier(.22,1,.36,1)",
+            maxHeight: "min(90vh, 520px)",
           }}
           onClick={(e) => e.stopPropagation()}
         >
@@ -307,7 +354,7 @@ const PrepaidSavingsPopup = ({ onSwitchToPrepaid, onContinueCod, onClose }) => {
             type="button"
             onClick={onClose}
             aria-label="Close pay online discount popup"
-            className="absolute right-3 top-3 rounded-full p-1.5 cursor-pointer"
+            className="absolute right-3 top-3 rounded-full p-1.5 cursor-pointer z-10 transition-colors hover:bg-gray-100"
             style={{ border: "1px solid #f0e8d8", background: "#fff", color: "#6b7280" }}
           >
             <X size={14} />
@@ -340,48 +387,67 @@ const PrepaidSavingsPopup = ({ onSwitchToPrepaid, onContinueCod, onClose }) => {
             }}
           />
 
-          <div className="flex items-start gap-2 sm:gap-3">
+          <div className="flex items-start gap-2.5 sm:gap-3 pr-9 sm:pr-10">
             <div
               className="flex items-center justify-center shrink-0"
               style={{
-                width: 40,
-                height: 40,
+                width: "clamp(2.25rem, 5vw, 2.5rem)",
+                height: "clamp(2.25rem, 5vw, 2.5rem)",
                 borderRadius: 12,
                 background: "#FEF3E2",
                 animation: "prepaid-gift-bounce 1.6s ease-in-out infinite",
               }}
             >
-              <Gift size={18} style={{ color: "#F59E0B" }} />
+              <Gift
+                className="w-[clamp(1rem,2.8vw,1.125rem)] h-[clamp(1rem,2.8vw,1.125rem)]"
+                style={{ color: "#F59E0B" }}
+              />
             </div>
-            <div className="flex-1">
-              <p className="font-black uppercase" style={{ fontSize: 9, color: "#111", letterSpacing: "0.06em" }}>
+            <div className="flex-1 min-w-0 text-left">
+              <p
+                className="font-black uppercase"
+                style={{
+                  fontSize: "clamp(0.5rem, 1.1vw + 0.45rem, 0.5625rem)",
+                  color: "#111",
+                  letterSpacing: "0.06em",
+                }}
+              >
                 Payment choice
               </p>
-              <h3 className="font-black mt-1" style={{ fontSize: 22, color: "#111", lineHeight: 1.15 }}>
-                {fmt(totalSavings)} discount on pay online
+              <h3 id="prepaid-savings-title" className="prepaid-savings-title font-black mt-1 break-words">
+                <span className="text-[#111]">Get </span>
+                <span className="prepaid-savings-extra">EXTRA {fmt(totalSavings)} Discount</span>
+                <span className="text-[#111]"> On Pay Online</span>
               </h3>
-              {/* <p style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
-                We are giving you this discount when you choose full online payment. Your exact payable total is in the order summary above.
-              </p> */}
             </div>
           </div>
 
-          <div className="mt-5">
+          <div className="mt-4 min-[380px]:mt-5 sm:mt-6 flex flex-col gap-2.5 sm:gap-3">
             <button
               type="button"
               onClick={onSwitchToPrepaid}
-              className="w-full py-3 rounded-2xl font-black text-lg sm:text-sm uppercase tracking-widest"
-              style={{ border: "none", color: "#fff", background: "#111", cursor: "pointer" }}
+              className="prepaid-popup-primary w-full py-3 min-[380px]:py-3.5 rounded-xl sm:rounded-2xl font-black uppercase tracking-widest transition-transform duration-150 text-[clamp(0.7rem,1.5vw+0.45rem,0.95rem)] sm:text-[clamp(0.75rem,1.2vw+0.5rem,1rem)]"
+              style={{
+                color: "#111",
+                background: "#F7A221",
+                cursor: "pointer",
+              }}
             >
               Pay online
             </button>
             <button
               type="button"
               onClick={onContinueCod}
-              className="w-full mt-3 text-center font-black"
-              style={{ fontSize: 18, color: "#6b7280", background: "none", border: "none", cursor: "pointer" }}
+              className="prepaid-popup-cod w-full py-3 min-[380px]:py-3.5 rounded-xl sm:rounded-2xl font-black uppercase tracking-wide transition-transform duration-150 text-[clamp(0.7rem,1.5vw+0.45rem,0.95rem)] sm:text-[clamp(0.75rem,1.2vw+0.5rem,1rem)]"
+              style={{
+                color: "#111",
+                background: "#e7e5e4",
+                border: "1px solid #d6d3d1",
+                cursor: "pointer",
+                boxShadow: "inset 0 1px 0 rgba(255,255,255,0.6)",
+              }}
             >
-              Continue with <span className="font-black" style={{ color: "#111" }}>COD</span> anyway
+              Cash On Delivery
             </button>
           </div>
         </div>
@@ -389,6 +455,70 @@ const PrepaidSavingsPopup = ({ onSwitchToPrepaid, onContinueCod, onClose }) => {
     </>
   );
 };
+
+/** Shown after Razorpay success when user paid full amount online (saved vs COD fee). */
+const OnlineFullSavingsCelebration = ({ savedAmount, onContinue }) => (
+  <div
+    className="fixed inset-0 z-[1200] flex items-center justify-center p-4"
+    style={{ background: "rgba(17, 24, 39, 0.55)" }}
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="online-savings-celebration-title"
+  >
+    <div
+      className="relative w-full max-w-sm rounded-3xl px-5 py-6 sm:p-7 text-center overflow-hidden"
+      style={{
+        background: "linear-gradient(165deg, #fffbeb 0%, #ffffff 45%, #fff 100%)",
+        border: "1px solid #fde68a",
+        boxShadow: "0 28px 70px rgba(0,0,0,0.2)",
+      }}
+    >
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-40"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 12% 18%, #fbbf24 0, transparent 35%), radial-gradient(circle at 88% 12%, #f472b6 0, transparent 30%), radial-gradient(circle at 80% 85%, #34d399 0, transparent 32%)",
+        }}
+      />
+      <div className="relative">
+        <div
+          className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl mb-3"
+          style={{ background: "#FEF3C7", border: "1px solid #fcd34d" }}
+        >
+          <PartyPopper size={30} style={{ color: "#d97706" }} aria-hidden />
+        </div>
+        <h2
+          id="online-savings-celebration-title"
+          className="font-black text-xl sm:text-2xl"
+          style={{ color: "#111" }}
+        >
+          Payment successful!
+        </h2>
+        <p className="mt-2 text-sm sm:text-base leading-relaxed" style={{ color: "#374151" }}>
+          You saved{" "}
+          <span className="font-black" style={{ color: "#dc2626" }}>
+            {fmt(savedAmount)}
+          </span>{" "}
+          by paying online (full amount).
+        </p>
+        <button
+          type="button"
+          onClick={onContinue}
+          className="mt-6 w-full py-3.5 rounded-2xl font-black text-sm sm:text-base uppercase tracking-widest transition-transform active:scale-[0.98]"
+          style={{
+            border: "1px solid #111",
+            color: "#111",
+            background: "#F7A221",
+            cursor: "pointer",
+          }}
+        >
+          View my orders
+        </button>
+      </div>
+    </div>
+  </div>
+);
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Order Summary Card (collapsible) — with real cart controls
@@ -408,6 +538,11 @@ const OrderSummaryCard = ({
   const delivery = quote?.deliveryCharges ?? 0;
   const gst = quote?.taxes ?? 0;
   const total = quote?.amountPayable ?? subtotal;
+
+  const psych = useMemo(
+    () => computeCheckoutPsychologyPricing(cartItems, quote),
+    [cartItems, quote]
+  );
 
   const handleUpdateQty = useCallback(async (item, delta) => {
     const productId = String(item.productId?._id || item.productId);
@@ -506,7 +641,7 @@ const OrderSummaryCard = ({
               const image = variant?.images?.[0]?.url || null;
               const name = item.product?.title || item.product?.name || "Product";
               const sizeName = variant?.size || variant?.name || "";
-              const price = item.price?.sale ?? item.price?.base ?? 0;
+              const price = getCartLineUnitPay(item);
 
               return (
                 <div key={key} className="flex items-center gap-3">
@@ -598,31 +733,52 @@ const OrderSummaryCard = ({
             })}
           </div>
 
-          {/* Price breakdown */}
+          {/* Price breakdown — SubTotal, base→sale discount, coupon, shipping, tax (totals from quote) */}
           <div className="px-4 pb-4 pt-2 space-y-2"
             style={{ borderTop: "1px solid #f0e8d8" }}>
-            {[
-              { label: "Subtotal", value: fmt(subtotal) },
-              ...(discount > 0 ? [{ label: "Discount", value: `- ${fmt(discount)}`, green: true }] : []),
-              {
-                label: "Shipping",
-                value: delivery === 0 ? "FREE" : fmt(delivery),
-                green: delivery === 0,
-              },
-              { label: "Other Taxes", value: fmt(gst) },
-            ].map(({ label, value, green }) => (
-              <div key={label} className="flex justify-between items-center">
-                <span style={{ fontSize: 13, color: "#6b7280" }}>{label}</span>
-                <span style={{
-                  fontSize: 13,
-                  fontWeight: 600,
-                  color: green ? "#15803D" : "#374151",
-                }}>{value}</span>
+            <p className="font-black text-xs mb-1" style={{ color: "#111" }}>
+              Item price
+            </p>
+            <div className="flex justify-between items-center">
+              <span style={{ fontSize: 13, color: "#6b7280" }}>SubTotal</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
+                {fmt(psych.mrpTotal)}
+              </span>
+            </div>
+            {psych.catalogDiscount > 0 ? (
+              <div className="flex justify-between items-center">
+                <span style={{ fontSize: 13, color: "#6b7280" }}>Discount</span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#15803D" }}>
+                  − {fmt(psych.catalogDiscount)}
+                </span>
               </div>
-            ))}
+            ) : null}
+            {discount > 0 ? (
+              <div className="flex justify-between items-center">
+                <span style={{ fontSize: 13, color: "#6b7280" }}>
+                  Additional discount
+                  {quote?.couponApplied ? ` (${quote.couponApplied})` : ""}
+                </span>
+                <span style={{ fontSize: 13, fontWeight: 600, color: "#15803D" }}>
+                  − {fmt(discount)}
+                </span>
+              </div>
+            ) : null}
+            <div className="flex justify-between items-center">
+              <span style={{ fontSize: 13, color: "#6b7280" }}>Shipping</span>
+              <span style={{
+                fontSize: 13,
+                fontWeight: 600,
+                color: delivery === 0 ? "#15803D" : "#374151",
+              }}>{delivery === 0 ? "FREE" : fmt(delivery)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span style={{ fontSize: 13, color: "#6b7280" }}>Other taxes</span>
+              <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>{fmt(gst)}</span>
+            </div>
 
             <div className="flex justify-between items-center pt-2"
-              style={{ borderTop: "1px solid #f0e8d8" }}>
+              style={{ borderTop: "1px dashed #e5e7eb" }}>
               <span className="font-black" style={{ fontSize: 14, color: "#111" }}>Total</span>
               <span className="font-black" style={{ fontSize: 14, color: "#F7A221" }}>
                 {fmt(total)}
@@ -690,6 +846,7 @@ const Checkout = () => {
   const [showCouponsList, setShowCouponsList] = useState(false);
   const [isCouponManuallyApplied, setIsCouponManuallyApplied] = useState(false);
   const [showPrepaidSavingsPopup, setShowPrepaidSavingsPopup] = useState(false);
+  const [showOnlineSavingsCelebration, setShowOnlineSavingsCelebration] = useState(false);
 
   // Payment state machine
   const [razorpayPaymentState, setRazorpayPaymentState] = useState(PAYMENT_STATE.IDLE);
@@ -1230,11 +1387,16 @@ const Checkout = () => {
 
       setRazorpayPaymentState(PAYMENT_STATE.VERIFIED);
       checkoutAttemptKeyRef.current = null;
-      toast.success("🎉 Payment verified! Order confirmed.", { theme: "dark", autoClose: 3000 });
-      setTimeout(() => {
-        dispatch(resetCheckout());
-        navigate("/account/userorders");
-      }, 1500);
+
+      if (paymentMethod === "online" && paymentPlan === "full") {
+        setShowOnlineSavingsCelebration(true);
+      } else {
+        toast.success("🎉 Payment verified! Order confirmed.", { theme: "dark", autoClose: 3000 });
+        setTimeout(() => {
+          dispatch(resetCheckout());
+          navigate("/account/userorders");
+        }, 1500);
+      }
     } catch (err) {
       setRazorpayPaymentState(PAYMENT_STATE.FAILED);
       const verificationMessage = err?.code === "PAYMENT_NOT_CAPTURED_YET"
@@ -1508,6 +1670,142 @@ const Checkout = () => {
                 <p className="text-[11px] text-gray-400 font-medium py-2">Loading payment options…</p>
               ) : (
                 <div className="space-y-3">
+                  <button
+                    type="button"
+                    onClick={() => selectCheckoutPaymentMode("online_full")}
+                    className="w-full text-left cursor-pointer transition-all active:scale-[0.98]"
+                    style={{
+                      padding: 14,
+                      borderRadius: 16,
+                      border: `2px solid ${checkoutMode === "online_full" ? "#111" : "#f0e8d8"}`,
+                      background: checkoutMode === "online_full" ? "#111" : "#fff",
+                      color: checkoutMode === "online_full" ? "#F7A221" : "#111",
+                      transition: "all 0.2s",
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div
+                        className="flex items-center justify-center shrink-0"
+                        style={{
+                          width: 20,
+                          height: 20,
+                          borderRadius: "50%",
+                          border: `2px solid ${checkoutMode === "online_full" ? "#F7A221" : "#d1d5db"}`,
+                        }}
+                      >
+                        {checkoutMode === "online_full" && (
+                          <div
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: "50%",
+                              background: "#F7A221",
+                            }}
+                          />
+                        )}
+                      </div>
+                      <div
+                        className="flex items-center justify-center shrink-0"
+                        style={{ width: 38, height: 38, borderRadius: 10, background: "#EBF8FF" }}
+                      >
+                        <CreditCard size={17} style={{ color: "#3b82f6" }} />
+                      </div>
+                      <div className="flex-1 min-w-0 flex flex-col items-stretch text-left">
+                        <p
+                          className="font-black text-sm w-full text-left"
+                          style={{
+                            color: checkoutMode === "online_full" ? "#F7A221" : "#111",
+                            lineHeight: 1.25,
+                          }}
+                        >
+                          Pay Online Full Amount
+                        </p>
+                        <div className="flex justify-start w-full mt-1.5">
+                          <span
+                            className="font-black shrink-0 whitespace-nowrap"
+                            style={{
+                              fontSize: 10,
+                              padding: "6px 16px",
+                              borderRadius: 999,
+                              background:
+                                checkoutMode === "online_full" ? "#fecaca" : "#dc2626",
+                              color: checkoutMode === "online_full" ? "#991b1b" : "#ffffff",
+                              boxShadow:
+                                checkoutMode === "online_full"
+                                  ? "0 0 0 1px rgba(252,165,165,0.95)"
+                                  : "0 1px 3px rgba(0,0,0,0.18)",
+                            }}
+                          >
+                            Get Extra Discount
+                          </span>
+                        </div>
+                        <p className="text-[11px] opacity-80 mt-1.5 w-full text-left">
+                          {fmt(quote?.amountPayable)} · UPI, cards, net banking
+                        </p>
+                      </div>
+                    </div>
+                  </button>
+
+                  {partialPlanEnabled && policyPartialPercent != null && (
+                    <button
+                      type="button"
+                      onClick={() => selectCheckoutPaymentMode("advance_cod")}
+                      className="w-full text-left cursor-pointer transition-all active:scale-[0.98]"
+                      style={{
+                        padding: 14,
+                        borderRadius: 16,
+                        border: `2px solid ${checkoutMode === "advance_cod" ? "#111" : "#f0e8d8"}`,
+                        background: checkoutMode === "advance_cod" ? "#111" : "#fff",
+                        color: checkoutMode === "advance_cod" ? "#F7A221" : "#111",
+                        transition: "all 0.2s",
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div
+                          className="flex items-center justify-center shrink-0"
+                          style={{
+                            width: 20,
+                            height: 20,
+                            borderRadius: "50%",
+                            border: `2px solid ${checkoutMode === "advance_cod" ? "#F7A221" : "#d1d5db"}`,
+                          }}
+                        >
+                          {checkoutMode === "advance_cod" && (
+                            <div
+                              style={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: "50%",
+                                background: "#F7A221",
+                              }}
+                            />
+                          )}
+                        </div>
+                        <div
+                          className="flex items-center justify-center shrink-0"
+                          style={{ width: 38, height: 38, borderRadius: 10, background: "#FEF3E2" }}
+                        >
+                          <Banknote size={17} style={{ color: "#b45309" }} />
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-black text-sm">
+                            Pay {formatPercentLabel(policyPartialPercent)}% Online Now
+                          </p>
+                          <p className="text-[11px] opacity-80 mt-0.5">
+                            Balance On delivery (COD) · {fmt(advancePreviewNow)} Pay Online Now
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  )}
+
+                  {checkoutMode === "advance_cod" && quote?.amountPayable != null && (
+                    <p className="text-center px-1" style={{ fontSize: 10, color: "#3b82f6" }}>
+                      {formatPercentLabel(policyPartialPercent)}% charged online now; remaining{" "}
+                      {fmt(quote.amountPayable - advanceAmount)} is collected as cash on delivery.
+                    </p>
+                  )}
+
                   {showCodOption && (
                     <button
                       type="button"
@@ -1570,9 +1868,10 @@ const Checkout = () => {
                           </div>
                           <p
                             style={{
+                              opacity: 0.85,
                               fontSize: 11,
                               marginTop: 1,
-                              color: checkoutMode === "cod" ? "rgba(247,162,33,0.65)" : "#9ca3af",
+                              color: checkoutMode === "cod" ? "rgba(247,162,33,0.65)" : "black",
                             }}
                           >
                             Pay the full order Amount  when your order arrives
@@ -1581,142 +1880,6 @@ const Checkout = () => {
                         </div>
                       </div>
                     </button>
-                  )}
-
-                  <button
-                    type="button"
-                    onClick={() => selectCheckoutPaymentMode("online_full")}
-                    className="w-full text-left cursor-pointer transition-all active:scale-[0.98]"
-                    style={{
-                      padding: 14,
-                      borderRadius: 16,
-                      border: `2px solid ${checkoutMode === "online_full" ? "#111" : "#f0e8d8"}`,
-                      background: checkoutMode === "online_full" ? "#111" : "#fff",
-                      color: checkoutMode === "online_full" ? "#F7A221" : "#111",
-                      transition: "all 0.2s",
-                    }}
-                  >
-                    <div className="flex items-center gap-3">
-                      <div
-                        className="flex items-center justify-center shrink-0"
-                        style={{
-                          width: 20,
-                          height: 20,
-                          borderRadius: "50%",
-                          border: `2px solid ${checkoutMode === "online_full" ? "#F7A221" : "#d1d5db"}`,
-                        }}
-                      >
-                        {checkoutMode === "online_full" && (
-                          <div
-                            style={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: "50%",
-                              background: "#F7A221",
-                            }}
-                          />
-                        )}
-                      </div>
-                      <div
-                        className="flex items-center justify-center shrink-0"
-                        style={{ width: 38, height: 38, borderRadius: 10, background: "#EBF8FF" }}
-                      >
-                        <CreditCard size={17} style={{ color: "#3b82f6" }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
-                          <span
-                            className="font-black text-sm"
-                            style={{
-                              color: checkoutMode === "online_full" ? "#F7A221" : "#111",
-                              lineHeight: 1.25,
-                            }}
-                          >
-                            Pay Online Full Amount
-                          </span>
-                          <span
-                            className="font-black shrink-0 whitespace-nowrap"
-                            style={{
-                              fontSize: 9,
-                              padding: "2px 7px",
-                              borderRadius: 99,
-                              background:
-                                checkoutMode === "online_full" ? "#ffffff" : "#F7A221",
-                              color: "#111",
-                              boxShadow:
-                                checkoutMode === "online_full"
-                                  ? "0 0 0 1px rgba(247,162,33,0.35)"
-                                  : "none",
-                            }}
-                          >
-                            Get Extra Discount
-                          </span>
-                        </div>
-                        <p className="text-[11px] opacity-80 mt-0.5">
-                          {fmt(quote?.amountPayable)} · UPI, cards, net banking
-                        </p>
-                      </div>
-                    </div>
-                  </button>
-
-                  {partialPlanEnabled && policyPartialPercent != null && (
-                    <button
-                      type="button"
-                      onClick={() => selectCheckoutPaymentMode("advance_cod")}
-                      className="w-full text-left cursor-pointer transition-all active:scale-[0.98]"
-                      style={{
-                        padding: 14,
-                        borderRadius: 16,
-                        border: `2px solid ${checkoutMode === "advance_cod" ? "#111" : "#f0e8d8"}`,
-                        background: checkoutMode === "advance_cod" ? "#111" : "#fff",
-                        color: checkoutMode === "advance_cod" ? "#F7A221" : "#111",
-                        transition: "all 0.2s",
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="flex items-center justify-center shrink-0"
-                          style={{
-                            width: 20,
-                            height: 20,
-                            borderRadius: "50%",
-                            border: `2px solid ${checkoutMode === "advance_cod" ? "#F7A221" : "#d1d5db"}`,
-                          }}
-                        >
-                          {checkoutMode === "advance_cod" && (
-                            <div
-                              style={{
-                                width: 8,
-                                height: 8,
-                                borderRadius: "50%",
-                                background: "#F7A221",
-                              }}
-                            />
-                          )}
-                        </div>
-                        <div
-                          className="flex items-center justify-center shrink-0"
-                          style={{ width: 38, height: 38, borderRadius: 10, background: "#FEF3E2" }}
-                        >
-                          <Banknote size={17} style={{ color: "#b45309" }} />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-black text-sm">
-                            Pay {formatPercentLabel(policyPartialPercent)}% online now
-                          </p>
-                          <p className="text-[11px] opacity-80 mt-0.5">
-                            Balance On delivery (COD) · {fmt(advancePreviewNow)} Pay Online Now
-                          </p>
-                        </div>
-                      </div>
-                    </button>
-                  )}
-
-                  {checkoutMode === "advance_cod" && quote?.amountPayable != null && (
-                    <p className="text-center px-1" style={{ fontSize: 10, color: "#3b82f6" }}>
-                      {formatPercentLabel(policyPartialPercent)}% charged online now; remaining{" "}
-                      {fmt(quote.amountPayable - advanceAmount)} is collected as cash on delivery.
-                    </p>
                   )}
                 </div>
               )}
@@ -1932,6 +2095,17 @@ const Checkout = () => {
       {/* ── Payment verification overlay ── */}
       {(paymentVerification.loading || razorpayPaymentState === PAYMENT_STATE.SUCCESS) && (
         <PaymentLoadingModal message="Verifying your payment… please wait" />
+      )}
+
+      {showOnlineSavingsCelebration && (
+        <OnlineFullSavingsCelebration
+          savedAmount={ONLINE_FULL_VS_COD_SAVINGS_INR}
+          onContinue={() => {
+            setShowOnlineSavingsCelebration(false);
+            dispatch(resetCheckout());
+            navigate("/account/userorders", { state: { justPlaced: true } });
+          }}
+        />
       )}
 
       {showPrepaidSavingsPopup && (
