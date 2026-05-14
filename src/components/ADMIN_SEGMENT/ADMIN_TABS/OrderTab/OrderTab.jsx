@@ -17,6 +17,8 @@ import {
   useGetAdminOrdersListQuery,
   useGetAdminOrderDetailQuery,
   useGetAdminOrderTrackingQuery,
+  useAdminBulkFulfillmentShipNowMutation,
+  useAdminBulkFulfillmentSchedulePickupMutation,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 import AdminOrderDetailView from "./AdminOrderDetailView";
 
@@ -59,6 +61,20 @@ function toLocalYmd(d) {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
+}
+
+function addLocalDaysYmd(days) {
+  const t = new Date();
+  t.setDate(t.getDate() + days);
+  return toLocalYmd(t);
+}
+
+function mutationErrorToString(err) {
+  if (!err) return "Request failed.";
+  const d = err.data;
+  if (typeof d === "object" && d && d.message) return String(d.message);
+  if (typeof d === "string") return d;
+  return err.message || "Request failed.";
 }
 
 function ApiErrorBanner({ error }) {
@@ -130,10 +146,52 @@ const OrderTab = () => {
   const orders = listPayload?.orders ?? [];
   const pagination = listPayload?.pagination;
   const detailOrder = detailRes?.order;
+  const fulfillmentPaymentGate = detailRes?.fulfillmentPaymentGate;
   const tracking = trackingRes?.tracking || null;
 
   const [selectedOrders, setSelectedOrders] = useState([]);
   const [showBulkMenu, setShowBulkMenu] = useState(false);
+  const [bulkPickupPanelOpen, setBulkPickupPanelOpen] = useState(false);
+  const [bulkPickupDate, setBulkPickupDate] = useState("");
+  const [bulkInlineError, setBulkInlineError] = useState(null);
+  const [bulkFeedback, setBulkFeedback] = useState(null);
+
+  const [bulkShipNow, bulkShipNowState] = useAdminBulkFulfillmentShipNowMutation();
+  const [bulkSchedulePickup, bulkSchedulePickupState] = useAdminBulkFulfillmentSchedulePickupMutation();
+  const bulkBusy = bulkShipNowState.isLoading || bulkSchedulePickupState.isLoading;
+
+  const orderById = useMemo(() => new Map(orders.map((o) => [o.orderId, o])), [orders]);
+
+  const eligibleBulkShipIds = useMemo(
+    () =>
+      selectedOrders.filter((id) => {
+        const o = orderById.get(id);
+        if (!o) return false;
+        const st = String(o.orderStatus || "").toLowerCase();
+        return st === "confirmed" && !o.hasAwb;
+      }),
+    [selectedOrders, orderById]
+  );
+
+  const eligibleBulkPickupIds = useMemo(
+    () =>
+      selectedOrders.filter((id) => {
+        const o = orderById.get(id);
+        if (!o) return false;
+        const st = String(o.orderStatus || "").toLowerCase();
+        return (st === "confirmed" || st === "processing") && o.hasAwb && !o.pickupScheduled;
+      }),
+    [selectedOrders, orderById]
+  );
+
+  useEffect(() => {
+    setSelectedOrders([]);
+    setShowBulkMenu(false);
+    setBulkPickupPanelOpen(false);
+    setBulkInlineError(null);
+    setBulkFeedback(null);
+  }, [ui.page, ui.activeTabLabel, ui.search, ui.datePreset, ui.customDateFrom, ui.customDateTo]);
+
   /** Draft dates for Custom range — committed via Apply only */
   const [draftDateFrom, setDraftDateFrom] = useState("");
   const [draftDateTo, setDraftDateTo] = useState("");
@@ -210,6 +268,73 @@ const OrderTab = () => {
     document.body.removeChild(link);
   }, [orders]);
 
+  const handleBulkShipNow = useCallback(async () => {
+    setBulkInlineError(null);
+    setBulkFeedback(null);
+    if (!eligibleBulkShipIds.length) {
+      setBulkInlineError(
+        "No eligible orders in the selection. Bulk ship needs Confirmed orders without an AWB yet."
+      );
+      return;
+    }
+    try {
+      const data = await bulkShipNow({ orderIds: eligibleBulkShipIds }).unwrap();
+      setBulkFeedback({
+        kind: "ship",
+        summary: data.summary,
+        results: data.results || [],
+        extraSkipped: Math.max(0, selectedOrders.length - eligibleBulkShipIds.length),
+      });
+      setShowBulkMenu(false);
+    } catch (err) {
+      setBulkInlineError(mutationErrorToString(err));
+    }
+  }, [bulkShipNow, eligibleBulkShipIds, selectedOrders.length]);
+
+  const handleBulkSchedulePickupRun = useCallback(async () => {
+    setBulkInlineError(null);
+    setBulkFeedback(null);
+    const ymd = String(bulkPickupDate || "").trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
+      setBulkInlineError("Choose a valid pickup date (YYYY-MM-DD).");
+      return;
+    }
+    if (!eligibleBulkPickupIds.length) {
+      setBulkInlineError(
+        "No eligible orders. Pickup scheduling needs an AWB and no pickup date set yet (Confirmed or Processing)."
+      );
+      return;
+    }
+    try {
+      const data = await bulkSchedulePickup({
+        orderIds: eligibleBulkPickupIds,
+        pickupDate: ymd,
+      }).unwrap();
+      setBulkFeedback({
+        kind: "pickup",
+        summary: data.summary,
+        results: data.results || [],
+        extraSkipped: Math.max(0, selectedOrders.length - eligibleBulkPickupIds.length),
+      });
+      setShowBulkMenu(false);
+      setBulkPickupPanelOpen(false);
+    } catch (err) {
+      setBulkInlineError(mutationErrorToString(err));
+    }
+  }, [
+    bulkPickupDate,
+    bulkSchedulePickup,
+    eligibleBulkPickupIds,
+    selectedOrders.length,
+  ]);
+
+  const openBulkPickupPanel = useCallback(() => {
+    setBulkInlineError(null);
+    setBulkPickupDate((d) => d || addLocalDaysYmd(1));
+    setBulkPickupPanelOpen(true);
+    setShowBulkMenu(false);
+  }, []);
+
   const toggleSelectAll = () => {
     const ids = orders.map((o) => o.orderId);
     if (selectedOrders.length === ids.length) setSelectedOrders([]);
@@ -225,7 +350,9 @@ const OrderTab = () => {
   if (selectedOrderId) {
     return (
       <AdminOrderDetailView
+        orderId={selectedOrderId}
         order={detailOrder}
+        fulfillmentPaymentGate={fulfillmentPaymentGate}
         loading={detailLoading}
         error={detailIsError ? detailError : null}
         tracking={tracking}
@@ -399,28 +526,160 @@ const OrderTab = () => {
         </div>
 
         {selectedOrders.length > 0 && (
-          <div className="flex items-center gap-4 bg-blue-50 p-3 border-b border-blue-100">
-            <span className="text-xs text-blue-700">{selectedOrders.length} selected</span>
-            <div className="relative">
-              <button
-                type="button"
-                onClick={() => setShowBulkMenu(!showBulkMenu)}
-                className="bg-white border border-blue-200 text-blue-700 text-[10px] font-black px-3 py-1 rounded uppercase flex items-center gap-2"
-              >
-                Bulk actions ▾
-              </button>
-              {showBulkMenu && (
-                <div className="absolute left-0 mt-2 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1">
+          <div className="flex flex-col gap-2 bg-blue-50 p-3 border-b border-blue-100">
+            <div className="flex flex-wrap items-center gap-4">
+              <span className="text-xs text-blue-700">
+                {selectedOrders.length} selected
+                <span className="text-blue-600">
+                  {" "}
+                  · {eligibleBulkShipIds.length} eligible for bulk ship
+                  {selectedOrders.length > 0 && eligibleBulkShipIds.length < selectedOrders.length
+                    ? ` (${selectedOrders.length - eligibleBulkShipIds.length} not sent — need Confirmed without AWB)`
+                    : ""}
+                </span>
+                <span className="text-blue-600">
+                  {" "}
+                  · {eligibleBulkPickupIds.length} eligible for bulk pickup
+                  {selectedOrders.length > 0 && eligibleBulkPickupIds.length < selectedOrders.length
+                    ? ` (${selectedOrders.length - eligibleBulkPickupIds.length} not sent — need AWB, no pickup date yet)`
+                    : ""}
+                </span>
+                {selectedOrders.length > 0 &&
+                  eligibleBulkShipIds.length === 0 &&
+                  eligibleBulkPickupIds.length === 0 && (
+                    <span className="text-slate-600">
+                      {" "}
+                      — Pending / cancelled / shipped rows stay selected but are skipped for these actions.
+                    </span>
+                  )}
+              </span>
+              <div className="relative flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setBulkInlineError(null);
+                    setShowBulkMenu(!showBulkMenu);
+                  }}
+                  disabled={bulkBusy}
+                  className="bg-white border border-blue-200 text-blue-700 text-[10px] font-black px-3 py-1 rounded uppercase flex items-center gap-2 disabled:opacity-50"
+                >
+                  Bulk actions ▾
+                </button>
+                {showBulkMenu && (
+                  <div className="absolute left-0 top-full mt-1 min-w-[240px] bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1">
+                    <button
+                      type="button"
+                      onClick={handleBulkShipNow}
+                      disabled={bulkBusy || !eligibleBulkShipIds.length}
+                      title={
+                        !eligibleBulkShipIds.length
+                          ? "Needs order status Confirmed and no AWB yet (shipped / in-transit / pending are skipped)."
+                          : undefined
+                      }
+                      className="w-full text-left px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                    >
+                      Ship now (Shiprocket)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={openBulkPickupPanel}
+                      disabled={bulkBusy || !eligibleBulkPickupIds.length}
+                      title={
+                        !eligibleBulkPickupIds.length
+                          ? "Needs AWB assigned, pickup not set yet, and Confirmed or Processing (not after shipped)."
+                          : undefined
+                      }
+                      className="w-full text-left px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                    >
+                      Schedule pickup…
+                    </button>
+                    {!eligibleBulkShipIds.length && !eligibleBulkPickupIds.length && (
+                      <p className="px-4 py-2 text-[11px] text-slate-500 border-t border-slate-100">
+                        No rows in this selection match bulk ship or bulk pickup. Example: already{" "}
+                        <strong>shipped</strong> / <strong>in transit</strong> orders are past these steps on our side.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {bulkInlineError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800" role="alert">
+                {bulkInlineError}
+              </div>
+            )}
+
+            {bulkFeedback && (
+              <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 space-y-1">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <span>
+                    {bulkFeedback.kind === "ship" ? "Bulk ship" : "Bulk pickup"} finished:{" "}
+                    <strong>{bulkFeedback.summary?.completed ?? 0}</strong> completed,{" "}
+                    <strong>{bulkFeedback.summary?.skipped ?? 0}</strong> skipped,{" "}
+                    <strong>{bulkFeedback.summary?.failed ?? 0}</strong> failed (of {bulkFeedback.summary?.total ?? 0}
+                    ).
+                    {bulkFeedback.extraSkipped > 0
+                      ? ` ${bulkFeedback.extraSkipped} selected row(s) were not sent (ineligible).`
+                      : ""}
+                  </span>
                   <button
                     type="button"
-                    className="w-full text-left px-4 py-2 text-xs text-slate-400 cursor-not-allowed"
-                    disabled
+                    className="text-[10px] font-semibold text-emerald-800 underline"
+                    onClick={() => setBulkFeedback(null)}
                   >
-                    Mark as Ready (API soon)
+                    Dismiss
                   </button>
                 </div>
-              )}
-            </div>
+                {Array.isArray(bulkFeedback.results) &&
+                  bulkFeedback.results.some((r) => r && !r.success && !r.skipped) && (
+                    <details className="mt-1">
+                      <summary className="cursor-pointer text-[11px] font-semibold text-emerald-900">
+                        View failed rows
+                      </summary>
+                      <ul className="mt-2 max-h-40 overflow-y-auto space-y-1 text-[11px] text-slate-700 list-disc pl-4">
+                        {bulkFeedback.results
+                          .filter((r) => r && !r.success && !r.skipped)
+                          .map((r) => (
+                            <li key={r.orderId}>
+                              <span className="font-mono">{r.orderId}</span>: {r.message || r.code || "Error"}
+                            </li>
+                          ))}
+                      </ul>
+                    </details>
+                  )}
+              </div>
+            )}
+
+            {bulkPickupPanelOpen && (
+              <div className="flex flex-wrap items-end gap-3 rounded-lg border border-blue-200 bg-white/80 p-3">
+                <div className="flex flex-col gap-1">
+                  <label className="text-[10px] font-bold uppercase text-slate-500">Pickup date</label>
+                  <input
+                    type="date"
+                    min={toLocalYmd(new Date())}
+                    value={bulkPickupDate}
+                    onChange={(e) => setBulkPickupDate(e.target.value)}
+                    className="bg-white border border-slate-200 text-xs px-2 py-1.5 rounded-lg"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleBulkSchedulePickupRun}
+                  disabled={bulkBusy || !eligibleBulkPickupIds.length || !bulkPickupDate}
+                  className="px-3 py-1.5 text-xs font-semibold text-white bg-slate-800 rounded-lg hover:bg-slate-900 disabled:opacity-50"
+                >
+                  Schedule pickup ({eligibleBulkPickupIds.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBulkPickupPanelOpen(false)}
+                  className="px-3 py-1.5 text-xs text-slate-600 hover:underline"
+                >
+                  Cancel
+                </button>
+              </div>
+            )}
           </div>
         )}
 

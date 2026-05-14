@@ -177,6 +177,123 @@ export const adminOrdersApi = createApi({
         { type: 'AdminOrdersList', id: arg.orderId },
       ],
     }),
+
+    adminReturnReversePickupRetry: builder.mutation({
+      query: ({ orderId }) => ({
+        url: `/orders/admin/returns/requests/${encodeURIComponent(String(orderId))}/reverse-pickup/retry`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, arg) => [
+        { type: 'AdminOrderTracking', id: 'RETURNS_LIST' },
+        { type: 'AdminOrderTracking', id: `RETURN_${arg.orderId}` },
+        { type: 'AdminOrdersList', id: arg.orderId },
+      ],
+    }),
+
+    adminFulfillmentEnsureShipment: builder.mutation({
+      query: (orderId) => ({
+        url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/ensure-shipment`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, orderId) => [
+        { type: 'AdminOrdersList', id: orderId },
+        { type: 'AdminOrderTracking', id: orderId },
+      ],
+    }),
+
+    adminFulfillmentAssignShip: builder.mutation({
+      query: ({ orderId, courierId }) => ({
+        url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/assign-ship`,
+        method: 'POST',
+        data: courierId != null ? { courierId } : {},
+      }),
+      invalidatesTags: (result, error, arg) => [
+        { type: 'AdminOrdersList', id: arg.orderId },
+        { type: 'AdminOrderTracking', id: arg.orderId },
+      ],
+    }),
+
+    adminFulfillmentSchedulePickup: builder.mutation({
+      query: ({ orderId, pickupDate }) => ({
+        url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/schedule-pickup`,
+        method: 'POST',
+        data: { pickupDate },
+      }),
+      invalidatesTags: (result, error, arg) => [
+        { type: 'AdminOrdersList', id: arg.orderId },
+        { type: 'AdminOrderTracking', id: arg.orderId },
+      ],
+    }),
+
+    adminBulkFulfillmentShipNow: builder.mutation({
+      query: (arg = {}) => ({
+        url: '/orders/admin/items/bulk-fulfillment/ship-now',
+        method: 'POST',
+        data: {
+          orderIds: arg.orderIds,
+          ...(arg.concurrency != null && arg.concurrency !== '' ? { concurrency: arg.concurrency } : {}),
+          ...(arg.courierId != null && arg.courierId !== '' ? { courierId: arg.courierId } : {}),
+        },
+      }),
+      invalidatesTags: (result, error, arg) => {
+        if (error) return [];
+        const tags = [
+          { type: 'AdminOrdersList', id: 'PARTIAL' },
+          { type: 'AdminOrdersSummary', id: 'SUMMARY' },
+        ];
+        const ids = Array.isArray(arg?.orderIds) ? arg.orderIds : [];
+        for (const oid of ids) {
+          tags.push({ type: 'AdminOrdersList', id: oid }, { type: 'AdminOrderTracking', id: oid });
+        }
+        return tags;
+      },
+    }),
+
+    adminBulkFulfillmentSchedulePickup: builder.mutation({
+      query: (arg = {}) => ({
+        url: '/orders/admin/items/bulk-fulfillment/schedule-pickup',
+        method: 'POST',
+        data: {
+          orderIds: arg.orderIds,
+          pickupDate: arg.pickupDate,
+          ...(arg.concurrency != null && arg.concurrency !== '' ? { concurrency: arg.concurrency } : {}),
+        },
+      }),
+      invalidatesTags: (result, error, arg) => {
+        if (error) return [];
+        const tags = [
+          { type: 'AdminOrdersList', id: 'PARTIAL' },
+          { type: 'AdminOrdersSummary', id: 'SUMMARY' },
+        ];
+        const ids = Array.isArray(arg?.orderIds) ? arg.orderIds : [];
+        for (const oid of ids) {
+          tags.push({ type: 'AdminOrdersList', id: oid }, { type: 'AdminOrderTracking', id: oid });
+        }
+        return tags;
+      },
+    }),
+
+    adminFulfillmentShippingLabel: builder.mutation({
+      query: (orderId) => ({
+        url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/shipping-label`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, orderId) => [
+        { type: 'AdminOrdersList', id: orderId },
+        { type: 'AdminOrderTracking', id: orderId },
+      ],
+    }),
+
+    adminFulfillmentCancelShipment: builder.mutation({
+      query: (orderId) => ({
+        url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/cancel-shipment`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, orderId) => [
+        { type: 'AdminOrdersList', id: orderId },
+        { type: 'AdminOrderTracking', id: orderId },
+      ],
+    }),
   }),
 });
 
@@ -190,4 +307,12 @@ export const {
   useGetAdminReturnRequestDetailQuery,
   useDecideAdminReturnRequestMutation,
   useInitiateAdminReturnRefundMutation,
+  useAdminReturnReversePickupRetryMutation,
+  useAdminFulfillmentEnsureShipmentMutation,
+  useAdminFulfillmentAssignShipMutation,
+  useAdminFulfillmentSchedulePickupMutation,
+  useAdminFulfillmentShippingLabelMutation,
+  useAdminFulfillmentCancelShipmentMutation,
+  useAdminBulkFulfillmentShipNowMutation,
+  useAdminBulkFulfillmentSchedulePickupMutation,
 } = adminOrdersApi;

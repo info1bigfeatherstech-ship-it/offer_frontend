@@ -1,4 +1,12 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useCallback } from "react";
+import axiosInstance from "../../../../SERVICES/axiosInstance";
+import {
+  useAdminFulfillmentAssignShipMutation,
+  useAdminFulfillmentCancelShipmentMutation,
+  useAdminFulfillmentEnsureShipmentMutation,
+  useAdminFulfillmentSchedulePickupMutation,
+  useAdminFulfillmentShippingLabelMutation,
+} from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 
 function formatInr(amount) {
   const n = Number(amount);
@@ -109,11 +117,47 @@ function timelineRowsFromTracking(tracking) {
   }));
 }
 
+function localYmdTomorrow() {
+  const d = new Date();
+  d.setDate(d.getDate() + 1);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+/**
+ * When GET /orders/items/:id includes `fulfillmentPaymentGate` (staff), use it.
+ * Fallback for older API responses: conservative — COD or fully paid, or advance+COD with capture.
+ */
+function carrierFulfilmentPaymentReady(order, gateFromApi) {
+  if (gateFromApi != null) return Boolean(gateFromApi.ok);
+  if (!order) return false;
+  const method = String(order?.paymentInfo?.method || "").toLowerCase();
+  if (method === "cod") return true;
+  if (String(order?.paymentStatus || "").toLowerCase() === "paid") return true;
+  const split = String(order?.paymentInfo?.splitMode || "").toLowerCase();
+  const bc = String(order?.paymentInfo?.balanceCollectionMethod || "").toLowerCase();
+  if (
+    (method === "online" || method === "prepaid") &&
+    split === "advance" &&
+    bc === "cod" &&
+    String(order?.paymentStatus || "").toLowerCase() === "partially_paid" &&
+    Number(order?.amountPaidInr || 0) > 0.01
+  ) {
+    return true;
+  }
+  return false;
+}
+
 /**
  * Rich admin order detail — data-driven from GET /orders/items/:orderId (staff sees customer + SKUs).
  */
 export default function AdminOrderDetailView({
+  orderId,
   order,
+  /** From staff GET /orders/items/:id — server-evaluated payment gate for Shiprocket */
+  fulfillmentPaymentGate,
   tracking,
   trackingLoading,
   trackingError,
@@ -122,8 +166,54 @@ export default function AdminOrderDetailView({
   error,
   onBack,
 }) {
+  const [pickupDate, setPickupDate] = useState(localYmdTomorrow);
+  const [actionMsg, setActionMsg] = useState(null);
+
+  const [ensureShipment, ensureState] = useAdminFulfillmentEnsureShipmentMutation();
+  const [assignShip, assignState] = useAdminFulfillmentAssignShipMutation();
+  const [schedulePickup, pickupState] = useAdminFulfillmentSchedulePickupMutation();
+  const [shippingLabel, labelState] = useAdminFulfillmentShippingLabelMutation();
+  const [cancelShipment, cancelState] = useAdminFulfillmentCancelShipmentMutation();
+
+  const fulfillmentBusy =
+    ensureState.isLoading ||
+    assignState.isLoading ||
+    pickupState.isLoading ||
+    labelState.isLoading ||
+    cancelState.isLoading;
+
+  const carrierPaymentReady = carrierFulfilmentPaymentReady(order, fulfillmentPaymentGate);
+  const carrierPaymentHint =
+    fulfillmentPaymentGate && fulfillmentPaymentGate.ok === false
+      ? fulfillmentPaymentGate.message
+      : !carrierPaymentReady
+        ? "Complete payment (or COD rules) before Shiprocket actions."
+        : null;
+
+  const openTaxInvoice = useCallback(async () => {
+    if (!orderId) return;
+    setActionMsg(null);
+    try {
+      const res = await axiosInstance.get(
+        `/orders/admin/items/${encodeURIComponent(String(orderId))}/invoice-html`,
+        { responseType: "text", headers: { Accept: "text/html" } }
+      );
+      const blob = new Blob([res.data], { type: "text/html;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      setTimeout(() => URL.revokeObjectURL(url), 120000);
+    } catch (e) {
+      const msg =
+        e?.response?.data?.message ||
+        (typeof e?.response?.data === "string" ? e.response.data : null) ||
+        e?.message ||
+        "Could not open invoice.";
+      setActionMsg({ type: "err", text: msg });
+    }
+  }, [orderId]);
   const addr = order?.addressSnapshot || {};
   const ship = order?.shipmentInfo || {};
+  const quoteShip = order?.shippingSnapshot || {};
   const coupon = order?.appliedCoupon;
 
   const waLink = useMemo(() => {
@@ -271,6 +361,313 @@ export default function AdminOrderDetailView({
           </div>
         )}
 
+        {orderId && (
+          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+            <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-4 sm:px-5 py-4 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Your store</p>
+                <h3 className="text-lg font-black tracking-tight">GST tax invoice</h3>
+                <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
+                  Ye aapka statutory-style bill hai (server se HTML). Shiprocket dashboard par jo &quot;invoice&quot; / chalan
+                  dikhta hai wo unka logistics document hai — GST return ke liye aap is{" "}
+                  <strong className="text-white">Tax invoice</strong> ko maaney.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={openTaxInvoice}
+                className="shrink-0 px-5 py-2.5 rounded-lg text-sm font-bold bg-white text-slate-900 hover:bg-slate-100 shadow-sm"
+              >
+                Open tax invoice
+              </button>
+            </div>
+
+            <div className="p-4 sm:p-5 space-y-4 border-t border-slate-100">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500">
+                    Logistics (Shiprocket)
+                  </h3>
+                  <ol className="text-xs text-slate-600 mt-2 space-y-1.5 list-decimal list-inside leading-relaxed max-w-2xl">
+                    <li>
+                      <span className="font-semibold text-slate-800">Ship now</span> — pehle Shiprocket par shipment /
+                      order create hota hai (agar pehle se nahi),{" "}
+                      <strong className="text-slate-800">phir usi flow mein</strong> courier choose karke{" "}
+                      <span className="font-semibold text-slate-800">AWB assign</span> hota hai. Matlab: alag se
+                      &quot;pehle sirf AWB&quot; user ko dabane ki zaroorat nahi — AWB{" "}
+                      <em className="not-italic text-slate-700">Ship now / assign</em> ke andar generate hota hai.
+                    </li>
+                    <li>
+                      Advanced menu mein split hai: pehle sirf create, baad mein sirf AWB — troubleshooting ke liye.
+                    </li>
+                    <li>
+                      <span className="font-semibold text-slate-800">Pickup date</span> +{" "}
+                      <span className="font-semibold text-slate-800">Schedule pickup</span>, phir{" "}
+                      <span className="font-semibold text-slate-800">Shipping label</span> print.
+                    </li>
+                  </ol>
+                  <p className="text-[11px] text-slate-500 mt-2">
+                    Online orders: payment gate server jaisa hi — rules poori hone par hi buttons enabled.
+                  </p>
+                </div>
+              </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
+              <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2">
+                <p className="text-slate-600 font-semibold">Quoted courier (checkout)</p>
+                <p className="font-semibold text-slate-900 mt-0.5">{quoteShip.courierName || "—"}</p>
+                <p className="text-slate-500 mt-1">Est. delivery: {quoteShip.estimatedDays || "—"}</p>
+              </div>
+              <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-2">
+                <p className="text-slate-600 font-semibold">Assigned courier (Shiprocket)</p>
+                <p className="font-semibold text-slate-900 mt-0.5">{ship.courier || "—"}</p>
+                <p className="text-slate-500 mt-1">After AWB assignment</p>
+              </div>
+              <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
+                <p className="text-slate-500">Shiprocket order ID</p>
+                <p className="font-mono font-semibold break-all">{ship.shiprocketOrderId || "—"}</p>
+              </div>
+            </div>
+
+            {ship.lastError && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900">
+                <p className="font-semibold">Last shipment sync error</p>
+                <p className="mt-0.5">{ship.lastError}</p>
+                {String(ship.lastError).includes("pickup location") && (
+                  <p className="mt-2 text-red-800">
+                    Fix: in <code className="text-[11px] bg-red-100 px-1 rounded">backend/offerWaleBaba/.env</code> set{" "}
+                    <code className="text-[11px] bg-red-100 px-1 rounded">SHIPROCKET_PICKUP_LOCATION</code> to your
+                    Shiprocket pickup nickname (e.g. <code className="text-[11px] bg-red-100 px-1 rounded">work</code>),
+                    save, restart the API, then use Ship again.
+                  </p>
+                )}
+              </div>
+            )}
+
+            {actionMsg?.text && (
+              <div
+                className={`rounded-lg px-3 py-2 text-xs ${
+                  actionMsg.type === "err"
+                    ? "bg-red-50 text-red-800 border border-red-100"
+                    : "bg-emerald-50 text-emerald-900 border border-emerald-100"
+                }`}
+              >
+                {actionMsg.text}
+              </div>
+            )}
+
+            {carrierPaymentHint && (
+              <div className="rounded-lg px-3 py-2 text-xs text-amber-900 bg-amber-50 border border-amber-100">
+                {carrierPaymentHint}
+              </div>
+            )}
+
+            <div className="space-y-4 pt-1 border-t border-slate-100">
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Step 1 · Create &amp; assign</p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={
+                      fulfillmentBusy ||
+                      Boolean(ship.awbCode || ship.trackingNumber) ||
+                      !carrierPaymentReady
+                    }
+                    title="Create on Shiprocket (if needed) and assign courier + AWB"
+                    onClick={async () => {
+                      setActionMsg(null);
+                      try {
+                        const r = await ensureShipment(orderId).unwrap();
+                        const si = r?.order?.shipmentInfo || {};
+                        if ((!si.awbCode && !si.trackingNumber) && si.shipmentId) {
+                          await assignShip({ orderId }).unwrap();
+                        }
+                        setActionMsg({
+                          type: "ok",
+                          text: "Shipment updated. Details will refresh automatically.",
+                        });
+                      } catch (e) {
+                        setActionMsg({
+                          type: "err",
+                          text: e?.data?.message || e?.message || "Ship now failed.",
+                        });
+                      }
+                    }}
+                    className="px-4 py-2.5 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {ensureState.isLoading || assignState.isLoading ? "Working…" : "Ship now"}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500 mt-1.5 max-w-xl">
+                  Normal path: one click creates the Shiprocket order and requests AWB. Use advanced only if something failed halfway.
+                </p>
+              </div>
+
+              <details className="group rounded-lg border border-slate-200 bg-slate-50/90 px-3 py-2">
+                <summary className="text-xs font-semibold text-slate-800 cursor-pointer list-none flex items-center gap-2 [&::-webkit-details-marker]:hidden">
+                  <span className="text-slate-400 group-open:rotate-90 transition-transform inline-block">▸</span>
+                  Advanced — split steps (troubleshooting)
+                </summary>
+                <p className="text-[11px] text-slate-600 mt-2 mb-3 leading-relaxed max-w-xl">
+                  <strong className="text-slate-800">Create on Shiprocket only</strong> pushes the order to Shiprocket
+                  without assigning a courier or AWB (same as “ensure” / draft on their side).{" "}
+                  <strong className="text-slate-800">Assign AWB only</strong> runs after a shipment id exists, if you
+                  need to retry courier selection separately.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    disabled={fulfillmentBusy || !carrierPaymentReady}
+                    title="Create forward order on Shiprocket only (no AWB)"
+                    onClick={async () => {
+                      setActionMsg(null);
+                      try {
+                        await ensureShipment(orderId).unwrap();
+                        setActionMsg({ type: "ok", text: "Order pushed to Shiprocket (AWB not assigned yet)." });
+                      } catch (e) {
+                        setActionMsg({
+                          type: "err",
+                          text: e?.data?.message || e?.message || "Ensure failed.",
+                        });
+                      }
+                    }}
+                    className="px-3 py-2 text-xs font-semibold border border-slate-300 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Create on Shiprocket only
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      fulfillmentBusy ||
+                      !carrierPaymentReady ||
+                      !ship.shipmentId ||
+                      Boolean(ship.awbCode || ship.trackingNumber)
+                    }
+                    title="Assign courier and generate AWB (shipment id required)"
+                    onClick={async () => {
+                      setActionMsg(null);
+                      try {
+                        await assignShip({ orderId }).unwrap();
+                        setActionMsg({ type: "ok", text: "Courier assigned and AWB generated." });
+                      } catch (e) {
+                        setActionMsg({
+                          type: "err",
+                          text: e?.data?.message || e?.message || "Assign failed.",
+                        });
+                      }
+                    }}
+                    className="px-3 py-2 text-xs font-semibold border border-slate-300 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    Assign AWB only
+                  </button>
+                </div>
+              </details>
+
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Step 2 · Pickup</p>
+                <div className="flex flex-wrap items-end gap-3">
+                  <label className="flex flex-col gap-1 text-xs text-slate-600">
+                    <span className="font-medium text-slate-700">Pickup date</span>
+                    <input
+                      type="date"
+                      value={pickupDate}
+                      onChange={(e) => setPickupDate(e.target.value)}
+                      className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white min-w-[9.5rem]"
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    disabled={
+                      fulfillmentBusy ||
+                      !carrierPaymentReady ||
+                      !(ship.awbCode || ship.trackingNumber) ||
+                      !pickupDate
+                    }
+                    onClick={async () => {
+                      setActionMsg(null);
+                      try {
+                        await schedulePickup({ orderId, pickupDate }).unwrap();
+                        setActionMsg({ type: "ok", text: "Pickup scheduled successfully." });
+                      } catch (e) {
+                        setActionMsg({
+                          type: "err",
+                          text: e?.data?.message || e?.message || "Pickup schedule failed.",
+                        });
+                      }
+                    }}
+                    className="px-3 py-2 text-xs font-semibold border border-indigo-300 text-indigo-800 rounded-lg bg-white hover:bg-indigo-50 disabled:opacity-50"
+                  >
+                    {pickupState.isLoading ? "Working…" : "Schedule pickup"}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Step 3 · Label</p>
+                <button
+                  type="button"
+                  disabled={fulfillmentBusy || !carrierPaymentReady || !ship.shipmentId}
+                  onClick={async () => {
+                    setActionMsg(null);
+                    try {
+                      const r = await shippingLabel(orderId).unwrap();
+                      const u = r?.labelUrl;
+                      setActionMsg({
+                        type: "ok",
+                        text: u ? "Opening shipping label in a new tab." : "Label request completed.",
+                      });
+                      if (u) window.open(u, "_blank", "noopener,noreferrer");
+                    } catch (e) {
+                      setActionMsg({
+                        type: "err",
+                        text: e?.data?.message || e?.message || "Label failed.",
+                      });
+                    }
+                  }}
+                  className="px-3 py-2 text-xs font-semibold border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-50"
+                >
+                  {labelState.isLoading ? "Working…" : "Shipping label"}
+                </button>
+              </div>
+
+              <div className="pt-2 border-t border-slate-100">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-red-700/80 mb-2">Shiprocket order</p>
+                <button
+                  type="button"
+                  disabled={fulfillmentBusy || !ship.shiprocketOrderId}
+                  onClick={async () => {
+                    if (!window.confirm("Cancel this shipment on Shiprocket? Only possible before dispatch.")) return;
+                    setActionMsg(null);
+                    try {
+                      await cancelShipment(orderId).unwrap();
+                      setActionMsg({ type: "ok", text: "Cancellation request sent to Shiprocket." });
+                    } catch (e) {
+                      setActionMsg({
+                        type: "err",
+                        text: e?.data?.message || e?.message || "Cancel failed.",
+                      });
+                    }
+                  }}
+                  className="px-3 py-2 text-xs font-semibold border border-red-200 text-red-700 rounded-lg bg-white hover:bg-red-50 disabled:opacity-50"
+                >
+                  {cancelState.isLoading ? "Working…" : "Cancel on Shiprocket"}
+                </button>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-500 pt-1 border-t border-slate-100">
+              <p>
+                <span className="font-semibold text-slate-600">Pickup date (saved):</span> {ship.pickupDate || "—"}
+              </p>
+              <p>
+                <span className="font-semibold text-slate-600">Pickup booked:</span>{" "}
+                {formatDateHeader(ship.pickupScheduledAt)}
+              </p>
+            </div>
+          </div>
+        </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Left column */}
           <div className="lg:col-span-2 space-y-6">
@@ -306,6 +703,12 @@ export default function AdminOrderDetailView({
                   <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
                     <p className="text-slate-500">Shipment id</p>
                     <p className="font-semibold text-slate-900 mt-0.5">{ship.shipmentId || "—"}</p>
+                  </div>
+                  <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 sm:col-span-2">
+                    <p className="text-slate-500">Shiprocket order ID</p>
+                    <p className="font-mono text-[11px] font-semibold text-slate-900 mt-0.5 break-all">
+                      {ship.shiprocketOrderId || "—"}
+                    </p>
                   </div>
                 </div>
 
@@ -466,13 +869,7 @@ export default function AdminOrderDetailView({
               <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80">
                 <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500">Payment</h3>
                 <p className="text-[11px] text-slate-500 mt-1 leading-snug">
-                  Same as stored on the order:{" "}
-                  <span className="font-mono text-[10px]">paymentStatus</span>,{" "}
-                  <span className="font-mono text-[10px]">amountPaidInr</span>,{" "}
-                  <span className="font-mono text-[10px]">balanceDueInr</span>,{" "}
-                  <span className="font-mono text-[10px]">paymentHoldExpiresAt</span>,{" "}
-                  <span className="font-mono text-[10px]">refundHistory</span>,{" "}
-                  <span className="font-mono text-[10px]">paymentInfo</span>.
+                  Summary of how this order was paid, including any balance due and gateway references.
                 </p>
               </div>
               <div className="p-4 space-y-4 text-sm">
@@ -535,7 +932,7 @@ export default function AdminOrderDetailView({
                     )}
                     {pi.status && (
                       <p className="text-[11px] text-slate-500">
-                        Session status: <span className="font-mono">{pi.status}</span>
+                        Gateway session: <span className="font-medium text-slate-700">{pi.status}</span>
                       </p>
                     )}
                   </div>
@@ -581,17 +978,16 @@ export default function AdminOrderDetailView({
               )}
               <button
                 type="button"
-                className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium text-slate-400 cursor-not-allowed border border-dashed border-slate-200"
-                disabled
-                title="Configure shipping provider integration"
+                onClick={openTaxInvoice}
+                disabled={!orderId}
+                className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium text-slate-900 hover:bg-slate-50 border border-slate-200 disabled:opacity-50"
               >
-                Generate shipping label
+                View tax invoice
               </button>
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-[11px] text-slate-500 leading-relaxed">
-              Settlement fees, payment gateway IDs, and carrier partner links can be wired when those integrations are
-              enabled. This view uses your live order, items, address snapshot, and shipment fields.
+              Additional settlement or partner links can be shown here when those integrations are enabled.
             </div>
           </div>
         </div>
