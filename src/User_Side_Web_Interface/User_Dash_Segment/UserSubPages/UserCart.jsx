@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import {
   ShoppingBag, Trash2, Plus, Minus, ArrowRight,
   ShieldCheck, RefreshCw, AlertCircle,
@@ -21,12 +21,14 @@ import {
   selectDisplayCartCount,
 } from '../../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice';
 
-import {
-  selectDelivery,
-  resetCheckout,
-} from '../../../components/REDUX_FEATURES/REDUX_SLICES/checkoutSlice/checkoutSlice';
+import { resetCheckout } from '../../../components/REDUX_FEATURES/REDUX_SLICES/checkoutSlice/checkoutSlice';
 
-import DeliveryChecker from '../../../components/Common/DeliveryChecker/DeliveryChecker';
+import { selectDefaultAddress } from '../../../components/REDUX_FEATURES/REDUX_SLICES/Useraddressslice';
+
+import CartDeliverySection from '../../../components/Common/CartDeliverySection';
+
+import { fetchCategories } from '../../../components/ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/categoriesSlice';
+import { getProductCategoryDisplayName } from '../../../utils/getProductCategoryDisplayName';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -52,7 +54,7 @@ const logError = (context, error, info = {}) => {
 // API shape: item.product = populated object, item.productId = plain string ID
 // item.price = { base, sale, current, discountPercentage }
 // ─────────────────────────────────────────────────────────────────────────────
-const CartRowItem = ({ item, isLoggedIn, onUpdate, onRemove, isUpdating, isRemoving }) => {
+const CartRowItem = ({ item, isLoggedIn, onUpdate, onRemove, isUpdating, isRemoving, categories = [] }) => {
 
   // ✅ API returns item.product as the populated product object
   const product = item.product ?? null;
@@ -72,9 +74,6 @@ const CartRowItem = ({ item, isLoggedIn, onUpdate, onRemove, isUpdating, isRemov
   // ✅ Slug for linking
   const slug = product?.slug || item._productSlug || null;
 
-  // ✅ Brand from item.product.brand
-  const brand = product?.brand || null;
-
   // ✅ Image from matched variant inside item.product.variants
   const image =
     matchedVariant?.images?.[0]?.url ||
@@ -86,11 +85,14 @@ const CartRowItem = ({ item, isLoggedIn, onUpdate, onRemove, isUpdating, isRemov
   const basePrice   = item.price?.base ?? null;
   const discountPct = item.price?.discountPercentage ?? 0;
 
-  // Variant attributes
-  const attrs = item.variantAttributesSnapshot ?? matchedVariant?.attributes ?? [];
-
   const qty       = item.quantity || 1;
   const itemTotal = price != null ? price * qty : null;
+
+  const categoryLabel = useMemo(
+    () => getProductCategoryDisplayName(product?.category, categories),
+    [product?.category, categories]
+  );
+  const showCategory = categoryLabel !== 'Uncategorized';
 
   return (
     <div className="flex gap-3 md:gap-6 py-2">
@@ -119,7 +121,7 @@ const CartRowItem = ({ item, isLoggedIn, onUpdate, onRemove, isUpdating, isRemov
       {/* Details */}
       <div className="flex-1 flex flex-col md:flex-row md:justify-between md:items-center py-0.5 min-w-0 gap-2 md:gap-4">
 
-        {/* Left — name + brand + price */}
+        {/* Left — name + category + price */}
         <div className="min-w-0 flex-1">
           {slug ? (
             <Link to={`/products/${slug}`}>
@@ -133,22 +135,11 @@ const CartRowItem = ({ item, isLoggedIn, onUpdate, onRemove, isUpdating, isRemov
             </h3>
           )}
 
-          {/* Brand + variant attrs */}
-          {(brand || attrs.length > 0) && (
+          {showCategory && (
             <div className="flex items-center gap-1 flex-wrap mt-0.5">
-              {brand && (
-                <span className="text-[10px] text-gray-400 uppercase font-medium tracking-wider">
-                  {brand}
-                </span>
-              )}
-              {attrs.map((a) => (
-                <span
-                  key={a._id || a.key}
-                  className="text-[10px] text-gray-400 uppercase font-medium tracking-wider"
-                >
-                  · {a.key}: {a.value}
-                </span>
-              ))}
+              <span className="text-[10px] text-gray-400 uppercase font-medium tracking-wider">
+                {categoryLabel}
+              </span>
             </div>
           )}
 
@@ -230,9 +221,19 @@ const UserCart = () => {
   const loading     = useSelector(selectCartLoading);
   const error       = useSelector(selectCartError);
   const { isLoggedIn } = useSelector((state) => state.auth);
+  const categories = useSelector((state) => state.categories?.categories ?? []);
 
-  // ✅ UPGRADE: delivery pincode result from Redux (set by DeliveryChecker)
-  const delivery = useSelector(selectDelivery);
+  // Same as CartSidebar / Navbar: default saved address pincode for delivery check
+  const defaultAddress = useSelector(selectDefaultAddress);
+  const userPincode = useMemo(() => {
+    if (!isLoggedIn || !defaultAddress) return '';
+    return String(
+      defaultAddress.postalCode ||
+        defaultAddress.pincode ||
+        defaultAddress.zip ||
+        ''
+    ).trim();
+  }, [isLoggedIn, defaultAddress]);
 
   const currentItems = isLoggedIn ? items : guestItems;
 
@@ -246,6 +247,11 @@ const UserCart = () => {
     }
     return () => dispatch(clearCartErrors());
   }, [isLoggedIn, dispatch]);
+
+  useEffect(() => {
+    if (categories.length > 0) return;
+    dispatch(fetchCategories()).catch(() => {});
+  }, [dispatch, categories.length]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleUpdate = (item, newQty) => {
@@ -299,14 +305,10 @@ const UserCart = () => {
   const isUpdating = loading.update;
   const isRemoving = loading.remove;
 
-  // ── Subtotal ───────────────────────────────────────────────────────────────
+  // ── Cart total (line items only; shipping/taxes at checkout) ───────────────
   const subtotal = isLoggedIn
     ? totalAmount
     : guestItems.reduce((sum, item) => sum + (item.price ?? 0) * (item.quantity || 1), 0);
-
-  // ✅ UPGRADE: proper grand total variable
-  const deliveryFee = subtotal >= 499 ? 0 : 49;
-  const grandTotal  = subtotal + deliveryFee;
 
   // ── Loading ────────────────────────────────────────────────────────────────
   if (isFetching && currentItems.length === 0) {
@@ -400,6 +402,7 @@ const UserCart = () => {
                   onRemove={handleRemove}
                   isUpdating={isUpdating}
                   isRemoving={isRemoving}
+                  categories={categories}
                 />
               </div>
             );
@@ -410,44 +413,17 @@ const UserCart = () => {
 
         {/* ✅ UPGRADE: Delivery pincode checker */}
         <div className="px-1 sm:px-2 mt-4">
-          <DeliveryChecker compact showTitle={false} />
+          <CartDeliverySection isLoggedIn={isLoggedIn} userPincode={userPincode} />
         </div>
 
         <hr className="border-gray-200 block my-4" />
 
-        {/* ── Order Summary ── */}
+        {/* ── Order summary: cart line total only ── */}
         <div className="flex flex-col gap-4 px-1 sm:px-2">
 
-          {/* Line items */}
-          <div className="flex flex-col gap-1.5">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Item Total</span>
-              <span className="text-sm font-semibold">{fmt(subtotal)}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-gray-600">Delivery Fees</span>
-              {/* ✅ UPGRADE: green "Free" label */}
-              <span className="text-sm font-semibold text-gray-800">
-                {deliveryFee === 0
-                  ? <span className="text-green-600 font-bold">Free</span>
-                  : fmt(deliveryFee)
-                }
-              </span>
-            </div>
-            {subtotal > 0 && subtotal < 499 && (
-              <p className="text-[11px] text-gray-400 text-right">
-                Add {fmt(499 - subtotal)} more for free delivery
-              </p>
-            )}
-          </div>
-
-          <hr className="border-gray-200" />
-
-          {/* Grand total */}
           <div className="flex items-center justify-between">
-            <span className="font-bold text-base sm:text-lg">Grand Total</span>
-            {/* ✅ UPGRADE: uses grandTotal variable */}
-            <span className="font-bold text-base sm:text-lg">{fmt(grandTotal)}</span>
+            <span className="font-bold text-base sm:text-lg">Total</span>
+            <span className="font-bold text-base sm:text-lg">{fmt(subtotal)}</span>
           </div>
 
           {/* ✅ UPGRADE: <button> with smart checkout handler (login guard + resetCheckout) */}

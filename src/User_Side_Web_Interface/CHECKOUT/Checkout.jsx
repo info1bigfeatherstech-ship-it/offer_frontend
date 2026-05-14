@@ -135,6 +135,10 @@ const OrderSuccess = ({ order, onViewOrders }) => {
     return () => clearTimeout(timer);
   }, []);
 
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, []);
+
   if (processing) {
     return (
       <div className="min-h-screen flex items-center justify-center p-5"
@@ -1619,20 +1623,35 @@ const Checkout = () => {
                       >
                         <CreditCard size={17} style={{ color: "#3b82f6" }} />
                       </div>
-                      <div className="flex-1">
-                        <span className="font-black text-sm">Pay Online — Full Amount</span>
-                         <span
-                              className="font-black ml-2"
-                              style={{
-                                fontSize: 9,
-                                padding: "2px 7px",
-                                borderRadius: 99,
-                                background: checkoutMode === "cod" ? "rgba(255,255,255,0.2)" : "#F7A221",
-                                color: checkoutMode === "cod" ? "#fff" : "#111",
-                              }}
-                            >
-                              Get Extra Discount
-                            </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 min-w-0">
+                          <span
+                            className="font-black text-sm"
+                            style={{
+                              color: checkoutMode === "online_full" ? "#F7A221" : "#111",
+                              lineHeight: 1.25,
+                            }}
+                          >
+                            Pay Online Full Amount
+                          </span>
+                          <span
+                            className="font-black shrink-0 whitespace-nowrap"
+                            style={{
+                              fontSize: 9,
+                              padding: "2px 7px",
+                              borderRadius: 99,
+                              background:
+                                checkoutMode === "online_full" ? "#ffffff" : "#F7A221",
+                              color: "#111",
+                              boxShadow:
+                                checkoutMode === "online_full"
+                                  ? "0 0 0 1px rgba(247,162,33,0.35)"
+                                  : "none",
+                            }}
+                          >
+                            Get Extra Discount
+                          </span>
+                        </div>
                         <p className="text-[11px] opacity-80 mt-0.5">
                           {fmt(quote?.amountPayable)} · UPI, cards, net banking
                         </p>
@@ -1720,20 +1739,20 @@ const Checkout = () => {
                   ) : null}
                 </div>
 
-                <div className="flex flex-col gap-2 items-center">
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-stretch sm:gap-2">
                   <input
                     type="text"
                     value={couponInput}
                     onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                     placeholder="Enter coupon code"
-                    className="w-full px-3 py-2 rounded-xl border text-sm"
+                    className="w-full min-w-0 px-3 py-2 rounded-xl border text-sm sm:flex-1"
                     style={{ borderColor: "#f0e8d8", outline: "none" }}
                   />
                   <button
                     type="button"
                     onClick={() => handleApplyCoupon(couponInput)}
                     disabled={couponApplyDisabled}
-                    className="px-3 py-2 rounded-xl text-xs font-black uppercase"
+                    className="w-full shrink-0 px-3 py-2 rounded-xl text-xs font-black uppercase sm:w-auto"
                     style={{
                       background: "#111",
                       color: "#F7A221",
