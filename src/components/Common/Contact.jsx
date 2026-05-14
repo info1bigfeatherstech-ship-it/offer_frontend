@@ -137,7 +137,7 @@ export default function ContactUs() {
   };
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    window.scrollTo({ top: 0, behavior: "instant" });
     generateCaptcha();
   }, []);
 
@@ -194,7 +194,7 @@ export default function ContactUs() {
                   <InfoRow icon={Mail} label="Email" value="support.offerwalebaba@gmail.com" href="mailto:support.offerwalebaba@gmail.com" />
                   <InfoRow icon={Globe} label="Website" value="www.offerwalebaba.com" href="https://offerwalebaba.com/" />
                   <InfoRow icon={MapPin} label="Address" value="Sambhaji Chowk, Opp. Tipcy-Topcy Society, Babasai Nagar, Ulhasnagar, Mumbai - 421004, Maharastra, India" href="https://maps.google.com/?q=Ulhasnagar,Maharashtra" />
-                  <InfoRow icon={Clock} label="Hours" value="Tue–Sun, 1 PM – 11 PM" />
+                  <InfoRow icon={Clock} label="Hours" value="Tue–Sun, 1 PM – 10 PM" />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2">

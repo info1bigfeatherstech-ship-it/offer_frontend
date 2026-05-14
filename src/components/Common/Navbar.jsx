@@ -14,7 +14,7 @@ import {
   MapPin, LogOut, UserCircle, Settings, Sparkles, TrendingUp, Star, Zap
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import logo from "../../assets/logo2.svg";
+import navLogoVideo from "../../assets/Video2.mp4";
 import homeIcon from "../../assets/home (2).png";
 import Coupon from "../../assets/Tickets.gif";
 import Contact from "../../assets/Contact.gif";
@@ -325,8 +325,6 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
-  const [isLogoHovered, setIsLogoHovered] = useState(false);
-  const [burstIcons, setBurstIcons] = useState([]);
   const wishlistCount = useSelector(selectWishlistCount);
   const guestItems = useSelector(selectWishlistGuestItems);
   const cartCount = useSelector(selectDisplayCartCount);
@@ -372,37 +370,6 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
     else setIsWishCartOpen(true);
   };
 
-  // Logo burst effect
-  useEffect(() => {
-    let interval;
-    if (isLogoHovered) {
-      interval = setInterval(() => {
-        const newIcon = {
-          id: Date.now(),
-          ...iconPool[Math.floor(Math.random() * iconPool.length)],
-          x: (Math.random() - 0.5) * 200 + "px",
-          y: (Math.random() - 0.5) * 200 + "px",
-          rotation: Math.random() * 360 + "deg",
-        };
-        setBurstIcons((prev) => [...prev.slice(-15), newIcon]);
-      }, 150);
-    } else {
-      setBurstIcons([]);
-    }
-    return () => clearInterval(interval);
-  }, [isLogoHovered]);
-
-  const iconPool = [
-    { icon: <Smartphone size={18} />, color: "text-blue-500" },
-    { icon: <Shirt size={18} />,      color: "text-orange-500" },
-    { icon: <Dumbbell size={18} />,   color: "text-green-500" },
-    { icon: <Package size={18} />,    color: "text-purple-500" },
-    { icon: <Baby size={18} />,       color: "text-pink-500" },
-    { icon: <ChefHat size={18} />,    color: "text-red-500" },
-    { icon: <Car size={18} />,        color: "text-gray-600" },
-    { icon: <HeadphonesIcon size={18} />, color: "text-yellow-500" },
-  ];
-
   const actionIcons = [
     {
       icon: <User size={20} />,
@@ -414,6 +381,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
   ];
 
   // ── Bottom nav links (used in desktop nav + mobile sidebar) ────────────────
+  // "Just Arrived" uses the same bottom-nav icon scale as Deal/Sale (see [&_img] on the shared wrapper). Sidebar: ImageIcon default 40px unless you pass className.
   const bottomNavLinks = [
     {
       label: "Today's Deal",
@@ -428,7 +396,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
           src={arrivals}
           alt="Just Arrived"
           animation="animate-float"
-          className="!w-[46px] !h-[46px] lg:!w-8 lg:!h-8 xl:!w-10 xl:!h-10 2xl:!w-11 2xl:!h-11"
+          className="object-center"
         />
       ),
     },
@@ -492,23 +460,17 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
             {/* Logo — fixed height container, no inline marginTop */}
             <Link
               to="/"
-              className="relative flex-shrink-0 flex items-center justify-center group"
-              onMouseEnter={() => setIsLogoHovered(true)}
-              onMouseLeave={() => setIsLogoHovered(false)}
+              aria-label="Offer Wale Baba home"
+              className="relative inline-flex shrink-0 items-center justify-center"
             >
-              {burstIcons.map((item) => (
-                <div
-                  key={item.id}
-                  className={`absolute z-[-1] ${item.color} animate-flush-continuous`}
-                  style={{ '--target-x': item.x, '--target-y': item.y, '--target-rot': item.rotation }}
-                >
-                  {item.icon}
-                </div>
-              ))}
-              <img
-                className="relative z-10 object-contain w-[120px] sm:w-[140px] md:w-[170px] h-auto transition-transform duration-500"
-                src={logo}
-                alt="Offer Wale Baba"
+              <video
+                className="relative z-10 block h-auto w-auto max-w-[120px] shrink-0 object-contain sm:max-w-[140px] md:max-w-[170px] pointer-events-none"
+                src={navLogoVideo}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="auto"
               />
             </Link>
 
@@ -613,23 +575,17 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
             <div className="flex items-end gap-2 self-end overflow-visible">
               <Link
                 to="/"
-                className="relative flex-shrink-0 flex items-center justify-center p-1 group translate-y-[45%]"
-                onMouseEnter={() => setIsLogoHovered(true)}
-                onMouseLeave={() => setIsLogoHovered(false)}
+                aria-label="Offer Wale Baba home"
+                className="relative inline-flex shrink-0 items-center justify-center p-1 top-9 xl:top-11 2xl:top-12"
               >
-                {burstIcons.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`absolute z-[-1] ${item.color} animate-flush-continuous`}
-                    style={{ '--target-x': item.x, '--target-y': item.y, '--target-rot': item.rotation }}
-                  >
-                    {item.icon}
-                  </div>
-                ))}
-                <img
-                  className="relative z-10 object-contain transition-transform duration-500 w-[130px] xl:w-[160px] 2xl:w-[175px] h-auto"
-                  src={logo}
-                  alt="Logo"
+                <video
+                  className="relative z-10 block h-auto w-auto max-w-[130px] shrink-0 object-contain xl:max-w-[160px] 2xl:max-w-[175px] pointer-events-none"
+                  src={navLogoVideo}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  preload="auto"
                 />
               </Link>
             </div>
@@ -727,7 +683,14 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                     to={link.path}
                     className="shrink-0 text-center justify-center flex items-center px-1 lg:px-1.5 xl:px-3 py-2 lg:py-2.5 gap-1 lg:gap-1.5 xl:gap-2 hover:bg-gray-50 rounded-xl transition-all duration-200 group whitespace-nowrap"
                   >
-                    <div className="transition-transform duration-300 group-hover:scale-125 shrink-0 [&_img]:w-6! [&_img]:h-6! lg:[&_img]:w-7! lg:[&_img]:h-7! xl:[&_img]:w-9! xl:[&_img]:h-9! 2xl:[&_img]:w-10! 2xl:[&_img]:h-10!">
+                    {/* Just Arrived GIF: desktop bottom-nav img sizes — edit the [&_img] classes in the ternary below (other links use the smaller [&_img] scale). */}
+                    <div
+                     className={
+                      link.label === "Just Arrived"
+                        ? "transition-transform duration-300 group-hover:scale-125 shrink-0 [&_img]:!w-10 [&_img]:!h-10 lg:[&_img]:!w-[44px] lg:[&_img]:!h-[44px] xl:[&_img]:!w-14 xl:[&_img]:!h-14"
+                        : "transition-transform duration-300 group-hover:scale-125 shrink-0 [&_img]:w-6! [&_img]:h-6! lg:[&_img]:w-7! lg:[&_img]:h-7! xl:[&_img]:w-9! xl:[&_img]:h-9! 2xl:[&_img]:w-10! 2xl:[&_img]:h-10!"
+                    }
+                    >
                       {link.icon}
                     </div>
                     <span className="font-bold text-black text-[11px] lg:text-xs xl:text-[0.85rem] relative z-10">

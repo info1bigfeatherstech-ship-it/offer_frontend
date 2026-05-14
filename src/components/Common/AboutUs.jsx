@@ -15,20 +15,14 @@ import {
   SprayCan,
   Car,
   Baby,
+  Package,
 } from "lucide-react";
 import logo from "../../assets/logo.jpg"
 import { Link } from "react-router-dom";
 import { useEffect } from "react";
 
+/** Same order, labels & paths as Navbar `mobileCategories` / MegaDropdown (Home → … → Car Accessories). */
 const categories = [
-  {
-    label: "Smart Life Gadgets",
-    path: "/category/smart-life-gadgets",
-    desc: "Smart gadgets & trending tech products",
-    icon: Smartphone,
-    color: "from-cyan-500/20 to-blue-500/10",
-  },
-
   {
     label: "Home & Kitchen",
     path: "/category/home-and-kitchen",
@@ -36,39 +30,13 @@ const categories = [
     icon: Home,
     color: "from-orange-500/20 to-yellow-500/10",
   },
-
   {
-    label: "Fashion World",
-    path: "/category/fashion-world",
-    desc: "Wholesale fashion & accessories",
-    icon: Shirt,
-    color: "from-pink-500/20 to-rose-500/10",
+    label: "Smart Life Gadgets",
+    path: "/category/smart-life-gadgets",
+    desc: "Smart gadgets & trending tech products",
+    icon: Smartphone,
+    color: "from-cyan-500/20 to-blue-500/10",
   },
-
-  {
-    label: "Sports & Fitness",
-    path: "/category/sports-and-fitness",
-    desc: "Fitness gear & active lifestyle products",
-    icon: Dumbbell,
-    color: "from-green-500/20 to-emerald-500/10",
-  },
-
-  {
-    label: "Tours & Travels",
-    path: "/category/tours-and-travels",
-    desc: "Travel essentials & accessories",
-    icon: Plane,
-    color: "from-sky-500/20 to-indigo-500/10",
-  },
-
-  {
-    label: "Stationary",
-    path: "/category/stationary",
-    desc: "Office, school & business supplies",
-    icon: PencilRuler,
-    color: "from-violet-500/20 to-purple-500/10",
-  },
-
   {
     label: "Baby Items",
     path: "/category/baby-items",
@@ -76,29 +44,61 @@ const categories = [
     icon: Baby,
     color: "from-pink-400/20 to-orange-300/10",
   },
-
   {
-    label: "Car Accessories",
-    path: "/category/car-accessories",
-    desc: "Accessories for smarter driving",
-    icon: Car,
-    color: "from-slate-500/20 to-gray-500/10",
+    label: "Stationary",
+    path: "/category/stationary",
+    desc: "Office, school & business supplies",
+    icon: PencilRuler,
+    color: "from-violet-500/20 to-purple-500/10",
   },
-
   {
-    label: "Cleaning Supplies",
-    path: "/category/mix-items-daily-use",
-    desc: "Daily-use & hygiene essentials",
+    label: "Cleaning & Housekeeping Supplies",
+    path: "/category/cleaning-&housekeeping-supplies",
+    desc: "Cleaning tools & household essentials",
     icon: SprayCan,
     color: "from-teal-500/20 to-cyan-500/10",
   },
-
+  {
+    label: "Sports & Fitness",
+    path: "/category/sports-and-fitness",
+    desc: "Fitness gear & active lifestyle products",
+    icon: Dumbbell,
+    color: "from-green-500/20 to-emerald-500/10",
+  },
+  {
+    label: "Tours & Travels",
+    path: "/category/tours-and-travels",
+    desc: "Travel essentials & accessories",
+    icon: Plane,
+    color: "from-sky-500/20 to-indigo-500/10",
+  },
+  {
+    label: "Fashion World",
+    path: "/category/fashion-world",
+    desc: "Wholesale fashion & accessories",
+    icon: Shirt,
+    color: "from-pink-500/20 to-rose-500/10",
+  },
   {
     label: "Gifts",
     path: "/category/gifts",
     desc: "Curated gifting collections",
     icon: Gift,
     color: "from-amber-500/20 to-orange-500/10",
+  },
+  {
+    label: "Mix-items",
+    path: "/category/mix-items-daily-use",
+    desc: "Daily-use & mixed essentials",
+    icon: Package,
+    color: "from-zinc-500/20 to-stone-500/10",
+  },
+  {
+    label: "Car Accessories",
+    path: "/category/car-accessories",
+    desc: "Accessories for smarter driving",
+    icon: Car,
+    color: "from-slate-500/20 to-gray-500/10",
   },
 ];
 
@@ -405,7 +405,7 @@ export default function AboutUs() {
 
             <div className="mt-4 h-[2px] w-14 bg-amber-400" />
 
-            <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl  tracking-[-2px]">
+            <h2 className="mt-6 text-3xl sm:text-4xl lg:text-5xl text-white tracking-[-2px]">
               Why Shoppers Love Us
             </h2>
 
@@ -422,7 +422,7 @@ export default function AboutUs() {
               return (
                 <div
                   key={item.title}
-                  className="rounded-3xl border border-white/10 bg-white/5 p-8 backdrop-blur-xl transition-all duration-500 hover:-translate-y-2 hover:border-amber-400/30 hover:shadow-2xl"
+                  className="rounded-3xl border text-white  border-white/10 bg-white/5 p-8 backdrop-blur-xl transition-all duration-500 hover:-translate-y-2 hover:border-amber-400/30 hover:shadow-2xl"
                 >
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-400/10 transition-all duration-300 hover:scale-110">
                     <Icon className="h-6 w-6 text-amber-400" />
@@ -530,7 +530,7 @@ export default function AboutUs() {
           </p>
 
           <div className="mt-10 flex flex-wrap justify-center gap-4">
-            <Link to="/" className="rounded-full bg-black px-10 py-5 text-base font-bold text-white transition-all duration-300 hover:scale-105 hover:bg-black/90 hover:shadow-xl">
+            <Link to="/#top-categories" className="rounded-full bg-black px-10 py-5 text-base font-bold text-white transition-all duration-300 hover:scale-105 hover:bg-black/90 hover:shadow-xl">
               Start Shopping Now →
             </Link>
 

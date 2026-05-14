@@ -4,6 +4,7 @@ import {
   useGetAdminReturnRequestDetailQuery,
   useGetAdminReturnRequestsQuery,
   useInitiateAdminReturnRefundMutation,
+  useAdminReturnReversePickupRetryMutation,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 
 function fmtDate(v) {
@@ -41,15 +42,20 @@ export default function ReturnsRefundsTab() {
   const canRefund = ["refund_pending", "received", "qc_passed"].includes(
     String(selected?.returnInfo?.status || "").toLowerCase()
   );
+  const retSt = String(selected?.returnInfo?.status || "").toLowerCase();
+  const hasRev = Boolean(selected?.returnInfo?.reverseAwbCode || selected?.returnInfo?.reverseTrackingNumber);
+  const canRetryReverse = retSt === "approval_failed" || (retSt === "approved" && !hasRev);
 
+  const [retryReverse, retryReverseState] = useAdminReturnReversePickupRetryMutation();
   const topError = useMemo(
     () =>
       error?.data?.message ||
       detail.error?.data?.message ||
       decideState.error?.data?.message ||
       refundState.error?.data?.message ||
+      retryReverseState.error?.data?.message ||
       null,
-    [error, detail.error, decideState.error, refundState.error]
+    [error, detail.error, decideState.error, refundState.error, retryReverseState.error]
   );
 
   return (
@@ -194,6 +200,27 @@ export default function ReturnsRefundsTab() {
                       Reject
                     </button>
                   </div>
+                </div>
+              )}
+
+              {canRetryReverse && (
+                <div className="border-t border-slate-100 pt-3">
+                  <p className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                    Reverse pickup (Shiprocket)
+                  </p>
+                  <button
+                    type="button"
+                    disabled={retryReverseState.isLoading}
+                    onClick={async () => {
+                      await retryReverse({ orderId: selected.orderId });
+                    }}
+                    className="px-4 py-2 rounded-lg bg-indigo-600 text-white text-xs font-semibold disabled:opacity-50"
+                  >
+                    {retryReverseState.isLoading ? "Retrying…" : "Retry reverse pickup"}
+                  </button>
+                  {selected.returnInfo?.reverseLastError && (
+                    <p className="text-xs text-red-600 mt-2">Last error: {selected.returnInfo.reverseLastError}</p>
+                  )}
                 </div>
               )}
 

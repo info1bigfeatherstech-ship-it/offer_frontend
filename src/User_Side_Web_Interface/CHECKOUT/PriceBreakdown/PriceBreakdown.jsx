@@ -1,5 +1,6 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Tag, Truck, Receipt, ShieldCheck, Clock } from "lucide-react";
+import { computeCheckoutPsychologyPricing } from "../../../utils/checkoutPriceDisplay";
 
 const fmt = (n) => {
   if (n == null) return "—";
@@ -19,6 +20,7 @@ const fmt = (n) => {
  * Props:
  *   quote           — quote object from checkoutSlice (fetchCheckoutQuote result)
  *   itemCount       — number of items in cart
+ *   cartItems       — optional; when set, shows SubTotal + base→sale discount + coupon (same logic as order summary)
  *   paymentMethod   — "cod" | "online"
  *   paymentPlan     — "full" | "advance"
  *   advancePercent  — optional; server policy % (1–100) for partial pay-now display
@@ -27,12 +29,21 @@ const fmt = (n) => {
 const PriceBreakdown = ({
   quote,
   itemCount,
+  cartItems = null,
   paymentMethod = "cod",
   paymentPlan = "full",
   advancePercent: advancePercentProp,
   compact = false,
 }) => {
   if (!quote) return null;
+
+  const psych = useMemo(
+    () =>
+      Array.isArray(cartItems) && cartItems.length > 0
+        ? computeCheckoutPsychologyPricing(cartItems, quote)
+        : null,
+    [cartItems, quote]
+  );
 
   const {
     itemsSubtotal,
@@ -52,7 +63,48 @@ const PriceBreakdown = ({
   const advanceAmount = Math.round((amountPayable * advancePercent) / 100);
   const balanceAmount = amountPayable - advanceAmount;
 
-  const rows = [
+  const rows = psych
+    ? [
+        { label: "SubTotal", value: fmt(psych.mrpTotal), icon: null, green: false },
+        ...(psych.catalogDiscount > 0
+          ? [
+              {
+                label: "Discount",
+                value: <span className="text-green-600">− {fmt(psych.catalogDiscount)}</span>,
+                icon: null,
+                green: true,
+              },
+            ]
+          : []),
+        ...(promotionDiscount > 0
+          ? [
+              {
+                label: `Additional discount${couponApplied ? ` (${couponApplied})` : ""}`,
+                value: <span className="text-green-600">− {fmt(promotionDiscount)}</span>,
+                icon: <Tag size={12} className="text-green-500" />,
+                green: true,
+              },
+            ]
+          : []),
+        {
+          label: "Shipping",
+          value:
+            deliveryCharges === 0 ? (
+              <span className="text-green-600 font-black">FREE</span>
+            ) : (
+              fmt(deliveryCharges)
+            ),
+          icon: <Truck size={12} className="text-gray-400" />,
+          green: deliveryCharges === 0,
+        },
+        {
+          label: "Other taxes",
+          value: fmt(taxes),
+          icon: <Receipt size={12} className="text-gray-400" />,
+          green: false,
+        },
+      ]
+    : [
     {
       label: `Item Total${itemCount ? ` (${itemCount} item${itemCount > 1 ? "s" : ""})` : ""}`,
       value: fmt(itemsSubtotal),
@@ -73,7 +125,7 @@ const PriceBreakdown = ({
         }]
       : []),
     {
-      label: "Taxes (GST)",
+      label: "Other taxes",
       value: fmt(taxes),
       icon: <Receipt size={12} className="text-gray-400" />,
     },
@@ -90,7 +142,10 @@ const PriceBreakdown = ({
               {row.label}
             </span>
           </div>
-          <span className={`font-bold text-gray-800 ${compact ? "text-xs" : "text-sm"}`}>
+          <span
+            className={`font-bold text-gray-800 ${compact ? "text-xs" : "text-sm"}`}
+            style={row.green ? { color: "#15803d" } : undefined}
+          >
             {row.value}
           </span>
         </div>

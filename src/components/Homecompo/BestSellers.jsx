@@ -53,7 +53,7 @@ const BestSellers = () => {
   if (hasError && !hasProducts) {
     return (
       <section className="container mx-auto px-4 py-12 md:py-20 font-sans">
-        <div className="flex items-end justify-between mb-10 border-b border-zinc-100 pb-6" id="just-arrived">
+        <div className="flex items-end justify-between mb-10 border-b border-zinc-100 pb-6" id="best-sellers">
           <h2 className="text-3xl md:text-5xl font-outfit tracking-tighter uppercase">
             Just <span className="text-yellow-600 font-outfit">Arrived</span>
           </h2>
@@ -79,7 +79,7 @@ const BestSellers = () => {
     <section className="container mx-auto px-4 py-12 md:py-20 font-">
 
       {/* Header */}
-      <div className="flex items-end justify-between mb-10 border-b border-zinc-100 pb-6">
+      <div className="flex items-end justify-between mb-10 border-b border-zinc-100 pb-6" id="best-sellers">
         <div className="space-y-1">
           
            <h3 className="text-2xl sm:text-2xl md:text-4xl font-lato flex items-center gap-2 md:gap-4 text-gray-900 mb-4 sm:mb-0">
@@ -157,7 +157,7 @@ const BestSellers = () => {
         </div>
       )}
 
-      <style jsx>{`
+      <style>{`
         @keyframes slideUpFade {
           0%   { opacity: 0; transform: translateY(30px); }
           100% { opacity: 1; transform: translateY(0); }

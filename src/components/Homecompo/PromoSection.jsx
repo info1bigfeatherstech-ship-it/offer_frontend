@@ -249,7 +249,7 @@ const PromoSection = () => {
                 ))}
             </div>
 
-            <style jsx>{`
+            <style>{`
                 .flicker-text {
                     animation: flicker 3s linear infinite;
                 }

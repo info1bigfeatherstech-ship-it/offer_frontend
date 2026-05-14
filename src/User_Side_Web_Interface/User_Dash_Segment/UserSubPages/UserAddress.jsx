@@ -555,7 +555,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
                 <Field
                   label="Landmark" name="landmark"
                   value={form.landmark} onChange={handleChange}
-                  placeholder="Near City Mall, Opposite Metro Station (optional)"
+                  placeholder="Near City Mall"
                 />
 
                 {/* Address Line 1 - Simple text input */}
@@ -566,7 +566,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
                   onChange={handleChange}
                   required
                   maxLength={ADDRESS_LINE_MAX_LEN}
-                  placeholder="Street, building, road — not only flat number"
+                  placeholder="Street, building, road"
                 />
                 <p className="text-[10px] font-bold text-gray-400 -mt-3 ml-1">
                   Couriers need a full street line (at least {ADDRESS_LINE1_MIN_LEN} characters).

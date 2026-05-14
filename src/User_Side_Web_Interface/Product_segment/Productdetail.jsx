@@ -789,14 +789,16 @@ const ProductUI = ({ openAuthModal }) => {
   const images = selectedVariant?.images ?? [];
   const activeImg = images[activeThumb]?.url ?? null;
 
-  // ── Auto-slide: advance every 3s on mobile, pause when fullscreen sheet is open ──
+  // ── Auto-advance gallery every 3s (same as mobile) on all breakpoints.
+  // Pause when fullscreen image sheet is open, or while desktop hover-zoom lens is active.
   useEffect(() => {
-    if (!isMobile || isVisible || images.length <= 1) return;
+    if (isVisible || images.length <= 1) return;
+    if (!isMobile && showZoom) return;
     const timer = setInterval(() => {
       setActiveThumb((prev) => (prev + 1) % images.length);
     }, 3000);
     return () => clearInterval(timer);
-  }, [isMobile, isVisible, images.length, activeThumb]);
+  }, [isMobile, isVisible, images.length, showZoom, selectedVariant?._id]);
 
   const salePrice = selectedVariant?.finalPrice ?? selectedVariant?.price?.sale ?? selectedVariant?.price?.base ?? null;
   const basePrice = selectedVariant?.price?.base ?? null;
@@ -1075,9 +1077,10 @@ const ProductUI = ({ openAuthModal }) => {
           <div className="bg-gray-50 rounded-2xl sm:rounded-3xl overflow-hidden ">
             <div className="flex flex-col lg:grid lg:grid-cols-2">
 
-              {/* ── LEFT: Gallery + customer reviews below ── */}
-              <div className="flex flex-col w-full gap-4 lg:gap-6 lg:border-r border-gray-100 lg:pr-4 min-w-0">
-                <div className="flex flex-row gap-6 min-w-0">
+              {/* ── LEFT: gallery + reviews = one grid cell on lg (avoids 2-row + row-span-2 height glitches); max-lg:contents keeps mobile order gallery → product → reviews ── */}
+              <div className="max-lg:contents lg:flex lg:flex-col lg:gap-6 lg:min-w-0 lg:border-r lg:border-gray-100 lg:pr-4">
+                <div className="order-1 lg:order-none flex flex-col w-full gap-4 lg:gap-6 min-w-0">
+                  <div className="flex flex-row gap-6 min-w-0">
 
                   {images.length > 0 && (
                     <div className="hidden lg:flex flex-col items-center gap-0 py-3 px-2 border-r border-gray-100 bg-gray-50 flex-shrink-0 w-[76px]">
@@ -1205,9 +1208,9 @@ const ProductUI = ({ openAuthModal }) => {
                     )}
                   </div>
                 </div>{/* end image row */}
-              </div>{/* end left column */}
+                </div>{/* end gallery stack */}
 
-              <div className="order-3 lg:order-none lg:col-start-1 lg:row-start-2 lg:border-r border-gray-100 lg:pr-4 mt-4 lg:mt-0">
+              <div className="order-3 lg:order-none w-full mt-4 lg:mt-0">
                 {/* Reviews: directly under gallery on desktop; after product info on mobile */}
                 {/* START REVIEWS SECTION */}
                 {(() => {
@@ -1477,8 +1480,9 @@ const ProductUI = ({ openAuthModal }) => {
                 })()}
                 {/* END REVIEWS SECTION */}
               </div>{/* end reviews wrapper */}
+              </div>{/* end merge: gallery + reviews (lg) / contents (mobile) */}
 
-              <div className="order-2 lg:order-none lg:col-start-2 lg:row-start-1 lg:row-span-2 flex flex-col min-w-0">
+              <div className="order-2 lg:order-none lg:col-start-2 lg:self-start flex flex-col min-w-0">
                 {/* ── RIGHT: Info panel ── */}
                 <div className="flex relative flex-col gap-3 p-4 sm:p-6 lg:p-7">
                   {showZoom && !isMobile && (
@@ -1623,19 +1627,20 @@ const ProductUI = ({ openAuthModal }) => {
                                 onClick={handleAddToCart}
                                 disabled={localLoading.add}
                                 className="
-    flex-1 min-w-0
-    px-4 sm:px-6 md:px-8
-    py-3
-    rounded-xl
-    text-sm md:text-base
-    font-semibold
-    whitespace-nowrap
-    flex items-center justify-center gap-2
-    bg-black text-white
-    hover:bg-[#F7A221]
-    transition active:scale-[0.97]
-    disabled:opacity-70 disabled:cursor-not-allowed
-  "
+                                  flex-1 min-w-0
+                                  px-4 sm:px-6 md:px-8
+                                  cursor-pointer
+                                  py-3
+                                  rounded-xl
+                                  text-sm md:text-base
+                                  font-semibold
+                                  whitespace-nowrap
+                                  flex items-center justify-center gap-2
+                                  bg-[#F7A221] text-dark-900
+                                  hover:bg-[#F7A221]
+                                  transition active:scale-[0.97]
+                                  disabled:opacity-70 disabled:cursor-not-allowed
+                                "
                               >
                                 {localLoading.add ? (
                                   <Loader2 size={16} className="animate-spin" />
@@ -1762,7 +1767,7 @@ const ProductUI = ({ openAuthModal }) => {
                                 setL("buyNow", false);
                               }
                             }}
-                            className="w-full py-3 rounded-xl text-sm font-semibold bg-zinc-900 text-white hover:bg-[#F7A221] transition active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
+                            className="w-full py-3 rounded-xl text-base sm:text-lg font-semibold bg-zinc-900 text-white hover:bg-[#F7A221] transition active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
                           >
                             {localLoading.buyNow
                               ? <><Loader2 size={16} className="animate-spin" /> Processing...</>
@@ -1968,7 +1973,7 @@ const ProductUI = ({ openAuthModal }) => {
 
                           const items = [
                             ...(countryOfOrigin ? [{ key: "Country of Origin", value: countryOfOrigin }] : []),
-                            ...(gst ? [{ key: "GST", value: `${gst}%` }] : [])
+                            ...(gst ? [{ key: "GST", value: `(${gst}%)` }] : [])
                           ];
 
                           if (items.length === 0) return null;
@@ -2001,7 +2006,9 @@ const ProductUI = ({ openAuthModal }) => {
           {related?.length > 0 && (
             <div className="pb-4">
               <div className="flex items-center mt-28 justify-between mb-1">
-                <h2 className="text-base sm:text-2xl font-bold text-gray-900">Customers who bought this item also bought</h2>
+              <h2 className="text-base sm:text-2xl font- text-red-500">
+                        Customers also bought these items
+                      </h2>
                 <button onClick={() => navigate(`/category/${product?.category?.slug}`)} className="hidden sm:flex text-xs sm:text-sm text-gray-400 hover:text-orange-500 sm:items-center gap-1 transition font-medium">
                   View all <ArrowRight size={13} />
                 </button>

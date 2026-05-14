@@ -12,7 +12,7 @@ import { clearError, clearSuccess } from "../REDUX_FEATURES/REDUX_SLICES/authSli
    
    ARCHITECTURE:
    • Backdrop (fixed inset-0) — click-to-close, no overflow
-   • Shell (flex centering) — items-end mobile (bottom-sheet), items-center sm+
+   • Shell (flex centering) — items-center (centred on all breakpoints)
    • Card (flex column, max-height enforced, overflow-y: auto) — THE scroll root
      ├─ TopBar / TabBar (flex-shrink: 0 — never scrolls away)
      └─ PanelContainer (flex-1 overflow-y: auto — scrolls independently)
@@ -220,22 +220,19 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
           background: #0d0d0d;
           min-height: 0; /* lets flex children shrink so overflow-y can scroll */
           min-width: 0;
-          /* Mobile: bottom-sheet, max 88% viewport height */
+          /* Mobile + up: centred modal card, max 88% viewport height on small screens */
           max-height: 88dvh;
           max-height: calc(var(--lr-vh, 100vh) * 0.88);
-          border-radius: 2rem 2rem 0 0;
-          box-shadow: 0 -8px 40px rgba(0,0,0,0.5);
+          border-radius: 2rem;
+          box-shadow: 0 24px 64px rgba(0,0,0,0.6);
+          border: 1px solid rgba(255,255,255,0.08);
           overflow: hidden; /* clip rounded corners */
         }
 
-        /* Tablet / Laptop / Desktop: centred modal card */
         @media (min-width: 640px) {
           .lr-modal-card {
             max-height: min(92vh, 720px);
             max-height: min(calc(var(--lr-vh, 100vh) * 0.92), 720px);
-            border-radius: 2rem;
-            box-shadow: 0 24px 64px rgba(0,0,0,0.6);
-            border: 1px solid rgba(255,255,255,0.08);
           }
         }
 
@@ -280,7 +277,7 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
       {/* ── BACKDROP ── */}
       <div
         ref={backdropRef}
-        className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/95 backdrop-blur-sm lr-fade min-h-0 p-0 sm:p-4"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm lr-fade min-h-0 p-4"
         onClick={handleClose}
         aria-modal="true"
         role="dialog"
@@ -288,7 +285,7 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
       >
         {/* ── POSITIONING WRAPPER — caps height so inner card can scroll on short viewports ── */}
         <div
-          className="relative w-full min-h-0 min-w-0 sm:max-w-[420px] sm:mx-4 lr-sheet-up"
+          className="relative w-full max-w-[420px] mx-auto min-h-0 min-w-0 lr-sheet-up"
           onClick={(e) => e.stopPropagation()}
           onTouchStart={handleTouchStart}
           onTouchEnd={handleTouchEnd}

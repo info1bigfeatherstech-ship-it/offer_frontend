@@ -255,7 +255,7 @@ const WhatsAppFloat = () => {
                 {/* <span className="absolute top-0 right-0 w-4 h-4 bg-red-500 border-2 border-white rounded-full"></span> */}
             </button>
 
-            <style jsx>{`
+            <style>{`
                 @keyframes ping {
                     75%, 100% {
                         transform: scale(2);

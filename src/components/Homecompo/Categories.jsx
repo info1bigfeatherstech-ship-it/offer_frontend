@@ -8,53 +8,60 @@ import {
 import { useEffect } from "react";
 import { useState } from "react";
 
+// ─── Cloudinary helper ────────────────────────────────────────────────────────
+// Injects c_fill,g_center,w_500,h_500 into any Cloudinary URL so the image is
+// cropped & zoomed SERVER-SIDE before it even downloads. This eliminates the
+// solid-color background padding baked into each image at the source level.
+// Non-Cloudinary URLs pass through unchanged.
+const cloudinaryCrop = (url) => {
+  if (!url || !url.includes("res.cloudinary.com")) return url;
+  return url.replace(
+    "/upload/",
+    "/upload/c_fill,g_center,w_500,h_500,q_auto,f_auto/"
+  );
+};
+
+const CATEGORY_THUMBNAILS = {
+  "home-and-kitchen":
+    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572784/sve/frere/Home_Kitchen.jpg",
+  "smart-life-gadgets":
+    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572772/sve/frere/Smart_Life_Gadget.jpg",
+  "fashion-world":
+    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572775/sve/frere/Fashion.jpg",
+  "sports-and-fitness":
+    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572776/sve/frere/sports_Fitness.jpg",
+  "tours-and-travels":
+    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572778/sve/frere/tours_travels.jpg",
+  stationary:
+    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572785/sve/frere/Stationary.jpg",
+  "baby-items":
+    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572780/sve/frere/Baby_Items.jpg",
+  "cleaning-&housekeeping-supplies":
+    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572769/sve/frere/Cleaning_housekeeping_supplies.jpg",
+  gifts:
+    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572782/sve/frere/Gift.jpg",
+  "mix-items":
+    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572771/sve/frere/mix_items.jpg",
+  "car-accessories":
+    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572774/sve/frere/Car_Accessories.jpg",
+};
+
 const Categories = () => {
   const navigate = useNavigate();
   const dispatch = useDispatch();
-  const [endIndex, setendIndex] = useState(10);
-  const handleCategories = (category)=>{
+  const [endIndex, setEndIndex] = useState(10);
 
-    setcategories1([...categories1, slicedCategories])
-    setendIndex( prev => prev + 5);
-    
-    const slug =
-      category.slug || category.name?.toLowerCase().replace(/\s+/g, "-");
-    navigate(`/category/${slug}`);
-  }
   const categories = useSelector(selectHierarchicalCategories);
-const visibleCategories = categories.slice(0, endIndex);
-  // console.log("categories", categories.slice(0,endIndex+1));
-  // console.log("categories", categories);
-  
+  const visibleCategories = categories.slice(0, endIndex);
   const { loading, error } = useSelector((state) => state.userCategories);
 
-  // useEffect(() => {
-  //   dispatch(fetchAllCategories()).catch((err) => {
-  //     console.error("❌ Categories fetch failed:", err);
-  //   });
-  // }, [dispatch]);
-
- useEffect(() => {
-  if (categories.length === 0) {
-    dispatch(fetchAllCategories()).catch((err) => {
-      console.error("❌ Categories fetch failed:", err);
-    });
-  }
-}, [dispatch]);
-
-const CATEGORY_THUMBNAILS = {
-  "home-and-kitchen": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572784/sve/frere/Home_Kitchen.jpg",
-  "smart-life-gadgets": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572772/sve/frere/Smart_Life_Gadget.jpg",
-  "fashion-world": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572775/sve/frere/Fashion.jpg",
-  "sports-and-fitness": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572776/sve/frere/sports_Fitness.jpg",
-  "tours-and-travels": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572778/sve/frere/tours_travels.jpg",
-  "stationary": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572785/sve/frere/Stationary.jpg",
-  "baby-items": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572780/sve/frere/Baby_Items.jpg",
-  "cleaning-&housekeeping-supplies": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572769/sve/frere/Cleaning_housekeeping_supplies.jpg",
-  "gifts": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572782/sve/frere/Gift.jpg",
-  "mix-items": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572771/sve/frere/mix_items.jpg",
-  "car-accessories": "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572774/sve/frere/Car_Accessories.jpg",
-};
+  useEffect(() => {
+    if (categories.length === 0) {
+      dispatch(fetchAllCategories()).catch((err) => {
+        console.error("❌ Categories fetch failed:", err);
+      });
+    }
+  }, [dispatch]);
 
   const handleCategoryClick = (category) => {
     const slug =
@@ -84,19 +91,20 @@ const CATEGORY_THUMBNAILS = {
   }
 
   // ── Error ────────────────────────────────────────────────────────────────
-if (error.categories) {
-  return (
-    <div className="w-full py-8 flex flex-col items-center gap-3">
-      <p className="text-sm text-gray-500">Failed to load categories</p>
-      <button
-        onClick={() => dispatch(fetchAllCategories())}
-        className="px-5 py-2 bg-black text-white cursor-pointer text-sm font-semibold rounded-xl hover:bg-[#F7A221] transition"
-      >
-        Retry
-      </button>
-    </div>
-  );
-}
+  if (error.categories) {
+    return (
+      <div className="w-full py-8 flex flex-col items-center gap-3">
+        <p className="text-sm text-gray-500">Failed to load categories</p>
+        <button
+          onClick={() => dispatch(fetchAllCategories())}
+          className="px-5 py-2 bg-black text-white cursor-pointer text-sm font-semibold rounded-xl hover:bg-[#F7A221] transition"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
   // ── Empty ────────────────────────────────────────────────────────────────
   if (!categories || categories.length === 0) return null;
 
@@ -105,8 +113,8 @@ if (error.categories) {
     <div className="w-full bg-white py-8 md:py-1 overflow-hidden">
       <section className="container mx-auto px-4">
 
-        {/* Header */}
-        <div className="flex flex-row items-center justify-center mb-8 md:mb-12">
+        {/* Header — id for /#top-categories deep link (About page CTA, etc.) */}
+        <div id="top-categories" className="flex flex-row items-center justify-center mb-8 md:mb-12">
           <h3 className="text-xl sm:text-2xl md:text-4xl font-lato flex items-center gap-2 md:gap-4 text-gray-900">
             <span className="w-2 h-8 md:w-3 md:h-12 bg-[#f7a221] rounded-full shadow-[0_0_15px_rgba(247,162,33,0.3)]" />
             Top Categories
@@ -115,45 +123,61 @@ if (error.categories) {
 
         {/* Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-5 md:gap-6 lg:gap-8 max-w-7xl mx-auto">
-          {visibleCategories.map((cat, idx) => (
-            <div
-              key={cat._id || idx}
-              onClick={() => handleCategoryClick(cat)}
-              role="button"
-              tabIndex={0}
-              onKeyDown={(e) => e.key === "Enter" && handleCategoryClick(cat)}
-              className="flex flex-col items-center group cursor-pointer transition-all duration-300 w-full max-w-[180px] mx-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f7a221] rounded-2xl"
-            >
-              <div className="w-full aspect-square rounded-2xl sm:rounded-[2rem] md:rounded-[3rem] flex items-center justify-center transition-all shadow-sm group-hover:shadow-md group-hover:-translate-y-1 overflow-hidden relative border border-gray-100">
-                <img
-                  // src={cat.image?.url || cat.img || "/placeholder-category.jpg"}
-                                      src={
-                      CATEGORY_THUMBNAILS[cat.slug] ||
-                      cat.image?.url ||
-                      "/placeholder-category.jpg"
-                    }
-                  alt={cat.name}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  loading="lazy"
-                />
-                <div className="absolute inset-0 bg-[#f7a221]/0 group-hover:bg-[#f7a221]/5 transition-colors duration-300" />
+          {visibleCategories.map((cat, idx) => {
+            const rawUrl =
+              CATEGORY_THUMBNAILS[cat.slug] ||
+              cat.image?.url ||
+              "/placeholder-category.jpg";
+
+            // Cloudinary server-side crop → strips background padding at source
+            const imageUrl = cloudinaryCrop(rawUrl);
+
+            return (
+              <div
+                key={cat._id || idx}
+                onClick={() => handleCategoryClick(cat)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === "Enter" && handleCategoryClick(cat)}
+                className="flex flex-col items-center group cursor-pointer transition-all duration-300 w-full max-w-[180px] mx-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f7a221] rounded-2xl"
+              >
+                <div className="w-full aspect-square rounded-2xl sm:rounded-[2rem] md:rounded-[3rem] overflow-hidden relative ring-1 ring-black/5 group-hover:shadow-lg group-hover:-translate-y-1 transition-all duration-300">
+                  {/*
+                    TWO-LAYER ZOOM STRATEGY:
+                    Layer 1 — Cloudinary c_fill,g_center: crops the image server-side
+                      so background color padding is removed before download.
+                    Layer 2 — scale-[1.15] default + scale-[1.28] on hover: CSS zoom
+                      ensures edge-to-edge fill + satisfying hover effect.
+                    overflow-hidden on outer div clips to rounded corners always.
+                  */}
+                  <div
+                    className="absolute inset-0 bg-center bg-cover scale-[1.9] group-hover:scale-[1.9] transition-transform duration-500 ease-in-out"
+                    style={{ backgroundImage: `url('${imageUrl}')` }}
+                    aria-hidden="true"
+                  />
+                  {/* amber tint on hover */}
+                  <div className="absolute inset-0 bg-[#f7a221]/0 group-hover:bg-[#f7a221]/10 transition-colors duration-300" />
+                </div>
+
+                <span className="text-[9px] md:text-[11px] font-bold mt-3 group-hover:text-[#f7a221] text-gray-600 text-center uppercase tracking-tight md:tracking-wider transition-colors duration-300 leading-tight line-clamp-2 px-1">
+                  {cat.name}
+                </span>
               </div>
-              <span className="text-[9px] md:text-[11px] font-bold mt-3 group-hover:text-[#f7a221] text-gray-600 text-center uppercase tracking-tight md:tracking-wider transition-colors duration-300 leading-tight line-clamp-2 px-1">
-                {cat.name}
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
+
+        {/* View More */}
         {endIndex < categories.length && (
-  <div className="flex justify-center mt-8">
-    <button
-      onClick={() => setendIndex((prev) => prev + 5)}
-      className="px-6 py-2 cursor-pointer rounded-xl bg-black text-white text-sm font-semibold hover:bg-[#F7A221] transition"
-    >
-      View More
-    </button>
-  </div>
-)}
+          <div className="flex justify-center mt-8">
+            <button
+              onClick={() => setEndIndex((prev) => prev + 5)}
+              className="px-6 py-2 cursor-pointer rounded-xl bg-black text-white text-sm font-semibold hover:bg-[#F7A221] transition"
+            >
+              View More
+            </button>
+          </div>
+        )}
 
       </section>
     </div>
