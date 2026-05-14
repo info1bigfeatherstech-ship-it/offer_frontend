@@ -12,12 +12,6 @@ const UserTicket = () => {
     </svg>
   );
 
-<<<<<<< HEAD
-  // Mock data for tickets
-  const tickets = [
-    { id: 'TKT-9921', subject: 'Late Delivery - Order #OWB-ECOMM-88291', status: 'Open', priority: 'High', date: 'Mar 18, 2026' },
-    { id: 'TKT-8840', subject: 'Refund Status for Returned Item', status: 'Resolved', priority: 'Medium', date: 'Feb 12, 2026' },
-=======
   const supportCategories = [
     {
       icon: <Mail className="text-red-500" size={24} />,
@@ -49,7 +43,6 @@ const UserTicket = () => {
       bgColor: "bg-blue-50/40",
       borderColor: "border-blue-100"
     },
->>>>>>> 9cfde3fd3e99272e877373a91bf201d39ca7e6c9
   ];
 
   const handleAction = (item) => {
