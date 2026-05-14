@@ -279,7 +279,7 @@ const PrepaidSavingsPopup = ({ onSwitchToPrepaid, onContinueCod, onClose }) => {
         }
       `}</style>
       <div
-        className="fixed inset-0 z-[120] flex items-end sm:items-center justify-center p-4"
+        className="fixed inset-0 z-[120] flex items-center justify-center p-4"
         style={{ background: "rgba(17, 24, 39, 0.55)", animation: "prepaid-overlay-fade 220ms ease-out" }}
         role="dialog"
         aria-modal="true"
@@ -347,15 +347,15 @@ const PrepaidSavingsPopup = ({ onSwitchToPrepaid, onContinueCod, onClose }) => {
               <Gift size={18} style={{ color: "#F59E0B" }} />
             </div>
             <div className="flex-1">
-              <p className="font-black uppercase" style={{ fontSize: 9, color: "#9ca3af", letterSpacing: "0.06em" }}>
+              <p className="font-black uppercase" style={{ fontSize: 9, color: "#111", letterSpacing: "0.06em" }}>
                 Payment choice
               </p>
               <h3 className="font-black mt-1" style={{ fontSize: 22, color: "#111", lineHeight: 1.15 }}>
                 {fmt(totalSavings)} discount on pay online
               </h3>
-              <p style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
+              {/* <p style={{ fontSize: 11, color: "#6b7280", marginTop: 4 }}>
                 We are giving you this discount when you choose full online payment. Your exact payable total is in the order summary above.
-              </p>
+              </p> */}
             </div>
           </div>
 
@@ -363,18 +363,18 @@ const PrepaidSavingsPopup = ({ onSwitchToPrepaid, onContinueCod, onClose }) => {
             <button
               type="button"
               onClick={onSwitchToPrepaid}
-              className="w-full py-3 rounded-2xl font-black text-xs uppercase tracking-widest"
+              className="w-full py-3 rounded-2xl font-black text-lg sm:text-sm uppercase tracking-widest"
               style={{ border: "none", color: "#fff", background: "#111", cursor: "pointer" }}
             >
-              Switch to pay online — get {fmt(totalSavings)} discount
+              Pay online
             </button>
             <button
               type="button"
               onClick={onContinueCod}
-              className="w-full mt-3 text-center font-bold"
-              style={{ fontSize: 12, color: "#9ca3af", background: "none", border: "none", cursor: "pointer" }}
+              className="w-full mt-3 text-center font-black"
+              style={{ fontSize: 18, color: "#6b7280", background: "none", border: "none", cursor: "pointer" }}
             >
-              Continue with COD anyway
+              Continue with <span className="font-black" style={{ color: "#111" }}>COD</span> anyway
             </button>
           </div>
         </div>
@@ -602,7 +602,7 @@ const OrderSummaryCard = ({
                 value: delivery === 0 ? "FREE" : fmt(delivery),
                 green: delivery === 0,
               },
-              { label: "GST", value: fmt(gst) },
+              { label: "Other Taxes", value: fmt(gst) },
             ].map(({ label, value, green }) => (
               <div key={label} className="flex justify-between items-center">
                 <span style={{ fontSize: 13, color: "#6b7280" }}>{label}</span>
@@ -1467,7 +1467,7 @@ const Checkout = () => {
                               className="font-black text-sm"
                               style={{ color: checkoutMode === "cod" ? "#F7A221" : "#111" }}
                             >
-                              Cash on delivery — full Amount
+                              Cash On Delivery Full Amount
                             </p>
 
 
@@ -1480,7 +1480,7 @@ const Checkout = () => {
                               color: checkoutMode === "cod" ? "rgba(247,162,33,0.65)" : "#9ca3af",
                             }}
                           >
-                            Pay the full order total when your order arrives
+                            Pay the full order Amount  when your order arrives
                           </p>
                           
                         </div>
@@ -1529,7 +1529,7 @@ const Checkout = () => {
                         <CreditCard size={17} style={{ color: "#3b82f6" }} />
                       </div>
                       <div className="flex-1">
-                        <span className="font-black text-sm">Pay online — full amount</span>
+                        <span className="font-black text-sm">Pay Online — Full Amount</span>
                          <span
                               className="font-black ml-2"
                               style={{
@@ -1540,7 +1540,7 @@ const Checkout = () => {
                                 color: checkoutMode === "cod" ? "#fff" : "#111",
                               }}
                             >
-                              Popular
+                              Get Extra Discount
                             </span>
                         <p className="text-[11px] opacity-80 mt-0.5">
                           {fmt(quote?.amountPayable)} · UPI, cards, net banking
@@ -1595,7 +1595,7 @@ const Checkout = () => {
                             Pay {formatPercentLabel(policyPartialPercent)}% online now
                           </p>
                           <p className="text-[11px] opacity-80 mt-0.5">
-                            Balance on delivery (COD) · {fmt(advancePreviewNow)} due online now
+                            Balance On delivery (COD) · {fmt(advancePreviewNow)} Pay Online Now
                           </p>
                         </div>
                       </div>
@@ -1629,13 +1629,13 @@ const Checkout = () => {
                   ) : null}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-2 items-center">
                   <input
                     type="text"
                     value={couponInput}
                     onChange={(e) => setCouponInput(e.target.value.toUpperCase())}
                     placeholder="Enter coupon code"
-                    className="flex-1 px-3 py-2 rounded-xl border text-sm"
+                    className="w-full px-3 py-2 rounded-xl border text-sm"
                     style={{ borderColor: "#f0e8d8", outline: "none" }}
                   />
                   <button

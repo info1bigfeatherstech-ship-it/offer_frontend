@@ -31,6 +31,8 @@ import {
 
 import { selectDefaultAddress } from '../../components/REDUX_FEATURES/REDUX_SLICES/Useraddressslice';
 
+import axiosInstance from '../../SERVICES/axiosInstance';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -78,8 +80,10 @@ const DeliverySection = ({ isLoggedIn, userPincode }) => {
       !hasAutoChecked.current
     ) {
       hasAutoChecked.current = true;
+      /* eslint-disable react-hooks/set-state-in-effect -- sync local pincode with saved address before checkDelivery */
       setPincode(userPincode);
       setIsDeliveryLoading(true);
+      /* eslint-enable react-hooks/set-state-in-effect */
       dispatch(checkDelivery({ pincode: userPincode }))
         .finally(() => setIsDeliveryLoading(false));
     }
@@ -124,7 +128,6 @@ const DeliverySection = ({ isLoggedIn, userPincode }) => {
   const isChecking = !!(checkoutLoading?.delivery) || isDeliveryLoading;
 
   // "Has result" means Redux has a checked pincode that matches what we're showing
-  const displayPincode = isEditing ? tempPincode : pincode;
   const hasResult =
     delivery.isDeliverable !== null &&
     delivery.checkedPincode === pincode &&
@@ -287,68 +290,7 @@ const DeliverySection = ({ isLoggedIn, userPincode }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// GuestCartItem
-// ─────────────────────────────────────────────────────────────────────────────
-const GuestCartItem = ({ item, onRemove, onUpdateQty, isUpdating, isRemoving }) => {
-  const productSlug = item.productSlug || item._productSlug;
-  const qty         = item.quantity || 1;
-  const displayName = productSlug?.replace(/-/g, ' ') || 'Product';
-  const price       = item.price || null;
-  const itemTotal   = price != null ? price * qty : null;
-
-  const handleUpdateQty = (e, newQty) => { e.stopPropagation(); onUpdateQty(item, newQty); };
-  const handleRemove    = (e)         => { e.stopPropagation(); onRemove(item); };
-
-  return (
-    <div className="flex gap-4 group py-2">
-      <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-xl border border-gray-100 bg-gray-50 flex items-center justify-center">
-        <ShoppingBag size={24} className="text-gray-300" />
-      </div>
-
-      <div className="flex flex-1 flex-col justify-between py-1 min-w-0">
-        <div>
-          <div className="flex justify-between items-start gap-2">
-            <h3 className="text-sm font-bold text-gray-900 line-clamp-1 uppercase tracking-tight flex-1">
-              {displayName}
-            </h3>
-            {itemTotal != null && (
-              <p className="text-sm font-bold text-gray-900 whitespace-nowrap flex-shrink-0">
-                {fmt(itemTotal)}
-              </p>
-            )}
-          </div>
-          <p className="text-[10px] text-gray-400 mt-1 font-medium">Sign in to see full details</p>
-          {price != null && (
-            <p className="mt-0.5 text-xs text-gray-400">{fmt(price)} × {qty}</p>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between mt-2">
-          <div className="flex items-center border border-gray-200 rounded-lg overflow-hidden">
-            <button onClick={(e) => handleUpdateQty(e, qty - 1)} disabled={qty <= 1 || isUpdating}
-              className="p-1.5 hover:bg-gray-100 transition-colors disabled:opacity-40 cursor-pointer" aria-label="Decrease quantity">
-              <Minus size={13} />
-            </button>
-            <span className="px-3 text-xs font-bold min-w-[2rem] text-center">
-              {isUpdating ? '…' : qty}
-            </span>
-            <button onClick={(e) => handleUpdateQty(e, qty + 1)} disabled={isUpdating}
-              className="p-1.5 hover:bg-gray-100 transition-colors disabled:opacity-40 cursor-pointer" aria-label="Increase quantity">
-              <Plus size={13} />
-            </button>
-          </div>
-          <button onClick={handleRemove} disabled={isRemoving}
-            className="text-gray-300 hover:text-red-500 transition-colors p-1 disabled:opacity-40 cursor-pointer" aria-label="Remove item">
-            {isRemoving ? <RefreshCw size={16} className="animate-spin" /> : <Trash2 size={16} />}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-// ─────────────────────────────────────────────────────────────────────────────
-// CartItem — logged-in users
+// CartItem — cart line (guest rows get `product` merged in CartSidebar after fetch)
 // ─────────────────────────────────────────────────────────────────────────────
 const CartItem = ({ item, onUpdateQty, onRemove, isUpdating, isRemoving, productPath, onClose }) => {
   const product = item.product ?? null;
@@ -465,7 +407,7 @@ const CartItem = ({ item, onUpdateQty, onRemove, isUpdating, isRemoving, product
 // ─────────────────────────────────────────────────────────────────────────────
 // CartSidebar — Main Component
 // ─────────────────────────────────────────────────────────────────────────────
-const CartSidebar = ({ isOpen, onClose, onOpenAuth, user }) => {
+const CartSidebar = ({ isOpen, onClose, onOpenAuth }) => {
   const dispatch  = useDispatch();
   const navigate  = useNavigate();
 
@@ -512,6 +454,64 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth, user }) => {
       return sum + price * (item.quantity || 1);
     }, 0);
   }, [isLoggedIn, totalAmount, guestItems]);
+
+  const [guestLineProducts, setGuestLineProducts] = useState({});
+
+  const guestCartFetchKey = useMemo(
+    () =>
+      guestItems
+        .map((i) => `${i.productSlug || i._productSlug || ''}:${String(i.variantId || '')}`)
+        .sort()
+        .join('|'),
+    [guestItems]
+  );
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      setGuestLineProducts({});
+      return;
+    }
+    if (!isOpen || guestItems.length === 0) return;
+
+    const slugs = [
+      ...new Set(
+        guestItems.map((i) => i.productSlug || i._productSlug).filter(Boolean)
+      ),
+    ];
+    if (slugs.length === 0) return;
+
+    const ac = new AbortController();
+
+    (async () => {
+      try {
+        const pairs = await Promise.all(
+          slugs.map(async (slug) => {
+            try {
+              const { data } = await axiosInstance.get(`/products/${slug}`, {
+                signal: ac.signal,
+              });
+              const product = data?.success ? data?.product : null;
+              return { slug, product };
+            } catch {
+              return { slug, product: null };
+            }
+          })
+        );
+        if (ac.signal.aborted) return;
+        setGuestLineProducts((prev) => {
+          const next = { ...prev };
+          for (const { slug, product } of pairs) {
+            if (product) next[slug] = product;
+          }
+          return next;
+        });
+      } catch {
+        /* aborted */
+      }
+    })();
+
+    return () => ac.abort();
+  }, [isOpen, isLoggedIn, guestCartFetchKey, guestItems]);
 
   // ── Fetch cart when sidebar opens ────────────────────────────
   useEffect(() => {
@@ -724,27 +724,30 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth, user }) => {
               {currentItems.map((item, index) => {
                 const loadingState = getItemLoading(item);
                 const itemKey      = item._id || `${item.product?.slug || item._productSlug || item.productSlug}-${item.variantId}-${index}`;
-                const productSlug  = item.product?.slug || item._productSlug;
-                const path         = productSlug ? `/products/${productSlug}` : '#';
+                const slugForPath  = item.product?.slug || item._productSlug || item.productSlug;
+                const path         = slugForPath ? `/products/${slugForPath}` : '#';
 
-                if (!isLoggedIn) {
-                  return (
-                    <div key={itemKey} className="py-2">
-                      <GuestCartItem
-                        item={item}
-                        onUpdateQty={handleUpdateQty}
-                        onRemove={handleRemove}
-                        isUpdating={loadingState.updating}
-                        isRemoving={loadingState.removing}
-                      />
-                    </div>
-                  );
-                }
+                const resolvedProduct = isLoggedIn
+                  ? item.product
+                  : (slugForPath ? guestLineProducts[slugForPath] : null);
+
+                const rowItem =
+                  !isLoggedIn && resolvedProduct && !item.product
+                    ? {
+                        ...item,
+                        product: resolvedProduct,
+                        _productSlug: slugForPath,
+                        productId:
+                          item.productId != null && item.productId !== ''
+                            ? item.productId
+                            : resolvedProduct._id,
+                      }
+                    : item;
 
                 return (
                   <div key={itemKey} className="py-2">
                     <CartItem
-                      item={item}
+                      item={rowItem}
                       onUpdateQty={handleUpdateQty}
                       onRemove={handleRemove}
                       isUpdating={loadingState.updating}

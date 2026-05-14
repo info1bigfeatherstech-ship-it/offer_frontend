@@ -102,6 +102,45 @@ const Footer = () => {
 
   return (
     <footer className="relative bg-[#050505] text-gray-400 pt-32 pb-12 overflow-hidden font-sans selection:bg-[#f7a221] selection:text-black">
+      <style>{`
+        .owb-footer-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 2rem;
+        }
+        @media (min-width: 768px) and (max-width: 1023px) {
+          .owb-footer-meta {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 2rem 2.5rem;
+          }
+          .owb-footer-meta > .owb-footer-meta-hours {
+            grid-column: 1 / -1;
+          }
+        }
+        @media (min-width: 1024px) and (max-width: 1502px) {
+          .owb-footer-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 2.5rem;
+            align-items: stretch;
+          }
+          .owb-footer-meta > .owb-footer-meta-support { order: 1; }
+          .owb-footer-meta > .owb-footer-meta-hours { order: 2; }
+          .owb-footer-meta > .owb-footer-meta-location { order: 3; min-width: 0; }
+        }
+        @media (min-width: 1503px) {
+          .owb-footer-meta {
+            display: grid;
+            grid-template-columns: 1.45fr 1fr;
+            column-gap: 3.5rem;
+            row-gap: 2.5rem;
+          }
+          .owb-footer-meta > .owb-footer-meta-hours {
+            grid-column: 1 / -1;
+          }
+        }
+      `}</style>
 
       {/* --- BACKGROUND WATERMARK (BABA) WITH INTEGRATED PRECISION NEON --- */}
       <div className="absolute inset-0 flex items-center justify-center select-none pointer-events-none z-0">
@@ -232,17 +271,17 @@ const Footer = () => {
               />
             </div>
 
-            {/* Responsive: Flex col on mobile, Flex row on desktop */}
-            <div className="flex flex-col md:grid md:grid-cols-2 gap-8 md:gap-10">
+            {/* Layout: md 2-col; lg–1502px stack Support → Hours → Location (full width); 1503+ 2-col + hours row */}
+            <div className="owb-footer-meta">
               {/* Support Info - Takes 1 column on desktop */}
-              <div className="min-w-0">
+              <div className="owb-footer-meta-support min-w-0">
                 <p className="text-[#f7a221] font-black text-[20px] tracking-widest uppercase mb-2">
                   Support
                 </p>
                 <p className="text-white font-bold text-lg mb-1">+91 9370686008</p>
                 <a
                   href="mailto:support.offerwalebaba@gmail.com"
-                  className="text-white text-sm break-all block hover:text-[#f7a221] transition-colors"
+                  className="text-white text-sm break-all lg:break-normal block hover:text-[#f7a221] transition-colors"
                 >
                   support.offerwalebaba@gmail.com
                 </a>
@@ -253,19 +292,18 @@ const Footer = () => {
                 href="https://www.google.com/maps?q=19.2092622,73.1663272&z=16"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="block min-w-0 group/link"
+                className="owb-footer-meta-location block min-w-0 group/link"
               >
                 <p className="text-[#f7a221] font-black text-[20px] tracking-widest uppercase mb-2">
                   Location
                 </p>
                 <p className="text-white text-base md:text-lg leading-relaxed group-hover/link:underline">
-                  Block no 277/553, sambhaji chowk, opp. tipcy-topcy society, Babasai Nagar,
-                  Ulhasnagar, Maharashtra 421004
+                Sambhaji Chowk, Opp. Tipcy-Topcy Society, Babasai Nagar, Ulhasnagar, Mumbai - 421004, Maharastra, India"
                 </p>
               </a>
 
               {/* Working Hours - Spans full width at the bottom on desktop */}
-              <div className="min-w-0 md:col-span-2 border-t border-white/10 pt-4 md:pt-0 md:border-none">
+              <div className="owb-footer-meta-hours min-w-0 border-t border-white/10 pt-4 md:pt-0 md:border-none">
                 <p className="text-[#f7a221] font-black text-[20px] tracking-widest uppercase mb-2">
                   Working Hours
                 </p>

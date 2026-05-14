@@ -414,6 +414,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
   ];
 
   // ── Bottom nav links (used in desktop nav + mobile sidebar) ────────────────
+  // "Just Arrived" uses the same bottom-nav icon scale as Deal/Sale (see [&_img] on the shared wrapper). Sidebar: ImageIcon default 40px unless you pass className.
   const bottomNavLinks = [
     {
       label: "Today's Deal",
@@ -428,7 +429,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
           src={arrivals}
           alt="Just Arrived"
           animation="animate-float"
-          className="!w-[46px] !h-[46px] lg:!w-8 lg:!h-8 xl:!w-10 xl:!h-10 2xl:!w-11 2xl:!h-11"
+          className="object-center"
         />
       ),
     },
@@ -727,7 +728,14 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                     to={link.path}
                     className="shrink-0 text-center justify-center flex items-center px-1 lg:px-1.5 xl:px-3 py-2 lg:py-2.5 gap-1 lg:gap-1.5 xl:gap-2 hover:bg-gray-50 rounded-xl transition-all duration-200 group whitespace-nowrap"
                   >
-                    <div className="transition-transform duration-300 group-hover:scale-125 shrink-0 [&_img]:w-6! [&_img]:h-6! lg:[&_img]:w-7! lg:[&_img]:h-7! xl:[&_img]:w-9! xl:[&_img]:h-9! 2xl:[&_img]:w-10! 2xl:[&_img]:h-10!">
+                    {/* Just Arrived GIF: desktop bottom-nav img sizes — edit the [&_img] classes in the ternary below (other links use the smaller [&_img] scale). */}
+                    <div
+                      className={
+                        link.label === "Just Arrived"
+                          ? "transition-transform duration-300 group-hover:scale-125 shrink-0 [&_img]:!w-11 [&_img]:!h-11 lg:[&_img]:!w-[52px] lg:[&_img]:!h-[52px] xl:[&_img]:!w-14 xl:[&_img]:!h-14 2xl:[&_img]:!w-[72px] 2xl:[&_img]:!h-[72px]"
+                          : "transition-transform duration-300 group-hover:scale-125 shrink-0 [&_img]:w-6! [&_img]:h-6! lg:[&_img]:w-7! lg:[&_img]:h-7! xl:[&_img]:w-9! xl:[&_img]:h-9! 2xl:[&_img]:w-10! 2xl:[&_img]:h-10!"
+                      }
+                    >
                       {link.icon}
                     </div>
                     <span className="font-bold text-black text-[11px] lg:text-xs xl:text-[0.85rem] relative z-10">

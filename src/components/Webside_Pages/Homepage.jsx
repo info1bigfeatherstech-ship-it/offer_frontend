@@ -27,14 +27,42 @@ const Homepage = ({ onOpenAuth }) => {
     }
   }, [dispatch]);
 
-  // ── Scroll to #best-sellers on hash change ──
+  // ── Deep-link scroll: #best-sellers (Just Arrived), #top-categories (Start Shopping) — heading below sticky header.
   useEffect(() => {
-    if (location.hash === '#best-sellers') {
-      document.getElementById('best-sellers')?.scrollIntoView({
-        behavior: 'smooth',
-      });
-    }
-  }, [location]);
+    const anchorId =
+      location.hash === '#best-sellers'
+        ? 'best-sellers'
+        : location.hash === '#top-categories'
+          ? 'top-categories'
+          : null;
+    if (!anchorId) return;
+
+    const scrollHeadingBelowHeader = () => {
+      const target = document.getElementById(anchorId);
+      if (!target) return false;
+      const header =
+        document.querySelector('header.bg-white.sticky') ||
+        document.querySelector('header.sticky.top-0');
+      const headerH =
+        header instanceof HTMLElement
+          ? Math.ceil(header.getBoundingClientRect().height)
+          : 140;
+      const gap = 16;
+      const y = target.getBoundingClientRect().top + window.scrollY - headerH - gap;
+      window.scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+      return true;
+    };
+
+    scrollHeadingBelowHeader();
+    const t1 = window.setTimeout(scrollHeadingBelowHeader, 60);
+    const t2 = window.setTimeout(scrollHeadingBelowHeader, 220);
+    const t3 = window.setTimeout(scrollHeadingBelowHeader, 500);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+      window.clearTimeout(t3);
+    };
+  }, [location.pathname, location.hash]);
 
   return (
     <>
@@ -50,7 +78,7 @@ const Homepage = ({ onOpenAuth }) => {
         <PriceBanners />
 
         {/* Just Arrived / Best Sellers — independent, always renders */}
-        <section id="best-sellers">
+        <section>
           <BestSellers />
         </section>
 

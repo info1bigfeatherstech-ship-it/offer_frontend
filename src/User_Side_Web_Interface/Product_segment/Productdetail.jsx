@@ -1623,19 +1623,19 @@ const ProductUI = ({ openAuthModal }) => {
                                 onClick={handleAddToCart}
                                 disabled={localLoading.add}
                                 className="
-    flex-1 min-w-0
-    px-4 sm:px-6 md:px-8
-    py-3
-    rounded-xl
-    text-sm md:text-base
-    font-semibold
-    whitespace-nowrap
-    flex items-center justify-center gap-2
-    bg-black text-white
-    hover:bg-[#F7A221]
-    transition active:scale-[0.97]
-    disabled:opacity-70 disabled:cursor-not-allowed
-  "
+                                  flex-1 min-w-0
+                                  px-4 sm:px-6 md:px-8
+                                  py-3
+                                  rounded-xl
+                                  text-sm md:text-base
+                                  font-semibold
+                                  whitespace-nowrap
+                                  flex items-center justify-center gap-2
+                                  bg-[#F7A221] text-white
+                                  hover:bg-[#F7A221]
+                                  transition active:scale-[0.97]
+                                  disabled:opacity-70 disabled:cursor-not-allowed
+                                "
                               >
                                 {localLoading.add ? (
                                   <Loader2 size={16} className="animate-spin" />
@@ -1762,7 +1762,7 @@ const ProductUI = ({ openAuthModal }) => {
                                 setL("buyNow", false);
                               }
                             }}
-                            className="w-full py-3 rounded-xl text-sm font-semibold bg-zinc-900 text-white hover:bg-[#F7A221] transition active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
+                            className="w-full py-3 rounded-xl text-base sm:text-lg font-semibold bg-zinc-900 text-white hover:bg-[#F7A221] transition active:scale-[0.97] disabled:opacity-60 flex items-center justify-center gap-2 cursor-pointer"
                           >
                             {localLoading.buyNow
                               ? <><Loader2 size={16} className="animate-spin" /> Processing...</>
@@ -1969,7 +1969,7 @@ const ProductUI = ({ openAuthModal }) => {
 
                           const items = [
                             ...(countryOfOrigin ? [{ key: "Country of Origin", value: countryOfOrigin }] : []),
-                            ...(gst ? [{ key: "GST", value: `${gst}%` }] : [])
+                            ...(gst ? [{ key: "GST", value: `(${gst}%)` }] : [])
                           ];
 
                           if (items.length === 0) return null;
@@ -2002,7 +2002,9 @@ const ProductUI = ({ openAuthModal }) => {
           {related?.length > 0 && (
             <div className="pb-4">
               <div className="flex items-center mt-28 justify-between mb-1">
-                <h2 className="text-base sm:text-2xl font-bold text-gray-900">Customers who bought this item also bought</h2>
+              <h2 className="text-base sm:text-2xl font- text-red-500">
+                        Customers also bought these items
+                      </h2>
                 <button onClick={() => navigate(`/category/${product?.category?.slug}`)} className="hidden sm:flex text-xs sm:text-sm text-gray-400 hover:text-orange-500 sm:items-center gap-1 transition font-medium">
                   View all <ArrowRight size={13} />
                 </button>

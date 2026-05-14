@@ -211,15 +211,15 @@ const CatProducts = () => {
   const categoryErrorUserMessage = useMemo(() => {
     const raw = (categoryErrorState?.message || "").trim();
     const low = raw.toLowerCase();
-    if (!low) return "Category updated soon";
+    if (!low) return "We're Updating this Category";
     if (low.includes("category not found") || low.includes("not found")) {
-      return "Category updated soon";
+      return "We're Updating this Category";
     }
     if (low.includes("failed to load category") || low.includes("failed to fetch category")) {
-      return "Category updated soon";
+      return "We're Updating this Category";
     }
     if (low.includes("404") || low.includes("status code 404")) {
-      return "Category updated soon";
+      return "We're Updating this Category";
     }
     return raw;
   }, [categoryErrorState]);
@@ -601,38 +601,40 @@ const CatProducts = () => {
         </div>
 
         {/* ── HERO ── */}
-        <section className="relative h-[40vh] md:h-[20vh] flex items-end overflow-hidden bg-gray-900">
+        <section className="relative h-[40vh] md:h-[24vh] flex flex-col overflow-hidden bg-gray-900">
           {currentCategory?.image?.url && (
             <img
               src={currentCategory.image.url}
               alt={categoryName}
-              className="absolute i w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover"
             />
           )}
           <div className="absolute inset-0 " />
           <div className="absolute top-0 left-0 right-0 h-[3px] bg-[#F7A221]" />
-          <div className="relative z-10 w-full max-w-7xl mx-auto px-4 md:px-8 pb-10 md:pb-14">
+          <div className="relative z-10 flex flex-1 flex-col justify-end min-h-0 w-full max-w-7xl mx-auto px-4 md:px-8 pb-0">
             <div className="flex items-end justify-between gap-6">
               <div>
-                <p className="text-[#F7A221] text-[10px] font-black uppercase tracking-[0.25em] mb-3 flex items-center gap-2">
-                  <span className="w-6 h-[2px] bg-[#F7A221] inline-block" />
+                <p className="mb-3 inline-flex w-fit items-center gap-2 rounded-md bg-zinc-800/90 px-2.5 py-1.5 text-[#F7A221] text-[10px] font-black uppercase tracking-[0.25em] shadow-sm">
+                  <span className="w-6 h-[2px] shrink-0 bg-[#F7A221] inline-block" />
                   Collection
                 </p>
-                <h1 className="text-5xl md:text-6xl font-['satoshi'] text-white leading-none tracking-wide">
-                  {categoryName}
+                <h1 className="text-5xl md:text-6xl text-gray-900 leading-none tracking-tight">
+                  <span className="inline-block w-fit max-w-full rounded-lg bg-zinc-200/95 px-3 py-1.5 shadow-sm">
+                    {categoryName}
+                  </span>
                 </h1>
                 {currentCategory?.description && (
-                  <p className="mt-4 max-w-md text-gray-400 text-sm leading-relaxed font-medium">
+                  <p className="mt-4 max-w-md text-zinc-800 text-sm leading-relaxed font-medium">
                     {currentCategory.description}
                   </p>
                 )}
               </div>
               {!isLoading && (
-                <div className="hidden md:flex flex-col items-end flex-shrink-0">
-                  <span className="text-5xl font-black text-white leading-none">
+                <div className="hidden md:flex flex-col items-end flex-shrink-0 rounded-xl bg-zinc-200/95 px-3  py-2 shadow-sm">
+                  <span className="text-5xl font-black text-zinc-900 leading-none">
                     {pagination?.total || 0}
                   </span>
-                  <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-500 mt-1">
+                  <span className="text-[11px] text-center font-bold uppercase tracking-[0.2em] text-zinc-700 mt-1">
                     Products
                   </span>
                 </div>
