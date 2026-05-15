@@ -33,14 +33,7 @@ import { getProductCategoryDisplayName } from '../../../utils/getProductCategory
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
-const fmt = (n) => {
-  if (n == null) return '—';
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(n);
-};
+import { formatInr as fmt } from '../../../utils/formatInr';
 
 const logError = (context, error, info = {}) => {
   console.group(`🔴 [UserCart] ERROR in ${context}`);

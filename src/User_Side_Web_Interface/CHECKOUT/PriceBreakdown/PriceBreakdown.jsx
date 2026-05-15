@@ -1,15 +1,7 @@
 import React, { useMemo } from "react";
 import { Tag, Truck, Receipt, ShieldCheck, Clock } from "lucide-react";
 import { computeCheckoutPsychologyPricing } from "../../../utils/checkoutPriceDisplay";
-
-const fmt = (n) => {
-  if (n == null) return "—";
-  return new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(n);
-};
+import { formatInr as fmt } from "../../../utils/formatInr";
 
 /**
  * PriceBreakdown

@@ -71,6 +71,7 @@ import { selectUser } from "../../components/REDUX_FEATURES/REDUX_SLICES/authSli
 import AddressSelector from "./AddressSelector/AddressSelector";
 import PriceBreakdown from "./PriceBreakdown/PriceBreakdown";
 import { computeCheckoutPsychologyPricing, getCartLineUnitPay } from "../../utils/checkoutPriceDisplay";
+import { formatInr as fmt } from "../../utils/formatInr";
 import { AddressFormModal } from "../User_Dash_Segment/UserSubPages/UserAddress";
 import RazorpayCheckout, {
   PaymentErrorModal, PaymentLoadingModal,
@@ -91,12 +92,6 @@ const PAYMENT_STATE = {
   CANCELLED: "cancelled",
   VERIFIED: "verified",
 };
-
-// ─── Formatter ────────────────────────────────────────────────────────────────
-const fmt = (n) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency", currency: "INR", maximumFractionDigits: 0,
-  }).format(n ?? 0);
 
 /** Same figure as COD nudge / “Get extra discount” — full online vs COD handling. */
 const ONLINE_FULL_VS_COD_SAVINGS_INR = 49;

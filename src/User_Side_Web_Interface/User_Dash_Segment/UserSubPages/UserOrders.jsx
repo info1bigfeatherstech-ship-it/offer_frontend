@@ -32,13 +32,14 @@ import {
   Loader2, ShoppingBag, CreditCard,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
-
-const fmt = (n) =>
-  new Intl.NumberFormat("en-IN", {
-    style: "currency",
-    currency: "INR",
-    maximumFractionDigits: 0,
-  }).format(n ?? 0);
+import { formatInr as fmt } from "../../../utils/formatInr";
+import {
+  isCancellationRefundOrder,
+  isProductReturnOrder,
+  cancellationRefundHeadline,
+  cancellationRefundDetail,
+  productReturnStatusLabel,
+} from "../../../utils/orderRefundDisplay";
 
 const fmtDate = (d) => {
   if (!d) return "—";
@@ -304,11 +305,30 @@ const OrderDetail = ({ orderId, onBack, onCancel, isCancelling, cancelError }) =
     );
   }
 
-  const canCancel = ["pending", "confirmed"].includes(order.orderStatus);
+  // Per client requirement: once the order is created, cancel option should not be shown to the customer.
+  const canCancel = false;
   const returnStatus = String(order?.returnInfo?.status || "").toLowerCase();
+  const RETURN_WINDOW_DAYS = 2;
+  const deliveredAtRaw = order?.shipmentInfo?.deliveredAt || null;
+  const deliveredAt = deliveredAtRaw ? new Date(deliveredAtRaw) : null;
+  const deliveredAtValid = Boolean(deliveredAt && !Number.isNaN(deliveredAt.getTime()));
+  const now = new Date();
+  const returnDeadlineAt = deliveredAtValid
+    ? new Date(deliveredAt.getTime() + RETURN_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+    : null;
+  const returnWindowExpired = Boolean(returnDeadlineAt && now > returnDeadlineAt);
+
+  const isCancelRefund = isCancellationRefundOrder(order);
+  const isProductReturn = isProductReturnOrder(order);
+
   const canRaiseReturn =
+    !isCancelRefund &&
     String(order.orderStatus || "").toLowerCase() === "delivered" &&
+    deliveredAtValid &&
+    !returnWindowExpired &&
     (!returnStatus || ["rejected", "closed"].includes(returnStatus));
+
+  const showProductReturnCard = isProductReturn || canRaiseReturn;
 
   return (
     <div className="space-y-6 animate-fadeIn">
@@ -495,15 +515,36 @@ const OrderDetail = ({ orderId, onBack, onCancel, isCancelling, cancelError }) =
         )}
       </div>
 
-      {/* Return request */}
+      {isCancelRefund && (
+        <div className="bg-white rounded-[32px] p-6 border border-red-100">
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-xs font-black uppercase tracking-widest text-gray-900">
+              Cancellation refund
+            </h3>
+            <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-100">
+              {cancellationRefundHeadline(order)}
+            </span>
+          </div>
+          <p className="mt-3 text-xs text-gray-600 font-medium leading-relaxed">
+            {cancellationRefundDetail(order)}
+          </p>
+          {order?.returnInfo?.refundId && (
+            <p className="mt-2 text-[10px] text-gray-400 font-mono">
+              Ref ID: {order.returnInfo.refundId}
+            </p>
+          )}
+        </div>
+      )}
+
+      {showProductReturnCard && (
       <div className="bg-white rounded-[32px] p-6">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-xs font-black uppercase tracking-widest text-gray-900">
             Return Request
           </h3>
-          {order?.returnInfo?.status && (
+          {order?.returnInfo?.status && isProductReturn && (
             <span className="text-[10px] font-black uppercase tracking-widest px-2 py-1 rounded-full bg-gray-100 text-gray-700">
-              {String(order.returnInfo.status).replace(/_/g, " ")}
+              {productReturnStatusLabel(order.returnInfo.status)}
             </span>
           )}
         </div>
@@ -616,12 +657,15 @@ const OrderDetail = ({ orderId, onBack, onCancel, isCancelling, cancelError }) =
           </div>
         ) : (
           <p className="mt-3 text-xs text-gray-500 font-medium">
-            {returnStatus
-              ? `Return status: ${returnStatus.replace(/_/g, " ")}`
-              : "Return request is available after delivery."}
+            {returnStatus && isProductReturn
+              ? `Return status: ${productReturnStatusLabel(returnStatus)}`
+              : returnWindowExpired
+                ? "Return window expired. You can no longer raise a return request."
+                : "Return request is available within 2 days of delivery."}
           </p>
         )}
       </div>
+      )}
 
       {/* Cancel */}
       {canCancel && (

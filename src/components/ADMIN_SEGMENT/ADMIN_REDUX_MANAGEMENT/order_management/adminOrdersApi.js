@@ -225,6 +225,52 @@ export const adminOrdersApi = createApi({
       ],
     }),
 
+    adminBulkApprovalConfirm: builder.mutation({
+      query: (arg = {}) => ({
+        url: '/orders/admin/items/bulk-approval/confirm',
+        method: 'POST',
+        data: {
+          orderIds: arg.orderIds,
+          ...(arg.concurrency != null && arg.concurrency !== '' ? { concurrency: arg.concurrency } : {}),
+        },
+      }),
+      invalidatesTags: (result, error, arg) => {
+        if (error) return [];
+        const tags = [
+          { type: 'AdminOrdersList', id: 'PARTIAL' },
+          { type: 'AdminOrdersSummary', id: 'SUMMARY' },
+        ];
+        const ids = Array.isArray(arg?.orderIds) ? arg.orderIds : [];
+        for (const oid of ids) {
+          tags.push({ type: 'AdminOrdersList', id: oid }, { type: 'AdminOrderTracking', id: oid });
+        }
+        return tags;
+      },
+    }),
+
+    adminBulkApprovalCancel: builder.mutation({
+      query: (arg = {}) => ({
+        url: '/orders/admin/items/bulk-approval/cancel',
+        method: 'POST',
+        data: {
+          orderIds: arg.orderIds,
+          ...(arg.concurrency != null && arg.concurrency !== '' ? { concurrency: arg.concurrency } : {}),
+        },
+      }),
+      invalidatesTags: (result, error, arg) => {
+        if (error) return [];
+        const tags = [
+          { type: 'AdminOrdersList', id: 'PARTIAL' },
+          { type: 'AdminOrdersSummary', id: 'SUMMARY' },
+        ];
+        const ids = Array.isArray(arg?.orderIds) ? arg.orderIds : [];
+        for (const oid of ids) {
+          tags.push({ type: 'AdminOrdersList', id: oid }, { type: 'AdminOrderTracking', id: oid });
+        }
+        return tags;
+      },
+    }),
+
     adminBulkFulfillmentShipNow: builder.mutation({
       query: (arg = {}) => ({
         url: '/orders/admin/items/bulk-fulfillment/ship-now',
@@ -313,6 +359,8 @@ export const {
   useAdminFulfillmentSchedulePickupMutation,
   useAdminFulfillmentShippingLabelMutation,
   useAdminFulfillmentCancelShipmentMutation,
+  useAdminBulkApprovalConfirmMutation,
+  useAdminBulkApprovalCancelMutation,
   useAdminBulkFulfillmentShipNowMutation,
   useAdminBulkFulfillmentSchedulePickupMutation,
 } = adminOrdersApi;

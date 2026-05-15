@@ -1,12 +1,15 @@
 import React, { useMemo, useState, useCallback } from "react";
 import axiosInstance from "../../../../SERVICES/axiosInstance";
 import {
+  useAdminBulkApprovalCancelMutation,
+  useAdminBulkApprovalConfirmMutation,
   useAdminFulfillmentAssignShipMutation,
   useAdminFulfillmentCancelShipmentMutation,
   useAdminFulfillmentEnsureShipmentMutation,
   useAdminFulfillmentSchedulePickupMutation,
   useAdminFulfillmentShippingLabelMutation,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
+import { isPostConfirmOrderStatus } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersSlice";
 
 function formatInr(amount) {
   const n = Number(amount);
@@ -185,21 +188,38 @@ export default function AdminOrderDetailView({
   const [schedulePickup, pickupState] = useAdminFulfillmentSchedulePickupMutation();
   const [shippingLabel, labelState] = useAdminFulfillmentShippingLabelMutation();
   const [cancelShipment, cancelState] = useAdminFulfillmentCancelShipmentMutation();
+  const [bulkConfirm, bulkConfirmState] = useAdminBulkApprovalConfirmMutation();
+  const [bulkCancel, bulkCancelState] = useAdminBulkApprovalCancelMutation();
 
   const fulfillmentBusy =
     ensureState.isLoading ||
     assignState.isLoading ||
     pickupState.isLoading ||
     labelState.isLoading ||
-    cancelState.isLoading;
+    cancelState.isLoading ||
+    bulkConfirmState.isLoading ||
+    bulkCancelState.isLoading;
+
+  const orderSt = String(order?.orderStatus || "").toLowerCase();
+  const isPendingOrder = orderSt === "pending";
+  const showInvoiceAndLogistics = isPostConfirmOrderStatus(orderSt);
+  const fulfillmentActionsBlocked = orderSt === "cancelled" || orderSt === "payment_failed";
+  const fulfillmentBlockMessage = fulfillmentActionsBlocked
+    ? orderSt === "cancelled"
+      ? "This order was cancelled. Ship now, pickup scheduling, shipping labels, and other Shiprocket shipment actions are not available."
+      : "This order did not complete payment. Shiprocket fulfilment actions are not available."
+    : null;
 
   const carrierPaymentReady = carrierFulfilmentPaymentReady(order, fulfillmentPaymentGate);
+  const canRunFulfillmentActions = !fulfillmentActionsBlocked && carrierPaymentReady;
   const carrierPaymentHint =
-    fulfillmentPaymentGate && fulfillmentPaymentGate.ok === false
-      ? fulfillmentPaymentGate.message
-      : !carrierPaymentReady
-        ? "Complete payment (or COD rules) before Shiprocket actions."
-        : null;
+    fulfillmentActionsBlocked
+      ? null
+      : fulfillmentPaymentGate && fulfillmentPaymentGate.ok === false
+        ? fulfillmentPaymentGate.message
+        : !carrierPaymentReady
+          ? "Complete payment (or COD rules) before Shiprocket actions."
+          : null;
 
   const fetchInvoiceObjectUrl = useCallback(async () => {
     const res = await axiosInstance.get(
@@ -460,14 +480,100 @@ export default function AdminOrderDetailView({
           </div>
         </div>
 
-        {carrierPaymentHint && (
+        {(carrierPaymentHint || fulfillmentBlockMessage) && (
           <div
             className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
             role="status"
             aria-live="polite"
           >
-            <div className="rounded-lg px-3 py-2 text-xs text-amber-900 bg-amber-50 border border-amber-100">
-              {carrierPaymentHint}
+            <div
+              className={`rounded-lg px-3 py-2 text-xs border ${
+                fulfillmentBlockMessage
+                  ? "text-slate-700 bg-slate-100 border-slate-200"
+                  : "text-amber-900 bg-amber-50 border-amber-100"
+              }`}
+            >
+              {fulfillmentBlockMessage || carrierPaymentHint}
+            </div>
+          </div>
+        )}
+
+        {isPendingOrder && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 shadow-sm space-y-3">
+            <div>
+              <p className="text-[11px] font-black uppercase tracking-widest text-amber-900">
+                Awaiting admin approval
+              </p>
+              <p className="text-xs text-amber-950/90 mt-1 leading-relaxed">
+                Only admin can approve or reject pending orders. Confirm unlocks GST invoice and Shiprocket steps.
+                Cancel restores stock and closes the order.
+              </p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                disabled={fulfillmentBusy || !carrierPaymentReady}
+                onClick={async () => {
+                  setActionMsg(null);
+                  try {
+                    const data = await bulkConfirm({ orderIds: [orderId] }).unwrap();
+                    const row = (data.results || []).find((r) => r.orderId === orderId);
+                    if (row && !row.success) {
+                      throw new Error(row.message || row.code || "Confirm failed.");
+                    }
+                    const deferred = row?.code === "CONFIRMED_SHIPMENT_DEFERRED";
+                    setActionMsg({
+                      type: deferred ? "warn" : "ok",
+                      text:
+                        row?.message ||
+                        (deferred
+                          ? "Order confirmed. Shiprocket create failed — retry Ship now below."
+                          : "Order confirmed."),
+                    });
+                  } catch (e) {
+                    setActionMsg({
+                      type: "err",
+                      text: fulfillmentActionErrorText(e, "Confirm failed."),
+                    });
+                  }
+                }}
+                className="px-4 py-2 text-sm font-bold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {bulkConfirmState.isLoading ? "Confirming…" : "Confirm order"}
+              </button>
+              <button
+                type="button"
+                disabled={fulfillmentBusy}
+                onClick={async () => {
+                  if (
+                    !window.confirm(
+                      "Cancel this pending order? Stock will be restored and the customer will not be shipped."
+                    )
+                  ) {
+                    return;
+                  }
+                  setActionMsg(null);
+                  try {
+                    const data = await bulkCancel({ orderIds: [orderId] }).unwrap();
+                    const row = (data.results || []).find((r) => r.orderId === orderId);
+                    if (row && !row.success) {
+                      throw new Error(row.message || row.code || "Cancel failed.");
+                    }
+                    setActionMsg({
+                      type: "ok",
+                      text: row?.message || "Order cancelled.",
+                    });
+                  } catch (e) {
+                    setActionMsg({
+                      type: "err",
+                      text: fulfillmentActionErrorText(e, "Cancel failed."),
+                    });
+                  }
+                }}
+                className="px-4 py-2 text-sm font-bold border border-red-300 text-red-800 rounded-lg bg-white hover:bg-red-50 disabled:opacity-50"
+              >
+                {bulkCancelState.isLoading ? "Cancelling…" : "Cancel order"}
+              </button>
             </div>
           </div>
         )}
@@ -505,7 +611,20 @@ export default function AdminOrderDetailView({
           </div>
         )}
 
-        {orderId && (
+        {orderId && !showInvoiceAndLogistics && (isPendingOrder || fulfillmentActionsBlocked) && (
+          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-sm font-semibold text-slate-800">
+              {isPendingOrder ? "Invoice & logistics locked" : "Invoice & logistics not available"}
+            </p>
+            <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+              {isPendingOrder
+                ? "GST tax invoice and Shiprocket steps appear after you confirm this order (Confirmed tab)."
+                : "Cancelled and unpaid orders do not need a tax invoice or shipment booking."}
+            </p>
+          </div>
+        )}
+
+        {orderId && showInvoiceAndLogistics && (
           <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
             <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-4 sm:px-5 py-4 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <div className="min-w-0">
@@ -608,6 +727,16 @@ export default function AdminOrderDetailView({
               </div>
             )}
 
+            {fulfillmentActionsBlocked ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
+                <p className="text-sm font-semibold text-slate-800">Fulfilment actions unavailable</p>
+                <p className="text-xs text-slate-600 mt-1 leading-relaxed">
+                  Courier details above are read-only. Ship now, pickup, labels, and Shiprocket cancellation cannot be
+                  used on a {labelOrderStatus(order.orderStatus).toLowerCase()} order.
+                </p>
+              </div>
+            ) : (
+              <>
               <div>
                 <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Step 1 · Create &amp; assign</p>
                 <div className="flex flex-wrap items-center gap-2">
@@ -791,6 +920,20 @@ export default function AdminOrderDetailView({
                     {pickupState.isLoading ? "Working…" : "Schedule pickup"}
                   </button>
                 </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
+                  <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
+                      Pickup date (saved)
+                    </p>
+                    <p className="text-sm font-semibold text-slate-900 mt-1">{ship.pickupDate || "—"}</p>
+                  </div>
+                  <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-3">
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Pickup booked</p>
+                    <p className="text-sm font-semibold text-slate-900 mt-1">
+                      {formatDateHeader(ship.pickupScheduledAt)}
+                    </p>
+                  </div>
+                </div>
               </div>
 
               <div id="admin-shipping-label-step">
@@ -860,16 +1003,8 @@ export default function AdminOrderDetailView({
                   {cancelState.isLoading ? "Working…" : "Cancel on Shiprocket"}
                 </button>
               </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px] text-slate-500 pt-1 border-t border-slate-100">
-              <p>
-                <span className="font-semibold text-slate-600">Pickup date (saved):</span> {ship.pickupDate || "—"}
-              </p>
-              <p>
-                <span className="font-semibold text-slate-600">Pickup booked:</span>{" "}
-                {formatDateHeader(ship.pickupScheduledAt)}
-              </p>
+              </>
+            )}
             </div>
           </div>
         )}
@@ -1182,32 +1317,38 @@ export default function AdminOrderDetailView({
                   <span aria-hidden>💬</span> WhatsApp customer
                 </a>
               )}
-              <div className="flex flex-col gap-2">
-                <button
-                  type="button"
-                  onClick={openTaxInvoice}
-                  disabled={invoiceBusy || !orderId}
-                  className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium text-slate-900 hover:bg-slate-50 border border-slate-200 disabled:opacity-50"
-                >
-                  Open tax invoice
-                </button>
-                <button
-                  type="button"
-                  onClick={printTaxInvoice}
-                  disabled={invoiceBusy || !orderId}
-                  className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium text-slate-900 hover:bg-slate-50 border border-slate-200 disabled:opacity-50"
-                >
-                  Print tax invoice
-                </button>
-                <button
-                  type="button"
-                  onClick={downloadTaxInvoice}
-                  disabled={invoiceBusy || !orderId}
-                  className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium text-slate-900 hover:bg-slate-50 border border-slate-200 disabled:opacity-50"
-                >
-                  Download tax invoice (.html)
-                </button>
-              </div>
+              {showInvoiceAndLogistics ? (
+                <div className="flex flex-col gap-2">
+                  <button
+                    type="button"
+                    onClick={openTaxInvoice}
+                    disabled={invoiceBusy || !orderId}
+                    className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium text-slate-900 hover:bg-slate-50 border border-slate-200 disabled:opacity-50"
+                  >
+                    Open tax invoice
+                  </button>
+                  <button
+                    type="button"
+                    onClick={printTaxInvoice}
+                    disabled={invoiceBusy || !orderId}
+                    className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium text-slate-900 hover:bg-slate-50 border border-slate-200 disabled:opacity-50"
+                  >
+                    Print tax invoice
+                  </button>
+                  <button
+                    type="button"
+                    onClick={downloadTaxInvoice}
+                    disabled={invoiceBusy || !orderId}
+                    className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium text-slate-900 hover:bg-slate-50 border border-slate-200 disabled:opacity-50"
+                  >
+                    Download tax invoice (.html)
+                  </button>
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-500 leading-relaxed px-1">
+                  Tax invoice is available after admin confirms the order.
+                </p>
+              )}
             </div>
 
             <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-[11px] text-slate-500 leading-relaxed">
