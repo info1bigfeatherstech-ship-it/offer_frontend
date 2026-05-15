@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useParams, Link, Navigate } from "react-router-dom";
+import { useParams, Link, Navigate, useNavigationType } from "react-router-dom";
 
 // ─── POLICIES DATA ────────────────────────────────────────────────────────────
 const policiesData = [
@@ -296,14 +296,16 @@ function PolicySection({ section, index, isActive, onVisible }) {
 // ─── MAIN PAGE ────────────────────────────────────────────────────────────────
 export default function PolicyPage() {
   const { slug } = useParams();
+  const navigationType = useNavigationType();
   const policy = getPolicyBySlug(slug);
   const [activeSection, setActiveSection] = useState(0);
   const contentRef = useRef(null);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "instant" });
     setActiveSection(0);
-  }, [slug]);
+    if (navigationType === "POP") return;
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }, [slug, navigationType]);
 
   const handleSidebarClick = (index) => {
     const el = document.getElementById(`section-${index}`);

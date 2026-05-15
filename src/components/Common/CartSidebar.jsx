@@ -572,7 +572,7 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth }) => {
             <div className="border-t border-gray-100 pt-3 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-black uppercase tracking-tighter text-gray-700">
-                  Subtotal
+                  Sub Total
                 </span>
                 <span className="text-base font-black text-gray-900">
                   {subtotal > 0 ? fmt(subtotal) : '—'}

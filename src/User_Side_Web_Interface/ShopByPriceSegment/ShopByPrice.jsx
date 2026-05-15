@@ -43,10 +43,6 @@ const ShopByPrice = () => {
     return { priceRange: null, isValid: false };
   }, [slug]);
 
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  }, []);
-
   const hasFetched = useRef(false);
   const prevSlug = useRef(null);
 
@@ -367,7 +363,7 @@ const ShopByPrice = () => {
 
         <div className="flex-1">
           <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-4">
+            {/* <div className="flex items-center gap-4">
               <p className="text-xs font-semibold uppercase text-zinc-800 tracking-[0.1em]">Sort By:</p>
               <div className="relative">
                 <select
@@ -376,23 +372,19 @@ const ShopByPrice = () => {
                   className="appearance-none bg-white/60 backdrop-blur-md px-3 pr-10 py-2 text-sm font-semibold text-zinc-800 rounded-md shadow-sm border border-zinc-200 hover:border-zinc-400 focus:border-black focus:ring-0 outline-none transition-all cursor-pointer"
                 >
                   <option value="default">Default</option>
-                  <option value="az">Alphabetically, A-Z</option>
-                  <option value="za">Alphabetically, Z-A</option>
                   <option value="priceLowHigh">Price: Low to High</option>
                   <option value="priceHighLow">Price: High to Low</option>
-                  <option value="discount">Highest Discount</option>
-                  <option value="newest">Newest First</option>
                 </select>
                 <ChevronRight
                   size={14}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none rotate-90"
                 />
               </div>
-            </div>
-            <div className="hidden sm:flex items-center gap-3 bg-zinc-50 px-4 py-2 rounded-full border border-zinc-200">
+            </div> */}
+            {/* <div className="hidden sm:flex items-center gap-3 bg-zinc-50 px-4 py-2 rounded-full border border-zinc-200">
               <span className="text-lg font-semibold text-zinc-800">{sortedProducts.length}</span>
               <span className="text-[10px] uppercase tracking-widest text-zinc-400">Products</span>
-            </div>
+            </div> */}
           </div>
 
           {showLoading && (

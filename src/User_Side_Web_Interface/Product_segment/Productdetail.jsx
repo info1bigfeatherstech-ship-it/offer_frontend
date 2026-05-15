@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useParams, useNavigate, useLocation, Link } from "react-router-dom";
+import { useParams, useNavigate, useLocation, Link, useNavigationType } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { IoLogoWhatsapp, IoLogoFacebook, IoLogoInstagram } from "react-icons/io5";
 import { ChevronDown, FileText, Globe, Receipt } from "lucide-react";
@@ -494,6 +494,7 @@ const RelatedCard = ({ product, index = 0 }) => {
 // ─── Main ProductUI ───────────────────────────────────────────────────────────
 const ProductUI = ({ openAuthModal }) => {
   const { slug } = useParams();
+  const navigationType = useNavigationType();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [shareOpen, setShareOpen] = useState(false);
@@ -525,7 +526,14 @@ const ProductUI = ({ openAuthModal }) => {
   const zoomRef = useRef(null);
   const rafRef = useRef(null);
   const variantRef = useRef(null);
+  const productDescPanelRef = useRef(null);
   const copyResetTimeoutRef = useRef(null);
+  /** Mobile gallery: swipe start + block tap→fullscreen right after a horizontal swipe */
+  const galleryTouchStartRef = useRef({ x: null, y: null });
+  const galleryTouchSuppressClickRef = useRef(false);
+  /** Mobile fullscreen sheet: pause autoplay while finger is on image; swipe start coords */
+  const lightboxPauseRef = useRef(false);
+  const lightboxSwipeStartRef = useRef({ x: null, y: null });
 
   const targetRef = useRef({ x: 0.5, y: 0.5 });
   const currentRef = useRef({ x: 0.5, y: 0.5 });
@@ -563,7 +571,9 @@ const ProductUI = ({ openAuthModal }) => {
   // ── fetch ──────────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!slug) return;
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (navigationType !== "POP") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
     dispatch(clearCurrentProduct());
     dispatch(clearRelatedProducts());
     setSelectedAttrs({});
@@ -579,6 +589,43 @@ const ProductUI = ({ openAuthModal }) => {
     document.addEventListener("click", close);
     return () => document.removeEventListener("click", close);
   }, []);
+
+  // Narrow viewports: if the sticky navbar covers the top of the description panel
+  // after open, scroll just enough to clear it (measured — fixed px was too small).
+  useEffect(() => {
+    if (!openDesc) return;
+    if (typeof window === "undefined" || window.innerWidth >= 1024) return;
+    let alive = true;
+    const alignPanelBelowHeader = () => {
+      if (!alive) return;
+      const el = productDescPanelRef.current;
+      if (!el) return;
+      const headerEl = document.querySelector("header.shadow-lg");
+      const measured = headerEl?.getBoundingClientRect?.().height ?? 0;
+      const headerH = measured > 8 ? measured : 120;
+      let safeTop = 0;
+      try {
+        const raw = getComputedStyle(document.documentElement).getPropertyValue(
+          "env(safe-area-inset-top)"
+        );
+        if (raw && raw.endsWith("px")) safeTop = parseFloat(raw) || 0;
+      } catch {
+        /* ignore */
+      }
+      const gap = 12;
+      const offset = Math.round(headerH + safeTop + gap);
+      const rect = el.getBoundingClientRect();
+      if (rect.top >= offset) return;
+      const docTop = rect.top + window.scrollY;
+      window.scrollTo({ top: Math.max(0, docTop - offset), left: 0, behavior: "instant" });
+    };
+    requestAnimationFrame(() => {
+      requestAnimationFrame(alignPanelBelowHeader);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [openDesc]);
 
   useEffect(() => {
     return () => {
@@ -789,6 +836,66 @@ const ProductUI = ({ openAuthModal }) => {
   const images = selectedVariant?.images ?? [];
   const activeImg = images[activeThumb]?.url ?? null;
 
+  const handleGalleryTouchStart = useCallback((e) => {
+    if (images.length <= 1) return;
+    const t = e.touches?.[0];
+    if (!t) return;
+    galleryTouchStartRef.current = { x: t.clientX, y: t.clientY };
+  }, [images.length]);
+
+  const handleGalleryTouchEnd = useCallback((e) => {
+    if (images.length <= 1) return;
+    const start = galleryTouchStartRef.current;
+    galleryTouchStartRef.current = { x: null, y: null };
+    if (start?.x == null || start?.y == null) return;
+    const t = e.changedTouches?.[0];
+    if (!t) return;
+    const dx = t.clientX - start.x;
+    const dy = t.clientY - start.y;
+    const minDist = 48;
+    if (Math.abs(dx) < minDist || Math.abs(dx) < Math.abs(dy) * 1.15) return;
+    galleryTouchSuppressClickRef.current = true;
+    window.setTimeout(() => {
+      galleryTouchSuppressClickRef.current = false;
+    }, 450);
+    const n = images.length;
+    if (dx > 0) setActiveThumb((p) => (p - 1 + n) % n);
+    else setActiveThumb((p) => (p + 1) % n);
+  }, [images.length]);
+
+  const handleLightboxTouchStart = useCallback((e) => {
+    lightboxPauseRef.current = true;
+    if (images.length <= 1) return;
+    const t = e.touches?.[0];
+    if (!t) return;
+    lightboxSwipeStartRef.current = { x: t.clientX, y: t.clientY };
+  }, [images.length]);
+
+  const handleLightboxTouchEnd = useCallback((e) => {
+    try {
+      if (images.length <= 1) return;
+      const start = lightboxSwipeStartRef.current;
+      lightboxSwipeStartRef.current = { x: null, y: null };
+      if (start?.x == null || start?.y == null) return;
+      const t = e.changedTouches?.[0];
+      if (!t) return;
+      const dx = t.clientX - start.x;
+      const dy = t.clientY - start.y;
+      const minDist = 48;
+      if (Math.abs(dx) < minDist || Math.abs(dx) < Math.abs(dy) * 1.15) return;
+      const n = images.length;
+      if (dx > 0) setActiveThumb((p) => (p - 1 + n) % n);
+      else setActiveThumb((p) => (p + 1) % n);
+    } finally {
+      lightboxPauseRef.current = false;
+    }
+  }, [images.length]);
+
+  const handleLightboxTouchCancel = useCallback(() => {
+    lightboxPauseRef.current = false;
+    lightboxSwipeStartRef.current = { x: null, y: null };
+  }, []);
+
   // ── Auto-advance gallery every 3s (same as mobile) on all breakpoints.
   // Pause when fullscreen image sheet is open, or while desktop hover-zoom lens is active.
   useEffect(() => {
@@ -799,6 +906,21 @@ const ProductUI = ({ openAuthModal }) => {
     }, 3000);
     return () => clearInterval(timer);
   }, [isMobile, isVisible, images.length, showZoom, selectedVariant?._id]);
+
+  // Fullscreen mobile sheet: autoplay while open (main-line autoplay pauses when isVisible).
+  useEffect(() => {
+    if (!isVisible || images.length <= 1) return;
+    const timer = setInterval(() => {
+      if (lightboxPauseRef.current) return;
+      setActiveThumb((prev) => (prev + 1) % images.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, [isVisible, images.length]);
+
+  useEffect(() => {
+    lightboxPauseRef.current = false;
+    lightboxSwipeStartRef.current = { x: null, y: null };
+  }, [isVisible]);
 
   const salePrice = selectedVariant?.finalPrice ?? selectedVariant?.price?.sale ?? selectedVariant?.price?.base ?? null;
   const basePrice = selectedVariant?.price?.base ?? null;
@@ -1002,8 +1124,12 @@ const ProductUI = ({ openAuthModal }) => {
                 </div>
 
                 {/* Main Big Image */}
-                <div className="w-full flex items-center justify-center bg-gray-50 rounded-2xl overflow-hidden mb-4 relative"
+                <div
+                  className="w-full flex items-center justify-center bg-gray-50 rounded-2xl overflow-hidden mb-4 relative touch-pan-y"
                   style={{ aspectRatio: "1/1" }}
+                  onTouchStart={handleLightboxTouchStart}
+                  onTouchEnd={handleLightboxTouchEnd}
+                  onTouchCancel={handleLightboxTouchCancel}
                 >
                   {activeImg ? (
                     <img
@@ -1022,12 +1148,18 @@ const ProductUI = ({ openAuthModal }) => {
                   {images.length > 1 && (
                     <>
                       <button
+                        type="button"
+                        onTouchStart={(e) => e.stopPropagation()}
+                        onTouchEnd={(e) => e.stopPropagation()}
                         onClick={() => setActiveThumb((p) => (p - 1 + images.length) % images.length)}
                         className="absolute left-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white shadow flex items-center justify-center text-gray-600 hover:bg-gray-100"
                       >
                         ‹
                       </button>
                       <button
+                        type="button"
+                        onTouchStart={(e) => e.stopPropagation()}
+                        onTouchEnd={(e) => e.stopPropagation()}
                         onClick={() => setActiveThumb((p) => (p + 1) % images.length)}
                         className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-white shadow flex items-center justify-center text-gray-600 hover:bg-gray-100"
                       >
@@ -1133,9 +1265,14 @@ const ProductUI = ({ openAuthModal }) => {
                   <div className="flex-1 flex flex-col">
                     <div
                       ref={containerRef}
-                      className="relative w-full cursor-pointer flex items-center justify-center overflow-hidden"
+                      className="relative w-full cursor-pointer touch-pan-y flex items-center justify-center overflow-hidden"
                       style={{ aspectRatio: "1/1" }}
-                      onClick={() => { if (isMobile) setisVisible(true); }}
+                      onTouchStart={handleGalleryTouchStart}
+                      onTouchEnd={handleGalleryTouchEnd}
+                      onClick={() => {
+                        if (isMobile && galleryTouchSuppressClickRef.current) return;
+                        if (isMobile) setisVisible(true);
+                      }}
                       onMouseEnter={() => { if (isMobile) return; setShowZoom(true); }}
                       onMouseLeave={() => { if (isMobile) return; setShowZoom(false); }}
                       onMouseMove={!isMobile ? handleMouseMove : undefined}
@@ -1879,7 +2016,10 @@ const ProductUI = ({ openAuthModal }) => {
                   </div>
 
                   <div className="h-px bg-gray-100 mt-2" />
-                  <div className="mt-4 border border-zinc-100 rounded-2xl overflow-hidden bg-white">
+                  <div
+                    ref={productDescPanelRef}
+                    className="mt-4 border border-zinc-100 rounded-2xl overflow-hidden bg-white [overflow-anchor:none] max-lg:scroll-mt-24"
+                  >
                     <button
                       type="button"
                       onClick={() => setOpenDesc((v) => !v)}
@@ -1896,7 +2036,7 @@ const ProductUI = ({ openAuthModal }) => {
                       </div>
                       <ChevronDown
                         size={18}
-                        className={`text-gray-400 transition-transform duration-300 flex-shrink-0 ${openDesc ? "rotate-180" : ""}`}
+                        className={`text-gray-400 flex-shrink-0 transition-transform duration-300 ${openDesc ? "rotate-180" : ""}`}
                       />
                     </button>
 

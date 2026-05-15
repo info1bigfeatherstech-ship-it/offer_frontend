@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState, useRef, useMemo, useLayoutEffect } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useNavigationType } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   ArrowLeft,
@@ -27,7 +27,7 @@ import {
 } from "../../../components/REDUX_FEATURES/REDUX_SLICES/userProductsSlice";
 
 import {
-  fetchCategoryBySlug,
+  fetchCategoryBySlug,  
   clearCurrentCategory,
   selectCurrentCategory,
 } from "../../../components/REDUX_FEATURES/REDUX_SLICES/userCategoriesSlice";
@@ -43,7 +43,48 @@ const getColumnCount = () => {
   return 2;                // grid-cols-2 (2 cards on mobile)
 };
 
-const LOAD_MORE_SKELETON_COUNT = 12;
+const LOAD_MORE_SKELETON_COUNT = 25;
+
+const getProductPrimaryVariant = (product) => product?.variants?.[0] ?? null;
+
+const getProductPayPrice = (product) => {
+  const variant = getProductPrimaryVariant(product);
+  const base = Number(variant?.price?.base) || 0;
+  const sale = Number(variant?.price?.sale);
+  return Number.isFinite(sale) ? sale : base;
+};
+
+const getProductListPrice = (product) => {
+  const variant = getProductPrimaryVariant(product);
+  return Number(variant?.price?.base) || 0;
+};
+
+const getProductDiscountPct = (product) => {
+  const base = getProductListPrice(product);
+  const pay = getProductPayPrice(product);
+  return base > 0 ? Math.round(((base - pay) / base) * 100) : 0;
+};
+
+const getProductCreatedTime = (product) => {
+  const raw = product?.createdAt ?? product?.updatedAt ?? product?.created_at;
+  const t = raw ? new Date(raw).getTime() : 0;
+  return Number.isFinite(t) ? t : 0;
+};
+
+const getProductAppliedTags = (product) =>
+  Array.isArray(product?.appliedTags) ? product.appliedTags : [];
+
+const isProductOnSale = (product) => {
+  if (getProductAppliedTags(product).includes("on-sale")) return true;
+  const base = getProductListPrice(product);
+  const pay = getProductPayPrice(product);
+  return base > 0 && pay < base;
+};
+
+const isProductTodayDeal = (product) => {
+  if (getProductAppliedTags(product).includes("today-arrival")) return true;
+  return Boolean(product?.isTodayDeal || product?.todayDeal);
+};
 
 // ── VirtualizedProductGrid ────────────────────────────────────────────────────
 // Virtualizes rows of a CSS grid.
@@ -133,6 +174,7 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
 // ── CatProducts ───────────────────────────────────────────────────────────────
 const CatProducts = () => {
   const { slug } = useParams();
+  const navigationType = useNavigationType();
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -148,7 +190,7 @@ const CatProducts = () => {
     availability: [],   // "instock" | "outofstock"
     discount: [],   // "10" | "25" | "50"
     onSale: false,
-    todayArrival: false,
+    todayDeal: false,  // Changed from todayArrival to todayDeal as requested
   });
   const [isSortOpen, setIsSortOpen] = useState(false);
   const toggleFilter = useCallback((key, value) => {
@@ -180,9 +222,9 @@ const CatProducts = () => {
   const activeTags = useMemo(() => {
     const tags = [];
     if (filters.onSale) tags.push("on_sale");
-    if (filters.todayArrival) tags.push("today_arrival");
-    return tags.join(","); // "on_sale" | "today_arrival" | "on_sale,today_arrival" | ""
-  }, [filters.onSale, filters.todayArrival]);
+    if (filters.todayDeal) tags.push("today-arrival");
+    return tags.join(","); // "on_sale" | "today-arrival" | "on_sale,today-arrival" | ""
+  }, [filters.onSale, filters.todayDeal]);
 
   // ── Paginated products ────────────────────────────────────────────────────
 
@@ -199,7 +241,7 @@ const CatProducts = () => {
     selectLoading: selectLoading,
     selectPagination: selectPagination,
     fetchParams: { slug, tags: activeTags },
-    limit: 12, // Changed from 8 to 12 for 2 rows of 6 cards
+    limit: 25, // Changed from 8 to 12 for 2 rows of 6 cards
   });
 
   // ── Derived ────────────────────────────────────────────────────────────────
@@ -229,18 +271,12 @@ const CatProducts = () => {
     if (!products?.length) return [];
 
     return products.filter((product) => {
-      const variant = product.variants?.[0];
-      // console.log("data", product);
-
-
-      const base = variant?.price?.base ?? 0;
-      const sale = variant?.price?.sale ?? base;
+      const variant = getProductPrimaryVariant(product);
+      const base = getProductListPrice(product);
       const qty = variant?.inventory?.quantity ?? 0;
-
-      const discount =
-        base > 0 ? Math.round(((base - sale) / base) * 100) : 0;
-
-      const isOnSale = sale < base || false;
+      const discount = getProductDiscountPct(product);
+      const isOnSale = isProductOnSale(product);
+      const isTodayDeal = isProductTodayDeal(product);
 
       // ✅ PRICE (multi-select)
       if (filters.price.length > 0) {
@@ -248,7 +284,7 @@ const CatProducts = () => {
           if (p === "u29") return base < 29;
           if (p === "29-49") return base >= 29 && base <= 49;
           if (p === "49-79") return base >= 49 && base <= 79;
-          if (p === "o99") return base > 99;
+          if (p === "o99") return base >= 99;
           return false;
         });
 
@@ -266,57 +302,59 @@ const CatProducts = () => {
         if (!stockMatch) return false;
       }
 
-      // ✅ DISCOUNT (multi-select)
+      // ✅ DISCOUNT (multi-select) — "10" = 10% or more, "25" = 25%+, "50" = 50%+
       if (filters.discount.length > 0) {
-        const discountMatch = filters.discount.some(
-          (d) => discount >= Number(d)
-        );
+        const discountMatch = filters.discount.some((d) => {
+          const minPct = Number(d);
+          if (!Number.isFinite(minPct)) return false;
+          return discount >= minPct;
+        });
 
         if (!discountMatch) return false;
       }
 
       // ✅ ON SALE
       if (filters.onSale && !isOnSale) return false;
+      
+      // ✅ TODAY DEAL
+      if (filters.todayDeal && !isTodayDeal) return false;
 
       return true;
     });
   }, [products, filters]);
+  
   const sortedProducts = useMemo(() => {
-    let data = [...filteredProducts];
+    const data = [...filteredProducts];
 
     switch (sortBy) {
       case "priceLowHigh":
-        return data.sort((a, b) => {
-          const aPrice = a.variants?.[0]?.price?.sale ?? a.variants?.[0]?.price?.base ?? 0;
-          const bPrice = b.variants?.[0]?.price?.sale ?? b.variants?.[0]?.price?.base ?? 0;
-          return aPrice - bPrice;
-        });
+        return data.sort(
+          (a, b) => getProductPayPrice(a) - getProductPayPrice(b)
+        );
 
       case "priceHighLow":
-        return data.sort((a, b) => {
-          const aPrice = a.variants?.[0]?.price?.sale ?? a.variants?.[0]?.price?.base ?? 0;
-          const bPrice = b.variants?.[0]?.price?.sale ?? b.variants?.[0]?.price?.base ?? 0;
-          return bPrice - aPrice;
-        });
+        return data.sort(
+          (a, b) => getProductPayPrice(b) - getProductPayPrice(a)
+        );
 
       case "discount":
-        return data.sort((a, b) => {
-          const getDiscount = (p) => {
-            const base = p.variants?.[0]?.price?.base ?? 0;
-            const sale = p.variants?.[0]?.price?.sale ?? base;
-            return base > 0 ? ((base - sale) / base) * 100 : 0;
-          };
-          return getDiscount(b) - getDiscount(a);
-        });
+        return data.sort(
+          (a, b) => getProductDiscountPct(b) - getProductDiscountPct(a)
+        );
+
       case "az":
-        return data.sort((a, b) => a.name.localeCompare(b.name));
+        return data.sort((a, b) =>
+          String(a?.name || "").localeCompare(String(b?.name || ""))
+        );
 
       case "za":
-        return data.sort((a, b) => b.name.localeCompare(a.name));
+        return data.sort((a, b) =>
+          String(b?.name || "").localeCompare(String(a?.name || ""))
+        );
 
       case "newest":
         return data.sort(
-          (a, b) => new Date(b.createdAt) - new Date(a.createdAt)
+          (a, b) => getProductCreatedTime(b) - getProductCreatedTime(a)
         );
 
       default:
@@ -330,7 +368,7 @@ const CatProducts = () => {
       filters.availability.length +
       filters.discount.length +
       (filters.onSale ? 1 : 0) +
-      (filters.todayArrival ? 1 : 0)   // ✅ add kiya
+      (filters.todayDeal ? 1 : 0)   // Updated to todayDeal
     );
   }, [filters])
 
@@ -341,11 +379,12 @@ const CatProducts = () => {
       availability: [],
       discount: [],
       onSale: false,
-      todayArrival: false,
+      todayDeal: false,  // Updated to todayDeal
     });
   }, []);
 
-  // ── Scroll to top on every category navigation (incl. wrong slug / error UI) ─
+  // ── Scroll to top on category navigation (PUSH), not on browser back (POP) ─
+  // so history scroll restoration can return the user to their previous scroll position.
   // Must live on CatProducts, not VirtualizedProductGrid — the grid only mounts
   // after successful load with products; loading/error left the window at footer scroll.
   // useLayoutEffect runs before paint. Use behavior: "instant" so CSS scroll-behavior: smooth
@@ -353,6 +392,7 @@ const CatProducts = () => {
   // sync layout churn in the same turn without waiting a full frame (unlike rAF).
   useLayoutEffect(() => {
     if (!slug) return;
+    if (navigationType === "POP") return;
     const toTop = () => {
       const html = document.documentElement;
       const prev = html.style.scrollBehavior;
@@ -368,7 +408,7 @@ const CatProducts = () => {
     };
     toTop();
     queueMicrotask(toTop);
-  }, [slug]);
+  }, [slug, navigationType]);
 
   // ── Category metadata fetch ────────────────────────────────────────────────
   useEffect(() => {
@@ -386,16 +426,16 @@ const CatProducts = () => {
 
   const categoryName = currentCategory?.name
     || slug?.replace(/-/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())
-    || "Collection"; useLayoutEffect(() => {
-      if (!slug) return;
-      // console.log("I m working");
-      clearFilters(); // ← add karo
+    || "Collection"; 
+    
+  useLayoutEffect(() => {
+    if (!slug) return;
+    clearFilters(); // ← add karo
 
-      dispatch(clearCurrentCategory());
-      dispatch(fetchCategoryBySlug(slug));
-      return () => dispatch(clearCurrentCategory());
-      console.log("img", currentCategory.image.url);
-    }, [slug, dispatch]);
+    dispatch(clearCurrentCategory());
+    dispatch(fetchCategoryBySlug(slug));
+    return () => dispatch(clearCurrentCategory());
+  }, [slug, dispatch]);
 
 
   // ── Filter Panel (shared between sidebar + drawer) ─────────────────────────
@@ -412,7 +452,7 @@ const CatProducts = () => {
             { label: "Under ₹29", val: "u29" },
             { label: "₹29 - ₹49", val: "29-49" },
             { label: "₹49 - ₹79", val: "49-79" },
-            { label: "Over ₹99", val: "o99" },
+            { label: "₹99 & above", val: "o99" },
           ].map(({ label, val }) => (
             <label key={val} className="flex items-center gap-3 cursor-pointer group">
 
@@ -495,7 +535,7 @@ const CatProducts = () => {
         </h4>
         <div className="space-y-1.5">
           {[
-            { label: "10% or more", val: "10" },
+            { label: "under 10% or more", val: "10" },
             { label: "25% or more", val: "25" },
             { label: "50% or more", val: "50" },
           ].map(({ label, val }) => (
@@ -530,7 +570,7 @@ const CatProducts = () => {
 
       <div className="h-px bg-zinc-100" />
 
-      {/* On Sale */}
+      {/* Deals - New Section as requested */}
       <div>
         <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] text-zinc-800 mb-4">
           Deals
@@ -553,7 +593,22 @@ const CatProducts = () => {
           </span>
         </label>
 
-        {/* Today Arrival Toggle */}
+        {/* Today Deal Toggle */}
+        <label className="flex items-center gap-3 cursor-pointer group">
+          <button
+            onClick={() => setFilters((prev) => ({ ...prev, todayDeal: !prev.todayDeal }))}
+            className={`relative w-9 h-5 rounded-full transition-colors flex-shrink-0 ${filters.todayDeal ? "bg-zinc-900" : "bg-zinc-200"
+              }`}
+          >
+            <span
+              className={`absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow-sm transition-transform ${filters.todayDeal ? "translate-x-4" : "translate-x-0"
+                }`}
+            />
+          </button>
+          <span className={`text-sm transition-colors ${filters.todayDeal ? "text-zinc-900 font-medium" : "text-zinc-800"}`}>
+            Today&apos;s Deal
+          </span>
+        </label>
       </div>
 
       {/* Clear */}
@@ -681,10 +736,11 @@ const CatProducts = () => {
 
                 <div className="space-y-4">
                   {[
-                    { label: "A-Z", val: "az" },
-                    { label: "Z-A", val: "za" },
+                    { label: "Default", val: "default" },
                     { label: "Price Low → High", val: "priceLowHigh" },
                     { label: "Price High → Low", val: "priceHighLow" },
+                    { label: "Highest Discount", val: "discount" },
+                    { label: "Newest First", val: "newest" },
                   ].map((opt) => (
                     <button
                       key={opt.val}
@@ -720,10 +776,11 @@ const CatProducts = () => {
                     onChange={(e) => setSortBy(e.target.value)}
                     className="appearance-none bg-white/60 backdrop-blur-md px-3 pr-10 py-2 text-sm font-semibold text-zinc-800 rounded-md shadow-sm border border-zinc-200 hover:border-zinc-400 focus:border-black focus:ring-0 outline-none transition-all cursor-pointer"
                   >
-                    <option value="az">Alphabetically, A-Z</option>
-                    <option value="za">Alphabetically, Z-A</option>
+                    <option value="default">Default</option>
                     <option value="priceLowHigh">Price: Low to High</option>
                     <option value="priceHighLow">Price: High to Low</option>
+                    <option value="discount">Highest Discount</option>
+                    <option value="newest">Newest First</option>
                   </select>
 
                   <ChevronDown
@@ -736,7 +793,7 @@ const CatProducts = () => {
               {/* RIGHT COUNT */}
               <div className="hidden sm:flex items-center gap-3 bg-zinc-50 px-4 py-2 rounded-full border border-zinc-200">
                 <span className="text-lg font-semibold text-zinc-800">
-                  {filteredProducts.length}
+                  {sortedProducts.length}
                 </span>
                 <span className="text-[10px] uppercase tracking-widest text-zinc-400">
                   Products
@@ -782,7 +839,7 @@ const CatProducts = () => {
               )}
 
               {/* MAIN GRID */}
-              {!isLoading && !hasError && filteredProducts.length > 0 && (
+              {!isLoading && !hasError && sortedProducts.length > 0 && (
                 <div className="animate-in fade-in duration-700">
                   <VirtualizedProductGrid
                     key={slug}
@@ -820,7 +877,7 @@ const CatProducts = () => {
               )}
 
               {/* EMPTY */}
-              {!isLoading && !hasError && filteredProducts.length === 0 && products.length > 0 && (
+              {!isLoading && !hasError && sortedProducts.length === 0 && products.length > 0 && (
                 <div className="py-32 flex flex-col items-center text-center animate-in fade-in">
                   <h2 className="text-xl font-semibold text-zinc-700 mb-2">
                     No products found
@@ -830,8 +887,7 @@ const CatProducts = () => {
                     Try different filters
                   </p>
 
-                  <button
-                    onClick={clearFilters}
+                  <button                    onClick={clearFilters}
                     className="px-6 py-2 text-xs font-semibold uppercase tracking-wider border border-zinc-300 rounded-full hover:bg-black hover:text-white transition"
                   >
                     Reset Filters
@@ -871,7 +927,7 @@ const CatProducts = () => {
                   onClick={() => setIsFilterOpen(false)}
                   className="w-full bg-zinc-900 text-white py-4 text-xs font-black uppercase tracking-widest"
                 >
-                  Show {filteredProducts.length} products
+                  Show {sortedProducts.length} products
                 </button>
               </div>
             </div>

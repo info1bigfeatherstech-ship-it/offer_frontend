@@ -57,9 +57,8 @@ const ActionIcon = memo(({ item, onClick, isLoggedIn }) => (
 ));
 
 // ── User Account Dropdown ─────────────────────────────────────────────────────
-const UserAccountDropdown = ({ user, onLogout, onClose }) => {
+const UserAccountDropdown = ({ user, onLogout, onClose, dropdownRef }) => {
   const navigate = useNavigate();
-  const dropdownRef = useRef(null);
 
   const menuItems = [
     { icon: <UserCircle size={16} />, label: 'My Profile',  path: '/account/userprofile' },
@@ -189,7 +188,7 @@ const MegaDropdown = ({ isOpen }) => {
     { label: "Smart Life Gadgets",   path: "/category/smart-life-gadgets" },
     { label: "Baby Items",                        path: "/category/baby-items" },
     { label: "Stationary",            path: "/category/stationary" },
-    { label: "Cleaning & Housekeeping Supplies",  path: "/category/cleaning-&housekeeping-supplies" },
+    { label: "Cleaning & Housekeeping Supplies",  path: "/category/cleaning-and-housekeeping-supplies" },
     { label: "Sports & Fitness",      path: "/category/sports-and-fitness" },
  
   ];
@@ -199,7 +198,7 @@ const MegaDropdown = ({ isOpen }) => {
      { label: "Tours & Travels",       path: "/category/tours-and-travels" },
     { label: "Fashion World",         path: "/category/fashion-world" },
     { label: "Gifts",                             path: "/category/gifts" },
-    { label: "Mix-items",                               path: "/category/mix-items-daily-use" },
+    { label: "Mix-items",                               path: "/category/mix-items" },
     { label: "Car Accessories",                   path: "/category/car-accessories" },
   ];
 
@@ -325,6 +324,9 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
+  const accountTriggerMobileRef = useRef(null);
+  const accountTriggerDesktopRef = useRef(null);
+  const accountDropdownRef = useRef(null);
   const wishlistCount = useSelector(selectWishlistCount);
   const guestItems = useSelector(selectWishlistGuestItems);
   const cartCount = useSelector(selectDisplayCartCount);
@@ -352,6 +354,28 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
       return () => clearTimeout(timer);
     }
   }, []);
+
+  useEffect(() => {
+    if (!isAccountDropdownOpen) return;
+
+    const handleClickOutside = (event) => {
+      const target = event.target;
+      const inTrigger =
+        accountTriggerMobileRef.current?.contains(target) ||
+        accountTriggerDesktopRef.current?.contains(target);
+      const inDropdown = accountDropdownRef.current?.contains(target);
+      if (!inTrigger && !inDropdown) {
+        setIsAccountDropdownOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('touchstart', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('touchstart', handleClickOutside);
+    };
+  }, [isAccountDropdownOpen]);
 
   const handleSearchFocus = useCallback(() => setIsSearchModalOpen(true), []);
 
@@ -412,12 +436,12 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
     { label: "Smart Life Gadgets",                        path: "/category/smart-life-gadgets" },
     { label: "Baby Items",                        path: "/category/baby-items" },
     { label: "Stationary",                        path: "/category/stationary" },
-     { label: "Cleaning & Housekeeping Supplies",  path: "/category/cleaning-&housekeeping-supplies" },
+     { label: "Cleaning & Housekeeping Supplies",  path: "/category/cleaning-and-housekeeping-supplies" },
      { label: "Sports & Fitness",                  path: "/category/sports-and-fitness" },
      { label: "Tours & Travels",                   path: "/category/tours-and-travels" },
     { label: "Fashion World",                     path: "/category/fashion-world" },
     { label: "Gifts",                             path: "/category/gifts" },
-    { label: "Mix-items",  path: "/category/mix-items-daily-use" },
+    { label: "Mix-items",  path: "/category/mix-items" },
     { label: "Car Accessories",                   path: "/category/car-accessories" },
   ];
 
@@ -524,7 +548,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
               {/* Right actions */}
               <div className="flex items-center gap-3 sm:gap-4 md:gap-5 relative z-[500]">
                 {/* User */}
-                <div onClick={handleAccountClick} className="relative flex flex-col items-center cursor-pointer group">
+                <div ref={accountTriggerMobileRef} onClick={handleAccountClick} className="relative flex flex-col items-center cursor-pointer group">
                   <div className="p-1 md:p-1.5 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
                     <User size={20} className="w-5 h-5 sm:w-[22px] sm:h-[22px] md:w-6 md:h-6 text-gray-700 group-hover:text-[#F7A221] transition-colors" />
                   </div>
@@ -562,7 +586,12 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
 
                 {/* Account dropdown — mobile */}
                 {isLoggedIn && isAccountDropdownOpen && (
-                  <UserAccountDropdown user={user} onLogout={handleLogout} onClose={() => setIsAccountDropdownOpen(false)} />
+                  <UserAccountDropdown
+                    user={user}
+                    onLogout={handleLogout}
+                    onClose={() => setIsAccountDropdownOpen(false)}
+                    dropdownRef={accountDropdownRef}
+                  />
                 )}
               </div>
             </div>
@@ -611,10 +640,17 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
             {/* Action icons */}
             <div className="flex items-center lg:gap-3 xl:gap-5 2xl:gap-8 relative z-[500]">
               {actionIcons.map((item, idx) => (
-                <ActionIcon key={idx} item={item} onClick={item.onClick} isLoggedIn={isLoggedIn} />
+                <div key={idx} ref={idx === 0 ? accountTriggerDesktopRef : undefined}>
+                  <ActionIcon item={item} onClick={item.onClick} isLoggedIn={isLoggedIn} />
+                </div>
               ))}
               {isLoggedIn && isAccountDropdownOpen && (
-                <UserAccountDropdown user={user} onLogout={handleLogout} onClose={() => setIsAccountDropdownOpen(false)} />
+                <UserAccountDropdown
+                  user={user}
+                  onLogout={handleLogout}
+                  onClose={() => setIsAccountDropdownOpen(false)}
+                  dropdownRef={accountDropdownRef}
+                />
               )}
             </div>
           </div>
@@ -734,11 +770,11 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
       {/* ── Mobile Sidebar Overlay ───────────────────────────────────────────── */}
       {isMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/60 z-[200] lg:hidden backdrop-blur-sm transition-opacity"
+          className="fixed inset-0 z-[200] flex justify-end bg-black/60 lg:hidden backdrop-blur-sm transition-opacity"
           onClick={() => setIsMenuOpen(false)}
         >
           <div
-            className="w-[85%] max-w-[320px] h-full bg-white shadow-2xl animate-slideRight"
+            className="h-full w-[85%] max-w-[320px] bg-white shadow-2xl animate-slideRight"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="p-6 border-b flex justify-between items-center bg-gradient-to-r from-[#F7A221]/5 to-transparent">
@@ -789,7 +825,13 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                     onClick={() => setIsMenuOpen(false)}
                     className="flex items-center gap-4 p-3 hover:bg-orange-50 rounded-xl transition-all font-bold text-sm group"
                   >
-                    <span className="p-2 bg-gray-50 rounded-lg group-hover:scale-110 transition-transform">{link.icon}</span>
+                    <span
+                      className={`p-2 bg-gray-50 rounded-lg group-hover:scale-110 transition-transform ${
+                        link.label === "Just Arrived" ? "[&_img]:!h-14 [&_img]:!w-14" : ""
+                      }`}
+                    >
+                      {link.icon}
+                    </span>
                     <span className="group-hover:text-[#F7A221]">{link.label}</span>
                   </Link>
                 ))}
@@ -890,7 +932,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
 
         /* ── Animations ── */
         @keyframes slideRight {
-          from { transform: translateX(-100%); }
+          from { transform: translateX(100%); }
           to   { transform: translateX(0); }
         }
         .animate-slideRight { animation: slideRight 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }

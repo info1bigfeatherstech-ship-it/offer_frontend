@@ -38,6 +38,7 @@ import TagProducts from "./User_Side_Web_Interface/User_Dash_Segment/UserSubPage
 import AboutUs from "./components/Common/AboutUs";
 import Policy from "./components/Common/Policy";
 import InfluencerFormPage from "./components/ADMIN_SEGMENT/Influencer/Influencer";
+// import ScrollToTop from "./components/ScrollToTop";
 // import SideVideo from "./components/Common/SideVideo/SideVideo";
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -132,6 +133,7 @@ const AppContent = () => {
 
     return (
         <div className="min-h-screen">
+            {/* <ScrollToTop /> */}
 
             {!isAdminRoute && (
                 <Navbar

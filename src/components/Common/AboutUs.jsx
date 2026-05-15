@@ -19,7 +19,6 @@ import {
 } from "lucide-react";
 import logo from "../../assets/logo.jpg"
 import { Link } from "react-router-dom";
-import { useEffect } from "react";
 
 /** Same order, labels & paths as Navbar `mobileCategories` / MegaDropdown (Home → … → Car Accessories). */
 const categories = [
@@ -144,9 +143,6 @@ const values = [
 ];
 
 export default function AboutUs() {
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" })
-  }, [])
   return (
     <div className="min-h-screen bg-white overflow-hidden font-sans page-transition-about" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
@@ -360,15 +356,24 @@ export default function AboutUs() {
             </p>
           </div>
 
-          <div className="mt-16 grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {categories.map((item) => {
+          <div className="mt-16 grid gap-6 md:grid-cols-2 lg:grid-cols-6">
+            {categories.map((item, idx) => {
               const Icon = item.icon;
+              const n = categories.length;
+              const lgLastRowPairCenter =
+                n % 3 === 2
+                  ? idx === n - 2
+                    ? "lg:col-start-2"
+                    : idx === n - 1
+                      ? "lg:col-start-4"
+                      : ""
+                  : "";
 
               return (
                 <Link
                   key={item.label}
                   to={item.path}
-                  className="group rounded-3xl border border-gray-200 bg-[#fafafa] p-7 transition-all duration-500 hover:-translate-y-3 hover:border-amber-400 hover:shadow-2xl"
+                  className={`group rounded-3xl border border-gray-200 bg-[#fafafa] p-7 transition-all duration-500 hover:-translate-y-3 hover:border-amber-400 hover:shadow-2xl lg:col-span-2 ${lgLastRowPairCenter}`}
                 >
                   <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-100 transition-all duration-300 group-hover:bg-amber-400/20 group-hover:scale-110">
                     <Icon className="h-6 w-6 text-amber-500" />

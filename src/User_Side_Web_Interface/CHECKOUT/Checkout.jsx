@@ -1,15 +1,15 @@
-import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
+﻿import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import {
-  Loader2, MapPin, CreditCard, Truck, CheckCircle2,
+  Loader2, MapPin, CreditCard, Truck, CheckCircle2, Check,
   Package, AlertCircle, ArrowLeft, ShoppingBag,
   Banknote, X, Clock, ChevronDown, ChevronUp, Gift,
-  Minus, Plus, Trash2, PartyPopper,
+  Minus, Plus, Trash2,
 } from "lucide-react";
 
-// Redux — checkout
+// Redux � checkout
 import {
   fetchCheckoutQuote,
   fetchCheckoutSettings,
@@ -50,40 +50,48 @@ import {
   clearPlacedOrderForDismissedGateway,
 } from "../../components/REDUX_FEATURES/REDUX_SLICES/checkoutSlice/checkoutSlice";
 
-// Redux — address
+// Redux � address
 import {
   selectDefaultAddress, selectOtherAddresses,
   addAddress, selectAddressLoading, selectAddressError,
   clearAddressErrors,
 } from "../../components/REDUX_FEATURES/REDUX_SLICES/Useraddressslice";
 
-// Redux — cart
+// Redux � cart
 import {
   selectCartItems, selectDisplayCartCount,
   updateCartItem, removeCartItem,
   fetchCart,
 } from "../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice";
 
-// Redux — auth
+// Redux � auth
 import { selectUser } from "../../components/REDUX_FEATURES/REDUX_SLICES/authSlice";
+import axiosInstance from "../../SERVICES/axiosInstance";
 
 // Components
 import AddressSelector from "./AddressSelector/AddressSelector";
 import PriceBreakdown from "./PriceBreakdown/PriceBreakdown";
-import { computeCheckoutPsychologyPricing, getCartLineUnitPay } from "../../utils/checkoutPriceDisplay";
+import {
+  computeCheckoutPsychologyPricing,
+  computeCheckoutTotalSavings,
+  computeCodVsOnlineSavings,
+  getCartLineUnitPay,
+  getCartLineUnitMrp,
+} from "../../utils/checkoutPriceDisplay";
 import { formatInr as fmt } from "../../utils/formatInr";
+import SavingsBanner from "../../components/Common/SavingsBanner";
 import { AddressFormModal } from "../User_Dash_Segment/UserSubPages/UserAddress";
 import RazorpayCheckout, {
   PaymentErrorModal, PaymentLoadingModal,
 } from "./RazorpayCheckout/RazorpayCheckout";
 
-// ─── PAYMENT STATE MACHINE ────────────────────────────────────────────────────
-// idle        → before Razorpay opens
-// initiated   → Razorpay modal open
-// success     → payment captured (before backend verification)
-// failed      → payment.failed event
-// cancelled   → user closed modal without paying
-// verified    → backend verification complete
+// --- PAYMENT STATE MACHINE ----------------------------------------------------
+// idle        ? before Razorpay opens
+// initiated   ? Razorpay modal open
+// success     ? payment captured (before backend verification)
+// failed      ? payment.failed event
+// cancelled   ? user closed modal without paying
+// verified    ? backend verification complete
 const PAYMENT_STATE = {
   IDLE: "idle",
   INITIATED: "initiated",
@@ -93,9 +101,7 @@ const PAYMENT_STATE = {
   VERIFIED: "verified",
 };
 
-/** Same figure as COD nudge / “Get extra discount” — full online vs COD handling. */
-const ONLINE_FULL_VS_COD_SAVINGS_INR = 49;
-
+/** Same figure as COD nudge / �Get extra discount� � full online vs COD handling. */
 const createCheckoutAttemptKey = () => {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
     return crypto.randomUUID();
@@ -107,7 +113,7 @@ const createCheckoutAttemptKey = () => {
 const isQuoteRefreshError = (errorCode) =>
   errorCode === "QUOTE_STALE" || errorCode === "QUOTE_EXPIRED";
 
-/** Aligns with backend checkout policy (1–100 when partial is enabled). */
+/** Aligns with backend checkout policy (1�100 when partial is enabled). */
 const getServerPartialPercent = (policy) => {
   if (!policy?.partialPaymentEnabled) return null;
   const p = Number(policy.partialPaymentPercent);
@@ -117,15 +123,15 @@ const getServerPartialPercent = (policy) => {
 };
 
 const formatPercentLabel = (n) => {
-  if (n == null || !Number.isFinite(n)) return "—";
+  if (n == null || !Number.isFinite(n)) return "";
   if (Number.isInteger(n)) return String(n);
   const s = n.toFixed(2).replace(/\.?0+$/, "");
   return s;
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // Order Success Screen
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 const OrderSuccess = ({ order, onViewOrders }) => {
   const [processing, setProcessing] = useState(true);
 
@@ -148,7 +154,7 @@ const OrderSuccess = ({ order, onViewOrders }) => {
             <Loader2 size={36} className="animate-spin" style={{ color: "#F7A221" }} />
           </div>
           <div>
-            <h1 className="text-xl font-black" style={{ color: "#111" }}>Processing Order…</h1>
+            <h1 className="text-xl font-black" style={{ color: "#111" }}>Processing Order</h1>
             <p className="text-sm font-medium mt-1.5" style={{ color: "#6b7280" }}>
               Please wait while we confirm your order.
             </p>
@@ -216,39 +222,69 @@ const OrderSuccess = ({ order, onViewOrders }) => {
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
 // Step Indicator
-// ─────────────────────────────────────────────────────────────────────────────
-const StepIndicator = ({ step }) => (
+// -----------------------------------------------------------------------------
+const StepIndicator = ({ step, onGoToStep }) => (
   <div className="flex items-center justify-center px-4 py-3"
     style={{ background: "#fff", borderBottom: "1px solid #f0e8d8" }}>
-    <div className="flex items-center" style={{ gap: 0, width: "100%", maxWidth: 280 }}>
-      {[{ n: 1, label: "Address" }, { n: 2, label: "Payment" }].map(({ n, label }, idx) => {
+    <div className="flex items-center" style={{ gap: 0, width: "100%", maxWidth: 360 }}>
+      {[
+        { n: 1, label: "Address" },
+        { n: 2, label: "Summary" },
+        { n: 3, label: "Payment" },
+      ].map(({ n, label }, idx) => {
         const done = step > n;
         const active = step === n;
         return (
           <React.Fragment key={n}>
-            <div className="flex flex-col items-center" style={{ minWidth: 72 }}>
-              <div className="flex items-center justify-center font-black transition-all"
-                style={{
-                  width: 28, height: 28, borderRadius: "50%", fontSize: 12,
-                  background: done ? "#111" : active ? "#F7A221" : "#f0e8d8",
-                  color: done ? "#F7A221" : active ? "#111" : "#bbb",
-                }}>
-                {done ? "✓" : n}
+            {n < step ? (
+              <button
+                type="button"
+                onClick={() => onGoToStep?.(n)}
+                className="flex flex-col items-center cursor-pointer transition-opacity hover:opacity-80"
+                style={{ minWidth: 68, background: "none", border: "none", padding: 0 }}
+                aria-label={`Go back to ${label}`}
+              >
+                <div className="flex items-center justify-center font-black transition-all"
+                  style={{
+                    width: 28, height: 28, borderRadius: "50%", fontSize: 12,
+                    background: done ? "#111" : active ? "#F7A221" : "#f0e8d8",
+                    color: done ? "#F7A221" : active ? "#111" : "#bbb",
+                  }}>
+                  {done ? <Check size={14} strokeWidth={3} aria-hidden /> : n}
+                </div>
+                <span className="font-black uppercase mt-1 text-center"
+                  style={{
+                    fontSize: 9, letterSpacing: "0.05em",
+                    color: done || active ? "#111" : "#9ca3af",
+                  }}>
+                  {label}
+                </span>
+              </button>
+            ) : (
+              <div className="flex flex-col items-center" style={{ minWidth: 68 }}>
+                <div className="flex items-center justify-center font-black transition-all"
+                  style={{
+                    width: 28, height: 28, borderRadius: "50%", fontSize: 12,
+                    background: done ? "#111" : active ? "#F7A221" : "#f0e8d8",
+                    color: done ? "#F7A221" : active ? "#111" : "#bbb",
+                  }}>
+                  {done ? <Check size={14} strokeWidth={3} aria-hidden /> : n}
+                </div>
+                <span className="font-black uppercase mt-1 text-center"
+                  style={{
+                    fontSize: 9, letterSpacing: "0.05em",
+                    color: done || active ? "#111" : "#9ca3af",
+                  }}>
+                  {label}
+                </span>
               </div>
-              <span className="font-black uppercase mt-1"
-                style={{
-                  fontSize: 10, letterSpacing: "0.06em",
-                  color: done || active ? "#111" : "#9ca3af",
-                }}>
-                {label}
-              </span>
-            </div>
-            {idx === 0 && (
+            )}
+            {idx < 2 && (
               <div className="flex-1 transition-all" style={{
                 height: 2, marginBottom: 18,
-                background: step > 1 ? "#F7A221" : "#f0e8d8",
+                background: step > n ? "#F7A221" : "#f0e8d8",
               }} />
             )}
           </React.Fragment>
@@ -258,8 +294,45 @@ const StepIndicator = ({ step }) => (
   </div>
 );
 
-const PrepaidSavingsPopup = ({ onSwitchToPrepaid, onContinueCod, onClose }) => {
-  const totalSavings = ONLINE_FULL_VS_COD_SAVINGS_INR;
+const CheckoutStepBackButton = ({ onClick, children = "Back" }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    className="w-full font-black uppercase flex items-center justify-center gap-2 transition-all active:scale-[0.98] cursor-pointer"
+    style={{
+      background: "#fff",
+      color: "#111",
+      borderRadius: 14,
+      padding: "13px 0",
+      fontSize: 12,
+      letterSpacing: "0.06em",
+      border: "2px solid #f0e8d8",
+    }}
+  >
+    <ArrowLeft size={14} />
+    {children}
+  </button>
+);
+
+/** Payment step only � label + payable total. */
+const CartSummaryCompact = ({ quote }) => (
+  <div className="flex items-center justify-between px-4 py-3.5"
+    style={{ background: "#fff", border: "1px solid #f0e8d8", borderRadius: 18 }}>
+    <div className="flex items-center gap-2">
+      <ShoppingBag size={15} style={{ color: "#F7A221" }} />
+      <span className="font-black text-sm" style={{ color: "#111" }}>
+        Cart Summary
+      </span>
+    </div>
+    <span className="font-black" style={{ fontSize: 14, color: "#111" }}>
+      {fmt(quote?.amountPayable ?? 0)}
+    </span>
+  </div>
+);
+
+const PrepaidSavingsPopup = ({ savingsAmount, onSwitchToPrepaid, onContinueCod, onClose }) => {
+  const totalSavings = Math.max(0, Number(savingsAmount) || 0);
+  if (totalSavings <= 0) return null;
 
   return (
     <>
@@ -451,81 +524,19 @@ const PrepaidSavingsPopup = ({ onSwitchToPrepaid, onContinueCod, onClose }) => {
   );
 };
 
-/** Shown after Razorpay success when user paid full amount online (saved vs COD fee). */
-const OnlineFullSavingsCelebration = ({ savedAmount, onContinue }) => (
-  <div
-    className="fixed inset-0 z-[1200] flex items-center justify-center p-4"
-    style={{ background: "rgba(17, 24, 39, 0.55)" }}
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="online-savings-celebration-title"
-  >
-    <div
-      className="relative w-full max-w-sm rounded-3xl px-5 py-6 sm:p-7 text-center overflow-hidden"
-      style={{
-        background: "linear-gradient(165deg, #fffbeb 0%, #ffffff 45%, #fff 100%)",
-        border: "1px solid #fde68a",
-        boxShadow: "0 28px 70px rgba(0,0,0,0.2)",
-      }}
-    >
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-40"
-        style={{
-          backgroundImage:
-            "radial-gradient(circle at 12% 18%, #fbbf24 0, transparent 35%), radial-gradient(circle at 88% 12%, #f472b6 0, transparent 30%), radial-gradient(circle at 80% 85%, #34d399 0, transparent 32%)",
-        }}
-      />
-      <div className="relative">
-        <div
-          className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl mb-3"
-          style={{ background: "#FEF3C7", border: "1px solid #fcd34d" }}
-        >
-          <PartyPopper size={30} style={{ color: "#d97706" }} aria-hidden />
-        </div>
-        <h2
-          id="online-savings-celebration-title"
-          className="font-black text-xl sm:text-2xl"
-          style={{ color: "#111" }}
-        >
-          Payment successful!
-        </h2>
-        <p className="mt-2 text-sm sm:text-base leading-relaxed" style={{ color: "#374151" }}>
-          You saved{" "}
-          <span className="font-black" style={{ color: "#dc2626" }}>
-            {fmt(savedAmount)}
-          </span>{" "}
-          by paying online (full amount).
-        </p>
-        <button
-          type="button"
-          onClick={onContinue}
-          className="mt-6 w-full py-3.5 rounded-2xl font-black text-sm sm:text-base uppercase tracking-widest transition-transform active:scale-[0.98]"
-          style={{
-            border: "1px solid #111",
-            color: "#111",
-            background: "#F7A221",
-            cursor: "pointer",
-          }}
-        >
-          View my orders
-        </button>
-      </div>
-    </div>
-  </div>
-);
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Order Summary Card (collapsible) — with real cart controls
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// Order Summary Card (collapsible) � with real cart controls
+// -----------------------------------------------------------------------------
 const OrderSummaryCard = ({
   cartItems,
   cartCount,
   quote,
   dispatch,
   onCartMutationSuccess,
+  defaultOpen = false,
 }) => {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [updatingId, setUpdatingId] = useState(null);
 
   const subtotal = quote?.itemsSubtotal ?? 0;
@@ -537,6 +548,11 @@ const OrderSummaryCard = ({
   const psych = useMemo(
     () => computeCheckoutPsychologyPricing(cartItems, quote),
     [cartItems, quote]
+  );
+
+  const totalSavings = useMemo(
+    () => computeCheckoutTotalSavings(psych, quote),
+    [psych, quote]
   );
 
   const handleUpdateQty = useCallback(async (item, delta) => {
@@ -586,7 +602,7 @@ const OrderSummaryCard = ({
       background: "#fff", border: "1px solid #f0e8d8",
       borderRadius: 18, overflow: "hidden",
     }}>
-      {/* Toggle header — always visible */}
+      {/* Toggle header � always visible */}
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
@@ -596,16 +612,16 @@ const OrderSummaryCard = ({
         <div className="flex items-center gap-2">
           <ShoppingBag size={15} style={{ color: "#F7A221" }} />
           <span className="font-black text-sm" style={{ color: "#111" }}>
-            Order Summary
+            Cart Summary
           </span>
-          <span className="font-black px-2 py-0.5 rounded-full"
+          {/* <span className="font-black px-2 py-0.5 rounded-full"
             style={{ fontSize: 11, background: "#F7A221", color: "#111" }}>
             {cartCount}
-          </span>
+          </span> */}
         </div>
         <div className="flex items-center gap-2">
           <span className="font-black" style={{ fontSize: 14, color: "#111" }}>
-            {fmt(total)}
+          {cartCount} item{cartCount !== 1 ? "s" : ""}
           </span>
           {open
             ? <ChevronUp size={16} style={{ color: "#9ca3af" }} />
@@ -636,7 +652,12 @@ const OrderSummaryCard = ({
               const image = variant?.images?.[0]?.url || null;
               const name = item.product?.title || item.product?.name || "Product";
               const sizeName = variant?.size || variant?.name || "";
-              const price = getCartLineUnitPay(item);
+              const unitPay = getCartLineUnitPay(item);
+              const unitMrp = getCartLineUnitMrp(item);
+              const qty = item.quantity || 1;
+              const linePay = unitPay * qty;
+              const lineMrp = unitMrp * qty;
+              const hasDiscount = unitMrp > unitPay + 0.01;
 
               return (
                 <div key={key} className="flex items-center gap-3">
@@ -659,9 +680,27 @@ const OrderSummaryCard = ({
                     {sizeName && (
                       <p style={{ fontSize: 11, color: "#9ca3af" }}>{sizeName}</p>
                     )}
-                    <p className="font-black" style={{ fontSize: 13, color: "#111", marginTop: 2 }}>
-                      {fmt(price * item.quantity)}
-                    </p>
+                    <div className="flex items-center gap-2 flex-wrap mt-1">
+                      <p className="font-black" style={{ fontSize: 13, color: "#111" }}>
+                        {fmt(linePay)}
+                      </p>
+                      {hasDiscount && (
+                        <span
+                          style={{
+                            fontSize: 12,
+                            color: "#9ca3af",
+                            textDecoration: "line-through",
+                          }}
+                        >
+                          {fmt(lineMrp)}
+                        </span>
+                      )}
+                      {qty > 1 && (
+                        <span style={{ fontSize: 11, color: "#9ca3af" }}>
+                          ({fmt(unitPay)}  {qty})
+                        </span>
+                      )}
+                    </div>
                   </div>
 
                   {/* Controls */}
@@ -706,7 +745,7 @@ const OrderSummaryCard = ({
 
                       <span className="font-black text-center"
                         style={{ fontSize: 12, color: "#111", minWidth: 20, textAlign: "center" }}>
-                        {isUpdating ? "…" : item.quantity}
+                        {isUpdating ? "" : item.quantity}
                       </span>
 
                       <button
@@ -728,14 +767,14 @@ const OrderSummaryCard = ({
             })}
           </div>
 
-          {/* Price breakdown — SubTotal, base→sale discount, coupon, shipping, tax (totals from quote) */}
-          <div className="px-4 pb-4 pt-2 space-y-2"
+          {/* Price breakdown � SubTotal, base?sale discount, coupon, shipping, tax (totals from quote) */}
+          <div className="px-4 pt-2 space-y-2"
             style={{ borderTop: "1px solid #f0e8d8" }}>
             <p className="font-black text-xs mb-1" style={{ color: "#111" }}>
-              Item price
+              Price Details
             </p>
             <div className="flex justify-between items-center">
-              <span style={{ fontSize: 13, color: "#6b7280" }}>SubTotal</span>
+              <span style={{ fontSize: 13, color: "#6b7280" }}>Total Cart Value</span>
               <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>
                 {fmt(psych.mrpTotal)}
               </span>
@@ -744,7 +783,7 @@ const OrderSummaryCard = ({
               <div className="flex justify-between items-center">
                 <span style={{ fontSize: 13, color: "#6b7280" }}>Discount</span>
                 <span style={{ fontSize: 13, fontWeight: 600, color: "#15803D" }}>
-                  − {fmt(psych.catalogDiscount)}
+                  - {fmt(psych.catalogDiscount)}
                 </span>
               </div>
             ) : null}
@@ -755,7 +794,7 @@ const OrderSummaryCard = ({
                   {quote?.couponApplied ? ` (${quote.couponApplied})` : ""}
                 </span>
                 <span style={{ fontSize: 13, fontWeight: 600, color: "#15803D" }}>
-                  − {fmt(discount)}
+                  - {fmt(discount)}
                 </span>
               </div>
             ) : null}
@@ -768,42 +807,35 @@ const OrderSummaryCard = ({
               }}>{delivery === 0 ? "FREE" : fmt(delivery)}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span style={{ fontSize: 13, color: "#6b7280" }}>Other taxes</span>
+              <span style={{ fontSize: 13, color: "#6b7280" }}>Other Taxes</span>
               <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>{fmt(gst)}</span>
             </div>
 
             <div className="flex justify-between items-center pt-2"
               style={{ borderTop: "1px dashed #e5e7eb" }}>
-              <span className="font-black" style={{ fontSize: 14, color: "#111" }}>Total</span>
-              <span className="font-black" style={{ fontSize: 14, color: "#F7A221" }}>
+              <span className="font-black" style={{ fontSize: 14, color: "#111" }}>You Pay</span>
+              <span className="font-black" style={{ fontSize: 14, color: "#111" }}>
                 {fmt(total)}
               </span>
             </div>
 
-            {quote?.deliveryEstimate && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-xl mt-1"
-                style={{ background: "#F0FFF4", border: "1px solid #BBF7D0" }}>
-                <Truck size={12} style={{ color: "#15803D" }} />
-                <span className="font-bold" style={{ fontSize: 11, color: "#15803D" }}>
-                  {quote.deliveryEstimate}
-                </span>
-              </div>
-            )}
           </div>
+
+          <SavingsBanner amount={totalSavings} />
         </div>
       </div>
     </div>
   );
 };
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Checkout — Main Component
-// ─────────────────────────────────────────────────────────────────────────────
+// -----------------------------------------------------------------------------
+// Checkout � Main Component
+// -----------------------------------------------------------------------------
 const Checkout = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
-  // ── Redux selectors ────────────────────────────────────────────────────────
+  // -- Redux selectors --------------------------------------------------------
   const quote = useSelector(selectQuote);
   const quoteId = useSelector(selectQuoteId);
   const placedOrder = useSelector(selectPlacedOrder);
@@ -830,7 +862,7 @@ const Checkout = () => {
   const cartCount = useSelector(selectDisplayCartCount);
   const user = useSelector(selectUser);
 
-  // ── Local state ────────────────────────────────────────────────────────────
+  // -- Local state ------------------------------------------------------------
   const [step, setStep] = useState(1);
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [showRazorpay, setShowRazorpay] = useState(false);
@@ -841,8 +873,7 @@ const Checkout = () => {
   const [showCouponsList, setShowCouponsList] = useState(false);
   const [isCouponManuallyApplied, setIsCouponManuallyApplied] = useState(false);
   const [showPrepaidSavingsPopup, setShowPrepaidSavingsPopup] = useState(false);
-  const [showOnlineSavingsCelebration, setShowOnlineSavingsCelebration] = useState(false);
-
+  const [codVsOnlineSavings, setCodVsOnlineSavings] = useState(0);
   // Payment state machine
   const [razorpayPaymentState, setRazorpayPaymentState] = useState(PAYMENT_STATE.IDLE);
 
@@ -851,6 +882,8 @@ const Checkout = () => {
   const placeOrderInFlight = useRef(false);
   const checkoutAttemptKeyRef = useRef(null);
   const shouldEvaluateCodNudgeRef = useRef(false);
+  const onlineFullPayableRef = useRef(null);
+  const codSavingsPrefetchKeyRef = useRef(null);
   const gatewayDismissRecoveryInFlight = useRef(false);
   const gatewayDismissHandlerRef = useRef(async () => {});
 
@@ -883,25 +916,79 @@ const Checkout = () => {
       ? Math.round((quote.amountPayable * policyPartialPercent) / 100)
       : 0;
 
-  // ── Scroll to top on mount and step change ─────────────────────────────────
+  // -- Scroll to top on mount and step change ---------------------------------
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, [step]);
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "instant" });
-  }, []);
-
-  useEffect(() => {
     checkoutAttemptKeyRef.current = null;
     shouldEvaluateCodNudgeRef.current = false;
     setShowPrepaidSavingsPopup(false);
+    setCodVsOnlineSavings(0);
+    onlineFullPayableRef.current = null;
+    codSavingsPrefetchKeyRef.current = null;
     setIsCouponManuallyApplied(false);
     if (couponCode) {
       dispatch(setCouponCode(""));
       setCouponInput("");
     }
   }, [selectedAddressId]);
+
+  useEffect(() => {
+    if (checkoutMode !== "online_full" || loading.quote) return;
+    const onlinePayable = Number(quote?.amountPayable);
+    if (Number.isFinite(onlinePayable) && onlinePayable >= 0) {
+      onlineFullPayableRef.current = onlinePayable;
+    }
+  }, [checkoutMode, quote?.amountPayable, loading.quote]);
+
+  useEffect(() => {
+    if (step !== 3 || checkoutMode !== "online_full" || loading.quote) return;
+    if (!selectedAddressId) return;
+
+    const onlinePayable = Number(quote?.amountPayable);
+    if (!Number.isFinite(onlinePayable) || onlinePayable < 0) return;
+
+    onlineFullPayableRef.current = onlinePayable;
+
+    const prefetchKey = `${selectedAddressId}|${couponCode || ""}|${onlinePayable}`;
+    if (codSavingsPrefetchKeyRef.current === prefetchKey) return;
+    codSavingsPrefetchKeyRef.current = prefetchKey;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await axiosInstance.post("/checkout/quote", {
+          addressId: selectedAddressId,
+          couponCode: isCouponManuallyApplied ? couponCode || undefined : undefined,
+          paymentMethodHint: "cod",
+          paymentPlan: "full",
+          balanceCollection: "online",
+        });
+        if (cancelled || !res.data?.success) return;
+        const savings = computeCodVsOnlineSavings(
+          res.data?.amountPayable,
+          onlinePayable
+        );
+        setCodVsOnlineSavings(savings);
+      } catch {
+        if (!cancelled) codSavingsPrefetchKeyRef.current = null;
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    step,
+    checkoutMode,
+    loading.quote,
+    selectedAddressId,
+    quote?.amountPayable,
+    couponCode,
+    isCouponManuallyApplied,
+  ]);
 
   useEffect(() => {
     if (checkoutMode !== "cod") {
@@ -911,12 +998,17 @@ const Checkout = () => {
     if (!shouldEvaluateCodNudgeRef.current || loading.quote) return;
     if (!quote || !Number.isFinite(Number(quote.amountPayable))) return;
 
-    const codAmount = Number(quote.amountPayable);
+    const codPayable = Number(quote.amountPayable);
+    const onlinePayable = onlineFullPayableRef.current;
+    const savings = computeCodVsOnlineSavings(codPayable, onlinePayable);
 
     shouldEvaluateCodNudgeRef.current = false;
+    setCodVsOnlineSavings(savings);
 
-    if (paymentPlan === "full" && Number.isFinite(codAmount) && codAmount > 0) {
+    if (paymentPlan === "full" && savings > 0) {
       setShowPrepaidSavingsPopup(true);
+    } else {
+      setShowPrepaidSavingsPopup(false);
     }
   }, [checkoutMode, loading.quote, quote, paymentPlan]);
 
@@ -952,7 +1044,7 @@ const Checkout = () => {
   }, [checkoutPolicy, paymentMethod, balanceCollection, dispatch]);
 
   useEffect(() => {
-    if (step !== 2 || !checkoutPolicy) return;
+    if (step !== 3 || !checkoutPolicy) return;
     if (paymentMethod == null) {
       dispatch(setPaymentMethod("online"));
       dispatch(setPaymentPlan("full"));
@@ -960,14 +1052,14 @@ const Checkout = () => {
     }
   }, [step, checkoutPolicy, paymentMethod, dispatch]);
 
-  // ── Fetch Razorpay key when online selected ────────────────────────────────
+  // -- Fetch Razorpay key when online selected --------------------------------
   useEffect(() => {
     if (paymentMethod === "online" && !razorpayKey && !razorpayKeyLoading && !razorpayKeyError) {
       dispatch(getRazorpayKey());
     }
   }, [paymentMethod, razorpayKey, razorpayKeyLoading, razorpayKeyError, dispatch]);
 
-  // ── Guard: empty cart → home ───────────────────────────────────────────────
+  // -- Guard: empty cart ? home -----------------------------------------------
   useEffect(() => {
     if (!loading.quote && cartItems.length === 0 && !placedOrder) {
       navigate("/", { replace: true });
@@ -975,7 +1067,7 @@ const Checkout = () => {
   }, [cartItems.length, placedOrder, loading.quote, navigate]);
 
   useEffect(() => {
-    if (step === 2) {
+    if (step === 3) {
       dispatch(fetchAvailableCoupons());
     }
   }, [step, dispatch]);
@@ -984,7 +1076,7 @@ const Checkout = () => {
     setCouponInput(couponCode || "");
   }, [couponCode]);
 
-  // ── Cleanup on unmount ─────────────────────────────────────────────────────
+  // -- Cleanup on unmount -----------------------------------------------------
   useEffect(() => {
     return () => {
       dispatch(clearCheckoutErrors());
@@ -992,7 +1084,7 @@ const Checkout = () => {
     };
   }, [dispatch]);
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // -- Handlers --------------------------------------------------------------
 
   const requestQuote = useCallback(
     async ({
@@ -1106,7 +1198,7 @@ const Checkout = () => {
           return;
         }
 
-        if (selectedAddressId && step === 2) {
+        if (selectedAddressId && (step === 2 || step === 3)) {
           try {
             await requestQuote({ unwrap: true });
           } catch (qe) {
@@ -1121,7 +1213,7 @@ const Checkout = () => {
         dispatch(clearPlacedOrderForDismissedGateway());
         setRazorpayPaymentState(PAYMENT_STATE.IDLE);
         toast.success(
-          "Payment window closed. Your bag was restored — pick COD, full pay, or partial, then confirm.",
+          "Payment window closed. Your bag was restored  pick COD, full pay, or partial, then confirm.",
           { theme: "dark", autoClose: 5000 }
         );
       } finally {
@@ -1140,7 +1232,7 @@ const Checkout = () => {
     checkoutAttemptKeyRef.current = null;
     dispatch(resetQuote());
 
-    if (!selectedAddressId || step !== 2) {
+    if (!selectedAddressId || (step !== 2 && step !== 3)) {
       return;
     }
 
@@ -1159,14 +1251,22 @@ const Checkout = () => {
       return;
     }
     setStep(2);
-    // Always refresh quote when entering payment step. Stale quotes (e.g. partial+COD Shiprocket
-    // `advance_balance_cod` totals) + later "pay full online" causes backend confirm mismatch.
+    // Refresh quote when entering order summary (step 2).
     const hint = paymentMethod === "cod" ? "cod" : "online";
     const isAdvanceCod =
       paymentMethod === "online" && paymentPlan === "advance" && balanceCollection === "cod";
     const plan = paymentMethod === "cod" || !isAdvanceCod ? "full" : "advance";
     const balance = paymentMethod === "cod" || !isAdvanceCod ? "online" : "cod";
     requestQuote({ paymentHint: hint, plan, balance });
+  };
+
+  const handleStep2Next = () => {
+    if (loading.quote) return;
+    if (!quote) {
+      toast.error("Please wait for order totals to load", { theme: "dark" });
+      return;
+    }
+    setStep(3);
   };
 
   const selectCheckoutPaymentMode = (mode) => {
@@ -1176,6 +1276,15 @@ const Checkout = () => {
       setShowPrepaidSavingsPopup(false);
     }
     if (mode === "cod") {
+      const onlinePayable = Number(quote?.amountPayable);
+      if (
+        paymentMethod !== "cod" &&
+        paymentPlan === "full" &&
+        Number.isFinite(onlinePayable) &&
+        onlinePayable >= 0
+      ) {
+        onlineFullPayableRef.current = onlinePayable;
+      }
       dispatch(setPaymentMethod("cod"));
       dispatch(setPaymentPlan("full"));
       dispatch(setBalanceCollection("online"));
@@ -1222,7 +1331,7 @@ const Checkout = () => {
       await requestQuote({ coupon: normalized, unwrap: true });
       toast.success(`Coupon ${normalized} applied`, { theme: "dark" });
     } catch (err) {
-      toast.error(err?.message || "Coupon is not valid", { theme: "dark" });
+      // toast.error(err?.message || "Coupon is not valid", { theme: "dark" });
     }
   };
 
@@ -1238,7 +1347,7 @@ const Checkout = () => {
     }
   };
 
-  // ── Add address directly (no UserAddress page) ────────────────────────────
+  // -- Add address directly (no UserAddress page) ----------------------------
   const handleAddAddressSubmit = async (formData) => {
     try {
       await dispatch(addAddress(formData)).unwrap();
@@ -1259,7 +1368,7 @@ const Checkout = () => {
     dispatch(clearAddressErrors());
   };
 
-  // ── Place order — guarded against double-fire ─────────────────────────────
+  // -- Place order � guarded against double-fire -----------------------------
   const handlePlaceOrder = async () => {
     // Guard: prevent double-click / multiple calls
     if (placeOrderInFlight.current || isPlacingOrder) return;
@@ -1309,7 +1418,7 @@ const Checkout = () => {
       // Step 3: Handle by payment method
       if (paymentMethod === "cod") {
               await new Promise(resolve => setTimeout(resolve, 4000))
-        toast.success("🎉 Order placed successfully!", { theme: "dark", autoClose: 3000 });
+        toast.success("?? Order placed successfully!", { theme: "dark", autoClose: 3000 });
         checkoutAttemptKeyRef.current = null;
         setTimeout(() => {
           dispatch(resetCheckout());
@@ -1363,11 +1472,11 @@ const Checkout = () => {
     }
   };
 
-  // ── Razorpay callbacks ─────────────────────────────────────────────────────
+  // -- Razorpay callbacks -----------------------------------------------------
 
   const handleRazorpaySuccess = async (response) => {
     // paymentState is already "success" (set inside RazorpayCheckout before this fires)
-    // Razorpay modal may or may not have closed — either way we show verification overlay
+    // Razorpay modal may or may not have closed � either way we show verification overlay
     setShowRazorpay(false);
     try {
       const currentOrderId = placedOrder?.order?.orderId || response.notes?.orderId;
@@ -1383,15 +1492,11 @@ const Checkout = () => {
       setRazorpayPaymentState(PAYMENT_STATE.VERIFIED);
       checkoutAttemptKeyRef.current = null;
 
-      if (paymentMethod === "online" && paymentPlan === "full") {
-        setShowOnlineSavingsCelebration(true);
-      } else {
-        toast.success("🎉 Payment verified! Order confirmed.", { theme: "dark", autoClose: 3000 });
-        setTimeout(() => {
-          dispatch(resetCheckout());
-          navigate("/account/userorders");
-        }, 1500);
-      }
+      toast.success("✅ Payment verified! Order confirmed.", { theme: "dark", autoClose: 3000 });
+      setTimeout(() => {
+        dispatch(resetCheckout());
+        navigate("/account/userorders", { state: { justPlaced: true } });
+      }, 1500);
     } catch (err) {
       setRazorpayPaymentState(PAYMENT_STATE.FAILED);
       const verificationMessage = err?.code === "PAYMENT_NOT_CAPTURED_YET"
@@ -1402,25 +1507,23 @@ const Checkout = () => {
     }
   };
 
- const handleRazorpayFailure = (error) => {
-  // Close the Razorpay modal
-  setShowRazorpay(false);
-  setRazorpayPaymentState(PAYMENT_STATE.FAILED);
+  const handleRazorpayFailure = (error) => {
+    setShowRazorpay(false);
+    setRazorpayPaymentState(PAYMENT_STATE.FAILED);
+    setShowPaymentErrorModal(false);
+    setPaymentError(null);
 
-  // Show a toast or modal
-  const msg = error?.error?.description || "Payment failed. Please try again.";
-  setPaymentError(msg);
-  setShowPaymentErrorModal(true);
+    const msg = error?.error?.description || "Payment failed. Please try again.";
+    toast.error(msg, { theme: "dark" });
 
-  toast.error(msg, { theme: "dark" });
+    checkoutAttemptKeyRef.current = null;
+  };
 
-  // Optionally, reset checkout state or let user retry
-  checkoutAttemptKeyRef.current = null;
-};
-
- const handleRazorpayClose = useCallback(() => {
-  void gatewayDismissHandlerRef.current();
-}, []);
+  const handleRazorpayClose = useCallback(() => {
+    setShowPaymentErrorModal(false);
+    setPaymentError(null);
+    void gatewayDismissHandlerRef.current();
+  }, []);
 
   const handleRetryPayment = () => {
     setShowPaymentErrorModal(false);
@@ -1438,7 +1541,7 @@ const Checkout = () => {
     setShowPrepaidSavingsPopup(false);
   };
 
-  // ── Derived button state ───────────────────────────────────────────────────
+  // -- Derived button state ---------------------------------------------------
   const isPlaceOrderDisabled =
     !quote ||
     !paymentMethod ||
@@ -1451,7 +1554,7 @@ const Checkout = () => {
     (paymentMethod === "online" && !razorpayKey && !razorpayKeyLoading && !razorpayKeyError);
   const couponApplyDisabled =
     !selectedAddressId ||
-    step !== 2 ||
+    step !== 3 ||
     loading.quote ||
     cartItems.length === 0 ||
     couponValidation.loading ||
@@ -1461,7 +1564,7 @@ const Checkout = () => {
       ? Number(couponValidation.error?.details?.shortfallInr || 0)
       : 0;
 
-  // ── Success screens ────────────────────────────────────────────────────────
+  // -- Success screens --------------------------------------------------------
   if (placedOrder?.order && paymentMethod === "cod" && !paymentVerification.loading) {
     return (
       <OrderSuccess
@@ -1471,15 +1574,18 @@ const Checkout = () => {
     );
   }
 
-  // ── Main render ────────────────────────────────────────────────────────────
+  // -- Main render ------------------------------------------------------------
   return (
     <div className="min-h-screen" style={{ background: "#FFFBF4" }}>
 
-      {/* ── Sticky Header ── */}
+      {/* -- Sticky Header -- */}
       <header className="sticky top-0  flex items-center justify-between px-4"
         style={{ background: "#fff", borderBottom: "1px solid #f0e8d8", height: 56 }}>
         <button
-          onClick={() => step === 1 ? navigate(-1) : setStep(1)}
+          onClick={() => {
+            if (step === 1) navigate(-1);
+            else setStep(step - 1);
+          }}
           className="flex items-center gap-1.5 cursor-pointer transition-colors"
           style={{ background: "none", border: "none", color: "#9ca3af" }}
           onMouseEnter={e => e.currentTarget.style.color = "#111"}
@@ -1502,10 +1608,15 @@ const Checkout = () => {
         <div style={{ width: 72 }} />
       </header>
 
-      {/* ── Step Indicator ── */}
-      <StepIndicator step={step} />
+      {/* -- Step Indicator -- */}
+      <StepIndicator
+        step={step}
+        onGoToStep={(n) => {
+          if (n < step) setStep(n);
+        }}
+      />
 
-      {/* ── Body ── */}
+      {/* -- Body -- */}
       <div className="px-4 py-5 space-y-4" style={{ maxWidth: 520, margin: "0 auto" }}>
 
         {/* Global error */}
@@ -1523,9 +1634,9 @@ const Checkout = () => {
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════
-            STEP 1 — ADDRESS
-        ══════════════════════════════════════════════════════ */}
+        {/* ------------------------------------------------------
+            STEP 1 � ADDRESS
+        ------------------------------------------------------ */}
         {step === 1 && (
           <div className="p-4 space-y-4"
             style={{ background: "#fff", border: "1px solid #f0e8d8", borderRadius: 20 }}>
@@ -1558,49 +1669,132 @@ const Checkout = () => {
                 cursor: !selectedAddressId ? "not-allowed" : "pointer",
               }}
             >
-              Continue to Payment →
+              Continue to Order Summary
             </button>
           </div>
         )}
 
-        {/* ══════════════════════════════════════════════════════
-            STEP 2 — PAYMENT
-        ══════════════════════════════════════════════════════ */}
+        {/* ------------------------------------------------------
+            STEP 2 � ORDER SUMMARY
+        ------------------------------------------------------ */}
         {step === 2 && (
           <div className="space-y-4">
-
-            {/* Delivery estimate chip */}
-            {quote?.deliveryEstimate && (
-              <div className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] w-fit"
-                style={{ background: "#F0FFF4", border: "1px solid #BBF7D0" }}>
-                <Truck size={13} style={{ color: "#15803D" }} />
-                <span className="font-bold" style={{ fontSize: 13, color: "#15803D" }}>
-                  {quote.deliveryEstimate}
-                </span>
+            <div className="p-4 space-y-4"
+              style={{ background: "#fff", border: "1px solid #f0e8d8", borderRadius: 20 }}>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center justify-center font-black flex-shrink-0"
+                  style={{
+                    width: 30, height: 30, borderRadius: "50%",
+                    background: "#F7A221", color: "#111", fontSize: 14,
+                  }}>
+                  2
+                </div>
+                <h2 className="font-black text-base" style={{ color: "#111" }}>
+                  Order Summary
+                </h2>
               </div>
-            )}
 
-            {/* ── Order Summary (collapsible) ── */}
-            <OrderSummaryCard
-              cartItems={cartItems}
-              cartCount={cartCount}
-              quote={quote}
-              dispatch={dispatch}
-              onCartMutationSuccess={handleQuoteRefreshAfterCartMutation}
-            />
+              {quote?.deliveryEstimate && (
+                <div className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] w-fit"
+                  style={{ background: "#F0FFF4", border: "1px solid #BBF7D0" }}>
+                  <Truck size={13} style={{ color: "#15803D" }} />
+                  <span className="font-bold" style={{ fontSize: 13, color: "#15803D" }}>
+                    {quote.deliveryEstimate}
+                  </span>
+                </div>
+              )}
 
-            {/* ── Address done summary ── */}
+              <OrderSummaryCard
+                cartItems={cartItems}
+                cartCount={cartCount}
+                quote={quote}
+                dispatch={dispatch}
+                onCartMutationSuccess={handleQuoteRefreshAfterCartMutation}
+                defaultOpen
+              />
+
+              <CheckoutStepBackButton onClick={() => setStep(1)}>
+                Back to Address
+              </CheckoutStepBackButton>
+
+              <button
+                type="button"
+                onClick={handleStep2Next}
+                disabled={!quote || loading.quote}
+                className="w-full font-black uppercase transition-all active:scale-[0.98] cursor-pointer"
+                style={{
+                  background: "#111", color: "#F7A221",
+                  borderRadius: 14, padding: "15px 0",
+                  fontSize: 13, letterSpacing: "0.04em",
+                  border: "none",
+                  opacity: !quote || loading.quote ? 0.4 : 1,
+                  cursor: !quote || loading.quote ? "not-allowed" : "pointer",
+                }}
+              >
+                {loading.quote ? "Loading totals" : "Proceed to Payment"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ------------------------------------------------------
+            STEP 3 � PAYMENT
+        ------------------------------------------------------ */}
+        {step === 3 && (
+          <div className="space-y-4">
+            <style>{`
+              @keyframes pay-online-discount-shimmer {
+                0% { transform: translateX(-130%) skewX(-16deg); }
+                100% { transform: translateX(230%) skewX(-16deg); }
+              }
+              .pay-online-discount-badge {
+                position: relative;
+                overflow: hidden;
+                display: inline-block;
+              }
+              .pay-online-discount-badge::after {
+                content: "";
+                position: absolute;
+                inset: -2px 0;
+                width: 42%;
+                background: linear-gradient(
+                  105deg,
+                  transparent 0%,
+                  rgba(255, 255, 255, 0.15) 38%,
+                  rgba(255, 255, 255, 0.72) 50%,
+                  rgba(255, 255, 255, 0.15) 62%,
+                  transparent 100%
+                );
+                animation: pay-online-discount-shimmer 2.6s ease-in-out infinite;
+                pointer-events: none;
+                z-index: 0;
+              }
+              .pay-online-discount-badge__text {
+                position: relative;
+                z-index: 1;
+              }
+              @media (prefers-reduced-motion: reduce) {
+                .pay-online-discount-badge::after {
+                  animation: none;
+                }
+              }
+            `}</style>
+
+            <CartSummaryCompact quote={quote} />
+
+            {/* -- Address done summary -- */}
             {selectedAddress && (
               <div className="p-4"
                 style={{ background: "#fff", border: "1px solid #f0e8d8", borderRadius: 18 }}>
                 <div className="flex items-center justify-between mb-3">
                   <div className="flex items-center gap-2">
-                    <div className="flex items-center justify-center font-black"
+                    <div className="flex items-center justify-center"
                       style={{
                         width: 22, height: 22, borderRadius: "50%",
-                        background: "#111", color: "#F7A221", fontSize: 11,
-                      }}>
-                      ✓
+                        background: "#111", color: "#F7A221",
+                      }}
+                    >
+                      <Check size={12} strokeWidth={3} aria-hidden />
                     </div>
                     <span className="font-black text-xs uppercase tracking-widest"
                       style={{ color: "#111" }}>
@@ -1631,14 +1825,14 @@ const Checkout = () => {
                     </p>
                     <p className="truncate" style={{ fontSize: 11, color: "#9ca3af", marginTop: 2 }}>
                       {[selectedAddress.houseNumber, selectedAddress.area, selectedAddress.city]
-                        .filter(Boolean).join(", ")} — {selectedAddress.postalCode}
+                        .filter(Boolean).join(", ")}  {selectedAddress.postalCode}
                     </p>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* ── Payment card ── */}
+            {/* -- Payment card -- */}
             <div className="p-4 space-y-4"
               style={{ background: "#fff", border: "1px solid #f0e8d8", borderRadius: 20 }}>
 
@@ -1649,7 +1843,7 @@ const Checkout = () => {
                     width: 30, height: 30, borderRadius: "50%",
                     background: "#F7A221", color: "#111", fontSize: 14,
                   }}>
-                  2
+                  3
                 </div>
                 <h2 className="font-black text-base" style={{ color: "#111" }}>
                   Payment Method
@@ -1662,7 +1856,7 @@ const Checkout = () => {
               </p>
 
               {checkoutPolicyLoading && !checkoutPolicy ? (
-                <p className="text-[11px] text-gray-400 font-medium py-2">Loading payment options…</p>
+                <p className="text-[11px] text-gray-400 font-medium py-2">Loading payment options</p>
               ) : (
                 <div className="space-y-3">
                   <button
@@ -1715,27 +1909,27 @@ const Checkout = () => {
                         >
                           Pay Online Full Amount
                         </p>
+                        {codVsOnlineSavings > 0 ? (
                         <div className="flex justify-start w-full mt-1.5">
                           <span
-                            className="font-black shrink-0 whitespace-nowrap"
+                            className="pay-online-discount-badge font-black shrink-0 whitespace-nowrap"
                             style={{
                               fontSize: 10,
                               padding: "6px 16px",
                               borderRadius: 999,
-                              background:
-                                checkoutMode === "online_full" ? "#fecaca" : "#dc2626",
-                              color: checkoutMode === "online_full" ? "#991b1b" : "#ffffff",
-                              boxShadow:
-                                checkoutMode === "online_full"
-                                  ? "0 0 0 1px rgba(252,165,165,0.95)"
-                                  : "0 1px 3px rgba(0,0,0,0.18)",
+                              background: "#dc2626",
+                              color: "#ffffff",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.18)",
                             }}
                           >
-                            Get Extra Discount
+                            <span className="pay-online-discount-badge__text">
+                              Get Extra Discount {fmt(codVsOnlineSavings)}
+                            </span>
                           </span>
                         </div>
+                        ) : null}
                         <p className="text-[11px] opacity-80 mt-1.5 w-full text-left">
-                          {fmt(quote?.amountPayable)} · UPI, cards, net banking
+                          Pay Only  {fmt(quote?.amountPayable)} UPI, cards, net banking
                         </p>
                       </div>
                     </div>
@@ -1787,19 +1981,19 @@ const Checkout = () => {
                             Pay {formatPercentLabel(policyPartialPercent)}% Online Now
                           </p>
                           <p className="text-[11px] opacity-80 mt-0.5">
-                            Balance On delivery (COD) · {fmt(advancePreviewNow)} Pay Online Now
+                            Balance On delivery (COD) {fmt(advancePreviewNow)} Pay Online Now
                           </p>
                         </div>
                       </div>
                     </button>
                   )}
 
-                  {checkoutMode === "advance_cod" && quote?.amountPayable != null && (
+                  {/* {checkoutMode === "advance_cod" && quote?.amountPayable != null && (
                     <p className="text-center px-1" style={{ fontSize: 10, color: "#3b82f6" }}>
                       {formatPercentLabel(policyPartialPercent)}% charged online now; remaining{" "}
                       {fmt(quote.amountPayable - advanceAmount)} is collected as cash on delivery.
                     </p>
-                  )}
+                  )} */}
 
                   {showCodOption && (
                     <button
@@ -1879,7 +2073,7 @@ const Checkout = () => {
                 </div>
               )}
 
-              {/* ── Coupon card ── */}
+              {/* -- Coupon card -- */}
               <div className="p-4 space-y-3" style={{ background: "#fff", border: "1px solid #f0e8d8", borderRadius: 20 }}>
                 <div className="flex items-center justify-between">
                   <p className="font-black uppercase" style={{ fontSize: 10, color: "#9ca3af", letterSpacing: "0.06em" }}>
@@ -1925,15 +2119,15 @@ const Checkout = () => {
 
                 {quote?.couponApplied && quote?.promotionDiscount > 0 && (
                   <p className="text-[11px] font-bold" style={{ color: "#15803D" }}>
-                    {quote.couponApplied} applied · You saved {fmt(quote.promotionDiscount)}
+                    {quote.couponApplied} applied You saved {fmt(quote.promotionDiscount)}
                   </p>
                 )}
 
-                {couponValidation.error?.message && (
+                {/* {couponValidation.error?.message && (
                   <p className="text-[11px] font-bold" style={{ color: "#b91c1c" }}>
                     {couponValidation.error.message}
                   </p>
-                )}
+                // )} } */}
                 {couponShortfallInr > 0 && (
                   <p className="text-[11px] font-bold" style={{ color: "#2563eb" }}>
                     Add {fmt(couponShortfallInr)} more to use this coupon.
@@ -1966,7 +2160,7 @@ const Checkout = () => {
                           style={{ border: "1px solid #f0e8d8", background: "#FFFBF4", cursor: "pointer" }}
                         >
                           <p className="text-xs font-black" style={{ color: "#111" }}>
-                            {c.code} · {c.discountType === "fixed" ? `${fmt(c.discountValue)} OFF` : `${c.discountValue}% OFF`}
+                            {c.code}  {c.discountType === "fixed" ? `${fmt(c.discountValue)} OFF` : `${c.discountValue}% OFF`}
                           </p>
                           <p className="text-[10px]" style={{ color: "#6b7280" }}>
                             Min order {fmt(c.minOrderValue || 0)}
@@ -1995,12 +2189,16 @@ const Checkout = () => {
                   style={{ color: "#9ca3af" }}>
                   <Loader2 size={14} className="animate-spin" />
                   <span style={{ fontSize: 12, fontWeight: 600 }}>
-                    Calculating delivery &amp; taxes…
+                    Calculating delivery &amp; taxes
                   </span>
                 </div>
               )}
 
-              {/* ── Place Order Button ── */}
+              <CheckoutStepBackButton onClick={() => setStep(2)}>
+                Back to Order Summary
+              </CheckoutStepBackButton>
+
+              {/* -- Place Order Button -- */}
               <button
                 onClick={handlePlaceOrder}
                 disabled={isPlaceOrderDisabled}
@@ -2029,13 +2227,13 @@ const Checkout = () => {
                 {loading.confirm || loading.placeOrder || isPlacingOrder || paymentVerification.loading ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
-                    {paymentVerification.loading ? "Verifying Payment…" : "Placing Order…"}
+                    {paymentVerification.loading ? "Verifying Payment" : "Placing Order"}
                   </>
                 ) : loading.quote ? (
-                  <><Loader2 size={16} className="animate-spin" /> Getting Quote…</>
+                  <><Loader2 size={16} className="animate-spin" /> Getting Quote</>
                 ) : (
                   <>
-                    Place Order —{" "}
+                    Place Order {" "}
                     {paymentMethod === "online" && paymentPlan !== "full"
                       ? fmt(getPartialPayNowAmount())
                       : fmt(quote?.amountPayable)}
@@ -2046,7 +2244,7 @@ const Checkout = () => {
               {/* Security line */}
               <p className="text-center flex items-center justify-center gap-1"
                 style={{ fontSize: 10, color: "#9ca3af" }}>
-                🔒 {paymentMethod === "online" ? "Secured by Razorpay" : "100% Safe Checkout"}
+                 {paymentMethod === "online" ? "Secured by Razorpay" : "100% Safe Checkout"}
               </p>
 
               {/* Terms */}
@@ -2058,7 +2256,7 @@ const Checkout = () => {
         )}
       </div>
 
-      {/* ── Address Form Modal — opens DIRECTLY ── */}
+      {/* -- Address Form Modal � opens DIRECTLY -- */}
       {showAddressModal && (
         <AddressFormModal
           initial={null}
@@ -2069,7 +2267,7 @@ const Checkout = () => {
         />
       )}
 
-      {/* ── Razorpay Checkout ── */}
+      {/* -- Razorpay Checkout -- */}
       {showRazorpay && razorpayOrderData && razorpayKey && (
         <RazorpayCheckout
           razorpayOrder={razorpayOrderData}
@@ -2087,35 +2285,25 @@ const Checkout = () => {
         />
       )}
 
-      {/* ── Payment verification overlay ── */}
+      {/* -- Payment verification overlay -- */}
       {(paymentVerification.loading || razorpayPaymentState === PAYMENT_STATE.SUCCESS) && (
-        <PaymentLoadingModal message="Verifying your payment… please wait" />
+        <PaymentLoadingModal message="Verifying your payment please wait" />
       )}
 
-      {showOnlineSavingsCelebration && (
-        <OnlineFullSavingsCelebration
-          savedAmount={ONLINE_FULL_VS_COD_SAVINGS_INR}
-          onContinue={() => {
-            setShowOnlineSavingsCelebration(false);
-            dispatch(resetCheckout());
-            navigate("/account/userorders", { state: { justPlaced: true } });
-          }}
-        />
-      )}
-
-      {showPrepaidSavingsPopup && (
+      {showPrepaidSavingsPopup && codVsOnlineSavings > 0 && (
         <PrepaidSavingsPopup
+          savingsAmount={codVsOnlineSavings}
           onSwitchToPrepaid={handleSwitchToPrepaidFromPopup}
           onContinueCod={handleContinueCodFromPopup}
           onClose={handleContinueCodFromPopup}
         />
       )}
 
-      {/* ── Payment Error Modal ── */}
+      {/* -- Payment Error Modal -- */}
     {showPaymentErrorModal && (
   <PaymentErrorModal
     error={paymentError}
-    orderId={placedOrder?.order?.orderId}  // ← add this
+    orderId={placedOrder?.order?.orderId}  // ? add this
     onRetry={handleRetryPayment}
     onClose={() => {
       setShowPaymentErrorModal(false);
@@ -2143,7 +2331,7 @@ export default Checkout;
 //   X, Clock,
 // } from "lucide-react";
 
-// // Redux — checkout
+// // Redux � checkout
 // import {
 //   fetchCheckoutQuote,
 //   confirmCheckoutQuote,
@@ -2172,20 +2360,20 @@ export default Checkout;
 //   resetPaymentVerification,
 // } from "../../components/REDUX_FEATURES/REDUX_SLICES/checkoutSlice/checkoutSlice";
 
-// // Redux — address
+// // Redux � address
 // import {
 //   selectDefaultAddress,
 //   selectOtherAddresses,
 // } from "../../components/REDUX_FEATURES/REDUX_SLICES/Useraddressslice";
 
-// // Redux — cart
+// // Redux � cart
 // import {
 //   selectCartItems,
 //   selectDisplayCartCount,
 //   selectCartTotalAmount,
 // } from "../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice";
 
-// // Redux — auth
+// // Redux � auth
 // import { selectUser } from "../../components/REDUX_FEATURES/REDUX_SLICES/authSlice";
 
 // // Components
@@ -2201,9 +2389,9 @@ export default Checkout;
 //     maximumFractionDigits: 0,
 //   }).format(n ?? 0);
 
-// // ─────────────────────────────────────────────────────────────────────────────
+// // -----------------------------------------------------------------------------
 // // Order Success Screen
-// // ─────────────────────────────────────────────────────────────────────────────
+// // -----------------------------------------------------------------------------
 // const OrderSuccess = ({ order, onViewOrders }) => (
 //   <div className="min-h-screen bg-white flex items-center justify-center p-6">
 //     <div className="max-w-md w-full text-center space-y-6">
@@ -2260,9 +2448,9 @@ export default Checkout;
 //   </div>
 // );
 
-// // ─────────────────────────────────────────────────────────────────────────────
-// // Checkout — Main Page
-// // ─────────────────────────────────────────────────────────────────────────────
+// // -----------------------------------------------------------------------------
+// // Checkout � Main Page
+// // -----------------------------------------------------------------------------
 // const Checkout = () => {
 //   const dispatch = useDispatch();
 //   const navigate = useNavigate();
@@ -2336,7 +2524,7 @@ export default Checkout;
 //     window.scrollTo({ top: 0, behavior: "smooth"})
 //   }, [])
 
-//   // ── Handlers ──────────────────────────────────────────────────────────────
+//   // -- Handlers --------------------------------------------------------------
 
 //   const handleFetchQuote = async () => {
 //     if (!selectedAddressId) return;
@@ -2432,7 +2620,7 @@ export default Checkout;
 
 //       // Step 3: Handle based on payment method
 //       if (paymentMethod === "cod") {
-//         toast.success("🎉 Order placed successfully!", { theme: "dark", autoClose: 3000 });
+//         toast.success("?? Order placed successfully!", { theme: "dark", autoClose: 3000 });
 //         // Wait a bit before redirecting so user sees success
 //         setTimeout(() => {
 //           dispatch(resetCheckout());
@@ -2461,7 +2649,7 @@ export default Checkout;
       
 //       // Handle specific error cases
 //       if (e?.code === "QUOTE_STALE") {
-//         toast.info("Prices updated — please review and confirm", { theme: "dark" });
+//         toast.info("Prices updated � please review and confirm", { theme: "dark" });
 //         dispatch(fetchCheckoutQuote({ addressId: selectedAddressId, paymentMethodHint: paymentMethod }));
 //       } else if (e?.code === "MISSING_RAZORPAY_ENV") {
 //         toast.error("Payment not configured. Please use COD for now.", { theme: "dark" });
@@ -2499,7 +2687,7 @@ export default Checkout;
 //       })
 //     ).unwrap();
     
-//     toast.success("🎉 Payment successful! Order confirmed.", { theme: "dark", autoClose: 3000 });
+//     toast.success("?? Payment successful! Order confirmed.", { theme: "dark", autoClose: 3000 });
     
 //     // Clear checkout state and redirect to orders page
 //     setTimeout(() => {
@@ -2531,7 +2719,7 @@ export default Checkout;
 //     handlePlaceOrder();
 //   };
 
-//   // ── Order placed — show success screen ───────────────────────────────────
+//   // -- Order placed � show success screen -----------------------------------
 //   if (placedOrder?.order && paymentMethod === "cod" && !paymentVerification.loading) {
 //     return (
 //       <OrderSuccess
@@ -2560,7 +2748,7 @@ export default Checkout;
 //   // Calculate advance amount for display
 //   const advanceAmount = quote?.amountPayable ? Math.round(quote.amountPayable * 25 / 100) : 0;
 
-//   // ── Main render ──────────────────────────────────────────────────────────
+//   // -- Main render ----------------------------------------------------------
 //   return (
 //     <div className="min-h-screen bg-gray-50">
 //       {/* Header */}
@@ -2591,7 +2779,7 @@ export default Checkout;
 //                     step >= n ? "bg-black text-white" : "bg-gray-100 text-gray-400"
 //                   }`}
 //                 >
-//                   {step > n ? "✓" : n}
+//                   {step > n ? "?" : n}
 //                 </div>
 //                 <span className={`text-[10px] font-bold uppercase tracking-wider hidden sm:block ${
 //                   step >= n ? "text-gray-900" : "text-gray-400"
@@ -2609,7 +2797,7 @@ export default Checkout;
 //       <div className="max-w-5xl mx-auto px-4 py-8">
 //         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8">
 
-//           {/* ── Left Panel ── */}
+//           {/* -- Left Panel -- */}
 //           <div className="space-y-6">
 
 //             {/* Global error */}
@@ -2632,7 +2820,7 @@ export default Checkout;
 //               </div>
 //             )}
 
-//             {/* ── Step 1: Address ── */}
+//             {/* -- Step 1: Address -- */}
 //             {step === 1 && (
 //               <div className="bg-white rounded-[32px] p-6 sm:p-8 shadow-sm">
 //                 <div className="flex items-center gap-3 mb-6">
@@ -2654,7 +2842,7 @@ export default Checkout;
 //               </div>
 //             )}
 
-//             {/* ── Step 2: Payment ── */}
+//             {/* -- Step 2: Payment -- */}
 //             {step === 2 && (
 //               <div className="bg-white rounded-[32px] p-6 sm:p-8 shadow-sm">
 //                 <div className="flex items-center gap-3 mb-6">
@@ -2675,7 +2863,7 @@ export default Checkout;
 //                         {[selectedAddress.houseNumber, selectedAddress.area, selectedAddress.city]
 //                           .filter(Boolean)
 //                           .join(", ")}{" "}
-//                         — {selectedAddress.postalCode}
+//                         � {selectedAddress.postalCode}
 //                       </p>
 //                     </div>
 //                     <button
@@ -2819,12 +3007,12 @@ export default Checkout;
 //                 >
 //                   {loading.confirm || loading.placeOrder || isPlacingOrder || paymentVerification.loading ? (
 //                     <><Loader2 size={16} className="animate-spin" /> 
-//                       {paymentVerification.loading ? "Verifying Payment..." : "Placing Order…"}
+//                       {paymentVerification.loading ? "Verifying Payment..." : "Placing Order�"}
 //                     </>
 //                   ) : loading.quote ? (
-//                     <><Loader2 size={16} className="animate-spin" /> Getting Quote…</>
+//                     <><Loader2 size={16} className="animate-spin" /> Getting Quote�</>
 //                   ) : (
-//                     <>Place Order — {paymentMethod === "online" && paymentPlan === "advance" ? fmt(advanceAmount) : fmt(quote?.amountPayable)}</>
+//                     <>Place Order � {paymentMethod === "online" && paymentPlan === "advance" ? fmt(advanceAmount) : fmt(quote?.amountPayable)}</>
 //                   )}
 //                 </button>
 
@@ -2835,7 +3023,7 @@ export default Checkout;
 //             )}
 //           </div>
 
-//           {/* ── Right Panel — Order Summary ── */}
+//           {/* -- Right Panel � Order Summary -- */}
 //           <div className="space-y-4">
 //             <div className="bg-white rounded-[32px] p-6 shadow-sm">
 //               <div className="flex items-center gap-2 mb-5">
@@ -2892,7 +3080,7 @@ export default Checkout;
 //                 {loading.quote && (
 //                   <div className="flex items-center justify-center gap-2 py-4 text-gray-400">
 //                     <Loader2 size={14} className="animate-spin" />
-//                     <span className="text-xs font-bold">Calculating totals…</span>
+//                     <span className="text-xs font-bold">Calculating totals�</span>
 //                   </div>
 //                 )}
 
@@ -3009,7 +3197,7 @@ export default Checkout;
 //   X, Clock,
 // } from "lucide-react";
 
-// // Redux — checkout
+// // Redux � checkout
 // import {
 //   fetchCheckoutQuote,
 //   confirmCheckoutQuote,
@@ -3038,20 +3226,20 @@ export default Checkout;
 //   resetPaymentVerification,
 // } from "../../components/REDUX_FEATURES/REDUX_SLICES/checkoutSlice/checkoutSlice";
 
-// // Redux — address
+// // Redux � address
 // import {
 //   selectDefaultAddress,
 //   selectOtherAddresses,
 // } from "../../components/REDUX_FEATURES/REDUX_SLICES/Useraddressslice";
 
-// // Redux — cart
+// // Redux � cart
 // import {
 //   selectCartItems,
 //   selectDisplayCartCount,
 //   selectCartTotalAmount,
 // } from "../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice";
 
-// // Redux — auth
+// // Redux � auth
 // import { selectUser } from "../../components/REDUX_FEATURES/REDUX_SLICES/authSlice";
 
 // // Components
@@ -3067,9 +3255,9 @@ export default Checkout;
 //     maximumFractionDigits: 0,
 //   }).format(n ?? 0);
 
-// // ─────────────────────────────────────────────────────────────────────────────
+// // -----------------------------------------------------------------------------
 // // Order Success Screen
-// // ─────────────────────────────────────────────────────────────────────────────
+// // -----------------------------------------------------------------------------
 // const OrderSuccess = ({ order, onViewOrders }) => (
 //   <div className="min-h-screen bg-white flex items-center justify-center p-6">
 //     <div className="max-w-md w-full text-center space-y-6">
@@ -3126,9 +3314,9 @@ export default Checkout;
 //   </div>
 // );
 
-// // ─────────────────────────────────────────────────────────────────────────────
-// // Checkout — Main Page
-// // ─────────────────────────────────────────────────────────────────────────────
+// // -----------------------------------------------------------------------------
+// // Checkout � Main Page
+// // -----------------------------------------------------------------------------
 // const Checkout = () => {
 //   const dispatch = useDispatch();
 //   const navigate = useNavigate();
@@ -3198,7 +3386,7 @@ export default Checkout;
 //     };
 //   }, [dispatch]);
 
-//   // ── Handlers ──────────────────────────────────────────────────────────────
+//   // -- Handlers --------------------------------------------------------------
 
 //   const handleFetchQuote = async () => {
 //     if (!selectedAddressId) return;
@@ -3294,7 +3482,7 @@ export default Checkout;
 
 //       // Step 3: Handle based on payment method
 //       if (paymentMethod === "cod") {
-//         toast.success("🎉 Order placed successfully!", { theme: "dark", autoClose: 3000 });
+//         toast.success("?? Order placed successfully!", { theme: "dark", autoClose: 3000 });
 //         // Wait a bit before redirecting so user sees success
 //         setTimeout(() => {
 //           dispatch(resetCheckout());
@@ -3323,7 +3511,7 @@ export default Checkout;
       
 //       // Handle specific error cases
 //       if (e?.code === "QUOTE_STALE") {
-//         toast.info("Prices updated — please review and confirm", { theme: "dark" });
+//         toast.info("Prices updated � please review and confirm", { theme: "dark" });
 //         dispatch(fetchCheckoutQuote({ addressId: selectedAddressId, paymentMethodHint: paymentMethod }));
 //       } else if (e?.code === "MISSING_RAZORPAY_ENV") {
 //         toast.error("Payment not configured. Please use COD for now.", { theme: "dark" });
@@ -3352,7 +3540,7 @@ export default Checkout;
 //         })
 //       ).unwrap();
       
-//       toast.success("🎉 Payment successful! Order confirmed.", { theme: "dark", autoClose: 3000 });
+//       toast.success("?? Payment successful! Order confirmed.", { theme: "dark", autoClose: 3000 });
       
 //       // Clear checkout state and redirect
 //       setTimeout(() => {
@@ -3384,7 +3572,7 @@ export default Checkout;
 //     handlePlaceOrder();
 //   };
 
-//   // ── Order placed — show success screen ───────────────────────────────────
+//   // -- Order placed � show success screen -----------------------------------
 //   if (placedOrder?.order && paymentMethod === "cod" && !paymentVerification.loading) {
 //     return (
 //       <OrderSuccess
@@ -3413,7 +3601,7 @@ export default Checkout;
 //   // Calculate advance amount for display
 //   const advanceAmount = quote?.amountPayable ? Math.round(quote.amountPayable * 25 / 100) : 0;
 
-//   // ── Main render ──────────────────────────────────────────────────────────
+//   // -- Main render ----------------------------------------------------------
 //   return (
 //     <div className="min-h-screen bg-gray-50">
 //       {/* Header */}
@@ -3444,7 +3632,7 @@ export default Checkout;
 //                     step >= n ? "bg-black text-white" : "bg-gray-100 text-gray-400"
 //                   }`}
 //                 >
-//                   {step > n ? "✓" : n}
+//                   {step > n ? "?" : n}
 //                 </div>
 //                 <span className={`text-[10px] font-bold uppercase tracking-wider hidden sm:block ${
 //                   step >= n ? "text-gray-900" : "text-gray-400"
@@ -3462,7 +3650,7 @@ export default Checkout;
 //       <div className="max-w-5xl mx-auto px-4 py-8">
 //         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8">
 
-//           {/* ── Left Panel ── */}
+//           {/* -- Left Panel -- */}
 //           <div className="space-y-6">
 
 //             {/* Global error */}
@@ -3485,7 +3673,7 @@ export default Checkout;
 //               </div>
 //             )}
 
-//             {/* ── Step 1: Address ── */}
+//             {/* -- Step 1: Address -- */}
 //             {step === 1 && (
 //               <div className="bg-white rounded-[32px] p-6 sm:p-8 shadow-sm">
 //                 <div className="flex items-center gap-3 mb-6">
@@ -3507,7 +3695,7 @@ export default Checkout;
 //               </div>
 //             )}
 
-//             {/* ── Step 2: Payment ── */}
+//             {/* -- Step 2: Payment -- */}
 //             {step === 2 && (
 //               <div className="bg-white rounded-[32px] p-6 sm:p-8 shadow-sm">
 //                 <div className="flex items-center gap-3 mb-6">
@@ -3528,7 +3716,7 @@ export default Checkout;
 //                         {[selectedAddress.houseNumber, selectedAddress.area, selectedAddress.city]
 //                           .filter(Boolean)
 //                           .join(", ")}{" "}
-//                         — {selectedAddress.postalCode}
+//                         � {selectedAddress.postalCode}
 //                       </p>
 //                     </div>
 //                     <button
@@ -3672,12 +3860,12 @@ export default Checkout;
 //                 >
 //                   {loading.confirm || loading.placeOrder || isPlacingOrder || paymentVerification.loading ? (
 //                     <><Loader2 size={16} className="animate-spin" /> 
-//                       {paymentVerification.loading ? "Verifying Payment..." : "Placing Order…"}
+//                       {paymentVerification.loading ? "Verifying Payment..." : "Placing Order�"}
 //                     </>
 //                   ) : loading.quote ? (
-//                     <><Loader2 size={16} className="animate-spin" /> Getting Quote…</>
+//                     <><Loader2 size={16} className="animate-spin" /> Getting Quote�</>
 //                   ) : (
-//                     <>Place Order — {paymentMethod === "online" && paymentPlan === "advance" ? fmt(advanceAmount) : fmt(quote?.amountPayable)}</>
+//                     <>Place Order � {paymentMethod === "online" && paymentPlan === "advance" ? fmt(advanceAmount) : fmt(quote?.amountPayable)}</>
 //                   )}
 //                 </button>
 
@@ -3688,7 +3876,7 @@ export default Checkout;
 //             )}
 //           </div>
 
-//           {/* ── Right Panel — Order Summary ── */}
+//           {/* -- Right Panel � Order Summary -- */}
 //           <div className="space-y-4">
 //             <div className="bg-white rounded-[32px] p-6 shadow-sm">
 //               <div className="flex items-center gap-2 mb-5">
@@ -3745,7 +3933,7 @@ export default Checkout;
 //                 {loading.quote && (
 //                   <div className="flex items-center justify-center gap-2 py-4 text-gray-400">
 //                     <Loader2 size={14} className="animate-spin" />
-//                     <span className="text-xs font-bold">Calculating totals…</span>
+//                     <span className="text-xs font-bold">Calculating totals�</span>
 //                   </div>
 //                 )}
 
@@ -3862,7 +4050,7 @@ export default Checkout;
 //   X,
 // } from "lucide-react";
 
-// // Redux — checkout
+// // Redux � checkout
 // import {
 //   fetchCheckoutQuote,
 //   confirmCheckoutQuote,
@@ -3881,13 +4069,13 @@ export default Checkout;
 //   selectCheckoutError,
 // } from "../../components/REDUX_FEATURES/REDUX_SLICES/checkoutSlice/checkoutSlice";
 
-// // Redux — address
+// // Redux � address
 // import {
 //   selectDefaultAddress,
 //   selectOtherAddresses,
 // } from "../../components/REDUX_FEATURES/REDUX_SLICES/Useraddressslice";
 
-// // Redux — cart
+// // Redux � cart
 // import {
 //   selectCartItems,
 //   selectDisplayCartCount,
@@ -3906,9 +4094,9 @@ export default Checkout;
 //     maximumFractionDigits: 0,
 //   }).format(n ?? 0);
 
-// // ─────────────────────────────────────────────────────────────────────────────
-// // Coming Soon Modal — for online/Razorpay
-// // ─────────────────────────────────────────────────────────────────────────────
+// // -----------------------------------------------------------------------------
+// // Coming Soon Modal � for online/Razorpay
+// // -----------------------------------------------------------------------------
 // const ComingSoonModal = ({ onClose }) => (
 //   <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
 //     <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
@@ -3931,9 +4119,9 @@ export default Checkout;
 //   </div>
 // );
 
-// // ─────────────────────────────────────────────────────────────────────────────
+// // -----------------------------------------------------------------------------
 // // Order Success Screen
-// // ─────────────────────────────────────────────────────────────────────────────
+// // -----------------------------------------------------------------------------
 // const OrderSuccess = ({ order, onViewOrders }) => (
 //   <div className="min-h-screen bg-white flex items-center justify-center p-6">
 //     <div className="max-w-md w-full text-center space-y-6">
@@ -3991,9 +4179,9 @@ export default Checkout;
 //   </div>
 // );
 
-// // ─────────────────────────────────────────────────────────────────────────────
-// // Checkout — Main Page
-// // ─────────────────────────────────────────────────────────────────────────────
+// // -----------------------------------------------------------------------------
+// // Checkout � Main Page
+// // -----------------------------------------------------------------------------
 // const Checkout = () => {
 //   const dispatch = useDispatch();
 //   const navigate = useNavigate();
@@ -4048,7 +4236,7 @@ export default Checkout;
 //     };
 //   }, [dispatch]);
 
-//   // ── Handlers ──────────────────────────────────────────────────────────────
+//   // -- Handlers --------------------------------------------------------------
 
 //   const handleFetchQuote = async () => {
 //     if (!selectedAddressId) return;
@@ -4122,13 +4310,13 @@ export default Checkout;
 //         })
 //       ).unwrap();
 
-//       toast.success("🎉 Order placed successfully!", { theme: "dark", autoClose: 3000 });
+//       toast.success("?? Order placed successfully!", { theme: "dark", autoClose: 3000 });
 //     } catch (e) {
 //       const msg = e?.message || "Failed to place order";
 
-//       // If quote stale — re-fetch automatically
+//       // If quote stale � re-fetch automatically
 //       if (e?.code === "QUOTE_STALE") {
-//         toast.info("Prices updated — please review and confirm", { theme: "dark" });
+//         toast.info("Prices updated � please review and confirm", { theme: "dark" });
 //         dispatch(fetchCheckoutQuote({ addressId: selectedAddressId, paymentMethodHint: "cod" }));
 //         return;
 //       }
@@ -4137,7 +4325,7 @@ export default Checkout;
 //     }
 //   };
 
-//   // ── Order placed — show success screen ───────────────────────────────────
+//   // -- Order placed � show success screen -----------------------------------
 //   if (placedOrder?.order) {
 //     return (
 //       <OrderSuccess
@@ -4150,7 +4338,7 @@ export default Checkout;
 //     );
 //   }
 
-//   // ── Main render ──────────────────────────────────────────────────────────
+//   // -- Main render ----------------------------------------------------------
 //   return (
 //     <div className="min-h-screen bg-gray-50">
 //       {/* Header */}
@@ -4182,7 +4370,7 @@ export default Checkout;
 //                     step >= n ? "bg-black text-white" : "bg-gray-100 text-gray-400"
 //                   }`}
 //                 >
-//                   {step > n ? "✓" : n}
+//                   {step > n ? "?" : n}
 //                 </div>
 //                 <span className={`text-[10px] font-bold uppercase tracking-wider hidden sm:block ${
 //                   step >= n ? "text-gray-900" : "text-gray-400"
@@ -4200,7 +4388,7 @@ export default Checkout;
 //       <div className="max-w-5xl mx-auto px-4 py-8">
 //         <div className="grid grid-cols-1 lg:grid-cols-[1fr_360px] gap-8">
 
-//           {/* ── Left Panel ── */}
+//           {/* -- Left Panel -- */}
 //           <div className="space-y-6">
 
 //             {/* Global error */}
@@ -4223,7 +4411,7 @@ export default Checkout;
 //               </div>
 //             )}
 
-//             {/* ── Step 1: Address ── */}
+//             {/* -- Step 1: Address -- */}
 //             {step === 1 && (
 //               <div className="bg-white rounded-[32px] p-6 sm:p-8 shadow-sm">
 //                 <div className="flex items-center gap-3 mb-6">
@@ -4245,7 +4433,7 @@ export default Checkout;
 //               </div>
 //             )}
 
-//             {/* ── Step 2: Payment ── */}
+//             {/* -- Step 2: Payment -- */}
 //             {step === 2 && (
 //               <div className="bg-white rounded-[32px] p-6 sm:p-8 shadow-sm">
 //                 <div className="flex items-center gap-3 mb-6">
@@ -4266,7 +4454,7 @@ export default Checkout;
 //                         {[selectedAddress.houseNumber, selectedAddress.area, selectedAddress.city]
 //                           .filter(Boolean)
 //                           .join(", ")}{" "}
-//                         — {selectedAddress.postalCode}
+//                         � {selectedAddress.postalCode}
 //                       </p>
 //                     </div>
 //                     <button
@@ -4308,7 +4496,7 @@ export default Checkout;
 //                     </div>
 //                   </button>
 
-//                   {/* Online / Razorpay — coming soon */}
+//                   {/* Online / Razorpay � coming soon */}
 //                   <button
 //                     type="button"
 //                     onClick={() => handlePaymentMethodSelect("online")}
@@ -4347,11 +4535,11 @@ export default Checkout;
 //                   className="mt-6 w-full py-4 bg-black text-white rounded-2xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-[#F7A221] hover:text-black disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
 //                 >
 //                   {loading.confirm || loading.placeOrder ? (
-//                     <><Loader2 size={16} className="animate-spin" /> Placing Order…</>
+//                     <><Loader2 size={16} className="animate-spin" /> Placing Order�</>
 //                   ) : loading.quote ? (
-//                     <><Loader2 size={16} className="animate-spin" /> Getting Quote…</>
+//                     <><Loader2 size={16} className="animate-spin" /> Getting Quote�</>
 //                   ) : (
-//                     <>Place Order — {fmt(quote?.amountPayable)}</>
+//                     <>Place Order � {fmt(quote?.amountPayable)}</>
 //                   )}
 //                 </button>
 
@@ -4362,7 +4550,7 @@ export default Checkout;
 //             )}
 //           </div>
 
-//           {/* ── Right Panel — Order Summary ── */}
+//           {/* -- Right Panel � Order Summary -- */}
 //           <div className="space-y-4">
 //             {/* Cart summary */}
 //             <div className="bg-white rounded-[32px] p-6 shadow-sm">
@@ -4421,7 +4609,7 @@ export default Checkout;
 //                 {loading.quote && (
 //                   <div className="flex items-center justify-center gap-2 py-4 text-gray-400">
 //                     <Loader2 size={14} className="animate-spin" />
-//                     <span className="text-xs font-bold">Calculating totals…</span>
+//                     <span className="text-xs font-bold">Calculating totals�</span>
 //                   </div>
 //                 )}
 
@@ -4484,7 +4672,7 @@ export default Checkout;
 //           initial={null}
 //           onSubmit={async (formData) => {
 //             // Parent handles add via existing UserAddress dispatch
-//             // We just close the modal here — AddressSelector will re-fetch
+//             // We just close the modal here � AddressSelector will re-fetch
 //             setShowAddressModal(false);
 //           }}
 //           onClose={() => setShowAddressModal(false)}

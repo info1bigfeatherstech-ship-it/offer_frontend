@@ -29,9 +29,9 @@ const Footer = () => {
       items: [
         { label: "Baby Items", path: "/category/baby-items" },
         { label: "Car Accessories", path: "/category/car-accessories" },
-        { label: "Cleaning & Housekeeping Supplies", path: "/category/cleaning-&housekeeping-supplies" },
+        { label: "Cleaning & Housekeeping Supplies", path: "/category/cleaning-and-housekeeping-supplies" },
         { label: "Gifts", path: "/category/gifts" },
-        { label: "Mix-items", path: "/category/mix-items-daily-use" },
+        { label: "Mix-items", path: "/category/mix-items" },
       ]
     },
     // { 

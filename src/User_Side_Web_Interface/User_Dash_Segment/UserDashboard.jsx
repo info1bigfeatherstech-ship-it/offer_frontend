@@ -73,10 +73,6 @@ const UserDashboard = () => {
         dispatch(logoutUser());
         navigate('/');
     };
-    useEffect(() => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }, []);
-
     return (
         <div className="min-h-screen bg-[#f8f9fa] py-6 md:py-10 px-4 md:px-8">
             <div className="max-w-7xl mx-auto flex flex-col lg:flex-row gap-8 items-start">

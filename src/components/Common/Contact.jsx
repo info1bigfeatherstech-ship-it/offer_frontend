@@ -137,7 +137,6 @@ export default function ContactUs() {
   };
 
   useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "instant" });
     generateCaptcha();
   }, []);
 

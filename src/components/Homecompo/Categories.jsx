@@ -9,16 +9,29 @@ import { useEffect } from "react";
 import { useState } from "react";
 
 // ─── Cloudinary helper ────────────────────────────────────────────────────────
-// Injects c_fill,g_center,w_500,h_500 into any Cloudinary URL so the image is
-// cropped & zoomed SERVER-SIDE before it even downloads. This eliminates the
-// solid-color background padding baked into each image at the source level.
-// Non-Cloudinary URLs pass through unchanged.
-const cloudinaryCrop = (url) => {
+// Default: c_fill crops to a tight square (good for most category art).
+// Per-slug overrides (e.g. fashion-world): c_fit keeps the full artwork in-frame
+// so wide lettering is not clipped at the rounded square edges.
+const DEFAULT_CLOUDINARY_TRANSFORM =
+  "c_fill,g_center,w_500,h_500,q_auto,f_auto";
+const CLOUDINARY_TRANSFORM_BY_SLUG = {
+  "fashion-world": "c_fit,g_center,w_500,h_500,q_auto,f_auto",
+};
+
+const cloudinaryCrop = (url, slug) => {
   if (!url || !url.includes("res.cloudinary.com")) return url;
-  return url.replace(
-    "/upload/",
-    "/upload/c_fill,g_center,w_500,h_500,q_auto,f_auto/"
-  );
+  const transform =
+    (slug && CLOUDINARY_TRANSFORM_BY_SLUG[slug]) || DEFAULT_CLOUDINARY_TRANSFORM;
+  return url.replace("/upload/", `/upload/${transform}/`);
+};
+
+// Optional per-slug background behavior (default: bg-cover + strong scale).
+const CATEGORY_BG_OVERRIDES = {
+  "fashion-world": {
+    // c_fit + contain; bg position + slight -translateY nudges art upward in the tile
+    layerClass:
+      "absolute inset-0 bg-[center_42%] bg-contain bg-no-repeat bg-white scale-[2.4] group-hover:scale-[2.4] -translate-y-[-3.4%] transition-transform duration-500 ease-in-out",
+  },
 };
 
 const CATEGORY_THUMBNAILS = {
@@ -36,7 +49,7 @@ const CATEGORY_THUMBNAILS = {
     "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572785/sve/frere/Stationary.jpg",
   "baby-items":
     "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572780/sve/frere/Baby_Items.jpg",
-  "cleaning-&housekeeping-supplies":
+  "cleaning-and-housekeeping-supplies":
     "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572769/sve/frere/Cleaning_housekeeping_supplies.jpg",
   gifts:
     "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572782/sve/frere/Gift.jpg",
@@ -130,7 +143,10 @@ const Categories = () => {
               "/placeholder-category.jpg";
 
             // Cloudinary server-side crop → strips background padding at source
-            const imageUrl = cloudinaryCrop(rawUrl);
+            const imageUrl = cloudinaryCrop(rawUrl, cat.slug);
+            const bgLayerClass =
+              (cat.slug && CATEGORY_BG_OVERRIDES[cat.slug]?.layerClass) ||
+              "absolute inset-0 bg-center bg-cover scale-[1.9] group-hover:scale-[1.9] transition-transform duration-500 ease-in-out";
 
             return (
               <div
@@ -143,15 +159,12 @@ const Categories = () => {
               >
                 <div className="w-full aspect-square rounded-2xl sm:rounded-[2rem] md:rounded-[3rem] overflow-hidden relative ring-1 ring-black/5 group-hover:shadow-lg group-hover:-translate-y-1 transition-all duration-300">
                   {/*
-                    TWO-LAYER ZOOM STRATEGY:
-                    Layer 1 — Cloudinary c_fill,g_center: crops the image server-side
-                      so background color padding is removed before download.
-                    Layer 2 — scale-[1.15] default + scale-[1.28] on hover: CSS zoom
-                      ensures edge-to-edge fill + satisfying hover effect.
-                    overflow-hidden on outer div clips to rounded corners always.
+                    Default: Cloudinary c_fill + bg-cover + scale for edge-to-edge tiles.
+                    Per-slug overrides (see CATEGORY_BG_OVERRIDES), e.g. fashion-world uses
+                    c_fit + bg-contain so wide lettering stays inside the rounded frame.
                   */}
                   <div
-                    className="absolute inset-0 bg-center bg-cover scale-[1.9] group-hover:scale-[1.9] transition-transform duration-500 ease-in-out"
+                    className={bgLayerClass}
                     style={{ backgroundImage: `url('${imageUrl}')` }}
                     aria-hidden="true"
                   />

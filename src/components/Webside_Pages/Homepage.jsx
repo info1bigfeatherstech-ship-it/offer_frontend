@@ -1,6 +1,6 @@
 import React, { useLayoutEffect, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigationType } from 'react-router-dom';
 import {
   fetchAllCategories,
   selectAllCategories,
@@ -19,6 +19,7 @@ const Homepage = ({ onOpenAuth }) => {
   const loading = useSelector(selectCategoriesLoading);
   const error = useSelector(selectCategoriesError);
   const location = useLocation();
+  const navigationType = useNavigationType();
 
   // ── Single source of truth — only Homepage fetches the list ──
   useLayoutEffect(() => {
@@ -29,6 +30,7 @@ const Homepage = ({ onOpenAuth }) => {
 
   // ── Deep-link scroll: #best-sellers (Just Arrived), #top-categories (Start Shopping) — heading below sticky header.
   useEffect(() => {
+    if (navigationType === 'POP') return;
     const anchorId =
       location.hash === '#best-sellers'
         ? 'best-sellers'
@@ -62,7 +64,7 @@ const Homepage = ({ onOpenAuth }) => {
       window.clearTimeout(t2);
       window.clearTimeout(t3);
     };
-  }, [location.pathname, location.hash]);
+  }, [location.pathname, location.hash, navigationType]);
 
   return (
     <>
