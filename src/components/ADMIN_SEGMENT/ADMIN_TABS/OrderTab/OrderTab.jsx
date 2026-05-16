@@ -23,6 +23,10 @@ import {
   useAdminBulkFulfillmentSchedulePickupMutation,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 import { isPostConfirmOrderStatus } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersSlice";
+import {
+  canAdminBulkCancelOrderRow,
+  canAdminBulkConfirmOrderRow,
+} from "../../../../utils/adminOrderFulfillmentEligibility";
 import AdminOrderDetailView from "./AdminOrderDetailView";
 import axiosInstance from "../../../../SERVICES/axiosInstance";
 
@@ -237,12 +241,22 @@ const OrderTab = () => {
     ui.activeTabLabel === "Processing" ||
     ui.activeTabLabel === "In transit";
 
+  /** Any pending row — cancel does not require payment capture. */
+  const eligibleBulkPendingIds = useMemo(
+    () =>
+      selectedOrders.filter((id) => {
+        const o = orderById.get(id);
+        return canAdminBulkCancelOrderRow(o);
+      }),
+    [selectedOrders, orderById]
+  );
+
+  /** Pending + same payment gate as order detail Confirm (from list API `canConfirmForFulfillment`). */
   const eligibleBulkConfirmIds = useMemo(
     () =>
       selectedOrders.filter((id) => {
         const o = orderById.get(id);
-        if (!o) return false;
-        return String(o.orderStatus || "").toLowerCase() === "pending";
+        return canAdminBulkConfirmOrderRow(o);
       }),
     [selectedOrders, orderById]
   );
@@ -361,36 +375,38 @@ const OrderTab = () => {
   const handleBulkCancel = useCallback(async () => {
     setBulkInlineError(null);
     setBulkFeedback(null);
-    if (!eligibleBulkConfirmIds.length) {
+    if (!eligibleBulkPendingIds.length) {
       setBulkInlineError("No eligible orders. Cancel applies to Pending orders only.");
       return;
     }
     if (
       !window.confirm(
-        `Cancel ${eligibleBulkConfirmIds.length} pending order(s)? Stock will be restored for each.`
+        `Cancel ${eligibleBulkPendingIds.length} pending order(s)? Stock will be restored for each.`
       )
     ) {
       return;
     }
     try {
-      const data = await bulkCancel({ orderIds: eligibleBulkConfirmIds }).unwrap();
+      const data = await bulkCancel({ orderIds: eligibleBulkPendingIds }).unwrap();
       setBulkFeedback({
         kind: "cancel",
         summary: data.summary,
         results: data.results || [],
-        extraSkipped: Math.max(0, selectedOrders.length - eligibleBulkConfirmIds.length),
+        extraSkipped: Math.max(0, selectedOrders.length - eligibleBulkPendingIds.length),
       });
       setShowBulkMenu(false);
     } catch (err) {
       setBulkInlineError(mutationErrorToString(err));
     }
-  }, [bulkCancel, eligibleBulkConfirmIds, selectedOrders.length]);
+  }, [bulkCancel, eligibleBulkPendingIds, selectedOrders.length]);
 
   const handleBulkConfirm = useCallback(async () => {
     setBulkInlineError(null);
     setBulkFeedback(null);
     if (!eligibleBulkConfirmIds.length) {
-      setBulkInlineError("No eligible orders. Confirm applies to Pending orders only.");
+      setBulkInlineError(
+        "No eligible orders. Confirm applies to Pending orders with payment ready (COD or paid online)."
+      );
       return;
     }
     try {
@@ -781,7 +797,7 @@ const OrderTab = () => {
                           disabled={bulkActionsBusy || !eligibleBulkConfirmIds.length}
                           title={
                             !eligibleBulkConfirmIds.length
-                              ? "Select Pending orders (online orders need payment captured first)."
+                              ? "Select Pending orders where payment is ready (COD, or online paid / advance rules met). Unpaid online orders are not listed here."
                               : undefined
                           }
                           className="w-full text-left px-4 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 disabled:text-slate-400 disabled:cursor-not-allowed"
@@ -791,9 +807,9 @@ const OrderTab = () => {
                         <button
                           type="button"
                           onClick={handleBulkCancel}
-                          disabled={bulkActionsBusy || !eligibleBulkConfirmIds.length}
+                          disabled={bulkActionsBusy || !eligibleBulkPendingIds.length}
                           title={
-                            !eligibleBulkConfirmIds.length
+                            !eligibleBulkPendingIds.length
                               ? "Select Pending orders to cancel."
                               : undefined
                           }
@@ -877,8 +893,11 @@ const OrderTab = () => {
                 <p className="text-slate-600 mt-0.5">
                   {showBulkPendingActions ? (
                     <>
-                      Confirm / cancel (pending):{" "}
+                      Confirm (payment ready):{" "}
                       <span className="font-semibold text-slate-700">{eligibleBulkConfirmIds.length}</span>
+                      {" · "}
+                      Cancel (pending):{" "}
+                      <span className="font-semibold text-slate-700">{eligibleBulkPendingIds.length}</span>
                     </>
                   ) : null}
                   Ready for ship: <span className="font-semibold text-slate-700">{eligibleBulkShipIds.length}</span>

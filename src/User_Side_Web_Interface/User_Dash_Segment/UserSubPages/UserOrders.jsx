@@ -40,6 +40,7 @@ import {
   cancellationRefundDetail,
   productReturnStatusLabel,
 } from "../../../utils/orderRefundDisplay";
+import { shouldShowOnlinePaymentHoldCountdown } from "../../../utils/paymentHoldDisplay";
 
 const fmtDate = (d) => {
   if (!d) return "—";
@@ -380,7 +381,7 @@ const OrderDetail = ({ orderId, onBack, onCancel, isCancelling, cancelError }) =
                   <p className="text-xs text-gray-500 font-medium mt-1">
                     Your cart was turned into this order. Complete payment to confirm it.
                   </p>
-                  {order.paymentHoldExpiresAt && !holdExpired && (
+                  {shouldShowOnlinePaymentHoldCountdown(order) && !holdExpired && (
                     <p className="text-[11px] text-amber-800 font-bold mt-2">
                       Complete before {fmtDateTime(order.paymentHoldExpiresAt)}
                     </p>

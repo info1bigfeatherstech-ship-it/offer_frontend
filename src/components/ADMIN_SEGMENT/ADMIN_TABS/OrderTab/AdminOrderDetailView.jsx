@@ -10,6 +10,7 @@ import {
   useAdminFulfillmentShippingLabelMutation,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 import { isPostConfirmOrderStatus } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersSlice";
+import { shouldShowOnlinePaymentHoldCountdown } from "../../../../utils/paymentHoldDisplay";
 
 function formatInr(amount) {
   const n = Number(amount);
@@ -19,6 +20,21 @@ function formatInr(amount) {
     currency: "INR",
     maximumFractionDigits: 2,
   }).format(n);
+}
+
+function formatKg(kg) {
+  const n = Number(kg);
+  if (!Number.isFinite(n)) return "—";
+  return `${n.toFixed(2)} kg`;
+}
+
+function formatPackageDims(dims) {
+  if (!dims || typeof dims !== "object") return null;
+  const l = Number(dims.lengthCm);
+  const w = Number(dims.widthCm);
+  const h = Number(dims.heightCm);
+  if (![l, w, h].every((n) => Number.isFinite(n) && n > 0)) return null;
+  return `${l} × ${w} × ${h} cm`;
 }
 
 function formatDateHeader(iso) {
@@ -207,7 +223,7 @@ export default function AdminOrderDetailView({
   const fulfillmentBlockMessage = fulfillmentActionsBlocked
     ? orderSt === "cancelled"
       ? "This order was cancelled. Ship now, pickup scheduling, shipping labels, and other Shiprocket shipment actions are not available."
-      : "This order did not complete payment. Shiprocket fulfilment actions are not available."
+      : "The customer did not complete payment. Shiprocket fulfilment actions are not available."
     : null;
 
   const carrierPaymentReady = carrierFulfilmentPaymentReady(order, fulfillmentPaymentGate);
@@ -218,7 +234,7 @@ export default function AdminOrderDetailView({
       : fulfillmentPaymentGate && fulfillmentPaymentGate.ok === false
         ? fulfillmentPaymentGate.message
         : !carrierPaymentReady
-          ? "Complete payment (or COD rules) before Shiprocket actions."
+          ? "Waiting for customer payment (or COD rules) before Shiprocket actions."
           : null;
 
   const fetchInvoiceObjectUrl = useCallback(async () => {
@@ -425,6 +441,13 @@ export default function AdminOrderDetailView({
   if (!order) return null;
 
   const items = Array.isArray(order.items) ? order.items : [];
+  const weightSnap = order.shippingWeightSnapshot;
+  const weightByVariantId = new Map();
+  for (const row of weightSnap?.lines || []) {
+    if (row?.variantId != null) weightByVariantId.set(String(row.variantId), row);
+  }
+  const packageDimsLabel = formatPackageDims(weightSnap?.dims);
+  const weightSourceCatalogFallback = String(weightSnap?.source || "") === "catalog_fallback";
   const pi = order.paymentInfo && typeof order.paymentInfo === "object" ? order.paymentInfo : {};
   const refundHistory = Array.isArray(order.refundHistory) ? order.refundHistory : [];
   const showRazorpayIds =
@@ -1099,8 +1122,22 @@ export default function AdminOrderDetailView({
 
             {/* Line items */}
             <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80">
+              <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80 flex flex-wrap items-start justify-between gap-3">
                 <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500">Items</h3>
+                {weightSnap?.totalWeightKg != null && (
+                  <div className="text-right text-xs">
+                    <p className="text-slate-600">
+                      Package weight{" "}
+                      <span className="font-semibold text-slate-900">{formatKg(weightSnap.totalWeightKg)}</span>
+                    </p>
+                    {packageDimsLabel && (
+                      <p className="text-slate-500 mt-0.5">Dims (checkout): {packageDimsLabel}</p>
+                    )}
+                    {weightSourceCatalogFallback && (
+                      <p className="text-amber-700 mt-0.5 text-[11px]">Estimated from current catalog (legacy order)</p>
+                    )}
+                  </div>
+                )}
               </div>
               <div className="divide-y divide-slate-100">
                 {items.map((line, idx) => {
@@ -1109,6 +1146,7 @@ export default function AdminOrderDetailView({
                   const sku = line?.sku || "—";
                   const qty = line?.quantity ?? 0;
                   const lineTotal = Number(line?.lineTotal ?? line?.priceSnapshot?.total) || 0;
+                  const weightRow = weightByVariantId.get(String(line?.variantId ?? ""));
                   return (
                     <div key={idx} className="p-4 flex gap-4">
                       <div className="w-20 h-20 shrink-0 rounded-lg border border-slate-100 bg-slate-50 overflow-hidden">
@@ -1125,6 +1163,12 @@ export default function AdminOrderDetailView({
                         </p>
                         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-slate-600">
                           <span>Qty: {qty}</span>
+                          {weightRow && (
+                            <span>
+                              Weight: {formatKg(weightRow.unitWeightKg)} × {qty} ={" "}
+                              <span className="font-semibold text-slate-800">{formatKg(weightRow.lineWeightKg)}</span>
+                            </span>
+                          )}
                           <span className="font-semibold text-slate-900">{formatInr(lineTotal)}</span>
                         </div>
                       </div>
@@ -1244,7 +1288,7 @@ export default function AdminOrderDetailView({
                     </div>
                   )}
                 </div>
-                {order.paymentHoldExpiresAt && (
+                {shouldShowOnlinePaymentHoldCountdown(order) && (
                   <div className="flex justify-between gap-2 text-amber-900 bg-amber-50/80 border border-amber-100 rounded-lg px-3 py-2">
                     <span className="text-xs">Payment hold expires</span>
                     <span className="text-xs font-medium text-right">{formatDateHeader(order.paymentHoldExpiresAt)}</span>
