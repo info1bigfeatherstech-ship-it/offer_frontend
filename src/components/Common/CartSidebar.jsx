@@ -34,14 +34,7 @@ import { getProductCategoryDisplayName } from '../../utils/getProductCategoryDis
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
-const fmt = (n) => {
-  if (n == null) return '—';
-  return new Intl.NumberFormat('en-IN', {
-    style: 'currency',
-    currency: 'INR',
-    maximumFractionDigits: 0,
-  }).format(n);
-};
+import { formatInr as fmt } from '../../utils/formatInr';
 
 const logError = (context, error, info = {}) => {
   console.group(`🔴 [CartSidebar] ERROR in ${context}`);
@@ -579,7 +572,7 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth }) => {
             <div className="border-t border-gray-100 pt-3 space-y-3">
               <div className="flex justify-between items-center">
                 <span className="text-sm font-black uppercase tracking-tighter text-gray-700">
-                  Subtotal
+                  Sub Total
                 </span>
                 <span className="text-base font-black text-gray-900">
                   {subtotal > 0 ? fmt(subtotal) : '—'}

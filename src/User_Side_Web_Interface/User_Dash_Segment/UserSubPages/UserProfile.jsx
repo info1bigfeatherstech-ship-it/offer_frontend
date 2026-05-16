@@ -214,7 +214,7 @@ const UserProfile = () => {
               <h4 className="font-black text-gray-900">{user?.name ?? '—'}</h4>
               <p className="text-xs text-gray-400 font-bold mt-0.5">{user?.email ?? '—'}</p>
               <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">
-                {user?.role === 'admin' ? '🔑 Admin' : 'Member'}
+                {user?.role === 'admin' ? '🔑 Admin' : ''}
               </p>
             </div>
           </div>

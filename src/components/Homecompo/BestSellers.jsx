@@ -43,11 +43,17 @@ const BestSellers = () => {
   }, [page, dispatch]);
 
   const handleLoadMore = () => {
-    console.log("handleLoadMore clicked", { isLoading, hasNextPage: pagination?.hasNextPage, page, pagination });
     if (isLoading) return;
-    if (!pagination?.hasNextPage) return;
-    setPage(prev => prev + 1);
+    if (!canLoadMoreFeatured) return;
+    setPage((prev) => prev + 1);
   };
+
+  /** More featured items exist on the server (not yet in `products`). */
+  const canLoadMoreFeatured =
+    Boolean(pagination?.hasNextPage) ||
+    (typeof pagination?.total === 'number' &&
+      pagination.total > 0 &&
+      products.length < pagination.total);
 
   // ── Error
   if (hasError && !hasProducts) {
@@ -138,22 +144,15 @@ const BestSellers = () => {
               </svg>
               Loading more...
             </div>
-          ) : pagination?.hasNextPage ? (
+          ) : canLoadMoreFeatured ? (
             <button
               onClick={handleLoadMore}
               disabled={isLoading}
-              className="inline-flex items-center gap-3 px-10 py-3 text-[11px] font-black uppercase tracking-[0.2em] border-2 border-zinc-900 bg-white text-zinc-900 hover:bg-zinc-900 hover:text-white active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="inline-flex cursor-pointer items-center gap-3 px-10 py-3 text-[11px] font-black uppercase tracking-[0.2em] border-2 border-zinc-900 bg-white text-zinc-900 hover:bg-zinc-900 hover:text-white active:scale-95 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Load More
             </button>
-          ) : (
-           <button
-            onClick={() => navigate('/category/sports-and-fitness')}
-            className=" px-10 py-3 border-2 border-zinc-900 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-900 hover:text-white transition-all"
-          >
-            View All
-          </button>
-          )}
+          ) : null}
         </div>
       )}
 

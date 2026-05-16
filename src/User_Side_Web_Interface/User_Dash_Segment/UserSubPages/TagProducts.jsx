@@ -36,7 +36,7 @@ const TAG_META = {
   },
 };
 
-const LOAD_MORE_SKELETON_COUNT = 12;
+const LOAD_MORE_SKELETON_COUNT = 25;
 
 const getColumnCount = () => {
   const w = window.innerWidth;
@@ -45,7 +45,31 @@ const getColumnCount = () => {
   return 1;
 };
 
+const getProductPrimaryVariant = (product) => product?.variants?.[0] ?? null;
 
+const getProductPayPrice = (product) => {
+  const variant = getProductPrimaryVariant(product);
+  const base = Number(variant?.price?.base) || 0;
+  const sale = Number(variant?.price?.sale);
+  return Number.isFinite(sale) ? sale : base;
+};
+
+const getProductListPrice = (product) => {
+  const variant = getProductPrimaryVariant(product);
+  return Number(variant?.price?.base) || 0;
+};
+
+const getProductDiscountPct = (product) => {
+  const base = getProductListPrice(product);
+  const pay = getProductPayPrice(product);
+  return base > 0 ? Math.round(((base - pay) / base) * 100) : 0;
+};
+
+const getProductCreatedTime = (product) => {
+  const raw = product?.createdAt ?? product?.updatedAt ?? product?.created_at;
+  const t = raw ? new Date(raw).getTime() : 0;
+  return Number.isFinite(t) ? t : 0;
+};
 
 
 // ── FilterPanel — OUTSIDE TagProducts to fix Rules of Hooks violation ─────────
@@ -59,7 +83,7 @@ const FilterPanel = ({ filters, toggleFilter, clearFilters, activeFilterCount })
           { label: "Under ₹29", val: "u29" },
           { label: "₹29 - ₹49", val: "29-49" },
           { label: "₹49 - ₹79", val: "49-79" },
-          { label: "Over ₹99", val: "o99" },
+          { label: "₹99 & above", val: "o99" },
         ].map(({ label, val }) => (
           <label key={val} className="flex items-center gap-3 cursor-pointer group">
             <div
@@ -256,11 +280,6 @@ const TagProducts = (props) => {
     discount: [],
   });
 
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" })
-  }, [])
-
-
   // ── Memoized selectors ────────────────────────────────────────────────────
   const selectProducts = useMemo(() => selectProductsByTag(normalizedTag), [normalizedTag]);
   const selectLoading = useMemo(() => selectLoadingByTag(normalizedTag), [normalizedTag]);
@@ -283,7 +302,7 @@ const TagProducts = (props) => {
     selectLoading: selectLoading,
     selectPagination: selectPagination,
     fetchParams,
-    limit: 4,
+    limit: 25,
   });
 
   // ── Tag change: reset filters + scroll ───────────────────────────────────
@@ -291,10 +310,6 @@ const TagProducts = (props) => {
     setFilters({ price: [], availability: [], discount: [] });
     setSortBy("default");
   }, [normalizedTag]);
-
-  useEffect(() => {
-    window.scrollTo({ top: 0, behavior: "smooth" })
-  }, [])
 
   // ── Cleanup on unmount ────────────────────────────────────────────────────
   useLayoutEffect(() => {
@@ -323,18 +338,17 @@ const TagProducts = (props) => {
   const filteredProducts = useMemo(() => {
     if (!products?.length) return [];
     return products.filter((product) => {
-      const variant = product.variants?.[0];
-      const base = variant?.price?.base ?? 0;
-      const sale = variant?.price?.sale ?? base;
+      const variant = getProductPrimaryVariant(product);
+      const base = getProductListPrice(product);
       const qty = variant?.inventory?.quantity ?? 0;
-      const discount = base > 0 ? Math.round(((base - sale) / base) * 100) : 0;
+      const discount = getProductDiscountPct(product);
 
       if (filters.price.length > 0) {
         const priceMatch = filters.price.some((p) => {
           if (p === "u29") return base < 29;
           if (p === "29-49") return base >= 29 && base <= 49;
           if (p === "49-79") return base >= 49 && base <= 79;
-          if (p === "o99") return base > 99;
+          if (p === "o99") return base >= 99;
           return false;
         });
         if (!priceMatch) return false;
@@ -350,7 +364,11 @@ const TagProducts = (props) => {
       }
 
       if (filters.discount.length > 0) {
-        const discountMatch = filters.discount.some((d) => discount >= Number(d));
+        const discountMatch = filters.discount.some((d) => {
+          const minPct = Number(d);
+          if (!Number.isFinite(minPct)) return false;
+          return discount >= minPct;
+        });
         if (!discountMatch) return false;
       }
 
@@ -362,30 +380,19 @@ const TagProducts = (props) => {
     const data = [...filteredProducts];
     switch (sortBy) {
       case "priceLowHigh":
-        return data.sort((a, b) => {
-          const aP = a.variants?.[0]?.price?.sale ?? a.variants?.[0]?.price?.base ?? 0;
-          const bP = b.variants?.[0]?.price?.sale ?? b.variants?.[0]?.price?.base ?? 0;
-          return aP - bP;
-        });
+        return data.sort((a, b) => getProductPayPrice(a) - getProductPayPrice(b));
       case "priceHighLow":
-        return data.sort((a, b) => {
-          const aP = a.variants?.[0]?.price?.sale ?? a.variants?.[0]?.price?.base ?? 0;
-          const bP = b.variants?.[0]?.price?.sale ?? b.variants?.[0]?.price?.base ?? 0;
-          return bP - aP;
-        });
+        return data.sort((a, b) => getProductPayPrice(b) - getProductPayPrice(a));
       case "discount":
-        return data.sort((a, b) => {
-          const getDiscount = (p) => {
-            const base = p.variants?.[0]?.price?.base ?? 0;
-            const sale = p.variants?.[0]?.price?.sale ?? base;
-            return base > 0 ? ((base - sale) / base) * 100 : 0;
-          };
-          return getDiscount(b) - getDiscount(a);
-        });
-      case "az": return data.sort((a, b) => a.name.localeCompare(b.name));
-      case "za": return data.sort((a, b) => b.name.localeCompare(a.name));
-      case "newest": return data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      default: return data;
+        return data.sort((a, b) => getProductDiscountPct(b) - getProductDiscountPct(a));
+      case "az":
+        return data.sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || "")));
+      case "za":
+        return data.sort((a, b) => String(b?.name || "").localeCompare(String(a?.name || "")));
+      case "newest":
+        return data.sort((a, b) => getProductCreatedTime(b) - getProductCreatedTime(a));
+      default:
+        return data;
     }
   }, [filteredProducts, sortBy]);
 
@@ -395,12 +402,27 @@ const TagProducts = (props) => {
 
   const handleRetry = useCallback(() => resetPage(), [resetPage]);
 
+  // ── Scroll to section when filters/sort changes ────────────────────────────
+  useEffect(() => {
+    setTimeout(() => {
+      const element = document.getElementById("tagProducts-grid");
+      if (element) {
+        const elementPosition = element.getBoundingClientRect().top + window.scrollY;
+        const offsetPosition = elementPosition - 800; // 120px offset from top
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: "smooth"
+        });
+      }
+    }, 0);
+  }, [filters, sortBy]);
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
 
       {/* STICKY BREADCRUMB */}
-      <div className="bg-white border-b border-zinc-100 sticky top-0 z-40">
+      <div className="bg-white border-b border-zinc-100 sticky top-0 z-40" id="tagProducts-top">
         <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button onClick={() => navigate(-1)} className="p-1 text-zinc-500 hover:text-zinc-900">
@@ -425,7 +447,7 @@ const TagProducts = (props) => {
 
       {/* HERO */}
       {/* HERO */}
-      <section className="relative h-[40vh] md:h-[50vh] flex items-end overflow-hidden">
+      <section  className="relative h-[40vh] md:h-[50vh] flex items-end overflow-hidden">
         {/* BACKGROUND IMAGE - DIFFERENT FOR EACH TAG */}
         <div className="absolute inset-0">
           {normalizedTag === "on-sale" && (
@@ -461,12 +483,16 @@ const TagProducts = (props) => {
                 {meta.subtitle}
               </p>
             </div>
-            {!isLoading && (
-              <div className="hidden md:flex flex-col items-end flex-shrink-0">
-                <span className="text-5xl font-black text-white leading-none">{pagination?.total || 0}</span>
-                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300 mt-1">Products</span>
-              </div>
-            )}
+           {!isLoading && (
+  <div className="hidden md:flex flex-col items-center flex-shrink-0">
+    <span className="text-5xl font-black text-white leading-none">
+      {pagination?.total || 0}
+    </span>
+    <span className="text-[11px] text-center font-bold uppercase tracking-[0.2em] text-gray-300 mt-1">
+      Products
+    </span>
+  </div>
+)}
           </div>
         </div>
       </section>
@@ -498,7 +524,7 @@ const TagProducts = (props) => {
         </aside>
 
         {/* PRODUCT GRID */}
-        <div className="flex-grow">
+        <div className="flex-grow" id="tagProducts-grid">
           {/* Toolbar */}
           <div className="flex items-center justify-between mb-10">
             <div className="flex items-center gap-4">
@@ -510,12 +536,12 @@ const TagProducts = (props) => {
                   className="appearance-none bg-white/60 backdrop-blur-md px-3 pr-10 py-2 text-sm font-semibold text-zinc-800 rounded-md shadow-sm border border-zinc-200 hover:border-zinc-400 focus:border-black focus:ring-0 outline-none transition-all cursor-pointer"
                 >
                   <option value="default">Default</option>
-                  <option value="az">Alphabetically, A-Z</option>
-                  <option value="za">Alphabetically, Z-A</option>
+                 
                   <option value="priceLowHigh">Price: Low to High</option>
                   <option value="priceHighLow">Price: High to Low</option>
                   <option value="discount">Highest Discount</option>
-                  <option value="newest">Newest</option>
+                  <option value="newest">Newest First</option>
+                 
                 </select>
                 <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
               </div>
@@ -561,7 +587,7 @@ const TagProducts = (props) => {
             {/* MAIN GRID */}
             {!isLoading && !hasError && sortedProducts.length > 0 && (
               <div className="animate-in fade-in duration-700">
-                <VirtualizedProductGrid products={sortedProducts} loadingMore={loadingMore} />
+                <VirtualizedProductGrid products={sortedProducts} loadingMore={loadingMore} key={normalizedTag} />
 
                 {/* LOAD MORE */}
                 <div className="mt-20 text-center">

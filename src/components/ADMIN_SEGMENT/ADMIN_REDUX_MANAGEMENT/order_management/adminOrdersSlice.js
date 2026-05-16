@@ -10,11 +10,25 @@ export const ORDER_TAB_LABEL_TO_BUCKET = Object.freeze({
   Processing: 'ready_to_pick',
   'In transit': 'in_transit',
   Delivered: 'completed',
-  Others: 'others',
+  Cancelled: 'others',
 });
 
 /** @type {keyof typeof ORDER_TAB_LABEL_TO_BUCKET} */
 export const DEFAULT_ORDER_TAB_LABEL = 'All';
+
+/** Order statuses where GST invoice + Shiprocket fulfilment UI are allowed (after admin confirm). */
+const POST_CONFIRM_ORDER_STATUSES = [
+  'confirmed',
+  'processing',
+  'shipped',
+  'out_for_delivery',
+  'delivered',
+  'return_requested',
+];
+
+export function isPostConfirmOrderStatus(orderStatus) {
+  return POST_CONFIRM_ORDER_STATUSES.includes(String(orderStatus || '').toLowerCase());
+}
 
 /**
  * Maps backend countsByBucket keys → UI tab labels (for summary sync).
@@ -26,7 +40,7 @@ export const BUCKET_KEY_TO_TAB_LABEL = Object.freeze({
   ready_to_pick: 'Processing',
   in_transit: 'In transit',
   completed: 'Delivered',
-  others: 'Others',
+  others: 'Cancelled',
 });
 
 /** @typedef {'today'|'last7'|'last30'|'custom'} DatePresetId */

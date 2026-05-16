@@ -131,3 +131,21 @@ export function computeCheckoutPsychologyPricing(cartItems, quote) {
     couponApplied: quote?.couponApplied ? String(quote.couponApplied) : null,
   };
 }
+
+/** Total customer savings shown in the cart summary green strip (catalog + coupon). */
+export function computeCheckoutTotalSavings(psych, quote) {
+  const catalog = round2(psych?.catalogDiscount ?? 0);
+  const coupon = round2(quote?.promotionDiscount ?? 0);
+  return round2(catalog + coupon);
+}
+
+/**
+ * Extra amount customer pays on full COD vs same cart/address online full quote.
+ * Used for COD nudge popup and “Pay online” savings badge.
+ */
+export function computeCodVsOnlineSavings(codPayable, onlinePayable) {
+  const cod = Number(codPayable);
+  const online = Number(onlinePayable);
+  if (!Number.isFinite(cod) || !Number.isFinite(online)) return 0;
+  return round2(Math.max(0, cod - online));
+}

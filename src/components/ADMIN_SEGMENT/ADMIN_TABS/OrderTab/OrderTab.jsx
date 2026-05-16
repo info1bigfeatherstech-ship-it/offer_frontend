@@ -17,9 +17,16 @@ import {
   useGetAdminOrdersListQuery,
   useGetAdminOrderDetailQuery,
   useGetAdminOrderTrackingQuery,
+  useAdminBulkApprovalCancelMutation,
+  useAdminBulkApprovalConfirmMutation,
   useAdminBulkFulfillmentShipNowMutation,
   useAdminBulkFulfillmentSchedulePickupMutation,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
+import { isPostConfirmOrderStatus } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersSlice";
+import {
+  canAdminBulkCancelOrderRow,
+  canAdminBulkConfirmOrderRow,
+} from "../../../../utils/adminOrderFulfillmentEligibility";
 import AdminOrderDetailView from "./AdminOrderDetailView";
 import axiosInstance from "../../../../SERVICES/axiosInstance";
 
@@ -30,7 +37,7 @@ const TAB_ORDER = [
   "Processing",
   "In transit",
   "Delivered",
-  "Others",
+  "Cancelled",
 ];
 
 function formatInr(amount) {
@@ -185,9 +192,15 @@ const OrderTab = () => {
   const [bulkInlineError, setBulkInlineError] = useState(null);
   const [bulkFeedback, setBulkFeedback] = useState(null);
 
+  const [bulkConfirm, bulkConfirmState] = useAdminBulkApprovalConfirmMutation();
+  const [bulkCancel, bulkCancelState] = useAdminBulkApprovalCancelMutation();
   const [bulkShipNow, bulkShipNowState] = useAdminBulkFulfillmentShipNowMutation();
   const [bulkSchedulePickup, bulkSchedulePickupState] = useAdminBulkFulfillmentSchedulePickupMutation();
-  const bulkBusy = bulkShipNowState.isLoading || bulkSchedulePickupState.isLoading;
+  const bulkBusy =
+    bulkConfirmState.isLoading ||
+    bulkCancelState.isLoading ||
+    bulkShipNowState.isLoading ||
+    bulkSchedulePickupState.isLoading;
   const [bulkZipBusy, setBulkZipBusy] = useState(false);
   const [bulkInvoiceAwbModalOpen, setBulkInvoiceAwbModalOpen] = useState(false);
   const bulkActionsBusy = bulkBusy || bulkZipBusy;
@@ -199,8 +212,7 @@ const OrderTab = () => {
       selectedOrders.filter((id) => {
         const o = orderById.get(id);
         if (!o) return false;
-        const st = String(o.orderStatus || "").toLowerCase();
-        return st !== "cancelled" && st !== "payment_failed";
+        return isPostConfirmOrderStatus(o.orderStatus);
       }),
     [selectedOrders, orderById]
   );
@@ -222,12 +234,35 @@ const OrderTab = () => {
     [eligibleBulkInvoiceIds, orderById]
   );
 
-  const showBulkTaxInvoicesZip = ui.activeTabLabel === "All" || ui.activeTabLabel === "Confirmed";
+  const showBulkTaxInvoicesZip = ui.activeTabLabel === "Confirmed";
   const showBulkShippingLabelsZip =
     ui.activeTabLabel === "All" ||
     ui.activeTabLabel === "Confirmed" ||
     ui.activeTabLabel === "Processing" ||
     ui.activeTabLabel === "In transit";
+
+  /** Any pending row — cancel does not require payment capture. */
+  const eligibleBulkPendingIds = useMemo(
+    () =>
+      selectedOrders.filter((id) => {
+        const o = orderById.get(id);
+        return canAdminBulkCancelOrderRow(o);
+      }),
+    [selectedOrders, orderById]
+  );
+
+  /** Pending + same payment gate as order detail Confirm (from list API `canConfirmForFulfillment`). */
+  const eligibleBulkConfirmIds = useMemo(
+    () =>
+      selectedOrders.filter((id) => {
+        const o = orderById.get(id);
+        return canAdminBulkConfirmOrderRow(o);
+      }),
+    [selectedOrders, orderById]
+  );
+
+  const showBulkPendingActions =
+    ui.activeTabLabel === "Pending" || ui.activeTabLabel === "All";
 
   const eligibleBulkShipIds = useMemo(
     () =>
@@ -336,6 +371,57 @@ const OrderTab = () => {
     link.click();
     document.body.removeChild(link);
   }, [orders]);
+
+  const handleBulkCancel = useCallback(async () => {
+    setBulkInlineError(null);
+    setBulkFeedback(null);
+    if (!eligibleBulkPendingIds.length) {
+      setBulkInlineError("No eligible orders. Cancel applies to Pending orders only.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Cancel ${eligibleBulkPendingIds.length} pending order(s)? Stock will be restored for each.`
+      )
+    ) {
+      return;
+    }
+    try {
+      const data = await bulkCancel({ orderIds: eligibleBulkPendingIds }).unwrap();
+      setBulkFeedback({
+        kind: "cancel",
+        summary: data.summary,
+        results: data.results || [],
+        extraSkipped: Math.max(0, selectedOrders.length - eligibleBulkPendingIds.length),
+      });
+      setShowBulkMenu(false);
+    } catch (err) {
+      setBulkInlineError(mutationErrorToString(err));
+    }
+  }, [bulkCancel, eligibleBulkPendingIds, selectedOrders.length]);
+
+  const handleBulkConfirm = useCallback(async () => {
+    setBulkInlineError(null);
+    setBulkFeedback(null);
+    if (!eligibleBulkConfirmIds.length) {
+      setBulkInlineError(
+        "No eligible orders. Confirm applies to Pending orders with payment ready (COD or paid online)."
+      );
+      return;
+    }
+    try {
+      const data = await bulkConfirm({ orderIds: eligibleBulkConfirmIds }).unwrap();
+      setBulkFeedback({
+        kind: "confirm",
+        summary: data.summary,
+        results: data.results || [],
+        extraSkipped: Math.max(0, selectedOrders.length - eligibleBulkConfirmIds.length),
+      });
+      setShowBulkMenu(false);
+    } catch (err) {
+      setBulkInlineError(mutationErrorToString(err));
+    }
+  }, [bulkConfirm, eligibleBulkConfirmIds, selectedOrders.length]);
 
   const handleBulkShipNow = useCallback(async () => {
     setBulkInlineError(null);
@@ -702,7 +788,37 @@ const OrderTab = () => {
                   Bulk actions ▾
                 </button>
                 {showBulkMenu && (
-                  <div className="absolute left-0 top-full mt-1 min-w-[240px] bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1">
+                  <div className="absolute left-0 top-full mt-1 min-w-[260px] bg-white border border-slate-200 rounded-xl shadow-xl z-50 py-1">
+                    {showBulkPendingActions ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleBulkConfirm}
+                          disabled={bulkActionsBusy || !eligibleBulkConfirmIds.length}
+                          title={
+                            !eligibleBulkConfirmIds.length
+                              ? "Select Pending orders where payment is ready (COD, or online paid / advance rules met). Unpaid online orders are not listed here."
+                              : undefined
+                          }
+                          className="w-full text-left px-4 py-2 text-xs font-semibold text-emerald-800 hover:bg-emerald-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                        >
+                          Confirm order(s)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleBulkCancel}
+                          disabled={bulkActionsBusy || !eligibleBulkPendingIds.length}
+                          title={
+                            !eligibleBulkPendingIds.length
+                              ? "Select Pending orders to cancel."
+                              : undefined
+                          }
+                          className="w-full text-left px-4 py-2 text-xs font-semibold text-red-800 hover:bg-red-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                        >
+                          Cancel order(s)
+                        </button>
+                      </>
+                    ) : null}
                     <button
                       type="button"
                       onClick={handleBulkShipNow}
@@ -712,7 +828,7 @@ const OrderTab = () => {
                           ? "Needs order status Confirmed and no AWB yet (shipped / in-transit / pending are skipped)."
                           : undefined
                       }
-                      className="w-full text-left px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                      className="w-full text-left px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed border-t border-slate-100"
                     >
                       Ship now (Shiprocket)
                     </button>
@@ -736,7 +852,7 @@ const OrderTab = () => {
                         disabled={bulkActionsBusy || !eligibleBulkInvoiceIds.length}
                         title={
                           !eligibleBulkInvoiceIds.length
-                            ? "Needs non-cancelled, non–payment-failed rows in the selection."
+                            ? "Needs Confirmed (or later) orders in the selection."
                             : undefined
                         }
                         className="w-full text-left px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed border-t border-slate-100"
@@ -775,6 +891,15 @@ const OrderTab = () => {
                   <span className="font-semibold">Bulk actions</span>, then pick an item from the menu.
                 </p>
                 <p className="text-slate-600 mt-0.5">
+                  {showBulkPendingActions ? (
+                    <>
+                      Confirm (payment ready):{" "}
+                      <span className="font-semibold text-slate-700">{eligibleBulkConfirmIds.length}</span>
+                      {" · "}
+                      Cancel (pending):{" "}
+                      <span className="font-semibold text-slate-700">{eligibleBulkPendingIds.length}</span>
+                    </>
+                  ) : null}
                   Ready for ship: <span className="font-semibold text-slate-700">{eligibleBulkShipIds.length}</span>
                   {" · "}
                   Ready for pickup:{" "}
@@ -810,7 +935,13 @@ const OrderTab = () => {
               <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs text-emerald-900 space-y-1">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span>
-                    {bulkFeedback.kind === "ship" ? "Bulk ship" : "Bulk pickup"} finished:{" "}
+                    {bulkFeedback.kind === "confirm"
+                      ? "Bulk confirm"
+                      : bulkFeedback.kind === "cancel"
+                        ? "Bulk cancel"
+                        : bulkFeedback.kind === "ship"
+                          ? "Bulk ship"
+                          : "Bulk pickup"} finished:{" "}
                     <strong>{bulkFeedback.summary?.completed ?? 0}</strong> completed,{" "}
                     <strong>{bulkFeedback.summary?.skipped ?? 0}</strong> skipped,{" "}
                     <strong>{bulkFeedback.summary?.failed ?? 0}</strong> failed (of {bulkFeedback.summary?.total ?? 0}

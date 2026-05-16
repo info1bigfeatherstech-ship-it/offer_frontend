@@ -225,31 +225,42 @@ const AreaDropdown = ({ value, onChange, options = [], required, onAddCustom, sa
 // ─────────────────────────────────────────────────────────────────────────────
 // Address Card
 // ─────────────────────────────────────────────────────────────────────────────
-const AddressCard = ({ address, isDefault, onEdit, onDelete, onSetDefault, isDeleting }) => (
-  <div className={`p-5 sm:p-6 rounded-[28px] sm:rounded-[32px] relative overflow-hidden transition-all duration-300 border-2 cursor-pointer hover:shadow-xl ${isDefault ? "border-black shadow-xl ring-4 ring-black/5" : "border-gray-100 hover:border-black"}`}>
-    {isDefault && (
-      <div className="absolute top-4 right-4 flex items-center gap-1.5 bg-black text-white text-[9px] font-black uppercase tracking-widest px-3 py-1.5 rounded-full">
-        <Star size={10} className="fill-[#F7A221] text-[#F7A221]" />
-        <span>Default</span>
-      </div>
-    )}
-    <div className="flex items-center gap-2 mb-4">
-      <div className="p-2 bg-gray-50 rounded-xl">
+const AddressCard = ({ address, isDefault, onEdit, onDelete, onSetDefault, isDeleting }) => {
+  const typeLabel = address.addressType
+    ? address.addressType.charAt(0).toUpperCase() + address.addressType.slice(1).toLowerCase()
+    : "Other";
+  const addressLine = [
+    address.fullName,
+    address.phone,
+    address.houseNumber,
+    address.area,
+    address.landmark,
+    address.addressLine1,
+    address.addressLine2,
+    [address.city, address.state].filter(Boolean).join(", ") +
+      (address.postalCode ? ` — ${address.postalCode}` : ""),
+  ].filter(Boolean).join(", ");
+
+  return (
+  <div className="py-3.5 border-b border-gray-100 last:border-b-0">
+    <div className="flex items-start md:items-center gap-3">
+      <div className="flex items-center justify-center shrink-0 w-9 h-9 rounded-lg bg-gray-100">
         {ADDRESS_TYPE_ICON[address.addressType] || ADDRESS_TYPE_ICON.other}
       </div>
-      <span className="font-black uppercase text-[10px] tracking-widest text-gray-400">{address.addressType}</span>
-    </div>
-    <h4 className="font-black text-gray-900 text-base leading-tight pr-20">{address.fullName}</h4>
-    <p className="text-xs text-gray-400 font-bold mt-0.5 mb-4">{address.phone}</p>
-    <p className="text-sm font-medium text-gray-600 leading-relaxed">
-      {[address.houseNumber, address.area, address.landmark, address.addressLine1, address.addressLine2]
-        .filter(Boolean).join(", ")}
-      <br />
-      <span className="text-gray-900 font-bold">
-        {address.city}, {address.state} — {address.postalCode}
-      </span>
-    </p>
-    <div className="mt-5 pt-5 border-t border-gray-100 flex items-center gap-3">
+      <div className="flex-1 min-w-0">
+        <p className="text-sm leading-snug md:whitespace-nowrap md:overflow-hidden md:text-ellipsis">
+          <span className="font-semibold text-gray-900">{typeLabel}</span>
+          {" "}
+          <span className="text-gray-500 font-normal">{addressLine}</span>
+        </p>
+        {isDefault && (
+          <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-medium text-gray-500">
+            <Star size={10} className="fill-[#F7A221] text-[#F7A221]" />
+            Default
+          </span>
+        )}
+      </div>
+      <div className="shrink-0 flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-2">
       {!isDefault && (
         <button onClick={(e) => { e.stopPropagation(); onSetDefault(address); }}
           className="text-[10px] font-black uppercase tracking-widest text-[#F7A221] hover:underline cursor-pointer whitespace-nowrap">
@@ -266,9 +277,11 @@ const AddressCard = ({ address, isDefault, onEdit, onDelete, onSetDefault, isDel
         {isDeleting ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
         {isDeleting ? "Deleting..." : "Delete"}
       </button>
+      </div>
     </div>
   </div>
-);
+  );
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // AddressFormModal - COMPLETE VERSION WITH EDIT MODE FIX
@@ -560,7 +573,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
 
                 {/* Address Line 1 - Simple text input */}
                 <Field
-                  label={`Address line 1 (min. ${ADDRESS_LINE1_MIN_LEN} chars)`}
+                  label={`Address line 1 (min. ${ADDRESS_LINE1_MIN_LEN} characters)`}
                   name="addressLine1"
                   value={form.addressLine1}
                   onChange={handleChange}
@@ -771,16 +784,14 @@ const UserAddress = () => {
 
   return (
     <div className="max-w-6xl mx-auto py-10 px-4">
-      <div className="flex justify-between items-center mb-10 pb-8 border-b border-gray-100">
-        <div>
-          <h1 className="text-xl font-black text-gray-900 tracking-tight">Saved Addresses</h1>
-          <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">{allCount} Total</p>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-lg font-semibold text-gray-900">My addresses</h1>
         <button
+          type="button"
           onClick={openAdd}
-          className="bg-black text-white px-4 py-2.5 rounded-2xl flex items-center gap-2 font-black text-xs uppercase tracking-widest shadow-lg active:scale-95 transition-all cursor-pointer hover:bg-[#F7A221] hover:text-black"
+          className="mt-2 text-sm font-normal text-[#4CAF50] hover:underline cursor-pointer"
         >
-          <Plus size={16} /> Add Address
+          + Add new address
         </button>
       </div>
 
@@ -793,8 +804,8 @@ const UserAddress = () => {
       )}
 
       {loading.fetch ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {[1, 2, 3].map((i) => <div key={i} className="h-64 bg-gray-50 rounded-[40px] animate-pulse" />)}
+        <div className="flex flex-col gap-2">
+          {[1, 2, 3].map((i) => <div key={i} className="h-12 bg-gray-50 rounded-lg animate-pulse" />)}
         </div>
       ) : allCount === 0 ? (
         <div className="flex flex-col items-center justify-center py-20 gap-6 text-center">
@@ -807,7 +818,7 @@ const UserAddress = () => {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="flex flex-col">
           {defaultAddress && (
             <AddressCard address={defaultAddress} isDefault onEdit={openEdit} onDelete={handleDelete} onSetDefault={handleSetDefault} isDeleting={deletingId === defaultAddress._id} />
           )}

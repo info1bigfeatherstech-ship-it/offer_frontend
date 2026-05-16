@@ -1,6 +1,7 @@
 // src/components/ADMIN_SEGMENT/ADMIN_TABS/AnalyticsTab.jsx
-import React, { useState, useMemo } from 'react';
-import { useSelector } from 'react-redux';
+import React, { useState, useMemo, useEffect } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { fetchProducts, fetchActiveProductsCount } from '../ADMIN_REDUX_MANAGEMENT/adminGetProductsSlice';
 import {
   LineChart,
   Line,
@@ -20,12 +21,20 @@ import { format, subDays } from 'date-fns';
 import { Download, TrendingUp, IndianRupee, Package, AlertTriangle } from 'lucide-react';
 
 const AnalyticsTab = () => {
+  const dispatch = useDispatch();
   const [dateRange, setDateRange] = useState('week');
   const [startDate, setStartDate] = useState(subDays(new Date(), 7));
   const [endDate, setEndDate] = useState(new Date());
 
-  // Get real product data from Redux
-  const { products } = useSelector((state) => state.adminGetProducts);
+  // Same source as Products tab: list is paginated; totals come from API fields on fetch.
+  const { products, totalProducts: adminTotalProductCount, realActiveCount } = useSelector(
+    (state) => state.adminGetProducts
+  );
+
+  useEffect(() => {
+    dispatch(fetchProducts({ page: 1, limit: 15 }));
+    dispatch(fetchActiveProductsCount());
+  }, [dispatch]);
 
   const COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
 
@@ -191,8 +200,11 @@ const AnalyticsTab = () => {
     alert(`Exporting as ${format}...`);
   };
 
-  const totalProducts = products.length;
-  const activeProducts = products.filter(p => p.status === 'active').length;
+  const totalProductCount =
+    adminTotalProductCount > 0 ? adminTotalProductCount : products.length;
+  const activeProductCountFromList = products.filter((p) => p.status === 'active').length;
+  const activeProductDisplay =
+    realActiveCount > 0 ? realActiveCount : activeProductCountFromList;
   const totalVariants = inventoryMetrics.totalVariants;
 
   return (
@@ -237,20 +249,24 @@ const AnalyticsTab = () => {
               <TrendingUp className="w-5 h-5 text-blue-600" />
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-2">{inventoryMetrics.healthyStock} healthy variants</p>
+          <p className="text-xs text-gray-500 mt-2">
+            {inventoryMetrics.healthyStock} healthy variants
+          </p>
         </div>
 
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 mb-1">Total Products</p>
-              <p className="text-2xl font-bold text-gray-900">{totalProducts}</p>
+              <p className="text-2xl font-bold text-gray-900">{totalProductCount}</p>
             </div>
             <div className="w-10 h-10 bg-purple-50 rounded-lg flex items-center justify-center">
               <Package className="w-5 h-5 text-purple-600" />
             </div>
           </div>
-          <p className="text-xs text-gray-500 mt-2">{activeProducts} active · {totalVariants} variants</p>
+          <p className="text-xs text-gray-500 mt-2">
+            {activeProductDisplay} active · {totalVariants} variants
+          </p>
         </div>
 
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
@@ -303,21 +319,28 @@ const AnalyticsTab = () => {
         {/* Top Products by Value Bar Chart */}
         <div className="bg-white rounded-xl p-6 shadow-sm border border-gray-100">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Top 10 Products by Stock Value</h3>
-          <div className="h-80 w-full">
+          <div className="h-96 w-full">
             {topProductsByValue.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart 
-                  data={topProductsByValue} 
+                <BarChart
+                  data={topProductsByValue}
                   layout="vertical"
-                  margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+                  margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
                 >
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis type="number" />
-                  <YAxis 
-                    dataKey="name" 
-                    type="category" 
-                    width={90}
-                    tick={{ fontSize: 12 }}
+                  <YAxis
+                    dataKey="name"
+                    type="category"
+                    width={200}
+                    interval={0}
+                    tick={{ fontSize: 11 }}
+                    tickMargin={6}
+                    tickFormatter={(value) =>
+                      typeof value === 'string' && value.length > 22
+                        ? `${value.slice(0, 20)}…`
+                        : value
+                    }
                   />
                   <Tooltip 
                     formatter={(value) => [`₹${value.toLocaleString()}`, 'Stock Value']}
@@ -400,9 +423,9 @@ const AnalyticsTab = () => {
         <h3 className="text-lg font-semibold text-gray-900 mb-4">Inventory Health Summary</h3>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <div className="p-4 bg-green-50 rounded-lg">
-            <p className="text-sm text-green-600 font-medium">Healthy Stock</p>
-            <p className="text-2xl font-bold text-gray-900">{inventoryMetrics.healthyStock}</p>
-            <p className="text-xs text-gray-500">variants</p>
+            <p className="text-sm text-green-600 font-medium">Active Product</p>
+            <p className="text-2xl font-bold text-gray-900">{activeProductDisplay}</p>
+            <p className="text-xs text-gray-500">products</p>
           </div>
           <div className="p-4 bg-yellow-50 rounded-lg">
             <p className="text-sm text-yellow-600 font-medium">Low Stock</p>

@@ -49,7 +49,6 @@ export default function InfluencerFormPage() {
 
     useEffect(() => {
         generateCaptcha();
-        window.scrollTo({ top: 0, behavior: "smooth" });
     }, []);
 
     const handleSubmit = async (e) => {
