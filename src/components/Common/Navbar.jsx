@@ -409,7 +409,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
   const bottomNavLinks = [
     {
       label: "Today's Deal",
-      path: "/today-arrival",
+      path: "/today-arrival#tagProducts-top",
       icon: <ImageIcon src={deal} alt="Deal" animation="animate-swing" />,
     },
     {
@@ -426,7 +426,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
     },
     {
       label: "Sale",
-      path: "/on-sale",
+      path: "/on-sale#tagProducts-top",
       icon: <ImageIcon src={SaleIcon} alt="Sale" animation="animate-flicker" />,
     },
   ];

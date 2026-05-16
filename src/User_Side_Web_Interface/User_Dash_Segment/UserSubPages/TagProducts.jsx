@@ -402,12 +402,27 @@ const TagProducts = (props) => {
 
   const handleRetry = useCallback(() => resetPage(), [resetPage]);
 
+  // ── Scroll to section when filters/sort changes ────────────────────────────
+  useEffect(() => {
+    setTimeout(() => {
+      const element = document.getElementById("tagProducts-grid");
+      if (element) {
+        const elementPosition = element.getBoundingClientRect().top + window.scrollY;
+        const offsetPosition = elementPosition - 800; // 120px offset from top
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: "smooth"
+        });
+      }
+    }, 0);
+  }, [filters, sortBy]);
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className="min-h-screen" style={{ fontFamily: "Inter, system-ui, sans-serif" }}>
 
       {/* STICKY BREADCRUMB */}
-      <div className="bg-white border-b border-zinc-100 sticky top-0 z-40">
+      <div className="bg-white border-b border-zinc-100 sticky top-0 z-40" id="tagProducts-top">
         <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-3 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <button onClick={() => navigate(-1)} className="p-1 text-zinc-500 hover:text-zinc-900">
@@ -432,7 +447,7 @@ const TagProducts = (props) => {
 
       {/* HERO */}
       {/* HERO */}
-      <section className="relative h-[40vh] md:h-[50vh] flex items-end overflow-hidden">
+      <section  className="relative h-[40vh] md:h-[50vh] flex items-end overflow-hidden">
         {/* BACKGROUND IMAGE - DIFFERENT FOR EACH TAG */}
         <div className="absolute inset-0">
           {normalizedTag === "on-sale" && (
@@ -468,12 +483,16 @@ const TagProducts = (props) => {
                 {meta.subtitle}
               </p>
             </div>
-            {!isLoading && (
-              <div className="hidden md:flex flex-col items-end flex-shrink-0">
-                <span className="text-5xl font-black text-white leading-none">{pagination?.total || 0}</span>
-                <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-gray-300 mt-1">Products</span>
-              </div>
-            )}
+           {!isLoading && (
+  <div className="hidden md:flex flex-col items-center flex-shrink-0">
+    <span className="text-5xl font-black text-white leading-none">
+      {pagination?.total || 0}
+    </span>
+    <span className="text-[11px] text-center font-bold uppercase tracking-[0.2em] text-gray-300 mt-1">
+      Products
+    </span>
+  </div>
+)}
           </div>
         </div>
       </section>
@@ -505,7 +524,7 @@ const TagProducts = (props) => {
         </aside>
 
         {/* PRODUCT GRID */}
-        <div className="flex-grow">
+        <div className="flex-grow" id="tagProducts-grid">
           {/* Toolbar */}
           <div className="flex items-center justify-between mb-10">
             <div className="flex items-center gap-4">
@@ -568,7 +587,7 @@ const TagProducts = (props) => {
             {/* MAIN GRID */}
             {!isLoading && !hasError && sortedProducts.length > 0 && (
               <div className="animate-in fade-in duration-700">
-                <VirtualizedProductGrid products={sortedProducts} loadingMore={loadingMore} />
+                <VirtualizedProductGrid products={sortedProducts} loadingMore={loadingMore} key={normalizedTag} />
 
                 {/* LOAD MORE */}
                 <div className="mt-20 text-center">

@@ -43,6 +43,8 @@ const getColumnCount = () => {
   return 2;                // grid-cols-2 (2 cards on mobile)
 };
 
+
+
 const LOAD_MORE_SKELETON_COUNT = 25;
 
 const getProductPrimaryVariant = (product) => product?.variants?.[0] ?? null;
@@ -183,7 +185,7 @@ const CatProducts = () => {
   // console.log(sortBy);
 
   // values: default | priceLowHigh | priceHighLow | newest | discount
-
+  // ← ADD THESE
   // ── Filters state ──────────────────────────────────────────────────────────
   const [filters, setFilters] = useState({
     price: [],   // "u1000" | "1000-5000" | "5000-15000" | "o15000"
@@ -192,6 +194,10 @@ const CatProducts = () => {
     onSale: false,
     todayDeal: false,  // Changed from todayArrival to todayDeal as requested
   });
+
+  useEffect(() => {
+  window.scrollTo({ top: 0, behavior: 'instant' });
+}, [filters.onSale, filters.todayDeal]);
   const [isSortOpen, setIsSortOpen] = useState(false);
   const toggleFilter = useCallback((key, value) => {
     setFilters((prev) => {
@@ -673,7 +679,7 @@ const CatProducts = () => {
                   <span className="w-6 h-[2px] shrink-0 bg-[#F7A221] inline-block" />
                   Collection
                 </p>
-                <h1 className="text-5xl md:text-6xl text-gray-900 leading-none tracking-tight">
+                <h1 className="text-4xl md:text-5xl text-gray-900 ">
                   <span className="inline-block w-fit max-w-full rounded-lg bg-zinc-200/95 px-3 py-1.5 shadow-sm">
                     {categoryName}
                   </span>
@@ -685,15 +691,15 @@ const CatProducts = () => {
                 )}
               </div>
               {!isLoading && (
-                <div className="hidden md:flex flex-col items-end flex-shrink-0 rounded-xl bg-zinc-200/95 px-3  py-2 shadow-sm">
-                  <span className="text-5xl font-black text-zinc-900 leading-none">
-                    {pagination?.total || 0}
-                  </span>
-                  <span className="text-[11px] text-center font-bold uppercase tracking-[0.2em] text-zinc-700 mt-1">
-                    Products
-                  </span>
-                </div>
-              )}
+  <div className="hidden md:flex flex-col items-center flex-shrink-0 rounded-xl bg-zinc-200/95 px-3 py-2 shadow-sm">
+    <span className="text-5xl font-black text-zinc-900 leading-none">
+      {pagination?.total || 0}
+    </span>
+    <span className="text-[11px] text-center font-bold uppercase tracking-[0.2em] text-zinc-700 mt-1">
+      Products
+    </span>
+  </div>
+)}
             </div>
           </div>
         </section>

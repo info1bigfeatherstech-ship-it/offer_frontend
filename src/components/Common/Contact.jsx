@@ -20,6 +20,14 @@ const Particles = () => {
     dur: 4 + Math.random() * 5,
   }));
 
+
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'instant'
+    });
+  }, []);
+
   return (
     <div className="absolute inset-0 overflow-hidden pointer-events-none">
       {dots.map((d) => (

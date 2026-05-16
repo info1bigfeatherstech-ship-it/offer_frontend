@@ -886,6 +886,8 @@ const Checkout = () => {
   const codSavingsPrefetchKeyRef = useRef(null);
   const gatewayDismissRecoveryInFlight = useRef(false);
   const gatewayDismissHandlerRef = useRef(async () => {});
+  const lastKnownOnlineAmountRef = useRef(null);
+  const [onlineFullDisplayAmount, setOnlineFullDisplayAmount] = useState(null);
 
   // Derived
   const allAddresses = [...(defaultAddr ? [defaultAddr] : []), ...otherAddrs];
@@ -908,14 +910,14 @@ const Checkout = () => {
     const total = quote?.amountPayable ?? 0;
     if (paymentPlan === "full") return total;
     const pct = policyPartialPercent;
-    if (pct == null) return Math.round(total * 0.25);
-    return Math.round((total * pct) / 100);
+    if (pct == null) return total * 0.25;
+    return (total * pct) / 100;
   };
 
   const advanceAmount = paymentPlan === "full" ? 0 : getPartialPayNowAmount();
   const advancePreviewNow =
     quote?.amountPayable != null && policyPartialPercent != null
-      ? Math.round((quote.amountPayable * policyPartialPercent) / 100)
+      ? (quote.amountPayable * policyPartialPercent) / 100
       : 0;
 
   // -- Scroll to top on mount and step change ---------------------------------
@@ -1124,6 +1126,20 @@ const Checkout = () => {
       loading.quote,
     ]
   );
+
+  useEffect(() => {
+    const isOnlineFullSettled =
+  !loading.quote &&
+  quote?.amountPayable != null &&
+  (paymentMethod === "online" || paymentMethod == null) &&
+  paymentPlan === "full" &&
+  balanceCollection === "online";
+
+    if (isOnlineFullSettled) {
+      lastKnownOnlineAmountRef.current = quote.amountPayable;
+      setOnlineFullDisplayAmount(quote.amountPayable);
+    }
+  }, [quote, loading.quote, paymentMethod, paymentPlan, balanceCollection]);
 
   useEffect(() => {
     if (step !== 3 || !checkoutPolicy) return;
@@ -1567,6 +1583,12 @@ const Checkout = () => {
     setShowPrepaidSavingsPopup(false);
   };
 
+  const isOnlineFullQuoteLoading =
+    loading.quote &&
+    paymentMethod === "online" &&
+    paymentPlan === "full" &&
+    balanceCollection === "online";
+
   // -- Derived button state ---------------------------------------------------
   const isPlaceOrderDisabled =
     !quote ||
@@ -1974,7 +1996,9 @@ const Checkout = () => {
                         ) : null}
                         {(showCodOption || partialPlanEnabled) && (
                           <p className="text-[11px] opacity-80 mt-1.5 w-full text-left">
-                            Pay Only {fmt(quote?.amountPayable)} UPI, cards, net banking
+                            {isOnlineFullQuoteLoading || onlineFullDisplayAmount == null
+                              ? "Calculating..."
+                              : `${showCodOption ? 'Pay Only' : 'Pay'} ${fmt(onlineFullDisplayAmount)} UPI, cards, net banking`}
                           </p>
                         )}
                       </div>
@@ -2283,7 +2307,7 @@ const Checkout = () => {
                     Place Order {" "}
                     {paymentMethod === "online" && paymentPlan !== "full"
                       ? fmt(getPartialPayNowAmount())
-                      : fmt(quote?.amountPayable)}
+                      : fmt(onlineFullPayableRef.current ?? quote?.amountPayable)}
                   </>
                 )}
               </button>
@@ -2334,7 +2358,7 @@ const Checkout = () => {
 
       {/* -- Payment verification overlay -- */}
       {(paymentVerification.loading || razorpayPaymentState === PAYMENT_STATE.SUCCESS) && (
-        <PaymentLoadingModal message="Verifying your payment please wait" />
+        <PaymentLoadingModal message="Verifying your payment… please wait" />
       )}
 
       {showPrepaidSavingsPopup && codVsOnlineSavings > 0 && (

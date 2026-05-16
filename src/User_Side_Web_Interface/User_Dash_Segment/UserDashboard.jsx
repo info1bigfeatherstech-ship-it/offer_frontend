@@ -90,7 +90,7 @@ const UserDashboard = () => {
                                     {user?.name || 'Guest User'}
                                 </h2>
                                 <p className="text-[10px] text-gray-400 font-black uppercase tracking-widest mt-1">
-                                    {user?.role === 'admin' ? 'Administrator' : 'Premium Member'}
+                                    {user?.role === 'admin' ? 'Administrator' : ''}
                                 </p>
                             </div>
                         </div>

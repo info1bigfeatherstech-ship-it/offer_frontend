@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   Smartphone,
   Home,
@@ -143,6 +144,13 @@ const values = [
 ];
 
 export default function AboutUs() {
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'instant'
+    });
+  }, []);
+
   return (
     <div className="min-h-screen bg-white overflow-hidden font-sans page-transition-about" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`

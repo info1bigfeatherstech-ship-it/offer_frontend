@@ -537,7 +537,7 @@ const RazorpayCheckout = forwardRef(({
  
     initPayment();
  
-    return () => {
+       return () => {
       razorpayInitialized.current = false;
       // Only close if payment was NOT completed
       if (
@@ -547,6 +547,13 @@ const RazorpayCheckout = forwardRef(({
       ) {
         try { razorpayInstance.current.close(); } catch (e) { /* ignore */ }
       }
+      // Clean up Razorpay DOM artifacts
+      const rzpContainer = document.querySelector(".razorpay-container");
+      if (rzpContainer) rzpContainer.remove();
+      const rzpBackdrop = document.querySelector(".razorpay-backdrop");
+      if (rzpBackdrop) rzpBackdrop.remove();
+      // Restore body scroll
+      document.body.style.overflow = "auto";
       razorpayInstance.current = null;
     };
   }, []); // Run once — options captured via refs
