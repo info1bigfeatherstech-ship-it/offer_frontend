@@ -1141,13 +1141,25 @@ const Checkout = () => {
 
   useEffect(() => {
     if (!checkoutPolicy) return;
-    if (!checkoutPolicy.codEnabled && (paymentMethod === "cod" || balanceCollection === "cod")) {
+
+    if (!checkoutPolicy.codEnabled && paymentMethod === "cod") {
+      dispatch(setPaymentMethod("online"));
+      dispatch(setPaymentPlan("full"));
+      dispatch(setBalanceCollection("online"));
+      requestQuote({ paymentHint: "online", plan: "full", balance: "online" });
+      return;
+    }
+
+    if (
+      !checkoutPolicy.partialPaymentEnabled &&
+      (paymentPlan === "advance" || balanceCollection === "cod")
+    ) {
       dispatch(setPaymentMethod("online"));
       dispatch(setPaymentPlan("full"));
       dispatch(setBalanceCollection("online"));
       requestQuote({ paymentHint: "online", plan: "full", balance: "online" });
     }
-  }, [checkoutPolicy, paymentMethod, balanceCollection, dispatch, requestQuote]);
+  }, [checkoutPolicy, paymentMethod, paymentPlan, balanceCollection, dispatch, requestQuote]);
 
   // RazorpayCheckout mounts with a stale `onClose` if we pass an inline async handler; keep latest logic in a ref.
   useEffect(() => {
