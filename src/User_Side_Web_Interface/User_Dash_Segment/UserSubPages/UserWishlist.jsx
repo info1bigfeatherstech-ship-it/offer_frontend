@@ -71,7 +71,12 @@ const UserWishlist = () => {
 const products = items
   .map((item) => item?.product)   // directly product object lo
   .filter(Boolean);               // null/undefined hata do
-    
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'instant'
+    });
+  }, []);
 
   return (
     <div className="space-y-8">

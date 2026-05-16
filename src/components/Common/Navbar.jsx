@@ -326,7 +326,8 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
   const accountTriggerMobileRef = useRef(null);
   const accountTriggerDesktopRef = useRef(null);
-  const accountDropdownRef = useRef(null);
+  const accountDropdownMobileRef = useRef(null);
+  const accountDropdownDesktopRef = useRef(null);
   const wishlistCount = useSelector(selectWishlistCount);
   const guestItems = useSelector(selectWishlistGuestItems);
   const cartCount = useSelector(selectDisplayCartCount);
@@ -363,17 +364,17 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
       const inTrigger =
         accountTriggerMobileRef.current?.contains(target) ||
         accountTriggerDesktopRef.current?.contains(target);
-      const inDropdown = accountDropdownRef.current?.contains(target);
+      const inDropdown =
+        accountDropdownMobileRef.current?.contains(target) ||
+        accountDropdownDesktopRef.current?.contains(target);
       if (!inTrigger && !inDropdown) {
         setIsAccountDropdownOpen(false);
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
-    document.addEventListener('touchstart', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
-      document.removeEventListener('touchstart', handleClickOutside);
     };
   }, [isAccountDropdownOpen]);
 
@@ -590,7 +591,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                     user={user}
                     onLogout={handleLogout}
                     onClose={() => setIsAccountDropdownOpen(false)}
-                    dropdownRef={accountDropdownRef}
+                    dropdownRef={accountDropdownMobileRef}
                   />
                 )}
               </div>
@@ -649,7 +650,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                   user={user}
                   onLogout={handleLogout}
                   onClose={() => setIsAccountDropdownOpen(false)}
-                  dropdownRef={accountDropdownRef}
+                  dropdownRef={accountDropdownDesktopRef}
                 />
               )}
             </div>

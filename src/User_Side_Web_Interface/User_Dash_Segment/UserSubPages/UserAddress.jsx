@@ -138,7 +138,12 @@ const AreaDropdown = ({ value, onChange, options = [], required, onAddCustom, sa
   const [open, setOpen] = useState(false);
   const [showCustomModal, setShowCustomModal] = useState(false);
   const ref = useRef(null);
-
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'instant'
+    });
+  }, []);
   // Merge API options with saved custom areas (deduplicate)
   const allOptions = [...new Set([...options, ...savedCustomAreas])];
 

@@ -76,6 +76,13 @@ const UserProfile = () => {
     }
   }, [user]);
 
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'instant'
+    });
+  }, []);
+
   // ── Track dirty state ─────────────────────────────────────────────────────
   const handleNameChange  = (v) => { setName(v);  setIsDirty(true); setSaveSuccess(false); setSaveError(null); };
   const handlePhoneChange = (v) => { setPhone(v); setIsDirty(true); setSaveSuccess(false); setSaveError(null); };

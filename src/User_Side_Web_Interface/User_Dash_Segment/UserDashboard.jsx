@@ -69,6 +69,12 @@ const UserDashboard = () => {
         return name.split(' ').map((n) => n[0]).join('').toUpperCase().slice(0, 2);
     };
 
+    useEffect(() => {
+        window.scrollTo({
+          top: 0,
+          behavior: 'instant'
+        });
+      }, []);
     const handleLogout = () => {
         dispatch(logoutUser());
         navigate('/');
