@@ -200,7 +200,7 @@ export default function ContactUs() {
                   <InfoRow icon={Phone} label="Call us" value="+91 93706 86008" href="tel:+919370686008" />
                   <InfoRow icon={Mail} label="Email" value="support.offerwalebaba@gmail.com" href="mailto:support.offerwalebaba@gmail.com" />
                   <InfoRow icon={Globe} label="Website" value="www.offerwalebaba.com" href="https://offerwalebaba.com/" />
-                  <InfoRow icon={MapPin} label="Address" value="Sambhaji Chowk, Opp. Tipcy-Topcy Society, Babasai Nagar, Ulhasnagar, Mumbai - 421004, Maharastra, India" href="https://maps.google.com/?q=Ulhasnagar,Maharashtra" />
+                  <InfoRow icon={MapPin} label="Address" value="Sambhaji Chowk, Opp. Tipcy-Topcy Society, Babasai Nagar, Ulhasnagar, Mumbai - 421004, Maharashtra, India" href="https://maps.google.com/?q=Ulhasnagar,Maharashtra" />
                   <InfoRow icon={Clock} label="Hours" value="Tue–Sun, 1 PM – 10 PM" />
                 </div>
 

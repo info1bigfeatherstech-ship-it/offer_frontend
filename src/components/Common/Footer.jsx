@@ -298,7 +298,7 @@ const Footer = () => {
                   Location
                 </p>
                 <p className="text-white text-base md:text-lg leading-relaxed group-hover/link:underline">
-                Sambhaji Chowk, Opp. Tipcy-Topcy Society, Babasai Nagar, Ulhasnagar, Mumbai - 421004, Maharastra, India"
+                Sambhaji Chowk, Opp. Tipcy-Topcy Society, Babasai Nagar, Ulhasnagar, Mumbai - 421004, Maharashtra, India
                 </p>
               </a>
 

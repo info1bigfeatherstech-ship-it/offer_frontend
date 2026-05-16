@@ -676,7 +676,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
             <div className="flex items-center justify-between lg:gap-3 xl:gap-6 2xl:gap-8 py-2">
 
               {/* ══ LOGO SPACER (aligns the row with top header) ══════════════ */}
-              <div className="w-[130px] xl:w-[160px] 2xl:w-[175px] shrink-0" aria-hidden="true" />
+              <div className="w-[110px] xl:w-[140px] 2xl:w-[175px] shrink-0" aria-hidden="true" />
 
               {/* ══ LEFT ZONE: Home + All Categories (under address box) ═════ */}
               <div className="flex items-center gap-1 xl:gap-2 shrink-0 min-w-0">
