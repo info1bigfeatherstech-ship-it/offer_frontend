@@ -54,6 +54,13 @@ const UserTicket = () => {
     }
   };
 
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'instant'
+    });
+  }, []);
+
   return (
     <div className="flex flex-wrap justify-center gap-6 p-6">
       {supportCategories.map((item, idx) => (

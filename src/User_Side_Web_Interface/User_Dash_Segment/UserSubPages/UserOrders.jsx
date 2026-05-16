@@ -280,7 +280,12 @@ const OrderDetail = ({ orderId, onBack, onCancel, isCancelling, cancelError }) =
     setShowRazorpay(false);
     setRazorpayBundle(null);
   }, []);
-
+  useEffect(() => {
+    window.scrollTo({
+      top: 0,
+      behavior: 'instant'
+    });
+  }, []);
   /** Verify / Razorpay client failures — initiate errors stay inline only */
   const modalError = paymentVerification.error || razorpayClientError || null;
 
