@@ -1,7 +1,7 @@
 ﻿import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { toast } from "react-toastify";
+import { toast } from "react-toastify";//karan
 import {
   Loader2, MapPin, CreditCard, Truck, CheckCircle2, Check,
   Package, AlertCircle, ArrowLeft, ShoppingBag,
@@ -896,11 +896,13 @@ const Checkout = () => {
   const showCodOption = checkoutPolicy?.codEnabled !== false;
 
   const checkoutMode =
-    paymentMethod === "cod"
-      ? "cod"
-      : paymentPlan === "advance" && balanceCollection === "cod"
-        ? "advance_cod"
-        : "online_full";
+    paymentMethod == null
+      ? null
+      : paymentMethod === "cod"
+        ? "cod"
+        : paymentPlan === "advance" && balanceCollection === "cod"
+          ? "advance_cod"
+          : "online_full";
 
   const getPartialPayNowAmount = () => {
     const total = quote?.amountPayable ?? 0;
@@ -944,8 +946,10 @@ const Checkout = () => {
   }, [checkoutMode, quote?.amountPayable, loading.quote]);
 
   useEffect(() => {
-    if (step !== 3 || checkoutMode !== "online_full" || loading.quote) return;
+    if (step !== 3 || loading.quote) return;
+    if (checkoutMode === "cod") return;
     if (!selectedAddressId) return;
+    if (!showCodOption) return;
 
     const onlinePayable = Number(quote?.amountPayable);
     if (!Number.isFinite(onlinePayable) || onlinePayable < 0) return;
@@ -988,6 +992,7 @@ const Checkout = () => {
     quote?.amountPayable,
     couponCode,
     isCouponManuallyApplied,
+    showCodOption,
   ]);
 
   useEffect(() => {
@@ -1033,24 +1038,6 @@ const Checkout = () => {
       dispatch(setBalanceCollection("online"));
     }
   }, [checkoutPolicy, paymentPlan, balanceCollection, dispatch]);
-
-  useEffect(() => {
-    if (!checkoutPolicy) return;
-    if (!checkoutPolicy.codEnabled && (paymentMethod === "cod" || balanceCollection === "cod")) {
-      dispatch(setPaymentMethod("online"));
-      dispatch(setPaymentPlan("full"));
-      dispatch(setBalanceCollection("online"));
-    }
-  }, [checkoutPolicy, paymentMethod, balanceCollection, dispatch]);
-
-  useEffect(() => {
-    if (step !== 3 || !checkoutPolicy) return;
-    if (paymentMethod == null) {
-      dispatch(setPaymentMethod("online"));
-      dispatch(setPaymentPlan("full"));
-      dispatch(setBalanceCollection("online"));
-    }
-  }, [step, checkoutPolicy, paymentMethod, dispatch]);
 
   // -- Fetch Razorpay key when online selected --------------------------------
   useEffect(() => {
@@ -1138,6 +1125,30 @@ const Checkout = () => {
     ]
   );
 
+  useEffect(() => {
+    if (step !== 3 || !checkoutPolicy) return;
+
+    const onlyOnlineAvailable =
+      !checkoutPolicy.codEnabled && !checkoutPolicy.partialPaymentEnabled;
+
+    if (onlyOnlineAvailable && paymentMethod == null) {
+      dispatch(setPaymentMethod("online"));
+      dispatch(setPaymentPlan("full"));
+      dispatch(setBalanceCollection("online"));
+      requestQuote({ paymentHint: "online", plan: "full", balance: "online" });
+    }
+  }, [step, checkoutPolicy, paymentMethod, dispatch, requestQuote]);
+
+  useEffect(() => {
+    if (!checkoutPolicy) return;
+    if (!checkoutPolicy.codEnabled && (paymentMethod === "cod" || balanceCollection === "cod")) {
+      dispatch(setPaymentMethod("online"));
+      dispatch(setPaymentPlan("full"));
+      dispatch(setBalanceCollection("online"));
+      requestQuote({ paymentHint: "online", plan: "full", balance: "online" });
+    }
+  }, [checkoutPolicy, paymentMethod, balanceCollection, dispatch, requestQuote]);
+
   // RazorpayCheckout mounts with a stale `onClose` if we pass an inline async handler; keep latest logic in a ref.
   useEffect(() => {
     gatewayDismissHandlerRef.current = async () => {
@@ -1213,7 +1224,9 @@ const Checkout = () => {
         dispatch(clearPlacedOrderForDismissedGateway());
         setRazorpayPaymentState(PAYMENT_STATE.IDLE);
         toast.success(
-          "Payment window closed. Your bag was restored  pick COD, full pay, or partial, then confirm.",
+          showCodOption
+            ? "Payment window closed. Your bag was restored — pick COD, full pay, or partial, then confirm."
+            : "Payment window closed. Your bag was restored — click Place Order to try again.",
           { theme: "dark", autoClose: 5000 }
         );
       } finally {
@@ -1260,14 +1273,15 @@ const Checkout = () => {
     requestQuote({ paymentHint: hint, plan, balance });
   };
 
-  const handleStep2Next = () => {
-    if (loading.quote) return;
-    if (!quote) {
-      toast.error("Please wait for order totals to load", { theme: "dark" });
-      return;
-    }
-    setStep(3);
-  };
+  const handleStep2Next = async () => {
+  if (loading.quote) return;
+  if (!quote) {
+    toast.error("Please wait for order totals to load", { theme: "dark" });
+    return;
+  }
+  await requestQuote({ paymentHint: "online", plan: "full", balance: "online", unwrap: true });
+  setStep(3);
+};
 
   const selectCheckoutPaymentMode = (mode) => {
     checkoutAttemptKeyRef.current = null;
@@ -1846,19 +1860,37 @@ const Checkout = () => {
                   3
                 </div>
                 <h2 className="font-black text-base" style={{ color: "#111" }}>
-                  Payment Method
+                  {showCodOption || partialPlanEnabled ? "Payment Method" : "Payment"}
                 </h2>
               </div>
 
-              <p className="font-black uppercase"
-                style={{ fontSize: 10, color: "#9ca3af", letterSpacing: "0.06em" }}>
-                Choose How to Pay
-              </p>
+              {showCodOption || partialPlanEnabled ? (
+                <p className="font-black uppercase"
+                  style={{ fontSize: 10, color: "#9ca3af", letterSpacing: "0.06em" }}>
+                  Choose How to Pay
+                </p>
+              ) : (
+                <p style={{ fontSize: 13, color: "#6b7280" }}>
+  Pay{' '}
+  <span 
+    style={{ 
+      marginRight: '5px',
+      fontSize: '16px',        // Increased size
+      fontWeight: 'bold',      // Makes it darker and bolder
+      color: '#1a1a1a'         // Darker color (almost black)
+    }}
+  >
+    {fmt(quote?.amountPayable).replace('₹','₹ ')}
+  </span>
+  Via UPI, Cards, Net Banking
+</p>
+                   )}
 
               {checkoutPolicyLoading && !checkoutPolicy ? (
                 <p className="text-[11px] text-gray-400 font-medium py-2">Loading payment options</p>
               ) : (
                 <div className="space-y-3">
+                  {(showCodOption || partialPlanEnabled) && (
                   <button
                     type="button"
                     onClick={() => selectCheckoutPaymentMode("online_full")}
@@ -1907,9 +1939,9 @@ const Checkout = () => {
                             lineHeight: 1.25,
                           }}
                         >
-                          Pay Online Full Amount
+                          {showCodOption || partialPlanEnabled ? "Pay Online Full Amount" : "Pay"}
                         </p>
-                        {codVsOnlineSavings > 0 ? (
+                        {codVsOnlineSavings > 0 && showCodOption ? (
                         <div className="flex justify-start w-full mt-1.5">
                           <span
                             className="pay-online-discount-badge font-black shrink-0 whitespace-nowrap"
@@ -1928,12 +1960,15 @@ const Checkout = () => {
                           </span>
                         </div>
                         ) : null}
-                        <p className="text-[11px] opacity-80 mt-1.5 w-full text-left">
-                          Pay Only  {fmt(quote?.amountPayable)} UPI, cards, net banking
-                        </p>
+                        {(showCodOption || partialPlanEnabled) && (
+                          <p className="text-[11px] opacity-80 mt-1.5 w-full text-left">
+                            Pay Only {fmt(quote?.amountPayable)} UPI, cards, net banking
+                          </p>
+                        )}
                       </div>
                     </div>
                   </button>
+                  )}
 
                   {partialPlanEnabled && policyPartialPercent != null && (
                     <button
@@ -2060,7 +2095,7 @@ const Checkout = () => {
                               opacity: 0.85,
                               fontSize: 11,
                               marginTop: 1,
-                              color: checkoutMode === "cod" ? "rgba(247,162,33,0.65)" : "black",
+                              color: checkoutMode === "cod" ? "white" : "black",
                             }}
                           >
                             Pay the full order Amount  when your order arrives
