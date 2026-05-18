@@ -68,7 +68,7 @@ const Homepage = ({ onOpenAuth }) => {
 
   return (
     <>
-      <div className="px-4 md:px-8 pt-6">
+      <div id="hero-section" className="px-4 md:px-8 pt-6">
         <HeroSlider />
       </div>
 

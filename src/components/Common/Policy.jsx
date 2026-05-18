@@ -8,7 +8,7 @@ const policiesData = [
     "title": "Return & Refund",
     "subtitle": "Shop with confidence at OfferWaaleBaba. If you receive a damaged or wrong item, here's how we make it right.",
     "tag": "Customer Care",
-    "updated": "May 8, 2026",
+    "": "",
     "sections": [
       {
         "heading": "Eligible Return Reasons",
@@ -41,7 +41,7 @@ const policiesData = [
     "title": "Order Cancellation",
     "subtitle": "Plans change — we understand. Here's everything you need to know about cancelling an order on OfferWaaleBaba.",
     "tag": "Orders",
-    "updated": "May 8, 2026",
+    "updated": "",
     "sections": [
       {
         "heading": "1) When You Can Cancel an Order",
@@ -89,7 +89,7 @@ const policiesData = [
       },
       {
         "heading": "12) Policy Changes",
-        "content": "OfferWaaleBaba may update this policy at any time for operational reasons. Updated policy becomes effective once published on the website with revised date."
+        "content": "OfferWaaleBaba may update this policy at any time for operational reasons."
       }
     ]
   },
@@ -98,7 +98,7 @@ const policiesData = [
     "title": "Terms & Conditions",
     "subtitle": "By using OfferWaaleBaba, you agree to these terms. Please read them carefully before making a purchase.",
     "tag": "terms",
-    "updated": "May 8, 2026",
+    "updated": "",
     "sections": [
       {
         "heading": "1) Eligibility and Account",
@@ -158,7 +158,7 @@ const policiesData = [
     "title": "Privacy Policy",
     "subtitle": "Your privacy and trust matter to us. This policy explains how we collect, use, and protect your information.",
     "tag": "Data & Privacy",
-    "updated": "May 8, 2026",
+    "updated": "",
     "sections": [
       {
         "heading": "Information We Collect",
@@ -470,9 +470,9 @@ export default function PolicyPage() {
               {policy.title}
             </h1>
           </div>
-          <p className="text-[#C8973A]/55 text-sm tracking-widest uppercase font-medium animate-hero-date">
+          {/* <p className="text-[#C8973A]/55 text-sm tracking-widest uppercase font-medium animate-hero-date">
             Effective {policy.updated}
-          </p>
+          </p> */}
         </div>
 
         <div className="relative" style={{ marginBottom: "-2px" }}>
@@ -579,7 +579,7 @@ export default function PolicyPage() {
                     <span className="transition-transform duration-300 group-hover:translate-x-1">→</span>
                   </Link>
                   <Link
-                    to="/"
+                    to="/#hero-section"
                     className="inline-flex items-center justify-center rounded-full border border-white/10 bg-white/[0.03] px-8 py-4 text-sm font-bold text-white transition-all duration-300 hover:border-orange-400/30 hover:bg-white/[0.06]"
                   >
                     Back To Home

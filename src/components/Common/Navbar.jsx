@@ -454,10 +454,10 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
             (phone + email + full delivery text). Hidden on phones. ──────── */}
       <div className="bg-black text-white py-2 lg:py-3 px-4 hidden md:block border-b border-white/10">
         <div className="container mx-auto flex justify-between items-center text-[10px] lg:text-[11px] font-bold uppercase tracking-wider">
-          <div className="flex items-center gap-4 lg:gap-8">
-            <span className="flex items-center gap-2 hover:text-[#F7A221] cursor-pointer transition-colors group">
-              <Phone size={12} className="text-[#F7A221] group-hover:animate-shake" /> +91 93706 86008
-            </span>
+          <div className="flex items-center gap-4 lg:gap-8 z-99">
+            <a href="tel:+919370686008"  className="flex items-center gap-2 hover:text-[#F7A221] cursor-pointer transition- group">
+              <Phone size={12} className="text-[#F7A221] group-hover:animate-" />  +91 93706 86008
+            </a>
             <a
               href="mailto:support.offerwalebaba@gmail.com"
               className="hidden lg:flex items-center gap-2 hover:text-[#F7A221] cursor-pointer transition-colors group"
@@ -860,7 +860,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                       <HeadphonesIcon size={10} /> Need Help?
                     </p>
                     <div className="flex flex-col gap-1">
-                      <p className="text-sm font-black">+91 93706 86008</p>
+                      <a  href="tel:+919370686008" className="text-sm font-black">+91 93706 86008</a>
                       <a href="mailto:support.offerwalebaba@gmail.com" className="text-[11px] opacity-80">
                         support.offerwalebaba@gmail.com
                       </a>

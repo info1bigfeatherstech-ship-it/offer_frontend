@@ -4,7 +4,7 @@ export const searchApi = createApi({
   reducerPath: 'searchApi',
   baseQuery: fetchBaseQuery({
     // baseUrl: import.meta.env.VITE_API_URL || 'https://offerwalebaba.onrender.com/api',
-    baseUrl: import.meta.env.VITE_BACKEND_BASE_URL || "https://offerwalebaba.onrender.com/api",
+    baseUrl: import.meta.env.VITE_BACKEND_BASE_URL || "https://api.offerwalebaba.com/api",
     prepareHeaders: (headers, { getState }) => {
       const token = getState()?.auth?.token;
       if (token) {

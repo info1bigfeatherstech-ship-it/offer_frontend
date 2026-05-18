@@ -16,7 +16,7 @@ const ToastConfig = () => {
   return (
     <ToastContainer
       position="top-right"
-      autoClose={3000}
+      autoClose={200}  // 0.2 seconds = 200 milliseconds
       hideProgressBar={false}
       newestOnTop
       closeOnClick={false}
@@ -32,7 +32,7 @@ const ToastConfig = () => {
       toastClassName={() =>
         "relative flex items-center p-4 mb-4 bg-black border border-white/10 rounded-[12px] shadow-[20px_20px_60px_rgba(0,0,0,0.9)] overflow-hidden"
       }
-      bodyClassName={() => 
+      bodyClassName={() =>
         "flex-1 text-[13px] font-black uppercase tracking-tighter text-white m-0 p-0 pl-3 leading-none"
       }
       progressClassName="!bg-[#F7A221] !h-[4px] !opacity-100"
