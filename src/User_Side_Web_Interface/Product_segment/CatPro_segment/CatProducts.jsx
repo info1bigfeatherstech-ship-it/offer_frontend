@@ -51,9 +51,13 @@ const getProductPrimaryVariant = (product) => product?.variants?.[0] ?? null;
 
 const getProductPayPrice = (product) => {
   const variant = getProductPrimaryVariant(product);
-  const base = Number(variant?.price?.base) || 0;
-  const sale = Number(variant?.price?.sale);
-  return Number.isFinite(sale) ? sale : base;
+  if (!variant) return 0;
+  const { base, sale, isSaleActive } = variant.price ?? {};
+  const baseNum = Number(base) || 0;
+  const saleNum = Number(sale);
+  // Use sale price if sale is active and sale price is a valid finite number
+  if (isSaleActive && Number.isFinite(saleNum)) return saleNum;
+  return baseNum;
 };
 
 const getProductListPrice = (product) => {
@@ -278,19 +282,20 @@ const CatProducts = () => {
 
     return products.filter((product) => {
       const variant = getProductPrimaryVariant(product);
-      const base = getProductListPrice(product);
       const qty = variant?.inventory?.quantity ?? 0;
       const discount = getProductDiscountPct(product);
       const isOnSale = isProductOnSale(product);
       const isTodayDeal = isProductTodayDeal(product);
 
       // ✅ PRICE (multi-select)
+      // Use effective price: sale price if isSaleActive, otherwise base price
       if (filters.price.length > 0) {
+        const effectivePrice = getProductPayPrice(product);
         const priceMatch = filters.price.some((p) => {
-          if (p === "u29") return base < 29;
-          if (p === "29-49") return base >= 29 && base <= 49;
-          if (p === "49-79") return base >= 49 && base <= 79;
-          if (p === "o99") return base >= 99;
+          if (p === "u29") return effectivePrice < 29;
+          if (p === "29-49") return effectivePrice >= 29 && effectivePrice <= 49;
+          if (p === "49-79") return effectivePrice >= 49 && effectivePrice <= 79;
+          if (p === "o99") return effectivePrice >= 99;
           return false;
         });
 
@@ -881,25 +886,39 @@ const CatProducts = () => {
                   </div>
                 </div>
               )}
+        {!isLoading && !hasError && products.length === 0 && (
+  <>
+    {/* If no products at all */}
+    <div className="py-32 flex flex-col items-center text-center animate-in fade-in">
+      <h2 className="text-xl font-semibold text-zinc-700 mb-2">
+        Coming Soon
+      </h2>
+      <p className="text-zinc-400 text-xs uppercase tracking-widest">
+        We're updating this category
+      </p>
+    </div>
+  </>
+)}
 
-              {/* EMPTY */}
-              {!isLoading && !hasError && sortedProducts.length === 0 && products.length > 0 && (
-                <div className="py-32 flex flex-col items-center text-center animate-in fade-in">
-                  <h2 className="text-xl font-semibold text-zinc-700 mb-2">
-                    No products found
-                  </h2>
-
-                  <p className="text-zinc-400 text-xs uppercase tracking-widest mb-6">
-                    Try different filters
-                  </p>
-
-                  <button                    onClick={clearFilters}
-                    className="px-6 py-2 text-xs font-semibold uppercase tracking-wider border border-zinc-300 rounded-full hover:bg-black hover:text-white transition"
-                  >
-                    Reset Filters
-                  </button>
-                </div>
-              )}
+{!isLoading && !hasError && products.length > 0 && filteredProducts.length === 0 && (
+  <>
+    {/* If products exist but filters show nothing */}
+    <div className="py-32 flex flex-col items-center text-center animate-in fade-in">
+      <h2 className="text-xl font-semibold text-zinc-700 mb-2">
+        No products found
+      </h2>
+      <p className="text-zinc-400 text-xs uppercase tracking-widest mb-6">
+        Try different filters
+      </p>
+      <button
+        onClick={clearFilters}
+        className="px-6 py-2 text-xs font-semibold uppercase tracking-wider border border-zinc-300 rounded-full hover:bg-black hover:text-white transition"
+      >
+        Reset Filters
+      </button>
+    </div>
+  </>
+)}
             </div>
           </div>
         </div>

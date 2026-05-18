@@ -36,7 +36,9 @@ const Homepage = ({ onOpenAuth }) => {
         ? 'best-sellers'
         : location.hash === '#top-categories'
           ? 'top-categories'
-          : null;
+          : location.hash === '#hero-section'
+            ? 'hero-section'
+            : null;
     if (!anchorId) return;
 
     const scrollHeadingBelowHeader = () => {

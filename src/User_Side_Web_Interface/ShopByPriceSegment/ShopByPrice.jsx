@@ -330,13 +330,13 @@ const ShopByPrice = () => {
         </div>
       </div>
 
-      <div className="w-full h-48 bg-black mt-6 flex items-center justify-center relative overflow-hidden">
+      <div className="w-full h-25 bg-black mt-6 flex items-center justify-center relative overflow-hidden">
         <div className="absolute inset-0 bg-[#F7A221]/10" />
         <div className="text-center relative z-10">
-          <h1 className="text-4xl md:text-5xl font-black text-white uppercase tracking-tight">
+          <h1 className="text-2xl md:text-3xl font-black text-white uppercase tracking-tight">
             Shop By Price
           </h1>
-          <p className="text-white/60 text-sm mt-2 font-medium capitalize">{pageTitle}</p>
+          <p className="text-white text-[25px] mt-2 font-medium capitalize">{pageTitle}</p>
         </div>
       </div>
 
