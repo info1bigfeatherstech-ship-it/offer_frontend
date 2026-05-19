@@ -46,6 +46,13 @@ const ShopByPrice = () => {
   const hasFetched = useRef(false);
   const prevSlug = useRef(null);
 
+    useEffect(() => {
+      window.scrollTo({
+        top: 0,
+        behavior: 'instant'
+      });
+    }, []);
+
   useEffect(() => {
     if (prevSlug.current === slug && hasFetched.current) return;
     prevSlug.current = slug;

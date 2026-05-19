@@ -519,7 +519,7 @@ export default function AboutUs() {
 
               <blockquote className="mt-8 border-l-4 border-amber-400 pl-6 text-lg leading-9 text-gray-600">
                 We started with one goal — to become the most reliable
-                wholesale partner for every business and shopper in India.
+                retail and wholesale shopping across India.
               </blockquote>
             </div>
           </div>
