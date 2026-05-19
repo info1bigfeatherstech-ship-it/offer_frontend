@@ -1,5 +1,5 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
-import axiosInstance from '../../../../SERVICES/axiosInstance';
+import axiosInstance, { AUTH_CONTEXT_ADMIN } from '../../../../SERVICES/axiosInstance';
 
 /**
  * Axios adapter for RTK Query — matches userAnalyticsApi pattern; never use raw axios in components.
@@ -14,6 +14,7 @@ const axiosBaseQuery =
         data,
         params,
         headers: { ...headers },
+        authContext: AUTH_CONTEXT_ADMIN,
       });
       return { data: result.data };
     } catch (axiosError) {
@@ -213,6 +214,29 @@ export const adminOrdersApi = createApi({
       ],
     }),
 
+    getAdminPickupCalendar: builder.query({
+      query: (arg = {}) => ({
+        url: '/orders/admin/fulfillment/pickup-calendar',
+        method: 'GET',
+        params: {
+          ...(arg.daysAhead != null ? { daysAhead: arg.daysAhead } : {}),
+          ...(arg.refresh ? { refresh: '1' } : {}),
+        },
+      }),
+      providesTags: [{ type: 'AdminOrdersSummary', id: 'PICKUP_CALENDAR' }],
+    }),
+
+    adminFulfillmentSyncShiprocket: builder.mutation({
+      query: (orderId) => ({
+        url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/sync-shiprocket`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, orderId) => [
+        { type: 'AdminOrdersList', id: orderId },
+        { type: 'AdminOrderTracking', id: orderId },
+      ],
+    }),
+
     adminFulfillmentSchedulePickup: builder.mutation({
       query: ({ orderId, pickupDate }) => ({
         url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/schedule-pickup`,
@@ -222,6 +246,17 @@ export const adminOrdersApi = createApi({
       invalidatesTags: (result, error, arg) => [
         { type: 'AdminOrdersList', id: arg.orderId },
         { type: 'AdminOrderTracking', id: arg.orderId },
+      ],
+    }),
+
+    adminFulfillmentManifest: builder.mutation({
+      query: (orderId) => ({
+        url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/manifest`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, orderId) => [
+        { type: 'AdminOrdersList', id: orderId },
+        { type: 'AdminOrderTracking', id: orderId },
       ],
     }),
 
@@ -356,7 +391,10 @@ export const {
   useAdminReturnReversePickupRetryMutation,
   useAdminFulfillmentEnsureShipmentMutation,
   useAdminFulfillmentAssignShipMutation,
+  useGetAdminPickupCalendarQuery,
+  useAdminFulfillmentSyncShiprocketMutation,
   useAdminFulfillmentSchedulePickupMutation,
+  useAdminFulfillmentManifestMutation,
   useAdminFulfillmentShippingLabelMutation,
   useAdminFulfillmentCancelShipmentMutation,
   useAdminBulkApprovalConfirmMutation,

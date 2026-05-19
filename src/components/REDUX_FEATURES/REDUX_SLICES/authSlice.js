@@ -1,6 +1,11 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "../../../SERVICES/axiosInstance";
-import { USER_ACCESS_TOKEN_KEY } from "../../../SERVICES/axiosInstance";
+import {
+  AUTH_CONTEXT_USER,
+  USER_ACCESS_TOKEN_KEY,
+  clearAccessTokenSchedule,
+  notifyAccessTokenStored,
+} from "../../../SERVICES/axiosInstance";
 
 /**
  * Choose phone or email for POST /auth/otp-verify-login `identifier`
@@ -57,6 +62,7 @@ export const verifyOTP = createAsyncThunk(
       });
       if (res.data.accessToken) {
         localStorage.setItem(USER_ACCESS_TOKEN_KEY, res.data.accessToken);
+        notifyAccessTokenStored(AUTH_CONTEXT_USER);
       }
       return res.data; // { success, accessToken, user }
     } catch (err) {
@@ -82,6 +88,7 @@ export const loginUser = createAsyncThunk(
       });
       if (res.data.accessToken) {
         localStorage.setItem(USER_ACCESS_TOKEN_KEY, res.data.accessToken);
+        notifyAccessTokenStored(AUTH_CONTEXT_USER);
       }
       return res.data; // { success, accessToken, user }
     } catch (err) {
@@ -100,6 +107,7 @@ export const googleLogin = createAsyncThunk(
       const res = await axiosInstance.post("/auth/google", { idToken });
       if (res.data.accessToken) {
         localStorage.setItem(USER_ACCESS_TOKEN_KEY, res.data.accessToken);
+        notifyAccessTokenStored(AUTH_CONTEXT_USER);
       }
       return res.data;
     } catch (err) {
@@ -117,9 +125,11 @@ export const logoutUser = createAsyncThunk(
     try {
       await axiosInstance.post("/auth/logout", { portal: "ecomm" });
       localStorage.removeItem(USER_ACCESS_TOKEN_KEY);
+      clearAccessTokenSchedule(AUTH_CONTEXT_USER);
       return true;
     } catch (err) {
       localStorage.removeItem(USER_ACCESS_TOKEN_KEY);
+      clearAccessTokenSchedule(AUTH_CONTEXT_USER);
       return rejectWithValue(
         err.response?.data || { message: "Logout failed" }
       );
@@ -213,10 +223,12 @@ export const refreshToken = createAsyncThunk(
       const res = await axiosInstance.post("/auth/refresh", { portal: "ecomm" });
       if (res.data.accessToken) {
         localStorage.setItem(USER_ACCESS_TOKEN_KEY, res.data.accessToken);
+        notifyAccessTokenStored(AUTH_CONTEXT_USER);
       }
       return res.data;
     } catch (err) {
       localStorage.removeItem(USER_ACCESS_TOKEN_KEY);
+      clearAccessTokenSchedule(AUTH_CONTEXT_USER);
       return rejectWithValue(
         err.response?.data || { message: "Session expired. Please login again." }
       );

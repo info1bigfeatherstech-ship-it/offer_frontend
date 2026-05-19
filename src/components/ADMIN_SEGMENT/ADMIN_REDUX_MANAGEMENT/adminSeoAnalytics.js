@@ -1,7 +1,7 @@
 // adminSeoAnalytics.js
 import { createApi } from '@reduxjs/toolkit/query/react';
 import { createSlice } from '@reduxjs/toolkit';
-import axiosInstance from '../../../SERVICES/axiosInstance';
+import axiosInstance, { AUTH_CONTEXT_ADMIN } from '../../../SERVICES/axiosInstance';
 
 // ==================== RTK QUERY SETUP ====================
 
@@ -14,6 +14,7 @@ const axiosBaseQuery = ({ baseUrl } = { baseUrl: '' }) =>
         data,
         params,
         headers: { ...headers },
+        authContext: AUTH_CONTEXT_ADMIN,
       });
       return { data: result.data };
     } catch (axiosError) {

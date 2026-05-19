@@ -75,12 +75,15 @@ export const fetchProductsByCategory = createAsyncThunk(
       });
     }
   },
-  {
-    condition: ({ slug }, { getState }) => {
-      const status = getState().userProducts.categoryStatus[slug];
-      return status !== "loading";
-    },
-  }
+  // REMOVE this entire condition block, or replace it:
+// {
+//   condition: ({ slug, tags = "" }, { getState }) => {
+//     const status = getState().userProducts.categoryStatus[slug];
+//     // Allow re-fetch if tags changed — compare against last fetched tags
+//     // Simplest fix: just allow all fetches, AbortController handles races
+//     return status !== "loading";  // ← this blocks re-fetches, drop it
+//   },
+// }
 );
 // ── fetchProductsByTag ────────────────────────────────────────────────────────
 export const fetchProductsByTag = createAsyncThunk(

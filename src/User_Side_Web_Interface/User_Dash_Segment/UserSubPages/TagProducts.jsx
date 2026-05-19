@@ -26,12 +26,12 @@ import usePaginatedFetch from "../../../components/HOOKS/usePaginatedFetch";
 const TAG_META = {
   "on-sale": {
     title: "On Sale",
-    subtitle: "Best deals, handpicked for you",
+    subtitle: "Best Deals, Handpicked For You",
     accentColor: "#F7A221",
   },
   "today-arrival": {
     title: "Today's Deal",
-    subtitle: "Fresh drops, just in",
+    subtitle: "Fresh Drops, Just In",
     accentColor: "#22C55E",
   },
 };
@@ -40,11 +40,10 @@ const LOAD_MORE_SKELETON_COUNT = 25;
 
 const getColumnCount = () => {
   const w = window.innerWidth;
-  if (w >= 1280) return 4;
+  if (w >= 1280) return 6;  // Changed from 4 to 6
   if (w >= 1024) return 3;
-  return 1;
+  return 2;                 // Changed from 1 to 2 (better mobile experience)
 };
-
 const getProductPrimaryVariant = (product) => product?.variants?.[0] ?? null;
 
 const getProductPayPrice = (product) => {
@@ -148,7 +147,8 @@ const FilterPanel = ({ filters, toggleFilter, clearFilters, activeFilterCount })
       <h4 className="text-[11px] font-bold uppercase tracking-[0.15em] text-zinc-800 mb-4">Discount</h4>
       <div className="space-y-1.5">
         {[
-          { label: "10% or more", val: "10" },
+          { label: "Under 10%", val: "u10" },
+          // { label: "10% or more", val: "10" },
           { label: "25% or more", val: "25" },
           { label: "50% or more", val: "50" },
         ].map(({ label, val }) => (
@@ -234,7 +234,7 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
                 transform: `translateY(${virtualRow.start}px)`,
               }}
             >
-              <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-x-4 gap-y-10 md:gap-x-8 pb-10">
+              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-x-4 gap-y-10 md:gap-x-8 pb-10">
                 {isSkeletonRow
                   ? Array(cols).fill(null).map((_, i) => (
                     <SkeletonCard key={`skel-${virtualRow.index}-${i}`} />
@@ -340,15 +340,16 @@ const TagProducts = (props) => {
     return products.filter((product) => {
       const variant = getProductPrimaryVariant(product);
       const base = getProductListPrice(product);
+      const pay = getProductPayPrice(product);
       const qty = variant?.inventory?.quantity ?? 0;
       const discount = getProductDiscountPct(product);
 
       if (filters.price.length > 0) {
         const priceMatch = filters.price.some((p) => {
-          if (p === "u29") return base < 29;
-          if (p === "29-49") return base >= 29 && base <= 49;
-          if (p === "49-79") return base >= 49 && base <= 79;
-          if (p === "o99") return base >= 99;
+          if (p === "u29")   return pay <= 29;
+          if (p === "29-49") return pay >= 29 && pay < 49;
+          if (p === "49-79") return pay >= 49 && pay < 79;
+          if (p === "o99")   return pay >= 99;
           return false;
         });
         if (!priceMatch) return false;
@@ -365,9 +366,10 @@ const TagProducts = (props) => {
 
       if (filters.discount.length > 0) {
         const discountMatch = filters.discount.some((d) => {
-          const minPct = Number(d);
-          if (!Number.isFinite(minPct)) return false;
-          return discount >= minPct;
+          if (d === "u10") return discount < 10;
+          if (d === "25")  return discount >= 25;
+          if (d === "50")  return discount >= 50;
+          return false;
         });
         if (!discountMatch) return false;
       }
@@ -447,7 +449,7 @@ const TagProducts = (props) => {
 
       {/* HERO */}
       {/* HERO */}
-      <section  className="relative h-[40vh] md:h-[50vh] flex items-end overflow-hidden">
+      <section className="relative h-[40vh] md:h-[50vh] flex items-end overflow-hidden">
         {/* BACKGROUND IMAGE - DIFFERENT FOR EACH TAG */}
         <div className="absolute inset-0">
           {normalizedTag === "on-sale" && (
@@ -483,16 +485,16 @@ const TagProducts = (props) => {
                 {meta.subtitle}
               </p>
             </div>
-           {!isLoading && (
-  <div className="hidden md:flex flex-col items-center flex-shrink-0">
-    <span className="text-5xl font-black text-white leading-none">
-      {pagination?.total || 0}
-    </span>
-    <span className="text-[11px] text-center font-bold uppercase tracking-[0.2em] text-gray-300 mt-1">
-      Products
-    </span>
-  </div>
-)}
+            {!isLoading && (
+              <div className="hidden md:flex flex-col items-center flex-shrink-0">
+                <span className="text-5xl font-black text-white leading-none">
+                  {pagination?.total || 0}
+                </span>
+                <span className="text-[11px] text-center font-bold uppercase tracking-[0.2em] text-gray-300 mt-1">
+                  Products
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -536,12 +538,12 @@ const TagProducts = (props) => {
                   className="appearance-none bg-white/60 backdrop-blur-md px-3 pr-10 py-2 text-sm font-semibold text-zinc-800 rounded-md shadow-sm border border-zinc-200 hover:border-zinc-400 focus:border-black focus:ring-0 outline-none transition-all cursor-pointer"
                 >
                   <option value="default">Default</option>
-                 
+
                   <option value="priceLowHigh">Price: Low to High</option>
                   <option value="priceHighLow">Price: High to Low</option>
                   <option value="discount">Highest Discount</option>
                   <option value="newest">Newest First</option>
-                 
+
                 </select>
                 <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 pointer-events-none" />
               </div>
@@ -573,8 +575,8 @@ const TagProducts = (props) => {
 
             {/* INITIAL LOADING */}
             {isLoading && (!products || products.length === 0) && (
-              <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                {[...Array(8)].map((_, i) => (
+               <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-6">
+                {[...Array(12)].map((_, i) => (
                   <div key={i} className="animate-pulse space-y-3">
                     <div className="aspect-[4/5] bg-gradient-to-br from-zinc-100 to-zinc-200 rounded-lg" />
                     <div className="h-3 bg-zinc-200 rounded w-3/4" />

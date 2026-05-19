@@ -1,7 +1,11 @@
 import { createSlice } from "@reduxjs/toolkit";
 import { adminAuthApi } from "./adminAuthApi";
 import { ROLES } from "../roles";
-import { ADMIN_ACCESS_TOKEN_KEY } from "../../../SERVICES/axiosInstance";
+import {
+  ADMIN_ACCESS_TOKEN_KEY,
+  AUTH_CONTEXT_ADMIN,
+  clearAccessTokenSchedule,
+} from "../../../SERVICES/axiosInstance";
 
 const VALID_ROLES = Object.values(ROLES);
 
@@ -35,8 +39,13 @@ const deriveInitialState = () => {
     return { user: { role: payload.role, ...payload }, status: "authenticated" };
   }
 
-  // Token exists but expired/malformed/wrong role → idle, let /auth/me decide
-  // (axiosInstance will try to refresh it)
+  // Customer / wrong-role token in admin storage — clear immediately (do not call /auth/me).
+  if (payload && !VALID_ROLES.includes(payload.role)) {
+    localStorage.removeItem(ADMIN_ACCESS_TOKEN_KEY);
+    return { user: null, status: "unauthenticated" };
+  }
+
+  // Expired/malformed → idle; axios refresh may recover a valid admin session
   return { user: null, status: "idle" };
 };
 
@@ -49,6 +58,7 @@ const adminAuthSlice = createSlice({
       state.user = null;
       state.status = "unauthenticated";
       localStorage.removeItem(ADMIN_ACCESS_TOKEN_KEY);
+      clearAccessTokenSchedule(AUTH_CONTEXT_ADMIN);
     },
   },
 
@@ -103,10 +113,20 @@ const adminAuthSlice = createSlice({
       )
       .addMatcher(
         adminAuthApi.endpoints.getAdminMe.matchRejected,
-        (state) => {
+        (state, action) => {
+          const status = action.payload?.status;
+          const message = String(action.error?.message || action.payload?.data?.message || '');
+          const isRoleMismatch =
+            message.includes('insufficient_role') ||
+            action.payload?.data?.code === 'PORTAL_ACCESS_DENIED';
+          // Keep session on transient/network errors only.
+          if (status && status !== 401 && status !== 403 && !isRoleMismatch) {
+            return;
+          }
           state.user = null;
           state.status = "unauthenticated";
           localStorage.removeItem(ADMIN_ACCESS_TOKEN_KEY);
+          clearAccessTokenSchedule(AUTH_CONTEXT_ADMIN);
         }
       );
 

@@ -21,6 +21,7 @@ import {
   useAdminBulkApprovalConfirmMutation,
   useAdminBulkFulfillmentShipNowMutation,
   useAdminBulkFulfillmentSchedulePickupMutation,
+  useGetAdminPickupCalendarQuery,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 import { isPostConfirmOrderStatus } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersSlice";
 import {
@@ -28,6 +29,7 @@ import {
   canAdminBulkConfirmOrderRow,
 } from "../../../../utils/adminOrderFulfillmentEligibility";
 import AdminOrderDetailView from "./AdminOrderDetailView";
+import AdminOrderRowActions from "./AdminOrderRowActions";
 import axiosInstance from "../../../../SERVICES/axiosInstance";
 
 const TAB_ORDER = [
@@ -159,6 +161,7 @@ const OrderTab = () => {
     isLoading: detailLoading,
     error: detailError,
     isError: detailIsError,
+    refetch: refetchOrderDetail,
   } = useGetAdminOrderDetailQuery(selectedOrderId, {
     skip: !selectedOrderId,
   });
@@ -189,7 +192,26 @@ const OrderTab = () => {
   const [showBulkMenu, setShowBulkMenu] = useState(false);
   const [bulkPickupPanelOpen, setBulkPickupPanelOpen] = useState(false);
   const [bulkPickupDate, setBulkPickupDate] = useState("");
+  const { data: bulkPickupCalendarRes } = useGetAdminPickupCalendarQuery(
+    { daysAhead: 45 },
+    { skip: !bulkPickupPanelOpen }
+  );
+  const bulkPickupAllowedDates = useMemo(
+    () =>
+      Array.isArray(bulkPickupCalendarRes?.calendar?.allowedDates)
+        ? bulkPickupCalendarRes.calendar.allowedDates
+        : [],
+    [bulkPickupCalendarRes?.calendar?.allowedDates]
+  );
   const [bulkInlineError, setBulkInlineError] = useState(null);
+
+  useEffect(() => {
+    if (!bulkPickupPanelOpen) return;
+    const def = bulkPickupCalendarRes?.calendar?.defaultDate;
+    if (def && bulkPickupAllowedDates.includes(def)) {
+      setBulkPickupDate(def);
+    }
+  }, [bulkPickupPanelOpen, bulkPickupCalendarRes?.calendar?.defaultDate, bulkPickupAllowedDates]);
   const [bulkFeedback, setBulkFeedback] = useState(null);
 
   const [bulkConfirm, bulkConfirmState] = useAdminBulkApprovalConfirmMutation();
@@ -203,6 +225,7 @@ const OrderTab = () => {
     bulkSchedulePickupState.isLoading;
   const [bulkZipBusy, setBulkZipBusy] = useState(false);
   const [bulkInvoiceAwbModalOpen, setBulkInvoiceAwbModalOpen] = useState(false);
+  const [rowActionFeedback, setRowActionFeedback] = useState(null);
   const bulkActionsBusy = bulkBusy || bulkZipBusy;
 
   const orderById = useMemo(() => new Map(orders.map((o) => [o.orderId, o])), [orders]);
@@ -228,6 +251,8 @@ const OrderTab = () => {
       }),
     [selectedOrders, orderById]
   );
+
+  const eligibleBulkManifestIds = eligibleBulkLabelIds;
 
   const invoiceSelectionMissingAwb = useMemo(
     () => eligibleBulkInvoiceIds.filter((id) => !orderById.get(id)?.hasAwb).length,
@@ -261,8 +286,11 @@ const OrderTab = () => {
     [selectedOrders, orderById]
   );
 
-  const showBulkPendingActions =
-    ui.activeTabLabel === "Pending" || ui.activeTabLabel === "All";
+  const showBulkPendingActions = ui.activeTabLabel === "Pending";
+  const showBulkShipNowActions =
+    ui.activeTabLabel === "Confirmed" || ui.activeTabLabel === "All";
+  const showBulkProcessingActions =
+    ui.activeTabLabel === "Processing" || ui.activeTabLabel === "All";
 
   const eligibleBulkShipIds = useMemo(
     () =>
@@ -582,6 +610,44 @@ const OrderTab = () => {
     }
   }, [eligibleBulkLabelIds]);
 
+  const handleBulkManifestsZip = useCallback(async () => {
+    if (!eligibleBulkManifestIds.length) {
+      setBulkInlineError(
+        "No eligible orders for manifest ZIP. Each row needs AWB and shipment id (Ship now first)."
+      );
+      return;
+    }
+    setBulkInlineError(null);
+    setBulkZipBusy(true);
+    try {
+      const res = await axiosInstance.post(
+        "/orders/admin/items/bulk-documents/manifests-zip",
+        { orderIds: eligibleBulkManifestIds, concurrency: 4 },
+        { responseType: "blob", timeout: 180000 }
+      );
+      const blob = res.data;
+      const ct = String(res.headers["content-type"] || "");
+      if (ct.includes("application/json")) {
+        const msg = await messageFromMaybeErrorBlob(blob);
+        throw new Error(msg);
+      }
+      if (!(blob instanceof Blob) || blob.size === 0) {
+        throw new Error("Unexpected empty response from server.");
+      }
+      downloadBlobFile(blob, `shiprocket-manifests-bulk-${Date.now()}.zip`);
+      setShowBulkMenu(false);
+    } catch (e) {
+      const payload = e.response?.data;
+      if (payload instanceof Blob) {
+        setBulkInlineError(await messageFromMaybeErrorBlob(payload));
+      } else {
+        setBulkInlineError(e?.message || mutationErrorToString(e));
+      }
+    } finally {
+      setBulkZipBusy(false);
+    }
+  }, [eligibleBulkManifestIds]);
+
   const toggleSelectAll = () => {
     const ids = orders.map((o) => o.orderId);
     if (selectedOrders.length === ids.length) setSelectedOrders([]);
@@ -606,6 +672,7 @@ const OrderTab = () => {
         trackingLoading={trackingLoading || trackingFetching}
         trackingError={trackingIsError ? trackingError : null}
         onRefreshTracking={() => refetchTracking()}
+        onOrderRefresh={() => refetchOrderDetail()}
         onBack={() => setSelectedOrderId(null)}
       />
     );
@@ -772,6 +839,26 @@ const OrderTab = () => {
           </div>
         </div>
 
+        {rowActionFeedback?.text ? (
+          <div
+            className={`mx-3 mt-2 rounded-lg border px-3 py-2 text-xs ${
+              rowActionFeedback.type === "err"
+                ? "border-red-200 bg-red-50 text-red-800"
+                : "border-emerald-200 bg-emerald-50 text-emerald-800"
+            }`}
+            role="status"
+          >
+            {rowActionFeedback.text}
+            <button
+              type="button"
+              className="ml-2 text-[10px] underline opacity-80"
+              onClick={() => setRowActionFeedback(null)}
+            >
+              Dismiss
+            </button>
+          </div>
+        ) : null}
+
         {selectedOrders.length > 0 && (
           <div className="flex flex-col gap-2 bg-blue-50 p-3 border-b border-blue-100">
             <div className="flex flex-wrap items-center gap-3">
@@ -819,32 +906,36 @@ const OrderTab = () => {
                         </button>
                       </>
                     ) : null}
-                    <button
-                      type="button"
-                      onClick={handleBulkShipNow}
-                      disabled={bulkActionsBusy || !eligibleBulkShipIds.length}
-                      title={
-                        !eligibleBulkShipIds.length
-                          ? "Needs order status Confirmed and no AWB yet (shipped / in-transit / pending are skipped)."
-                          : undefined
-                      }
-                      className="w-full text-left px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed border-t border-slate-100"
-                    >
-                      Ship now (Shiprocket)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={openBulkPickupPanel}
-                      disabled={bulkActionsBusy || !eligibleBulkPickupIds.length}
-                      title={
-                        !eligibleBulkPickupIds.length
-                          ? "Needs AWB assigned, pickup not set yet, and Confirmed or Processing (not after shipped)."
-                          : undefined
-                      }
-                      className="w-full text-left px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
-                    >
-                      Schedule pickup…
-                    </button>
+                    {showBulkShipNowActions ? (
+                      <button
+                        type="button"
+                        onClick={handleBulkShipNow}
+                        disabled={bulkActionsBusy || !eligibleBulkShipIds.length}
+                        title={
+                          !eligibleBulkShipIds.length
+                            ? "Needs order status Confirmed and no AWB yet (shipped / in-transit / pending are skipped)."
+                            : undefined
+                        }
+                        className="w-full text-left px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed border-t border-slate-100"
+                      >
+                        Ship now (Shiprocket)
+                      </button>
+                    ) : null}
+                    {showBulkShipNowActions || showBulkProcessingActions ? (
+                      <button
+                        type="button"
+                        onClick={openBulkPickupPanel}
+                        disabled={bulkActionsBusy || !eligibleBulkPickupIds.length}
+                        title={
+                          !eligibleBulkPickupIds.length
+                            ? "Needs AWB assigned, pickup not set yet, and Confirmed or Processing (not after shipped)."
+                            : undefined
+                        }
+                        className="w-full text-left px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                      >
+                        Schedule pickup…
+                      </button>
+                    ) : null}
                     {showBulkTaxInvoicesZip && (
                       <button
                         type="button"
@@ -861,19 +952,34 @@ const OrderTab = () => {
                       </button>
                     )}
                     {showBulkShippingLabelsZip && (
-                      <button
-                        type="button"
-                        onClick={handleBulkShippingLabelsZip}
-                        disabled={bulkActionsBusy || !eligibleBulkLabelIds.length}
-                        title={
-                          !eligibleBulkLabelIds.length
-                            ? "Needs AWB assigned (Ship now) plus a shipment id. Payment rules still apply per order."
-                            : undefined
-                        }
-                        className="w-full text-left px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed border-t border-slate-100"
-                      >
-                        Bulk shipping labels (ZIP)
-                      </button>
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleBulkManifestsZip}
+                          disabled={bulkActionsBusy || !eligibleBulkManifestIds.length}
+                          title={
+                            !eligibleBulkManifestIds.length
+                              ? "Needs AWB and shipment id on each selected order."
+                              : undefined
+                          }
+                          className="w-full text-left px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed border-t border-slate-100"
+                        >
+                          Bulk Shiprocket manifests (ZIP)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleBulkShippingLabelsZip}
+                          disabled={bulkActionsBusy || !eligibleBulkLabelIds.length}
+                          title={
+                            !eligibleBulkLabelIds.length
+                              ? "Courier AWB labels from Shiprocket (not tax invoice). Needs AWB + shipment id."
+                              : undefined
+                          }
+                          className="w-full text-left px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
+                        >
+                          Bulk shipping labels (ZIP)
+                        </button>
+                      </>
                     )}
                     {!eligibleBulkShipIds.length && !eligibleBulkPickupIds.length && (
                       <p className="px-4 py-2 text-[11px] text-slate-500 border-t border-slate-100">
@@ -982,13 +1088,40 @@ const OrderTab = () => {
               <div className="flex flex-wrap items-end gap-3 rounded-lg border border-blue-200 bg-white/80 p-3">
                 <div className="flex flex-col gap-1">
                   <label className="text-[10px] font-bold uppercase text-slate-500">Pickup date</label>
-                  <input
-                    type="date"
-                    min={toLocalYmd(new Date())}
-                    value={bulkPickupDate}
-                    onChange={(e) => setBulkPickupDate(e.target.value)}
-                    className="bg-white border border-slate-200 text-xs px-2 py-1.5 rounded-lg"
-                  />
+                  {bulkPickupCalendarRes?.preferences?.hasScheduleRules ? (
+                    <p className="text-[10px] text-slate-500 max-w-xs">
+                      Dates follow your Shiprocket panel schedule.
+                    </p>
+                  ) : bulkPickupCalendarRes?.scheduleRulesMessage ? (
+                    <p className="text-[10px] text-amber-800 max-w-xs">
+                      {bulkPickupCalendarRes.scheduleRulesMessage}
+                    </p>
+                  ) : null}
+                  {bulkPickupCalendarRes?.preferences?.hasScheduleRules && bulkPickupAllowedDates.length > 0 ? (
+                    <select
+                      value={
+                        bulkPickupAllowedDates.includes(bulkPickupDate)
+                          ? bulkPickupDate
+                          : bulkPickupAllowedDates[0]
+                      }
+                      onChange={(e) => setBulkPickupDate(e.target.value)}
+                      className="bg-white border border-slate-200 text-xs px-2 py-1.5 rounded-lg min-w-[11rem]"
+                    >
+                      {bulkPickupAllowedDates.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <input
+                      type="date"
+                      min={toLocalYmd(new Date())}
+                      value={bulkPickupDate}
+                      onChange={(e) => setBulkPickupDate(e.target.value)}
+                      className="bg-white border border-slate-200 text-xs px-2 py-1.5 rounded-lg"
+                    />
+                  )}
                 </div>
                 <button
                   type="button"
@@ -1031,6 +1164,8 @@ const OrderTab = () => {
                 <th className="px-4 py-4 text-[#2563eb]">Date</th>
                 <th className="px-4 py-4 text-[#2563eb] text-right">Amount</th>
                 <th className="px-4 py-4 text-[#2563eb] text-center">Status</th>
+                <th className="px-4 py-4 text-[#2563eb]">Courier &amp; ops</th>
+                <th className="px-4 py-4 text-[#2563eb] text-center">Action</th>
                 <th className="px-4 py-4 text-[#2563eb] text-center">Items</th>
                 <th className="px-4 py-4 text-[#2563eb] text-center">Payment</th>
               </tr>
@@ -1064,6 +1199,30 @@ const OrderTab = () => {
                     <span className="bg-slate-100 text-slate-700 px-2.5 py-1 rounded-md text-xs font-semibold">
                       {order.fulfillmentLabel || "—"}
                     </span>
+                  </td>
+                  <td className="px-4 py-4 min-w-[10rem]">
+                    <p className="text-xs font-semibold text-slate-800 leading-snug">
+                      {order.courierOpsLine1 || "—"}
+                    </p>
+                    {order.courierOpsLine2 ? (
+                      <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">{order.courierOpsLine2}</p>
+                    ) : null}
+                  </td>
+                  <td className="px-4 py-4 text-center">
+                    <AdminOrderRowActions
+                      order={order}
+                      onOpenDetail={setSelectedOrderId}
+                      onFeedback={(fb) => {
+                        if (fb?.type === "err" && fb.text) {
+                          setRowActionFeedback({ type: "err", text: fb.text });
+                        } else if (fb?.type === "ok") {
+                          setRowActionFeedback({
+                            type: "ok",
+                            text: "Action completed. List will refresh automatically.",
+                          });
+                        }
+                      }}
+                    />
                   </td>
                   <td className="px-4 py-4 text-center">{order.itemCount}</td>
                   <td className="px-4 py-4 text-center">

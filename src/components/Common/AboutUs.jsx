@@ -517,9 +517,9 @@ export default function AboutUs() {
                 Ulhasnagar, Maharashtra · Serving PAN India
               </p>
 
-              <blockquote className="mt-8 border-l-4 border-amber-400 pl-6 text-lg leading-9 text-gray-600 italic">
-                “We started with one goal — to become the most reliable
-                wholesale partner for every business and shopper in India.”
+              <blockquote className="mt-8 border-l-4 border-amber-400 pl-6 text-lg leading-9 text-gray-600">
+                We started with one goal — to become the most reliable
+                retail and wholesale shopping across India.
               </blockquote>
             </div>
           </div>
