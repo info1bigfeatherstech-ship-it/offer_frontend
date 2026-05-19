@@ -1,7 +1,12 @@
 // adminAuthApi.js — replace fetchBaseQuery entirely
 
 import { createApi }  from '@reduxjs/toolkit/query/react';
-import axiosInstance, { ADMIN_ACCESS_TOKEN_KEY, AUTH_CONTEXT_ADMIN } from '../../../SERVICES/axiosInstance'; // your existing instance
+import axiosInstance, {
+    ADMIN_ACCESS_TOKEN_KEY,
+    AUTH_CONTEXT_ADMIN,
+    clearAccessTokenSchedule,
+    notifyAccessTokenStored,
+} from '../../../SERVICES/axiosInstance';
 import { ROLES }      from '../roles';
 
 const ADMIN_ROLES = Object.values(ROLES);
@@ -41,7 +46,11 @@ export const adminAuthApi = createApi({
             transformResponse: (response) => {
                 const user = response?.user;
                 if (!user?.role || !ADMIN_ROLES.includes(user.role)) {
-                    throw new Error('insufficient_role');
+                    localStorage.removeItem(ADMIN_ACCESS_TOKEN_KEY);
+                    clearAccessTokenSchedule(AUTH_CONTEXT_ADMIN);
+                    const err = new Error('insufficient_role');
+                    err.code = 'INSUFFICIENT_ADMIN_ROLE';
+                    throw err;
                 }
                 return user;
             },
@@ -61,7 +70,10 @@ export const adminAuthApi = createApi({
                 if (!user?.role || !ADMIN_ROLES.includes(user.role)) {
                     throw new Error('Access denied. Insufficient permissions.');
                 }
-                if (accessToken) localStorage.setItem(ADMIN_ACCESS_TOKEN_KEY, accessToken);
+                if (accessToken) {
+                    localStorage.setItem(ADMIN_ACCESS_TOKEN_KEY, accessToken);
+                    notifyAccessTokenStored(AUTH_CONTEXT_ADMIN);
+                }
                 return user;
             },
             invalidatesTags: ['AdminUser'],
@@ -75,6 +87,7 @@ export const adminAuthApi = createApi({
             }),
             transformResponse: (response) => {
                 localStorage.removeItem(ADMIN_ACCESS_TOKEN_KEY);
+                clearAccessTokenSchedule(AUTH_CONTEXT_ADMIN);
                 return response;
             },
             invalidatesTags: ['AdminUser'],

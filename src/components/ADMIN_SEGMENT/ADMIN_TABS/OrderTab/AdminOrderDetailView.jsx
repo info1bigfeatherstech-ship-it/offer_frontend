@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback } from "react";
 import axiosInstance from "../../../../SERVICES/axiosInstance";
 import {
   useAdminBulkApprovalCancelMutation,
@@ -6,11 +6,26 @@ import {
   useAdminFulfillmentAssignShipMutation,
   useAdminFulfillmentCancelShipmentMutation,
   useAdminFulfillmentEnsureShipmentMutation,
+  useAdminFulfillmentManifestMutation,
   useAdminFulfillmentSchedulePickupMutation,
+  useAdminFulfillmentSyncShiprocketMutation,
   useAdminFulfillmentShippingLabelMutation,
+  useGetAdminPickupCalendarQuery,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 import { isPostConfirmOrderStatus } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersSlice";
 import { shouldShowOnlinePaymentHoldCountdown } from "../../../../utils/paymentHoldDisplay";
+
+/** Pickup booked on Shiprocket (DB fields, queue error, or manifest done). */
+function isPickupBookedOnOrder(ship) {
+  if (!ship) return false;
+  if (ship.pickupDate || ship.pickupScheduledAt) return true;
+  if (ship.manifestUrl) return true;
+  const err = String(ship.lastPickupError || "");
+  if (/pickup\s*queue|already\s+in\s+pickup|pickup\s*scheduled/i.test(err)) return true;
+  const st = String(ship.providerStatus || "");
+  if (/pickup\s*scheduled|pickup\s*queue|manifest/i.test(st)) return true;
+  return false;
+}
 
 function formatInr(amount) {
   const n = Number(amount);
@@ -178,6 +193,24 @@ function fulfillmentActionErrorText(e, fallback = "Request failed.") {
   return fallback;
 }
 
+function FulfillmentStatusBanner({ msg }) {
+  if (!msg?.text) return null;
+  return (
+    <div
+      className={`mt-3 rounded-lg px-3 py-2.5 text-sm border ${
+        msg.type === "err"
+          ? "bg-red-50 text-red-800 border-red-100"
+          : "bg-emerald-50 text-emerald-900 border-emerald-100"
+      }`}
+      role="status"
+      aria-live="polite"
+    >
+      <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Shiprocket status</p>
+      {msg.text}
+    </div>
+  );
+}
+
 /**
  * Rich admin order detail — data-driven from GET /orders/items/:orderId (staff sees customer + SKUs).
  */
@@ -190,6 +223,7 @@ export default function AdminOrderDetailView({
   trackingLoading,
   trackingError,
   onRefreshTracking,
+  onOrderRefresh,
   loading,
   error,
   onBack,
@@ -198,19 +232,45 @@ export default function AdminOrderDetailView({
   const [actionMsg, setActionMsg] = useState(null);
   const [invoiceBusy, setInvoiceBusy] = useState(false);
   const [labelDownloadBusy, setLabelDownloadBusy] = useState(false);
+  const [manifestDownloadBusy, setManifestDownloadBusy] = useState(false);
+
+  const { data: pickupCalendarRes } = useGetAdminPickupCalendarQuery({ daysAhead: 45 });
+  const pickupCalendar = pickupCalendarRes?.calendar;
+  const pickupAllowedDates = useMemo(
+    () => (Array.isArray(pickupCalendar?.allowedDates) ? pickupCalendar.allowedDates : []),
+    [pickupCalendar?.allowedDates]
+  );
+  const pickupUsesShiprocketRules = Boolean(pickupCalendarRes?.preferences?.hasScheduleRules);
 
   const [ensureShipment, ensureState] = useAdminFulfillmentEnsureShipmentMutation();
   const [assignShip, assignState] = useAdminFulfillmentAssignShipMutation();
   const [schedulePickup, pickupState] = useAdminFulfillmentSchedulePickupMutation();
+  const [syncShiprocket, syncShiprocketState] = useAdminFulfillmentSyncShiprocketMutation();
+  const [fulfillmentManifest, manifestState] = useAdminFulfillmentManifestMutation();
   const [shippingLabel, labelState] = useAdminFulfillmentShippingLabelMutation();
   const [cancelShipment, cancelState] = useAdminFulfillmentCancelShipmentMutation();
   const [bulkConfirm, bulkConfirmState] = useAdminBulkApprovalConfirmMutation();
   const [bulkCancel, bulkCancelState] = useAdminBulkApprovalCancelMutation();
 
+  const refreshOrder = useCallback(async () => {
+    if (typeof onOrderRefresh === "function") {
+      await onOrderRefresh();
+    }
+  }, [onOrderRefresh]);
+
+  useEffect(() => {
+    const def = pickupCalendar?.defaultDate;
+    if (def && pickupAllowedDates.includes(def)) {
+      setPickupDate(def);
+    }
+  }, [pickupCalendar?.defaultDate, pickupAllowedDates]);
+
   const fulfillmentBusy =
     ensureState.isLoading ||
     assignState.isLoading ||
     pickupState.isLoading ||
+    manifestState.isLoading ||
+    syncShiprocketState.isLoading ||
     labelState.isLoading ||
     cancelState.isLoading ||
     bulkConfirmState.isLoading ||
@@ -332,24 +392,60 @@ export default function AdminOrderDetailView({
     }
   }, [orderId, fetchInvoiceObjectUrl]);
 
+  const fetchShippingLabelBlob = useCallback(async () => {
+    const res = await axiosInstance.get(
+      `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/shipping-label-file`,
+      { responseType: "blob" }
+    );
+    if (res.headers["content-type"]?.includes("application/json")) {
+      const t = await res.data.text();
+      const j = JSON.parse(t);
+      throw new Error(j?.message || "Label fetch failed.");
+    }
+    return {
+      blob: new Blob([res.data], { type: res.headers["content-type"] || "application/pdf" }),
+      filename: (() => {
+        let filename = `Shiprocket-label-${String(orderId).replace(/[^\w.-]+/g, "_").slice(0, 80)}.pdf`;
+        const dispo = res.headers["content-disposition"];
+        if (dispo) {
+          const m = /filename\*?=(?:UTF-8''|"?)([^";\n]+)/i.exec(dispo);
+          if (m && m[1]) filename = decodeURIComponent(m[1].replace(/"/g, "").trim());
+        }
+        return filename;
+      })(),
+    };
+  }, [orderId]);
+
+  const openShippingLabelInNewTab = useCallback(async () => {
+    if (!orderId) return;
+    setActionMsg(null);
+    setLabelDownloadBusy(true);
+    let objectUrl;
+    try {
+      const { blob } = await fetchShippingLabelBlob();
+      objectUrl = URL.createObjectURL(blob);
+      window.open(objectUrl, "_blank", "noopener,noreferrer");
+      setActionMsg({ type: "ok", text: "Opening Shiprocket shipping label.", surface: "label" });
+      await refreshOrder();
+      setTimeout(() => URL.revokeObjectURL(objectUrl), 180000);
+    } catch (e) {
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      setActionMsg({
+        type: "err",
+        text: e?.message || "Could not open shipping label.",
+        surface: "label",
+      });
+    } finally {
+      setLabelDownloadBusy(false);
+    }
+  }, [orderId, fetchShippingLabelBlob, refreshOrder]);
+
   const downloadShippingLabelFile = useCallback(async () => {
     if (!orderId) return;
     setActionMsg(null);
     setLabelDownloadBusy(true);
     try {
-      const res = await axiosInstance.get(
-        `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/shipping-label-file`,
-        { responseType: "blob" }
-      );
-      let filename = `Shiprocket-label-${String(orderId).replace(/[^\w.-]+/g, "_").slice(0, 80)}.pdf`;
-      const dispo = res.headers["content-disposition"];
-      if (dispo) {
-        const m = /filename\*?=(?:UTF-8''|"?)([^";\n]+)/i.exec(dispo);
-        if (m && m[1]) {
-          filename = decodeURIComponent(m[1].replace(/"/g, "").trim());
-        }
-      }
-      const blob = new Blob([res.data], { type: res.headers["content-type"] || "application/pdf" });
+      const { blob, filename } = await fetchShippingLabelBlob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -358,7 +454,8 @@ export default function AdminOrderDetailView({
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 3000);
-      setActionMsg({ type: "ok", text: "Shipping label file downloaded." });
+      setActionMsg({ type: "ok", text: "Shipping label file downloaded.", surface: "label" });
+      await refreshOrder();
     } catch (e) {
       let msg = e?.message || "Label download failed.";
       if (e?.response?.data instanceof Blob) {
@@ -372,15 +469,91 @@ export default function AdminOrderDetailView({
       } else if (e?.response?.data && typeof e.response.data === "object" && e.response.data.message) {
         msg = e.response.data.message;
       }
-      setActionMsg({ type: "err", text: msg });
+      setActionMsg({ type: "err", text: msg, surface: "label" });
     } finally {
       setLabelDownloadBusy(false);
     }
-  }, [orderId]);
+  }, [orderId, fetchShippingLabelBlob, refreshOrder]);
+
+  const downloadManifestFile = useCallback(async () => {
+    if (!orderId) return;
+    setActionMsg(null);
+    setManifestDownloadBusy(true);
+    try {
+      const res = await axiosInstance.get(
+        `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/manifest-file`,
+        { responseType: "blob" }
+      );
+      let filename = `Shiprocket-manifest-${String(orderId).replace(/[^\w.-]+/g, "_").slice(0, 80)}.pdf`;
+      const dispo = res.headers["content-disposition"];
+      if (dispo) {
+        const m = /filename\*?=(?:UTF-8''|"?)([^";\n]+)/i.exec(dispo);
+        if (m && m[1]) filename = decodeURIComponent(m[1].replace(/"/g, "").trim());
+      }
+      const blob = new Blob([res.data], { type: res.headers["content-type"] || "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 3000);
+      setActionMsg({ type: "ok", text: "Manifest downloaded.", surface: "manifest" });
+      await refreshOrder();
+    } catch (e) {
+      let msg = e?.message || "Manifest download failed.";
+      if (e?.response?.data instanceof Blob) {
+        try {
+          const t = await e.response.data.text();
+          const j = JSON.parse(t);
+          if (j?.message) msg = j.message;
+        } catch (_) {
+          /* ignore */
+        }
+      } else if (e?.response?.data?.message) {
+        msg = e.response.data.message;
+      }
+      setActionMsg({ type: "err", text: msg, surface: "manifest" });
+    } finally {
+      setManifestDownloadBusy(false);
+    }
+  }, [orderId, refreshOrder]);
 
   const addr = order?.addressSnapshot || {};
   const ship = order?.shipmentInfo || {};
   const hasCarrierAwb = Boolean(ship.awbCode || ship.trackingNumber);
+  const pickupAlreadyScheduled = isPickupBookedOnOrder(ship);
+
+  useEffect(() => {
+    if (!orderId || !hasCarrierAwb || !ship.shiprocketOrderId) return;
+    const needsSync =
+      Boolean(ship.lastPickupError) ||
+      (isPickupBookedOnOrder(ship) && !ship.pickupDate && !ship.pickupScheduledAt);
+    if (!needsSync) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await syncShiprocket(orderId).unwrap();
+        if (!cancelled) await refreshOrder();
+      } catch (_) {
+        /* ignore background sync errors */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    orderId,
+    hasCarrierAwb,
+    ship.shiprocketOrderId,
+    ship.pickupDate,
+    ship.lastPickupError,
+    ship.manifestUrl,
+    ship.pickupScheduledAt,
+    syncShiprocket,
+    refreshOrder,
+  ]);
   const quoteShip = order?.shippingSnapshot || {};
   const coupon = order?.appliedCoupon;
 
@@ -812,13 +985,16 @@ export default function AdminOrderDetailView({
                           srFinal.tracking_number;
                         setActionMsg({
                           type: "ok",
+                          surface: "ship",
                           text: awbDisp
                             ? `Courier booked. AWB / tracking: ${awbDisp}. Details refresh in a moment.`
                             : "Shipment updated. Details will refresh shortly.",
                         });
+                        await refreshOrder();
                       } catch (e) {
                         setActionMsg({
                           type: "err",
+                          surface: "ship",
                           text: fulfillmentActionErrorText(e, "Ship now failed."),
                         });
                       }
@@ -828,22 +1004,7 @@ export default function AdminOrderDetailView({
                     {ensureState.isLoading || assignState.isLoading ? "Working…" : "Ship now"}
                   </button>
                 </div>
-                {actionMsg?.text && actionMsg.surface !== "invoice" ? (
-                  <div
-                    className={`mt-3 rounded-lg px-3 py-2.5 text-sm border ${
-                      actionMsg.type === "err"
-                        ? "bg-red-50 text-red-800 border-red-100"
-                        : "bg-emerald-50 text-emerald-900 border-emerald-100"
-                    }`}
-                    role="status"
-                    aria-live="polite"
-                  >
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">
-                      Shiprocket status
-                    </p>
-                    {actionMsg.text}
-                  </div>
-                ) : null}
+                <FulfillmentStatusBanner msg={actionMsg?.surface === "ship" ? actionMsg : null} />
               </div>
 
               <details className="group rounded-lg border border-slate-200 bg-slate-50/90 px-3 py-2">
@@ -907,16 +1068,51 @@ export default function AdminOrderDetailView({
               </details>
 
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Step 2 · Pickup</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Step 2 · Pickup</p>
+                <p className="text-[11px] text-slate-500 mb-3 max-w-2xl leading-relaxed">
+                  After AWB is assigned, schedule when the courier should collect the parcel.
+                </p>
+                {!pickupAlreadyScheduled && pickupUsesShiprocketRules ? (
+                  <p className="text-[11px] text-slate-500 mb-2 max-w-xl">
+                    Available dates follow your Shiprocket pickup schedule.
+                  </p>
+                ) : null}
+                {!pickupAlreadyScheduled && pickupCalendarRes?.scheduleRulesMessage ? (
+                  <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5 mb-2 max-w-xl leading-relaxed">
+                    {pickupCalendarRes.scheduleRulesMessage}
+                  </p>
+                ) : null}
+                {pickupAlreadyScheduled ? (
+                  <p className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1.5 mb-2 max-w-xl">
+                    Pickup is active on Shiprocket. Continue with Step 3 and Step 4 below.
+                  </p>
+                ) : null}
+                {!pickupAlreadyScheduled ? (
                 <div className="flex flex-wrap items-end gap-3">
                   <label className="flex flex-col gap-1 text-xs text-slate-600">
                     <span className="font-medium text-slate-700">Pickup date</span>
-                    <input
-                      type="date"
-                      value={pickupDate}
-                      onChange={(e) => setPickupDate(e.target.value)}
-                      className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white min-w-[9.5rem]"
-                    />
+                    {pickupUsesShiprocketRules && pickupAllowedDates.length > 0 ? (
+                      <select
+                        value={pickupAllowedDates.includes(pickupDate) ? pickupDate : pickupAllowedDates[0]}
+                        onChange={(e) => setPickupDate(e.target.value)}
+                        disabled={pickupAlreadyScheduled}
+                        className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white min-w-[11rem]"
+                      >
+                        {pickupAllowedDates.map((d) => (
+                          <option key={d} value={d}>
+                            {d}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <input
+                        type="date"
+                        value={pickupDate}
+                        onChange={(e) => setPickupDate(e.target.value)}
+                        disabled={pickupAlreadyScheduled}
+                        className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs bg-white min-w-[9.5rem]"
+                      />
+                    )}
                   </label>
                   <button
                     type="button"
@@ -929,11 +1125,21 @@ export default function AdminOrderDetailView({
                     onClick={async () => {
                       setActionMsg(null);
                       try {
-                        await schedulePickup({ orderId, pickupDate }).unwrap();
-                        setActionMsg({ type: "ok", text: "Pickup scheduled successfully." });
+                        const r = await schedulePickup({ orderId, pickupDate }).unwrap();
+                        setActionMsg({
+                          type: "ok",
+                          surface: "pickup",
+                          text:
+                            r?.message ||
+                            (r?.pickupDate
+                              ? `Pickup scheduled for ${r.pickupDate}.`
+                              : "Pickup scheduled successfully."),
+                        });
+                        await refreshOrder();
                       } catch (e) {
                         setActionMsg({
                           type: "err",
+                          surface: "pickup",
                           text: fulfillmentActionErrorText(e, "Pickup schedule failed."),
                         });
                       }
@@ -943,48 +1149,145 @@ export default function AdminOrderDetailView({
                     {pickupState.isLoading ? "Working…" : "Schedule pickup"}
                   </button>
                 </div>
+                ) : null}
+                {pickupAlreadyScheduled ? (
+                <>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3">
                   <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-3">
                     <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                      Pickup date (saved)
+                      Courier pickup day
                     </p>
-                    <p className="text-sm font-semibold text-slate-900 mt-1">{ship.pickupDate || "—"}</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      When the courier collects parcels (Shiprocket → Pickups → &quot;For …&quot; date).
+                    </p>
+                    <p className="text-sm font-semibold text-slate-900 mt-1">
+                      {ship.pickupDate || "—"}
+                    </p>
+                    {!ship.pickupDate && pickupAlreadyScheduled ? (
+                      <p className="text-[10px] text-amber-700 mt-1">
+                        Not in our DB yet — confirm on Shiprocket panel, then click Refresh from Shiprocket.
+                      </p>
+                    ) : null}
                   </div>
                   <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-3">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Pickup booked</p>
-                    <p className="text-sm font-semibold text-slate-900 mt-1">
-                      {formatDateHeader(ship.pickupScheduledAt)}
+                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">Saved in our system</p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      When we saved pickup on this order (timestamp — not the courier day).
                     </p>
+                    <p className="text-sm font-semibold text-slate-900 mt-1">
+                      {formatDateHeader(ship.pickupScheduledAt) ||
+                        (ship.manifestUrl ? "Yes (manifest on file)" : "—")}
+                    </p>
+                    {ship.providerStatus ? (
+                      <p className="text-[10px] text-slate-500 mt-1">Shiprocket status: {ship.providerStatus}</p>
+                    ) : null}
                   </div>
                 </div>
+                <button
+                  type="button"
+                  disabled={fulfillmentBusy || !carrierPaymentReady || !ship.shiprocketOrderId}
+                  onClick={async () => {
+                    setActionMsg(null);
+                    try {
+                      const r = await syncShiprocket(orderId).unwrap();
+                      setActionMsg({
+                        type: "ok",
+                        surface: "pickup",
+                        text: r?.message || "Updated from Shiprocket.",
+                      });
+                      await refreshOrder();
+                    } catch (e) {
+                      setActionMsg({
+                        type: "err",
+                        surface: "pickup",
+                        text: fulfillmentActionErrorText(e, "Sync failed."),
+                      });
+                    }
+                  }}
+                  className="mt-2 px-2.5 py-1 text-[11px] font-semibold border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-50"
+                >
+                  {syncShiprocketState.isLoading ? "Syncing…" : "Refresh from Shiprocket"}
+                </button>
+                </>
+                ) : null}
+                {ship.lastPickupError && !pickupAlreadyScheduled ? (
+                  <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                    <p className="font-semibold">Last pickup error</p>
+                    <p className="mt-0.5">{ship.lastPickupError}</p>
+                  </div>
+                ) : null}
+                <FulfillmentStatusBanner msg={actionMsg?.surface === "pickup" ? actionMsg : null} />
               </div>
 
-              <div id="admin-shipping-label-step">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Step 3 · Label</p>
+              <div id="admin-manifest-step">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Step 3 · Manifest</p>
+                <p className="text-[11px] text-slate-500 mb-2 max-w-xl leading-relaxed">
+                  Generate handover manifest on Shiprocket (same as their panel). Do this before label if your courier
+                  requires it.
+                </p>
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
-                    disabled={fulfillmentBusy || !carrierPaymentReady || !ship.shipmentId || !hasCarrierAwb}
+                    disabled={fulfillmentBusy || !carrierPaymentReady || !hasCarrierAwb}
                     onClick={async () => {
                       setActionMsg(null);
                       try {
-                        const r = await shippingLabel(orderId).unwrap();
-                        const u = r?.labelUrl;
+                        const r = await fulfillmentManifest(orderId).unwrap();
+                        const u = r?.manifestUrl;
                         setActionMsg({
                           type: "ok",
-                          text: u ? "Opening shipping label in a new tab." : "Label request completed.",
+                          surface: "manifest",
+                          text: u ? "Manifest ready. Opening in a new tab." : "Manifest generated.",
                         });
                         if (u) window.open(u, "_blank", "noopener,noreferrer");
+                        await refreshOrder();
                       } catch (e) {
                         setActionMsg({
                           type: "err",
-                          text: fulfillmentActionErrorText(e, "Label failed."),
+                          surface: "manifest",
+                          text: fulfillmentActionErrorText(e, "Manifest failed."),
                         });
                       }
                     }}
                     className="px-3 py-2 text-xs font-semibold border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-50"
                   >
-                    {labelState.isLoading ? "Working…" : "Open label"}
+                    {manifestState.isLoading ? "Working…" : "Open manifest"}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={
+                      fulfillmentBusy || manifestDownloadBusy || !carrierPaymentReady || !hasCarrierAwb
+                    }
+                    onClick={downloadManifestFile}
+                    className="px-3 py-2 text-xs font-semibold border border-slate-800 rounded-lg bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {manifestDownloadBusy ? "Downloading…" : "Download manifest (PDF)"}
+                  </button>
+                </div>
+                {ship.manifestUrl ? (
+                  <p className="text-[11px] text-emerald-700 mt-2">Manifest URL saved on this order.</p>
+                ) : null}
+                <FulfillmentStatusBanner msg={actionMsg?.surface === "manifest" ? actionMsg : null} />
+              </div>
+
+              <div id="admin-shipping-label-step">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
+                  Step 4 · Shipping label
+                </p>
+                <p className="text-[11px] text-slate-500 mb-2 max-w-xl leading-relaxed">
+                  Courier AWB label from Shiprocket (parcel sticker). Not your GST tax invoice — use Invoice above for
+                  tax invoice.
+                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    disabled={
+                      fulfillmentBusy || labelDownloadBusy || !carrierPaymentReady || !hasCarrierAwb
+                    }
+                    onClick={openShippingLabelInNewTab}
+                    className="px-3 py-2 text-xs font-semibold border border-slate-200 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-50"
+                  >
+                    {labelDownloadBusy ? "Working…" : "Open label"}
                   </button>
                   <button
                     type="button"
@@ -992,7 +1295,6 @@ export default function AdminOrderDetailView({
                       fulfillmentBusy ||
                       labelDownloadBusy ||
                       !carrierPaymentReady ||
-                      !ship.shipmentId ||
                       !hasCarrierAwb
                     }
                     onClick={downloadShippingLabelFile}
@@ -1001,6 +1303,7 @@ export default function AdminOrderDetailView({
                     {labelDownloadBusy ? "Downloading…" : "Download label (PDF)"}
                   </button>
                 </div>
+                <FulfillmentStatusBanner msg={actionMsg?.surface === "label" ? actionMsg : null} />
               </div>
 
               <div className="pt-2 border-t border-slate-100">

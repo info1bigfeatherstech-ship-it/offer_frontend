@@ -1,5 +1,5 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
-import axiosInstance from '../../../SERVICES/axiosInstance';
+import axiosInstance, { AUTH_CONTEXT_ADMIN } from '../../../SERVICES/axiosInstance';
 
 // Custom axios base query for RTK Query
 const axiosBaseQuery = ({ baseUrl } = { baseUrl: '' }) => 
@@ -11,6 +11,7 @@ const axiosBaseQuery = ({ baseUrl } = { baseUrl: '' }) =>
         data,
         params,
         headers: { ...headers },
+        authContext: AUTH_CONTEXT_ADMIN,
       });
       return { data: result.data };
     } catch (axiosError) {
