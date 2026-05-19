@@ -36,7 +36,9 @@ const Homepage = ({ onOpenAuth }) => {
         ? 'best-sellers'
         : location.hash === '#top-categories'
           ? 'top-categories'
-          : null;
+          : location.hash === '#hero-section'
+            ? 'hero-section'
+            : null;
     if (!anchorId) return;
 
     const scrollHeadingBelowHeader = () => {
@@ -68,7 +70,7 @@ const Homepage = ({ onOpenAuth }) => {
 
   return (
     <>
-      <div className="px-4 md:px-8 pt-6">
+      <div id="hero-section" className="px-4 md:px-8 pt-6">
         <HeroSlider />
       </div>
 

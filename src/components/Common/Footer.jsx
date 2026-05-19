@@ -278,7 +278,9 @@ const Footer = () => {
                 <p className="text-[#f7a221] font-black text-[20px] tracking-widest uppercase mb-2">
                   Support
                 </p>
-                <p className="text-white font-bold text-lg mb-1">+91 9370686008</p>
+                <a href="tel:+919370686008" className="text-white font-bold text-lg mb-1 hover:text-[#f7a221] transition-colors">
+                  +91 93706 86008
+                </a>
                 <a
                   href="mailto:support.offerwalebaba@gmail.com"
                   className="text-white text-sm break-all lg:break-normal block hover:text-[#f7a221] transition-colors"
@@ -298,7 +300,7 @@ const Footer = () => {
                   Location
                 </p>
                 <p className="text-white text-base md:text-lg leading-relaxed group-hover/link:underline">
-                Sambhaji Chowk, Opp. Tipcy-Topcy Society, Babasai Nagar, Ulhasnagar, Mumbai - 421004, Maharashtra, India
+                  Sambhaji Chowk, Opp. Tipcy-Topcy Society, Babasai Nagar, Ulhasnagar, Mumbai - 421004, Maharashtra, India
                 </p>
               </a>
 

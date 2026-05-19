@@ -48,6 +48,13 @@ export default function InfluencerFormPage() {
     };
 
     useEffect(() => {
+        window.scrollTo({
+            top: 0,
+            behavior: 'instant' // or 'smooth' if you want animated scroll
+        });
+    }, []);
+
+    useEffect(() => {
         generateCaptcha();
     }, []);
 

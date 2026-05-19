@@ -323,15 +323,15 @@ const CategorySection = ({ slug, title }) => {
             <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-zinc-100/50 blur-3xl" />
             <div className="relative z-10 flex flex-col items-center">
               <h3 className="mb-2 text-xl font-black uppercase tracking-tighter text-zinc-900 md:text-2xl">
-                The Vault is Quiet
+                New Products Are Being Added Soon. Stay tuned!
               </h3>
-              <button
+              {/* <button
                 onClick={() => navigate("/")}
                 className="group flex items-center gap-3 bg-zinc-900 px-8 py-4 text-[10px] font-black uppercase tracking-[0.2em] text-white transition-all hover:bg-yellow-600"
               >
                 Explore All Collections
                 <ChevronRight size={14} />
-              </button>
+              </button> */}
             </div>
           </div>
         )}

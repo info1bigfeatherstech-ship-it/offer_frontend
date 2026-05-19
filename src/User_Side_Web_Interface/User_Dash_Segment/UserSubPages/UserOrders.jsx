@@ -442,7 +442,7 @@ const OrderDetail = ({ orderId, onBack, onCancel, isCancelling, cancelError }) =
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-black text-gray-900 truncate">{name}</p>
+                  <p className="text-sm font-black text-gray-900 ">{name}</p>
                   <p className="text-xs text-gray-400 font-medium mt-0.5">
                     Qty: {item.quantity} × {fmt(price)}
                   </p>
@@ -875,8 +875,8 @@ const UserOrders = () => {
                   <div className="w-14 h-14 bg-white rounded-2xl shadow-sm flex items-center justify-center text-gray-300 shrink-0">
                     <Package size={24} />
                   </div>
-                  <div>
-                    <h3 className="font-black text-base text-gray-900">{order.orderId}</h3>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-black text-base text-gray-900  break-words whitespace-norma">{order.orderId}</h3>
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-tighter mt-0.5">
                       {fmtDate(order.createdAt)}
                     </p>
