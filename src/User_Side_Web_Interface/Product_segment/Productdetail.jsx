@@ -512,7 +512,7 @@ const ProductUI = ({ openAuthModal }) => {
   const [couponsLoading, setCouponsLoading] = useState(false);
   const [copiedCouponCode, setCopiedCouponCode] = useState("");
   const [reviewSummary, setReviewSummary] = useState(null);
-  const [reviewsList, setReviewsList] = useState([]);
+  const [reviewsList, setReviewsList] = useState([]); 
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [myReview, setMyReview] = useState(null);
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });

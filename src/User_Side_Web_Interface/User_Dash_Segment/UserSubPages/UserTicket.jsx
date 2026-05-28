@@ -1,5 +1,6 @@
 import React from 'react';
 import { Mail, FileText, ArrowUpRight } from 'lucide-react';
+import { useEffect } from 'react';
 
 const UserTicket = () => {
   const WhatsAppIcon = () => (

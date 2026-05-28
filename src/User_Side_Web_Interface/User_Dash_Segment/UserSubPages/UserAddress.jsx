@@ -10,6 +10,7 @@ import {
   Pencil, Trash2, X, RefreshCw, AlertCircle,
   ChevronRight, ChevronLeft, Loader2, ChevronDown,
   PlusCircle,
+  MoreVertical,
 } from "lucide-react";
 
 import {
@@ -245,46 +246,210 @@ const AddressCard = ({ address, isDefault, onEdit, onDelete, onSetDefault, isDel
     [address.city, address.state].filter(Boolean).join(", ") +
       (address.postalCode ? ` — ${address.postalCode}` : ""),
   ].filter(Boolean).join(", ");
+  const [openMenu, setOpenMenu] = useState(null);
 
   return (
-  <div className="py-3.5 border-b border-gray-100 last:border-b-0">
-    <div className="flex items-start md:items-center gap-3">
-      <div className="flex items-center justify-center shrink-0 w-9 h-9 rounded-lg bg-gray-100">
-        {ADDRESS_TYPE_ICON[address.addressType] || ADDRESS_TYPE_ICON.other}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm leading-snug md:whitespace-nowrap md:overflow-hidden md:text-ellipsis">
-          <span className="font-semibold text-gray-900">{typeLabel}</span>
-          {" "}
-          <span className="text-gray-500 font-normal">{addressLine}</span>
-        </p>
-        {isDefault && (
-          <span className="inline-flex items-center gap-1 mt-1 text-[10px] font-medium text-gray-500">
-            <Star size={10} className="fill-[#F7A221] text-[#F7A221]" />
-            Default
-          </span>
-        )}
-      </div>
-      <div className="shrink-0 flex flex-col sm:flex-row items-end sm:items-center gap-1 sm:gap-2">
-      {!isDefault && (
-        <button onClick={(e) => { e.stopPropagation(); onSetDefault(address); }}
-          className="text-[10px] font-black uppercase tracking-widest text-[#F7A221] hover:underline cursor-pointer whitespace-nowrap">
-          Set Default
-        </button>
+ <div className="py-3.5 border-b border-gray-100 last:border-b-0">
+
+  <div className="flex items-center gap-3">
+
+    {/* ICON */}
+    <div
+      className="
+        flex items-center justify-center
+        shrink-0
+        w-10 h-10
+        rounded-xl
+        bg-gray-100
+      "
+    >
+      {ADDRESS_TYPE_ICON[address.addressType] ||
+        ADDRESS_TYPE_ICON.other}
+    </div>
+
+    {/* CONTENT */}
+    <div className="flex-1 min-w-0">
+
+      {/* SINGLE LINE */}
+      <p
+        className="
+          text-sm
+          md:text-lg
+          truncate
+          text-gray-500
+        "
+      >
+        <span className="font-bold text-gray-900">
+          {typeLabel}
+        </span>
+
+        {" • "}
+
+        {address.addressLine1 ||
+          address.area ||
+          address.city}
+      </p>
+
+      {/* DEFAULT */}
+      {isDefault && (
+        <div
+          className="
+            inline-flex items-center gap-1
+            mt-1
+            text-[11px]
+            font-medium
+            text-[#F7A221]
+          "
+        >
+          <Star
+            size={10}
+            className="fill-[#F7A221] text-[#F7A221]"
+          />
+
+          Default
+        </div>
       )}
-      <button onClick={(e) => { e.stopPropagation(); onEdit(address); }}
-        className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-gray-400 hover:text-black cursor-pointer transition-colors">
-        <Pencil size={12} /> Edit
+    </div>
+
+    {/* ACTIONS */}
+    <div className="relative shrink-0">
+
+      {/* MENU BUTTON */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+
+          setOpenMenu((prev) =>
+            prev === address._id ? null : address._id
+          );
+        }}
+        className="
+          flex items-center justify-center
+          w-9 h-9
+          rounded-lg
+          hover:bg-gray-100
+          transition-colors
+          cursor-pointer
+        "
+      >
+        <MoreVertical
+          size={17}
+          className="text-gray-500"
+        />
       </button>
-      <button onClick={(e) => { e.stopPropagation(); onDelete(address._id); }}
-        disabled={isDeleting}
-        className="ml-auto flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 disabled:opacity-30 cursor-pointer transition-colors">
-        {isDeleting ? <RefreshCw size={12} className="animate-spin" /> : <Trash2 size={12} />}
-        {isDeleting ? "Deleting..." : "Delete"}
-      </button>
-      </div>
+
+      {/* DROPDOWN */}
+      {openMenu === address._id && (
+        <div
+          className="
+            absolute right-0 top-10
+            z-20
+            w-40
+            overflow-hidden
+            rounded-xl
+            border border-gray-100
+            bg-white
+            shadow-lg
+            py-1
+          "
+        >
+
+          {/* DEFAULT */}
+          {!isDefault && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+
+                onSetDefault(address);
+
+                setOpenMenu(null);
+              }}
+              className="
+                w-full
+                flex items-center gap-2
+                px-3 py-2.5
+                text-left
+                text-[11px]
+                font-semibold
+                text-[#F7A221]
+                hover:bg-orange-50
+                transition-colors
+                cursor-pointer
+              "
+            >
+              <Star size={12} />
+
+              Set Default
+            </button>
+          )}
+
+          {/* EDIT */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+
+              onEdit(address);
+
+              setOpenMenu(null);
+            }}
+            className="
+              w-full
+              flex items-center gap-2
+              px-3 py-2.5
+              text-left
+              text-[14px]
+              font-semibold
+              text-gray-600
+              hover:bg-gray-50
+              transition-colors
+              cursor-pointer
+            "
+          >
+            <Pencil size={12} />
+
+            Edit
+          </button>
+
+          {/* DELETE */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+
+              onDelete(address._id);
+
+              setOpenMenu(null);
+            }}
+            disabled={isDeleting}
+            className="
+              w-full
+              flex items-center gap-2
+              px-3 py-2.5
+              text-left
+              text-[14px]
+              font-semibold
+              text-red-500
+              hover:bg-red-50
+              disabled:opacity-40
+              transition-colors
+              cursor-pointer
+            "
+          >
+            {isDeleting ? (
+              <RefreshCw
+                size={12}
+                className="animate-spin"
+              />
+            ) : (
+              <Trash2 size={12} />
+            )}
+
+            {isDeleting ? "Deleting..." : "Delete"}
+          </button>
+        </div>
+      )}
     </div>
   </div>
+</div>
   );
 };
 
@@ -790,7 +955,7 @@ const UserAddress = () => {
   return (
     <div className="max-w-6xl mx-auto py-10 px-4">
       <div className="mb-6">
-        <h1 className="text-lg font-semibold text-gray-900">My addresses</h1>
+        <h1 className="text-lg md:text-xl font-semibold text-gray-900">My addresses</h1>
         <button
           type="button"
           onClick={openAdd}

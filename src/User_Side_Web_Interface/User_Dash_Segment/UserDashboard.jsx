@@ -121,7 +121,7 @@ const UserDashboard = () => {
                                                 </span>
                                                 <span className="font-bold text-sm tracking-tight uppercase">{item.label}</span>
                                             </div>
-                                            <div className="flex items-center">
+                                            <div className="flex items-center"> 
                                                 {/* Mobile Icon */}
                                                 <ChevronDown size={16} className={`lg:hidden transition-transform duration-300 ${isActive ? 'rotate-180 text-[#F7A221]' : 'opacity-40'}`} />
                                                 {/* Desktop Icon */}

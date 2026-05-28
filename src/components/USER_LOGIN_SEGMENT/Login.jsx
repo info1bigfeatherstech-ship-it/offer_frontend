@@ -82,6 +82,7 @@ const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
 
   // ── Google OAuth ───────────────────────────────────────────────
   const handleGoogleClick = () => {
+    
     if (googleBtnRef.current) {
       const googleDiv = googleBtnRef.current.querySelector('div[role="button"]');
       if (googleDiv) googleDiv.click();

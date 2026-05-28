@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { createAsyncThunk } from '@reduxjs/toolkit';
-import { User, Mail, Phone, CheckCircle2, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
+import { User, Save, X, Mail, Phone, CheckCircle2, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import axiosInstance from '../../../SERVICES/axiosInstance';
 import { fetchMe, clearError } from '../../../components/REDUX_FEATURES/REDUX_SLICES/authSlice';
 
@@ -34,92 +34,116 @@ const logError = (context, error, info = {}) => {
   console.error('Error:', error);
   console.log('Info:', info);
   console.groupEnd();
+  
 };
-
+const Avatar = ({ user }) => (
+  <div className="relative shrink-0">
+    <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gray-100 border-2 border-white shadow flex items-center justify-center overflow-hidden">
+      {user?.avatar ? (
+        <img
+          src={user.avatar}
+          alt={user.name}
+          className="w-full h-full object-cover"
+          onError={(e) => { e.target.style.display = 'none'; }}
+        />
+      ) : (
+        <span className="text-xl sm:text-2xl font-black text-gray-400 uppercase select-none">
+          {user?.name?.charAt(0) ?? <User size={32} className="text-gray-300" />}
+        </span>
+      )}
+    </div>
+    {user?.role === 'admin' && (
+      <span className="absolute -bottom-1 -right-1 bg-amber-400 text-[9px] font-black text-amber-900 px-1.5 py-0.5 rounded-full uppercase tracking-wider leading-none">
+        Admin
+      </span>
+    )}
+  </div>
+);
+ 
+const Field = ({ id, label, icon: Icon, children }) => (
+  <div className="flex flex-col gap-1.5">
+    <label
+      htmlFor={id}
+      className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-gray-400 ml-1"
+    >
+      <Icon size={11} aria-hidden="true" />
+      {label}
+    </label>
+    {children}
+  </div>
+);
+ 
+const Skeleton = () => (
+  <div className="w-full max-w-2xl animate-pulse">
+    <div className="h-7 w-48 bg-gray-200 rounded mb-2" />
+    <div className="h-4 w-72 bg-gray-100 rounded mb-8" />
+    <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl mb-6">
+      <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-2xl bg-gray-200 shrink-0" />
+      <div className="space-y-2 flex-1 min-w-0">
+        <div className="h-4 w-32 bg-gray-200 rounded" />
+        <div className="h-3 w-44 bg-gray-100 rounded" />
+      </div>
+    </div>
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      {[0, 1, 2].map((i) => (
+        <div key={i} className={i === 2 ? 'sm:col-span-2' : ''}>
+          <div className="h-3 w-20 bg-gray-200 rounded mb-2" />
+          <div className="h-12 bg-gray-100 rounded-xl" />
+        </div>
+      ))}
+    </div>
+  </div>
+);
 // ─────────────────────────────────────────────────────────────────────────────
 // UserProfile Component
 // ─────────────────────────────────────────────────────────────────────────────
 const UserProfile = () => {
   const dispatch = useDispatch();
-
-  // ── Redux state ───────────────────────────────────────────────────────────
   const { user, loading: authLoading, error: authError } = useSelector((s) => s.auth);
-
-  // ── Local form state ──────────────────────────────────────────────────────
-  const [name,    setName]    = useState('');
-  const [phone,   setPhone]   = useState('');
-
-  // ── Local UI state ────────────────────────────────────────────────────────
-  const [saving,        setSaving]        = useState(false);
-  const [saveError,     setSaveError]     = useState(null);
-  const [saveSuccess,   setSaveSuccess]   = useState(false);
-  const [isDirty,       setIsDirty]       = useState(false);
-
-  // ── Fetch user on mount if not already in Redux ───────────────────────────
+ 
+  const [name, setName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState(null);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isDirty, setIsDirty] = useState(false);
+ 
   useEffect(() => {
     if (!user) {
-      console.log('👤 [UserProfile] no user in state — fetching /auth/me');
       dispatch(fetchMe())
         .unwrap()
-        .then((d) => console.log(`✅ [UserProfile] user loaded: "${d.user?.name}"`))
         .catch((e) => logError('fetchMe on mount', e));
     }
   }, [dispatch, user]);
-
-  // ── Populate form when user loads ─────────────────────────────────────────
+ 
   useEffect(() => {
     if (user) {
-      setName(user.name  ?? '');
+      setName(user.name ?? '');
       setPhone(user.phone ?? '');
       setIsDirty(false);
-      console.log(`✅ [UserProfile] form populated for "${user.name}"`);
     }
   }, [user]);
-
+ 
   useEffect(() => {
-    window.scrollTo({
-      top: 0,
-      behavior: 'instant'
-    });
+    window.scrollTo({ top: 0, behavior: 'instant' });
   }, []);
-
-  // ── Track dirty state ─────────────────────────────────────────────────────
-  const handleNameChange  = (v) => { setName(v);  setIsDirty(true); setSaveSuccess(false); setSaveError(null); };
-  const handlePhoneChange = (v) => { setPhone(v); setIsDirty(true); setSaveSuccess(false); setSaveError(null); };
-
-  // ── Submit ────────────────────────────────────────────────────────────────
+ 
+  const markDirty = () => { setIsDirty(true); setSaveSuccess(false); setSaveError(null); };
+  const handleNameChange  = (v) => { setName(v);  markDirty(); };
+  const handlePhoneChange = (v) => { setPhone(v); markDirty(); };
+ 
   const handleSave = async (e) => {
     e.preventDefault();
     if (!isDirty || saving) return;
-
-    // Basic validation
-    if (!name.trim()) { setSaveError('Name cannot be empty'); return; }
-    if (name.trim().length < 2) { setSaveError('Name must be at least 2 characters'); return; }
-
-    setSaving(true);
-    setSaveError(null);
-    setSaveSuccess(false);
-
+    if (!name.trim())            { setSaveError('Name cannot be empty'); return; }
+    if (name.trim().length < 2)  { setSaveError('Name must be at least 2 characters'); return; }
+ 
+    setSaving(true); setSaveError(null); setSaveSuccess(false);
     try {
-      const result = await dispatch(updateProfile({
-        name:  name.trim(),
-        phone: phone.trim(),
-      })).unwrap();
-
-      console.log(`✅ [UserProfile] profile updated: "${result.user?.name}"`);
-
-      // Update auth state with fresh user data
-      if (result.user) {
-        setName(result.user.name   ?? name);
-        setPhone(result.user.phone ?? phone);
-      }
-
-      setIsDirty(false);
-      setSaveSuccess(true);
-
-      // Auto-hide success after 3s
+      const result = await dispatch(updateProfile({ name: name.trim(), phone: phone.trim() })).unwrap();
+      if (result.user) { setName(result.user.name ?? name); setPhone(result.user.phone ?? phone); }
+      setIsDirty(false); setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-
     } catch (err) {
       logError('handleSave', err, { name, phone });
       setSaveError(err?.message || 'Failed to save changes. Please try again.');
@@ -127,212 +151,162 @@ const UserProfile = () => {
       setSaving(false);
     }
   };
-
-  // ── Reset form to current user data ──────────────────────────────────────
+ 
   const handleReset = () => {
     if (!user) return;
-    setName(user.name  ?? '');
-    setPhone(user.phone ?? '');
-    setIsDirty(false);
-    setSaveError(null);
-    setSaveSuccess(false);
+    setName(user.name ?? ''); setPhone(user.phone ?? '');
+    setIsDirty(false); setSaveError(null); setSaveSuccess(false);
   };
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Loading state — user not fetched yet
-  // ─────────────────────────────────────────────────────────────────────────
-  if (authLoading && !user) {
-    return (
-      <div className="max-w-2xl">
-        <div className="h-8 w-56 bg-gray-200 rounded animate-pulse mb-2" />
-        <div className="h-4 w-80 bg-gray-100 rounded animate-pulse mb-10" />
-        <div className="space-y-6">
-          <div className="flex items-center gap-6">
-            <div className="w-24 h-24 rounded-3xl bg-gray-200 animate-pulse" />
-            <div className="space-y-2">
-              <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
-              <div className="h-3 w-48 bg-gray-100 rounded animate-pulse" />
-            </div>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className={i === 2 ? 'col-span-full' : ''}>
-                <div className="h-3 w-24 bg-gray-200 rounded animate-pulse mb-2" />
-                <div className="h-14 bg-gray-100 rounded-2xl animate-pulse" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Fetch error with no user
-  // ─────────────────────────────────────────────────────────────────────────
+ 
+  // ── Loading ────────────────────────────────────────────────────────────────
+  if (authLoading && !user) return <Skeleton />;
+ 
+  // ── Error ──────────────────────────────────────────────────────────────────
   if (authError && !user) {
     return (
-      <div className="max-w-2xl flex flex-col items-center justify-center py-20 gap-4 text-center">
-        <AlertCircle size={36} className="text-red-300" />
-        <p className="text-gray-500 font-medium">{authError || 'Failed to load profile'}</p>
+      <div className="w-full max-w-2xl flex flex-col items-center justify-center py-16 gap-4 text-center px-4">
+        <AlertCircle size={32} className="text-red-300" />
+        <p className="text-gray-500 font-medium text-sm">{authError || 'Failed to load profile'}</p>
         <button
           onClick={() => { dispatch(clearError()); dispatch(fetchMe()); }}
-          className="flex items-center gap-2 bg-[#F7A221] text-white text-xs font-bold uppercase tracking-wider px-6 py-3 rounded-2xl hover:bg-black transition-colors active:scale-95"
+          className="inline-flex items-center gap-2 bg-[#F7A221] text-white text-xs font-black uppercase tracking-wider px-6 py-3 rounded-xl hover:bg-black transition-colors active:scale-95"
         >
-          <RefreshCw size={14} /> Try Again
+          <RefreshCw size={13} /> Try Again
         </button>
       </div>
     );
   }
-
-  // ─────────────────────────────────────────────────────────────────────────
-  // Main render
-  // ─────────────────────────────────────────────────────────────────────────
+ 
+  // ── Main render ────────────────────────────────────────────────────────────
   return (
-    <div className="max-w-2xl">
-      <h1 className="text-3xl font-black text-gray-900 mb-2">Personal Settings</h1>
-      <p className="text-gray-500 font-medium mb-10">
-        Update your information to ensure a smooth checkout experience.
-      </p>
-
-      <form onSubmit={handleSave} noValidate>
-        <div className="space-y-8">
-
-          {/* ── Avatar section (display only — upload not yet supported) ── */}
-          <div className="flex items-center gap-6">
-            <div className="relative">
-              <div className="w-24 h-24 rounded-3xl bg-gray-100 border-4 border-white shadow-md flex items-center justify-center overflow-hidden">
-                {user?.avatar ? (
-                  <img
-                    src={user.avatar}
-                    alt={user.name}
-                    className="w-full h-full object-cover"
-                    onError={(e) => { e.target.style.display = 'none'; }}
-                  />
-                ) : (
-                  // Initials avatar
-                  <span className="text-2xl font-black text-gray-400 uppercase select-none">
-                    {user?.name?.charAt(0) ?? <User size={40} className="text-gray-300" />}
-                  </span>
-                )}
-              </div>
-            </div>
-            <div>
-              <h4 className="font-black text-gray-900">{user?.name ?? '—'}</h4>
-              <p className="text-xs text-gray-400 font-bold mt-0.5">{user?.email ?? '—'}</p>
-              <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider mt-1">
-                {user?.role === 'admin' ? '🔑 Admin' : ''}
-              </p>
-            </div>
+    <div className="w-full font-['satoshi'] font-semibold max-w-2xl">
+ 
+      {/* Header */}
+      <div className="mb-8">
+        <h1 className="text-2xl sm:text-3xl font-black text-gray-900 mb-1">Personal Settings</h1>
+        <p className="text-sm text-gray-500 font-medium">
+          Update your information to ensure a smooth checkout experience.
+        </p>
+      </div>
+ 
+      <form onSubmit={handleSave} noValidate className="space-y-6 sm:space-y-8">
+ 
+        {/* Identity card */}
+        <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
+          <Avatar user={user} />
+          <div className="min-w-0">
+            <h4 className="font-black text-gray-900 truncate">{user?.name ?? '—'}</h4>
+            <p className="text-xs text-gray-400 font-medium truncate mt-0.5">{user?.email ?? '—'}</p>
           </div>
-
-          {/* ── Save error ── */}
-          {saveError && (
-            <div className="flex items-start gap-3 bg-red-50 border border-red-100 rounded-2xl px-4 py-3">
-              <AlertCircle size={16} className="text-red-400 mt-0.5 flex-shrink-0" />
-              <p className="text-sm font-semibold text-red-600 flex-1">{saveError}</p>
-              <button
-                type="button"
-                onClick={() => setSaveError(null)}
-                className="text-red-300 hover:text-red-500 transition-colors"
-              >
-                ×
-              </button>
-            </div>
-          )}
-
-          {/* ── Save success ── */}
-          {saveSuccess && (
-            <div className="flex items-center gap-3 bg-green-50 border border-green-100 rounded-2xl px-4 py-3">
-              <CheckCircle2 size={16} className="text-green-500 flex-shrink-0" />
-              <p className="text-sm font-semibold text-green-700">Profile updated successfully!</p>
-            </div>
-          )}
-
-          {/* ── Form fields ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-
-            {/* Full Name */}
-            <div className="space-y-2">
-              <label htmlFor="profile-name" className="text-[11px] font-black uppercase text-gray-400 ml-1 flex items-center gap-1.5">
-                <User size={11} /> Full Name
-              </label>
-              <input
-                id="profile-name"
-                type="text"
-                value={name}
-                onChange={(e) => handleNameChange(e.target.value)}
-                placeholder="Enter your full name"
-                className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-orange-400 focus:bg-white rounded-2xl outline-none font-bold transition-all placeholder:font-normal placeholder:text-gray-300"
-              />
-            </div>
-
-            {/* Phone */}
-            <div className="space-y-2">
-              <label htmlFor="profile-phone" className="text-[11px] font-black uppercase text-gray-400 ml-1 flex items-center gap-1.5">
-                <Phone size={11} /> Phone Number
-              </label>
-              <input
-                id="profile-phone"
-                type="tel"
-                value={phone}
-                onChange={(e) => handlePhoneChange(e.target.value)}
-                placeholder="+91 XXXXX XXXXX"
-                className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-orange-400 focus:bg-white rounded-2xl outline-none font-bold transition-all placeholder:font-normal placeholder:text-gray-300"
-              />
-            </div>
-
-            {/* Email — read only, cannot be changed */}
-            <div className="col-span-full space-y-2">
-              <label className="text-[11px] font-black uppercase text-gray-400 ml-1 flex items-center gap-1.5">
-                <Mail size={11} /> Email Address
-                <span className="text-[9px] bg-gray-100 text-gray-400 px-2 py-0.5 rounded-full ml-1 normal-case tracking-normal font-bold">
+        </div>
+ 
+        {/* Alerts */}
+        {saveError && (
+          <div className="flex items-start gap-3 bg-red-50 border border-red-100 rounded-xl px-4 py-3">
+            <AlertCircle size={15} className="text-red-400 mt-0.5 shrink-0" />
+            <p className="text-sm font-semibold text-red-600 flex-1 leading-snug">{saveError}</p>
+            <button
+              type="button"
+              onClick={() => setSaveError(null)}
+              className="text-red-300 hover:text-red-500 transition-colors p-0.5 -mr-1 -mt-0.5"
+              aria-label="Dismiss error"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        )}
+ 
+        {saveSuccess && (
+          <div className="flex items-center gap-3 bg-green-50 border border-green-100 rounded-xl px-4 py-3">
+            <CheckCircle2 size={15} className="text-green-500 shrink-0" />
+            <p className="text-sm font-semibold text-green-700">Profile updated successfully!</p>
+          </div>
+        )}
+ 
+        {/* Form fields — stack on mobile, 2-col on sm+ */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
+ 
+          {/* Full Name */}
+          <Field id="profile-name" label="Full Name" icon={User}>
+            <input
+              id="profile-name"
+              type="text"
+              value={name}
+              onChange={(e) => handleNameChange(e.target.value)}
+              placeholder="Enter your full name"
+              autoComplete="name"
+              className="w-full px-4 py-3.5 bg-gray-50 border-2 border-transparent focus:border-orange-400 focus:bg-white rounded-xl outline-none font-semibold text-sm transition-all placeholder:font-normal placeholder:text-gray-300"
+            />
+          </Field>
+ 
+          {/* Phone */}
+          <Field id="profile-phone" label="Phone Number" icon={Phone}>
+            <input
+              id="profile-phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => handlePhoneChange(e.target.value)}
+              placeholder="+91 XXXXX XXXXX"
+              autoComplete="tel"
+              inputMode="tel"
+              className="w-full px-4 py-3.5 bg-gray-50 border-2 border-transparent focus:border-orange-400 focus:bg-white rounded-xl outline-none font-semibold text-sm transition-all placeholder:font-normal placeholder:text-gray-300"
+            />
+          </Field>
+ 
+          {/* Email — read only, full width */}
+          <div className="sm:col-span-2">
+            <Field id="profile-email" label="Email Address" icon={Mail}>
+              {/* Badge sits to the right of the label */}
+              <div className="relative">
+                <input
+                  id="profile-email"
+                  type="email"
+                  value={user?.email ?? ''}
+                  disabled
+                  className="w-full px-4 py-3.5 bg-gray-100 border-2 border-transparent rounded-xl font-semibold text-sm text-gray-400 cursor-not-allowed select-none pr-36"
+                />
+                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] bg-gray-200 text-gray-400 px-2 py-1 rounded-full font-bold whitespace-nowrap">
                   Cannot be changed
                 </span>
-              </label>
-              <input
-                type="email"
-                value={user?.email ?? ''}
-                disabled
-                className="w-full p-4 bg-gray-100 border-2 border-transparent rounded-2xl font-bold text-gray-400 cursor-not-allowed select-none"
-              />
-            </div>
+              </div>
+            </Field>
           </div>
-
-          {/* ── Actions ── */}
-          <div className="flex items-center gap-4 flex-wrap">
-            <button
-              type="submit"
-              disabled={!isDirty || saving}
-              className={`flex items-center gap-2 px-10 py-4 rounded-2xl font-black text-sm uppercase tracking-widest transition-all active:scale-95 shadow-lg ${
-                !isDirty || saving
-                  ? 'bg-gray-200 text-gray-400 cursor-not-allowed shadow-none'
-                  : 'bg-black text-white hover:bg-[#F7A221] shadow-gray-200'
-              }`}
-            >
-              {saving
-                ? <><Loader2 size={16} className="animate-spin" /> Saving...</>
-                : 'Save Changes'
-              }
-            </button>
-
-            {isDirty && !saving && (
-              <button
-                type="button"
-                onClick={handleReset}
-                className="px-6 py-4 rounded-2xl font-black text-sm uppercase tracking-widest text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all"
-              >
-                Cancel
-              </button>
-            )}
-          </div>
-
         </div>
+ 
+        {/* Actions — full-width on mobile, auto on sm+ */}
+        <div className="flex flex-col-reverse sm:flex-row items-stretch sm:items-center gap-3 pt-1">
+ 
+          {isDirty && !saving && (
+            <button
+              type="button"
+              onClick={handleReset}
+              className="sm:order-first flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all border border-transparent hover:border-gray-200 active:scale-95"
+            >
+              Cancel
+            </button>
+          )}
+ 
+          <button
+            type="submit"
+            disabled={!isDirty || saving}
+            className={`flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 ${
+              !isDirty || saving
+                ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
+                : 'bg-black text-white hover:bg-[#F7A221] shadow-sm shadow-gray-200'
+            }`}
+          >
+            {saving
+              ? <><Loader2 size={14} className="animate-spin" /> Saving…</>
+              : <><Save size={14} /> Save Changes</>
+            }
+          </button>
+        </div>
+ 
       </form>
     </div>
   );
 };
-
+ 
 export default UserProfile;
 // // UserSubPages/UserProfile.jsx
 // import React from 'react';
