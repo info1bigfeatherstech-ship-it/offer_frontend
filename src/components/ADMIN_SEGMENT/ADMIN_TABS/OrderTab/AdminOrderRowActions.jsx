@@ -3,7 +3,9 @@ import {
   useAdminBulkApprovalCancelMutation,
   useAdminBulkApprovalConfirmMutation,
   useAdminBulkFulfillmentShipNowMutation,
+  useAdminFulfillmentCancelShipmentMutation,
   useAdminFulfillmentManifestMutation,
+  useAdminFulfillmentRetryPickupMutation,
   useAdminFulfillmentSchedulePickupMutation,
   useAdminFulfillmentSyncShiprocketMutation,
   useGetAdminPickupCalendarQuery,
@@ -20,6 +22,11 @@ const ACTION_LABELS = {
   downloadLabel: "Download label",
   downloadTaxInvoice: "Tax invoice",
   syncShiprocket: "Refresh Shiprocket",
+  refreshTracking: "Refresh tracking",
+  retryPickup: "Retry pickup",
+  cancelShipment: "Cancel on Shiprocket",
+  openShiprocketSupport: "Open Shiprocket support",
+  openShiprocket: "Open on Shiprocket",
   track: "Track",
   openDetail: "Open order",
 };
@@ -40,6 +47,15 @@ function addLocalDaysYmd(days) {
   const m = String(t.getMonth() + 1).padStart(2, "0");
   const d = String(t.getDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+function resolveSupportUrl(externalLinks) {
+  return (
+    externalLinks?.shiprocketSupportUrl ||
+    externalLinks?.createTicketUrl ||
+    externalLinks?.shiprocketOrderUrl ||
+    "https://app.shiprocket.in/seller/support"
+  );
 }
 
 async function downloadBlobFromGet(url, defaultFilename) {
@@ -128,6 +144,27 @@ async function executeAction(key, ctx) {
     case "syncShiprocket":
       await ctx.syncShiprocket(id).unwrap();
       return;
+    case "refreshTracking":
+      await axiosInstance.get(`/orders/items/${encodeURIComponent(String(id))}/track`);
+      return;
+    case "retryPickup":
+      await ctx.retryPickup(id).unwrap();
+      return;
+    case "cancelShipment":
+      if (
+        !window.confirm(
+          "Cancel this shipment on Shiprocket? You may need to run Ship now again after cancellation."
+        )
+      ) {
+        throw new Error("Cancelled");
+      }
+      await ctx.cancelShipment(id).unwrap();
+      return;
+    case "openShiprocketSupport":
+    case "openShiprocket": {
+      window.open(resolveSupportUrl(ctx.externalLinks), "_blank", "noopener,noreferrer");
+      return;
+    }
     case "track":
     case "openDetail":
     default:
@@ -136,11 +173,13 @@ async function executeAction(key, ctx) {
 }
 
 /**
- * Per-row fulfillment actions (list view) — same APIs as order detail.
+ * Per-row fulfillment actions (list view) — driven by backend shipment ops capabilities.
  */
 export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback }) {
   const orderId = order?.orderId;
   const caps = order?.actionCapabilities || {};
+  const blockReasons = order?.blockReasons || {};
+  const externalLinks = order?.externalLinks || {};
   const primaryKey = order?.primaryAction || "openDetail";
   const primaryLabel = order?.primaryActionLabel || ACTION_LABELS[primaryKey] || "Open";
 
@@ -155,6 +194,8 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback }
   const [schedulePickupMut] = useAdminFulfillmentSchedulePickupMutation();
   const [generateManifestMut] = useAdminFulfillmentManifestMutation();
   const [syncShiprocketMut] = useAdminFulfillmentSyncShiprocketMutation();
+  const [retryPickupMut] = useAdminFulfillmentRetryPickupMutation();
+  const [cancelShipmentMut] = useAdminFulfillmentCancelShipmentMutation();
 
   const { data: pickupCalendarRes } = useGetAdminPickupCalendarQuery(
     { daysAhead: 45 },
@@ -187,6 +228,9 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback }
       schedulePickup: schedulePickupMut,
       generateManifest: generateManifestMut,
       syncShiprocket: syncShiprocketMut,
+      retryPickup: retryPickupMut,
+      cancelShipment: cancelShipmentMut,
+      externalLinks,
       pickupDate,
       onOpenDetail,
     }),
@@ -198,6 +242,9 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback }
       schedulePickupMut,
       generateManifestMut,
       syncShiprocketMut,
+      retryPickupMut,
+      cancelShipmentMut,
+      externalLinks,
       pickupDate,
       onOpenDetail,
     ]
@@ -226,17 +273,24 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback }
       "accept",
       "reject",
       "shipNow",
+      "retryPickup",
       "schedulePickup",
       "generateManifest",
       "downloadManifest",
       "downloadLabel",
       "downloadTaxInvoice",
       "syncShiprocket",
+      "refreshTracking",
+      "openShiprocketSupport",
+      "openShiprocket",
+      "cancelShipment",
       "track",
       "openDetail",
     ];
     return keys.filter((k) => caps[k] && k !== primaryKey);
   }, [caps, primaryKey]);
+
+  const primaryTitle = blockReasons[primaryKey] || undefined;
 
   if (!orderId) return null;
 
@@ -249,6 +303,7 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback }
         <button
           type="button"
           disabled={busy}
+          title={primaryTitle}
           onClick={(e) => {
             e.stopPropagation();
             if (primaryKey === "schedulePickup") {
@@ -283,6 +338,7 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback }
                   key={key}
                   type="button"
                   disabled={busy}
+                  title={blockReasons[key] || undefined}
                   onClick={(e) => {
                     e.stopPropagation();
                     if (key === "schedulePickup") {

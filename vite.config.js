@@ -71,7 +71,6 @@ export default defineConfig({
   },
 
       workbox: {
-          navigateFallback: "/offline.html",
         cleanupOutdatedCaches: true,
 
         clientsClaim: true,

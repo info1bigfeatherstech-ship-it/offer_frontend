@@ -5,28 +5,29 @@ import { toast } from "react-toastify";
 import { verifyOTP, registerUser, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
 
 /*
-  ARCHITECTURE FIX — OtpVerification is NO LONGER a self-contained modal.
+  THEME FIX — OtpVerification white theme applied.
 
   BEFORE (broken):
-    - Had its own  fixed inset-0 z-[200] bg-black/95 backdrop-blur-md overflow-y-auto
-    - When open: TWO full-screen fixed backdrops competed for scroll ownership
-    - iOS Safari double scroll-lock: user could not scroll OTP boxes on iPhone SE
-    - mt-auto on verify button pushed it behind home indicator with keyboard open
+    - OTP boxes used bg-white/[0.04] border-white/10 text-white
+      → designed for dark background, invisible on white card
+    - Timer text used text-white/30 → invisible on white
+    - Subtitle used text-white/35 → invisible on white
+    - Heading used text-white → invisible on white
 
   AFTER (fixed):
-    - Renders as a plain content panel inside LogRegister's existing card shell
-    - No fixed positioning, no backdrop, no z-index, no overflow-y-auto
-    - LogRegister's single backdrop handles everything
-    - Full height determined by content, not viewport — keyboard-safe by default
-    - Padding at bottom is handled by parent card's pb-[env(safe-area-inset-bottom)]
+    - OTP boxes now use light theme: #f5f5f5 bg, #e8e8e8 border, #111 text
+      — exactly matching ForgotPassword's .fp-otp-box style
+    - All text colors switched to #111111 / #aaaaaa / #999999
+    - Timer uses #111111 text
+    - Scoped <style> tag added (fp-otp-* classes) — no global pollution
+    - All Tailwind color classes that assumed dark bg have been replaced
+      with inline styles or the new fp-otp-* CSS classes
 
-  Props: { identifier, phone, name, email, registrationPassword, deliveryMessage, onClose, onVerify }
-  Backend: POST /auth/otp-verify-login { identifier, otp } — identifier is email or 10-digit phone
+  Architecture is unchanged — still a plain content panel inside
+  LogRegister's card shell. No fixed/backdrop/z-index.
 */
 
-// Matches backend OTP_EXPIRY_MINUTES (default 5). Centralised here so any
-// future tweak only happens in one spot.
-const OTP_TIMER_SECONDS = 5 * 60;
+const OTP_TIMER_SECONDS = 30;  // Changed from 5 * 60 to 30 seconds
 
 const formatTimer = (totalSec) => {
   const safe = Math.max(0, Number(totalSec) || 0);
@@ -59,7 +60,6 @@ const OtpVerification = ({
 
   useEffect(() => {
     dispatch(clearError());
-    // Small delay so the slide-up animation completes before keyboard opens
     setTimeout(() => inputRefs.current[0]?.focus(), 180);
   }, [dispatch]);
 
@@ -71,7 +71,6 @@ const OtpVerification = ({
     if (localError) { toast.error(localError); setLocalError(""); }
   }, [localError]);
 
-  // Countdown timer
   useEffect(() => {
     if (timer > 0) {
       const id = setInterval(() => setTimer((s) => s - 1), 1000);
@@ -79,7 +78,6 @@ const OtpVerification = ({
     } else { setCanResend(true); }
   }, [timer]);
 
-  // ── OTP input handlers ─────────────────────────────────────────
   const handleChange = (idx, val) => {
     const c = val.replace(/\D/g, "");
     if (!c && val) return;
@@ -109,7 +107,6 @@ const OtpVerification = ({
     setOtp(next);
     inputRefs.current[Math.min(pasted.length, 5)]?.focus();
   };
-  // ──────────────────────────────────────────────────────────────
 
   const handleResend = async () => {
     if (!canResend) return;
@@ -156,7 +153,6 @@ const OtpVerification = ({
 
   const isComplete = otp.join("").length === 6;
 
-  /** Mask email or phone for display */
   const maskedDestination = (() => {
     if (!verifyId) return "";
     if (isEmailChannel) {
@@ -173,46 +169,109 @@ const OtpVerification = ({
   })();
 
   return (
-    /*
-      FIX: This is now a plain div — NO fixed, NO inset-0, NO z-index, NO overflow.
-      It is rendered as a sibling to Login/Register content inside LogRegister's card.
-      The lr-slide-up animation is applied by LogRegister's wrapper div on this panel.
-      Padding px-6 sm:px-8 matches the tab panels' p-5 sm:p-8.
-      pt-4 gives breathing room below the mobile top bar.
-      pb-6 bottom padding — safe-area is handled by parent card's
-      pb-[env(safe-area-inset-bottom)].
-    */
-    <div className="w-full px-5 sm:px-8 pt-4 pb-6">
+    <div className="w-full px-5 sm:px-8 pt-4 pb-6" style={{ color: "#111111" }}>
 
-      {/* Back / change phone button */}
+      {/* ── White-theme scoped styles — mirrors ForgotPassword ── */}
+      <style>{`
+        .otp-wt-box {
+          flex: 1;
+          min-width: 0;
+          aspect-ratio: 1;
+          background: #f5f5f5;
+          border: 1.5px solid #e8e8e8;
+          border-radius: 12px;
+          text-align: center;
+          color: #111111;
+          font-weight: 800;
+          font-size: 20px;
+          outline: none;
+          transition: border-color 0.18s, background 0.18s, box-shadow 0.18s;
+          caret-color: transparent;
+          -webkit-tap-highlight-color: transparent;
+        }
+        .otp-wt-box:focus {
+          border-color: #f7a221;
+          background: #fffdf7;
+          box-shadow: 0 0 0 3px rgba(247,162,33,0.18);
+        }
+        .otp-wt-btn {
+          width: 100%;
+          background: #f7a221;
+          color: #000000;
+          font-weight: 900;
+          padding: 15px 0;
+          border-radius: 16px;
+          border: none;
+          cursor: pointer;
+          font-size: 13px;
+          letter-spacing: 0.12em;
+          text-transform: uppercase;
+          transition: background 0.18s, opacity 0.18s, transform 0.1s;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+          box-shadow: 0 6px 20px rgba(247,162,33,0.25);
+        }
+        .otp-wt-btn:hover:not(:disabled) { background: #e0911c; }
+        .otp-wt-btn:active:not(:disabled) { background: #c97e18; transform: scale(0.99); }
+        .otp-wt-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+      `}</style>
+
+      {/* Back button */}
       <button
         onClick={onClose}
-        className="flex items-center cursor-pointer gap-1 text-[#f7a221] hover:text-white font-black text-[10px] tracking-widest transition-colors mb-4 sm:mb-5 uppercase self-start touch-manipulation"
+        className="flex items-center cursor-pointer gap-1 font-black text-[10px] tracking-widest transition-colors mb-4 sm:mb-5 uppercase self-start touch-manipulation"
+        style={{ color: "#f7a221" }}
+        onMouseEnter={(e) => (e.currentTarget.style.color = "#111")}
+        onMouseLeave={(e) => (e.currentTarget.style.color = "#f7a221")}
       >
         <ChevronLeft size={16} /> Back
       </button>
 
+      {/* Delivery message banner */}
       {deliveryMessage ? (
-        <div className="mb-4 rounded-xl border border-[#f7a221]/35 bg-[#f7a221]/12 px-3 py-2.5 text-[11px] text-[#f7a221] text-center leading-relaxed font-semibold">
+        <div
+          className="mb-4 rounded-xl px-3 py-2.5 text-[11px] text-center leading-relaxed font-semibold"
+          style={{
+            border: "1px solid rgba(247,162,33,0.35)",
+            background: "rgba(247,162,33,0.08)",
+            color: "#b87a10",
+          }}
+        >
           {deliveryMessage}
         </div>
       ) : null}
 
       {/* Icon + heading */}
       <div className="flex flex-col items-center mb-6 sm:mb-8">
-        <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl bg-[#f7a221]/10 flex items-center justify-center mb-4 border border-[#f7a221]/20 rotate-3">
+        <div
+          className="w-16 h-16 sm:w-20 sm:h-20 rounded-3xl flex items-center justify-center mb-4 rotate-3"
+          style={{
+            background: "rgba(247,162,33,0.1)",
+            border: "1px solid rgba(247,162,33,0.25)",
+          }}
+        >
           {isEmailChannel ? (
-            <Mail className="text-[#f7a221] -rotate-3" size={28} />
+            <Mail className="-rotate-3" size={28} style={{ color: "#f7a221" }} />
           ) : (
-            <Phone className="text-[#f7a221] -rotate-3" size={28} />
+            <Phone className="-rotate-3" size={28} style={{ color: "#f7a221" }} />
           )}
         </div>
-        <h3 className="text-2xl sm:text-3xl font-black text-white tracking-tighter mb-2">
-          VERIFY <span className="text-[#f7a221]">OTP</span>
+
+        <h3
+          className="text-2xl sm:text-3xl font-black tracking-tighter mb-2"
+          style={{ color: "#111111" }}
+        >
+          VERIFY <span style={{ color: "#f7a221" }}>OTP</span>
         </h3>
-        <p className="text-white/35 text-[11px] text-center uppercase tracking-widest leading-relaxed max-w-xs">
+
+        <p
+          className="text-[11px] text-center uppercase tracking-widest leading-relaxed max-w-xs"
+          style={{ color: "#999999" }}
+        >
           6-digit code sent to{" "}
-          <span className="text-white tracking-normal font-bold break-all">
+          <span style={{ color: "#111111", fontWeight: 700 }} className="break-all">
             {maskedDestination || "—"}
           </span>
         </p>
@@ -234,42 +293,45 @@ const OtpVerification = ({
             value={digit}
             onChange={(e) => handleChange(idx, e.target.value)}
             onKeyDown={(e) => handleKeyDown(idx, e)}
-            /*
-              FIX: text-[20px] as Tailwind arbitrary value — single source of truth.
-              No inline style needed. 20px > 16px so iOS won't zoom.
-            */
-            className="flex-1 min-w-0 aspect-square bg-white/[0.04] border border-white/10 rounded-xl sm:rounded-2xl text-center text-white text-[20px] font-black focus:outline-none focus:border-[#f7a221] focus:ring-1 focus:ring-[#f7a221]/40 transition-all caret-transparent touch-manipulation"
+            className="otp-wt-box touch-manipulation"
             aria-label={`OTP digit ${idx + 1}`}
           />
         ))}
       </div>
 
       {/* Resend timer */}
-      <div className="flex items-center justify-center gap-2 text-white/30 mb-6 sm:mb-8">
+      <div
+        className="flex items-center justify-center gap-2 mb-6 sm:mb-8"
+        style={{ color: "#aaaaaa" }}
+      >
         <Clock size={13} className="shrink-0" />
         <span className="text-[11px] font-bold tracking-widest">
           {canResend ? (
             <button
               onClick={handleResend}
-              className="text-[#f7a221] hover:underline uppercase cursor-pointer touch-manipulation"
+              className="uppercase cursor-pointer touch-manipulation underline underline-offset-2"
+              style={{ color: "#f7a221" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#c97e18")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "#f7a221")}
             >
               RESEND CODE
             </button>
           ) : (
-            `RESEND IN ${formatTimer(timer)}`
+            <span style={{ color: "#111111" }}>
+              RESEND IN{" "}
+              <span style={{ color: "#f7a221", fontVariantNumeric: "tabular-nums" }}>
+                {formatTimer(timer)}
+              </span>
+            </span>
           )}
         </span>
       </div>
 
-      {/*
-        FIX: Removed mt-auto — it pushed the button to the absolute bottom of a
-        flex min-h-screen container, placing it behind keyboard/home indicator.
-        Now it sits naturally in flow, always visible above keyboard.
-      */}
+      {/* Verify button */}
       <button
         onClick={handleVerify}
         disabled={!isComplete || loading}
-        className="w-full bg-[#f7a221] hover:bg-[#e0911c] active:bg-[#c97e18] disabled:opacity-30 text-black font-black py-4 rounded-2xl cursor-pointer transition-all flex items-center justify-center gap-2 text-sm shadow-[0_8px_20px_rgba(247,162,33,0.25)] touch-manipulation select-none"
+        className="otp-wt-btn"
       >
         {loading ? <Loader2 className="animate-spin" size={20} /> : "VERIFY & CONTINUE"}
       </button>
