@@ -41,28 +41,3 @@ const ToastConfig = () => {
 };
 
 export default ToastConfig;
-
-// import React from "react";
-// import { ToastContainer } from "react-toastify";
-// import "react-toastify/dist/ReactToastify.css";
-
-// const ToastConfig = () => {
-//   return (
-//     <ToastContainer
-//       position="top-right"
-//       autoClose={3000}
-//       hideProgressBar={false}
-//       newestOnTop={true}
-//       closeOnClick
-//       pauseOnHover
-//       theme="dark"
-//       toastClassName={() =>
-//         "relative flex p-1 min-h-10 rounded-xl justify-between overflow-hidden cursor-pointer bg-[#0d0d0d] border border-white/10 mb-2 shadow-2xl"
-//       }
-//       bodyClassName={() => "text-sm font-medium text-white block p-3"}
-//       progressClassName="bg-[#f7a221]"
-//     />
-//   );
-// };
-
-// export default ToastConfig;

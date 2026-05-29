@@ -449,7 +449,7 @@ const TagProducts = (props) => {
 
       {/* HERO */}
       {/* HERO */}
-      <section className="relative h-[40vh] md:h-[50vh] flex items-end overflow-hidden">
+      <section className="relative h-[25vh]  flex items-end overflow-hidden">
         {/* BACKGROUND IMAGE - DIFFERENT FOR EACH TAG */}
         <div className="absolute inset-0">
           {normalizedTag === "on-sale" && (

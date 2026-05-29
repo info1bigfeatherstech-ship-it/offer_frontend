@@ -237,20 +237,72 @@ function fulfillmentActionErrorText(e, fallback = "Request failed.") {
   return fallback;
 }
 
+function pickupScheduleFeedback({ response, selectedDate }) {
+  const r = response || {};
+  const selected = String(selectedDate || "").trim();
+  const saved = String(r.pickupDate || "").trim();
+  if (r.alreadyScheduled && saved && selected && saved !== selected) {
+    return {
+      type: "warn",
+      text:
+        r.message ||
+        `Shiprocket already has pickup on ${saved}. You selected ${selected}. Confirm on the Shiprocket panel.`,
+    };
+  }
+  if (r.alreadyScheduled && r.shipmentOps?.actionCapabilities?.schedulePickup) {
+    return {
+      type: "warn",
+      text:
+        r.message ||
+        "Shiprocket reports pickup exists, but this order still needs scheduling. Try Schedule pickup again or refresh from Shiprocket.",
+    };
+  }
+  return {
+    type: "ok",
+    text:
+      r.message ||
+      (saved ? `Pickup scheduled for ${saved}.` : "Pickup scheduled on Shiprocket."),
+  };
+}
+
 function FulfillmentStatusBanner({ msg }) {
   if (!msg?.text) return null;
+  const tone =
+    msg.type === "err"
+      ? "bg-red-50 text-red-800 border-red-100"
+      : msg.type === "warn"
+        ? "bg-amber-50 text-amber-900 border-amber-200"
+        : "bg-emerald-50 text-emerald-900 border-emerald-100";
   return (
-    <div
-      className={`mt-3 rounded-lg px-3 py-2.5 text-sm border ${
-        msg.type === "err"
-          ? "bg-red-50 text-red-800 border-red-100"
-          : "bg-emerald-50 text-emerald-900 border-emerald-100"
-      }`}
-      role="status"
-      aria-live="polite"
-    >
+    <div className={`mt-3 rounded-lg px-3 py-2.5 text-sm border ${tone}`} role="status" aria-live="polite">
       <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Shiprocket status</p>
       {msg.text}
+    </div>
+  );
+}
+
+function FulfillmentStepCard({ step, focusStep, done, title, children, id }) {
+  const isActive = step === focusStep && !done;
+  const shell = isActive
+    ? "rounded-xl border border-indigo-300 bg-indigo-50/50 ring-1 ring-indigo-200 p-4 mb-4"
+    : done
+      ? "rounded-xl border border-emerald-200 bg-emerald-50/30 p-4 mb-4"
+      : "rounded-xl border border-slate-200 bg-white p-4 mb-4";
+  return (
+    <div className={shell} id={id}>
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{title}</p>
+        {done ? (
+          <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
+            Done
+          </span>
+        ) : isActive ? (
+          <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-900 bg-indigo-100 px-2 py-0.5 rounded-full">
+            Next on Shiprocket
+          </span>
+        ) : null}
+      </div>
+      {children}
     </div>
   );
 }
@@ -787,10 +839,14 @@ export default function AdminOrderDetailView({
     (String(order.paymentStatus || "") === "paid" && (pi.razorpayOrderId || pi.razorpayPaymentId));
   const providerStatusRaw = tracking?.providerStatus || ship?.providerStatus || null;
   const opsExceptionStates = new Set(["PICKUP_EXCEPTION", "PROVIDER_RESET", "NEEDS_MANUAL_REVIEW"]);
+  const shiprocketMirrorOps = new Set(["AWB_ASSIGNED", "PICKUP_SCHEDULED", "MANIFEST_READY"]);
   const useOpsPrimaryStatus = ops?.opsState && opsExceptionStates.has(ops.opsState);
-  const carrierStatusDisplay = useOpsPrimaryStatus
-    ? ops.courierOpsLine1 || ops.opsStateLabel || providerStatusRaw
-    : providerStatusRaw || ops.courierOpsLine1 || ops.opsStateLabel || null;
+  const opsMirrorLine = [ops?.courierOpsLine1, ops?.courierOpsLine2].filter(Boolean).join(" · ");
+  const carrierStatusDisplay = shiprocketMirrorOps.has(ops?.opsState)
+    ? opsMirrorLine || providerStatusRaw || ops?.opsStateLabel
+    : useOpsPrimaryStatus
+      ? ops.courierOpsLine1 || ops.opsStateLabel || providerStatusRaw
+      : providerStatusRaw || ops.courierOpsLine1 || ops.opsStateLabel || null;
   const carrierStatusSecondary =
     useOpsPrimaryStatus && providerStatusRaw && providerStatusRaw !== carrierStatusDisplay
       ? providerStatusRaw
@@ -805,21 +861,29 @@ export default function AdminOrderDetailView({
         ? trackingTimeline
         : normalizeTrackingEvents(ship?.rawEvents);
     const providerNow = providerStatusRaw;
-    const preTransit = ["AWB_ASSIGNED", "READY_TO_SHIP", "PICKUP_SCHEDULED"].includes(ops?.opsState);
+    const preInTransit = ![
+      "IN_TRANSIT",
+      "OUT_FOR_DELIVERY",
+      "DELIVERED",
+      "CANCELLED",
+      "PROVIDER_RESET",
+      "PAYMENT_FAILED",
+    ].includes(ops?.opsState);
     const norm = (value) =>
       String(value || "")
         .trim()
         .toLowerCase()
         .replace(/[_-]+/g, " ")
         .replace(/\s+/g, " ");
+    const isStaleCancel = (value) =>
+      /pickupcancelled|pickup cancelled|auto cancel|shipment reset on shiprocket/.test(norm(value));
     const onlyStaleCancel =
-      rows.length > 0 &&
-      rows.every((row) => /pickupcancelled|pickup cancelled|auto cancel/.test(norm(row.status)));
+      rows.length > 0 && rows.every((row) => isStaleCancel(row.status || row.description));
     const hasCurrent =
       providerNow && rows.some((row) => norm(row.status) === norm(providerNow));
-    if (preTransit && providerNow && (!hasCurrent || onlyStaleCancel)) {
+    if (preInTransit && providerNow && (!hasCurrent || onlyStaleCancel)) {
       rows = [
-        ...rows.filter((row) => !/pickupcancelled|pickup cancelled/.test(norm(row.status))),
+        ...rows.filter((row) => !isStaleCancel(row.status || row.description)),
         {
           id: "provider-current",
           status: providerNow,
@@ -829,6 +893,8 @@ export default function AdminOrderDetailView({
           timestamp: lastSyncedAt || new Date().toISOString(),
         },
       ];
+    } else if (preInTransit && providerNow) {
+      rows = rows.filter((row) => !isStaleCancel(row.status || row.description));
     }
     return rows;
   })();
@@ -836,6 +902,27 @@ export default function AdminOrderDetailView({
   const primaryActionKey = ops?.primaryAction || "openDetail";
   const primaryActionLabel =
     ops?.primaryActionLabel || FULFILLMENT_PRIMARY_ACTION_LABELS[primaryActionKey] || "Open";
+  const hasManifest = Boolean(ship.manifestUrl);
+  const step1Done = hasCarrierAwb;
+  const step2Done = pickupAlreadyScheduled;
+  const step3Done = hasManifest;
+  const fulfillmentFocusStep =
+    primaryActionKey === "shipNow"
+      ? 1
+      : primaryActionKey === "schedulePickup"
+        ? 2
+        : primaryActionKey === "generateManifest" || primaryActionKey === "downloadManifest"
+          ? 3
+          : primaryActionKey === "downloadLabel"
+            ? 4
+            : !step1Done
+              ? 1
+              : !step2Done
+                ? 2
+                : !step3Done
+                  ? 3
+                  : 4;
+  const shiprocketMirrorStatus = opsMirrorLine || ops?.courierOpsLine1 || ship.providerStatus || null;
   const showNextActionBanner =
     showInvoiceAndLogistics &&
     canRunFulfillmentActions &&
@@ -915,7 +1002,11 @@ export default function AdminOrderDetailView({
                 {carrierStatusDisplay ? (
                   <p className="text-[11px] text-indigo-700 mt-2">
                     Current status: <span className="font-semibold">{carrierStatusDisplay}</span>
-                    {ship.courier ? ` · ${ship.courier}` : ""}
+                  </p>
+                ) : null}
+                {ops.opsState === "PICKUP_SCHEDULED" && ship.labelUrl && !ship.manifestUrl ? (
+                  <p className="text-[10px] font-semibold text-emerald-700 mt-1.5">
+                    Label downloaded on Shiprocket (manifest is the next step).
                   </p>
                 ) : null}
               </div>
@@ -952,10 +1043,11 @@ export default function AdminOrderDetailView({
                         setActionMsg(null);
                         try {
                           const r = await schedulePickup({ orderId, pickupDate }).unwrap();
+                          const fb = pickupScheduleFeedback({ response: r, selectedDate: pickupDate });
                           setActionMsg({
-                            type: "ok",
+                            type: fb.type,
                             surface: "pickup",
-                            text: r?.message || "Pickup scheduled on Shiprocket.",
+                            text: fb.text,
                           });
                           await refreshOrder();
                           if (typeof onRefreshTracking === "function") await onRefreshTracking();
@@ -1009,6 +1101,48 @@ export default function AdminOrderDetailView({
                     className="px-5 py-2.5 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
                   >
                     {labelDownloadBusy ? "Downloading…" : primaryActionLabel}
+                  </button>
+                ) : primaryActionKey === "generateManifest" && caps.generateManifest ? (
+                  <button
+                    type="button"
+                    disabled={fulfillmentBusy || !carrierPaymentReady || !hasCarrierAwb}
+                    title={blockReasons.generateManifest}
+                    onClick={async () => {
+                      setActionMsg(null);
+                      try {
+                        const r = await fulfillmentManifest(orderId).unwrap();
+                        const u = r?.manifestUrl;
+                        setActionMsg({
+                          type: "ok",
+                          surface: "manifest",
+                          text: u ? "Manifest ready on Shiprocket." : "Manifest generated on Shiprocket.",
+                        });
+                        if (u) window.open(u, "_blank", "noopener,noreferrer");
+                        await refreshOrder();
+                        if (typeof onRefreshTracking === "function") await onRefreshTracking();
+                      } catch (e) {
+                        setActionMsg({
+                          type: "err",
+                          surface: "manifest",
+                          text: fulfillmentActionErrorText(e, "Manifest failed."),
+                        });
+                      }
+                    }}
+                    className="px-5 py-2.5 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {manifestState.isLoading ? "Working…" : primaryActionLabel}
+                  </button>
+                ) : primaryActionKey === "downloadManifest" && caps.downloadManifest ? (
+                  <button
+                    type="button"
+                    disabled={fulfillmentBusy || manifestDownloadBusy || !carrierPaymentReady}
+                    title={blockReasons.downloadManifest}
+                    onClick={() => {
+                      void downloadManifestFile();
+                    }}
+                    className="px-5 py-2.5 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {manifestDownloadBusy ? "Downloading…" : primaryActionLabel}
                   </button>
                 ) : null}
                 {caps.syncShiprocket && primaryActionKey !== "syncShiprocket" ? (
@@ -1396,80 +1530,98 @@ export default function AdminOrderDetailView({
               <>
               {(showStandardFulfillmentSteps || showReshipStepOnly) ? (
               <>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Step 1 · Create &amp; assign</p>
-                <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    disabled={
-                      fulfillmentBusy ||
-                      Boolean(ship.awbCode || ship.trackingNumber) ||
-                      !carrierPaymentReady ||
-                      !caps.shipNow
-                    }
-                    title={blockReasons.shipNow || "Create on Shiprocket (if needed) and assign courier + AWB"}
-                    onClick={async () => {
-                      setActionMsg(null);
-                      try {
-                        const r = await ensureShipment(orderId).unwrap();
-                        if (!r?.success) {
-                          throw new Error(r?.message || "Shipment step failed.");
+              <FulfillmentStepCard
+                step={1}
+                focusStep={fulfillmentFocusStep}
+                done={step1Done}
+                title="Step 1 · Create & assign"
+              >
+                {step1Done ? (
+                  <p className="text-sm text-emerald-900">
+                    <span className="font-semibold">{ship.courier || "Courier"}</span>
+                    {hasCarrierAwb ? (
+                      <>
+                        {" "}
+                        · AWB <span className="font-mono">{ship.awbCode || ship.trackingNumber}</span>
+                      </>
+                    ) : null}
+                  </p>
+                ) : (
+                  <>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        disabled={
+                          fulfillmentBusy ||
+                          Boolean(ship.awbCode || ship.trackingNumber) ||
+                          !carrierPaymentReady ||
+                          !caps.shipNow
                         }
-                        const si = r?.order?.shipmentInfo || {};
-                        const sr = r?.shipment || {};
-                        const awbFromResp = Boolean(
-                          si.awbCode ||
-                            si.trackingNumber ||
-                            sr.awb_code ||
-                            sr.awbCode ||
-                            sr.tracking_number
-                        );
-                        let assignResult = null;
-                        if (!awbFromResp) {
+                        title={blockReasons.shipNow || "Create on Shiprocket (if needed) and assign courier + AWB"}
+                        onClick={async () => {
+                          setActionMsg(null);
                           try {
-                            assignResult = await assignShip({ orderId }).unwrap();
-                          } catch (ae) {
-                            if (ae?.data?.code === "AWB_ALREADY_ASSIGNED") {
-                              setActionMsg({
-                                type: "ok",
-                                text: "Shipment already has an AWB. Details will refresh shortly.",
-                              });
-                              return;
+                            const r = await ensureShipment(orderId).unwrap();
+                            if (!r?.success) {
+                              throw new Error(r?.message || "Shipment step failed.");
                             }
-                            throw ae;
+                            const si = r?.order?.shipmentInfo || {};
+                            const sr = r?.shipment || {};
+                            const awbFromResp = Boolean(
+                              si.awbCode ||
+                                si.trackingNumber ||
+                                sr.awb_code ||
+                                sr.awbCode ||
+                                sr.tracking_number
+                            );
+                            let assignResult = null;
+                            if (!awbFromResp) {
+                              try {
+                                assignResult = await assignShip({ orderId }).unwrap();
+                              } catch (ae) {
+                                if (ae?.data?.code === "AWB_ALREADY_ASSIGNED") {
+                                  setActionMsg({
+                                    type: "ok",
+                                    text: "Shipment already has an AWB. Details will refresh shortly.",
+                                  });
+                                  return;
+                                }
+                                throw ae;
+                              }
+                            }
+                            const siFinal = assignResult?.order?.shipmentInfo || si;
+                            const srFinal = assignResult?.shipment || sr;
+                            const awbDisp =
+                              siFinal.awbCode ||
+                              siFinal.trackingNumber ||
+                              srFinal.awb_code ||
+                              srFinal.awbCode ||
+                              srFinal.tracking_number;
+                            setActionMsg({
+                              type: "ok",
+                              surface: "ship",
+                              text: awbDisp
+                                ? `Courier booked. AWB / tracking: ${awbDisp}. Details refresh in a moment.`
+                                : "Shipment updated. Details will refresh shortly.",
+                            });
+                            await refreshOrder();
+                          } catch (e) {
+                            setActionMsg({
+                              type: "err",
+                              surface: "ship",
+                              text: fulfillmentActionErrorText(e, "Ship now failed."),
+                            });
                           }
-                        }
-                        const siFinal = assignResult?.order?.shipmentInfo || si;
-                        const srFinal = assignResult?.shipment || sr;
-                        const awbDisp =
-                          siFinal.awbCode ||
-                          siFinal.trackingNumber ||
-                          srFinal.awb_code ||
-                          srFinal.awbCode ||
-                          srFinal.tracking_number;
-                        setActionMsg({
-                          type: "ok",
-                          surface: "ship",
-                          text: awbDisp
-                            ? `Courier booked. AWB / tracking: ${awbDisp}. Details refresh in a moment.`
-                            : "Shipment updated. Details will refresh shortly.",
-                        });
-                        await refreshOrder();
-                      } catch (e) {
-                        setActionMsg({
-                          type: "err",
-                          surface: "ship",
-                          text: fulfillmentActionErrorText(e, "Ship now failed."),
-                        });
-                      }
-                    }}
-                    className="px-4 py-2.5 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                  >
-                    {ensureState.isLoading || assignState.isLoading ? "Working…" : "Ship now"}
-                  </button>
-                </div>
-                <FulfillmentStatusBanner msg={actionMsg?.surface === "ship" ? actionMsg : null} />
-              </div>
+                        }}
+                        className="px-4 py-2.5 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                      >
+                        {ensureState.isLoading || assignState.isLoading ? "Working…" : "Ship now"}
+                      </button>
+                    </div>
+                    <FulfillmentStatusBanner msg={actionMsg?.surface === "ship" ? actionMsg : null} />
+                  </>
+                )}
+              </FulfillmentStepCard>
 
               {showStandardFulfillmentSteps ? (
               <details className="group rounded-lg border border-slate-200 bg-slate-50/90 px-3 py-2">
@@ -1537,8 +1689,12 @@ export default function AdminOrderDetailView({
 
               {showStandardFulfillmentSteps ? (
               <>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-1">Step 2 · Pickup</p>
+              <FulfillmentStepCard
+                step={2}
+                focusStep={fulfillmentFocusStep}
+                done={step2Done}
+                title="Step 2 · Pickup"
+              >
                 <p className="text-[11px] text-slate-500 mb-3 max-w-2xl leading-relaxed">
                   After AWB is assigned, schedule when the courier should collect the parcel.
                 </p>
@@ -1554,7 +1710,8 @@ export default function AdminOrderDetailView({
                 ) : null}
                 {pickupAlreadyScheduled ? (
                   <p className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1.5 mb-2 max-w-xl">
-                    Pickup is active on Shiprocket. Continue with Step 3 and Step 4 below.
+                    Pickup booked on Shiprocket
+                    {ship.pickupDate ? ` for ${ship.pickupDate}` : ""}. Continue with Step 3 below.
                   </p>
                 ) : null}
                 {!pickupAlreadyScheduled ? (
@@ -1598,16 +1755,14 @@ export default function AdminOrderDetailView({
                       setActionMsg(null);
                       try {
                         const r = await schedulePickup({ orderId, pickupDate }).unwrap();
+                        const fb = pickupScheduleFeedback({ response: r, selectedDate: pickupDate });
                         setActionMsg({
-                          type: "ok",
+                          type: fb.type,
                           surface: "pickup",
-                          text:
-                            r?.message ||
-                            (r?.pickupDate
-                              ? `Pickup scheduled for ${r.pickupDate}.`
-                              : "Pickup scheduled successfully."),
+                          text: fb.text,
                         });
                         await refreshOrder();
+                        if (typeof onRefreshTracking === "function") await onRefreshTracking();
                       } catch (e) {
                         setActionMsg({
                           type: "err",
@@ -1650,8 +1805,8 @@ export default function AdminOrderDetailView({
                       {formatDateHeader(ship.pickupScheduledAt) ||
                         (ship.manifestUrl ? "Yes (manifest on file)" : "—")}
                     </p>
-                    {ship.providerStatus ? (
-                      <p className="text-[10px] text-slate-500 mt-1">Shiprocket status: {ship.providerStatus}</p>
+                    {shiprocketMirrorStatus ? (
+                      <p className="text-[10px] text-slate-500 mt-1">Shiprocket status: {shiprocketMirrorStatus}</p>
                     ) : null}
                   </div>
                 </div>
@@ -1690,15 +1845,71 @@ export default function AdminOrderDetailView({
                   </div>
                 ) : null}
                 <FulfillmentStatusBanner msg={actionMsg?.surface === "pickup" ? actionMsg : null} />
-              </div>
+              </FulfillmentStepCard>
 
-              <div id="admin-manifest-step">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Step 3 · Manifest</p>
+              <FulfillmentStepCard
+                step={3}
+                focusStep={fulfillmentFocusStep}
+                done={step3Done}
+                title="Step 3 · Manifest"
+                id="admin-manifest-step"
+              >
                 <p className="text-[11px] text-slate-500 mb-2 max-w-xl leading-relaxed">
-                  Generate handover manifest on Shiprocket (same as their panel). Do this before label if your courier
-                  requires it.
+                  Same as Shiprocket panel — download manifest after pickup is scheduled.
                 </p>
+                {fulfillmentFocusStep === 3 && !step3Done ? (
+                  <p className="text-xs font-semibold text-indigo-900 mb-2">{ops.nextStepMessage || primaryActionLabel}</p>
+                ) : null}
+                {ship.labelUrl && !hasManifest ? (
+                  <p className="text-[10px] font-semibold text-emerald-700 mb-2">
+                    Label already downloaded on Shiprocket — manifest is still required next.
+                  </p>
+                ) : null}
                 <div className="flex flex-wrap items-center gap-2">
+                  {(caps.generateManifest || caps.downloadManifest) && fulfillmentFocusStep === 3 ? (
+                    <button
+                      type="button"
+                      disabled={
+                        fulfillmentBusy ||
+                        !carrierPaymentReady ||
+                        !hasCarrierAwb ||
+                        !(caps.generateManifest || caps.downloadManifest)
+                      }
+                      title={blockReasons.generateManifest || blockReasons.downloadManifest}
+                      onClick={async () => {
+                        setActionMsg(null);
+                        if (caps.downloadManifest) {
+                          void downloadManifestFile();
+                          return;
+                        }
+                        try {
+                          const r = await fulfillmentManifest(orderId).unwrap();
+                          const u = r?.manifestUrl;
+                          setActionMsg({
+                            type: "ok",
+                            surface: "manifest",
+                            text: u ? "Manifest ready on Shiprocket." : "Manifest generated on Shiprocket.",
+                          });
+                          if (u) window.open(u, "_blank", "noopener,noreferrer");
+                          await refreshOrder();
+                          if (typeof onRefreshTracking === "function") await onRefreshTracking();
+                        } catch (e) {
+                          setActionMsg({
+                            type: "err",
+                            surface: "manifest",
+                            text: fulfillmentActionErrorText(e, "Manifest failed."),
+                          });
+                        }
+                      }}
+                      className="px-4 py-2.5 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                    >
+                      {manifestState.isLoading || manifestDownloadBusy
+                        ? "Working…"
+                        : caps.downloadManifest
+                          ? "Download manifest (PDF)"
+                          : "Download manifest"}
+                    </button>
+                  ) : null}
                   <button
                     type="button"
                     disabled={fulfillmentBusy || !carrierPaymentReady || !hasCarrierAwb || !caps.generateManifest}
@@ -1727,6 +1938,7 @@ export default function AdminOrderDetailView({
                   >
                     {manifestState.isLoading ? "Working…" : "Open manifest"}
                   </button>
+                  {!(fulfillmentFocusStep === 3 && caps.generateManifest) ? (
                   <button
                     type="button"
                     disabled={
@@ -1742,21 +1954,33 @@ export default function AdminOrderDetailView({
                   >
                     {manifestDownloadBusy ? "Downloading…" : "Download manifest (PDF)"}
                   </button>
+                  ) : null}
                 </div>
                 {ship.manifestUrl ? (
                   <p className="text-[11px] text-emerald-700 mt-2">Manifest URL saved on this order.</p>
                 ) : null}
                 <FulfillmentStatusBanner msg={actionMsg?.surface === "manifest" ? actionMsg : null} />
-              </div>
+              </FulfillmentStepCard>
 
-              <div id="admin-shipping-label-step">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-                  Step 4 · Shipping label
-                </p>
+              <FulfillmentStepCard
+                step={4}
+                focusStep={fulfillmentFocusStep}
+                done={Boolean(ship.labelUrl) && step3Done}
+                title="Step 4 · Shipping label"
+                id="admin-shipping-label-step"
+              >
                 <p className="text-[11px] text-slate-500 mb-2 max-w-xl leading-relaxed">
                   Courier AWB label from Shiprocket (parcel sticker). Not your GST tax invoice — use Invoice above for
                   tax invoice.
                 </p>
+                {ship.labelUrl && !step3Done ? (
+                  <p className="text-[10px] font-semibold text-emerald-700 mb-2">
+                    Label downloaded on Shiprocket — available after manifest step if needed again.
+                  </p>
+                ) : null}
+                {fulfillmentFocusStep === 4 && caps.downloadLabel ? (
+                  <p className="text-xs font-semibold text-indigo-900 mb-2">Next on Shiprocket: download shipping label.</p>
+                ) : null}
                 <div className="flex flex-wrap items-center gap-2">
                   <button
                     type="button"
@@ -1790,7 +2014,7 @@ export default function AdminOrderDetailView({
                   </button>
                 </div>
                 <FulfillmentStatusBanner msg={actionMsg?.surface === "label" ? actionMsg : null} />
-              </div>
+              </FulfillmentStepCard>
 
               <div className="pt-2 border-t border-slate-100">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-red-700/80 mb-2">Shiprocket order</p>

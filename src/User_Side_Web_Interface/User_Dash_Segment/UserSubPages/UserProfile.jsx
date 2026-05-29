@@ -4,7 +4,7 @@ import { createAsyncThunk } from '@reduxjs/toolkit';
 import { User, Save, X, Mail, Phone, CheckCircle2, AlertCircle, Loader2, RefreshCw } from 'lucide-react';
 import axiosInstance from '../../../SERVICES/axiosInstance';
 import { fetchMe, clearError } from '../../../components/REDUX_FEATURES/REDUX_SLICES/authSlice';
-
+ 
 // ─────────────────────────────────────────────────────────────────────────────
 // updateProfile thunk — add this to your authSlice.js instead if preferred,
 // but defined here to keep UserProfile fully self-contained
@@ -25,7 +25,7 @@ const updateProfile = createAsyncThunk(
     }
   }
 );
-
+ 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -34,7 +34,7 @@ const logError = (context, error, info = {}) => {
   console.error('Error:', error);
   console.log('Info:', info);
   console.groupEnd();
-  
+ 
 };
 const Avatar = ({ user }) => (
   <div className="relative shrink-0">
@@ -179,7 +179,7 @@ const UserProfile = () => {
  
   // ── Main render ────────────────────────────────────────────────────────────
   return (
-    <div className="w-full font-['satoshi'] font-semibold max-w-2xl">
+    <div className="w-full max-w-2xl">
  
       {/* Header */}
       <div className="mb-8">
@@ -195,8 +195,8 @@ const UserProfile = () => {
         <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-2xl border border-gray-100">
           <Avatar user={user} />
           <div className="min-w-0">
-            <h4 className="font-black text-gray-900 truncate">{user?.name ?? '—'}</h4>
-            <p className="text-xs text-gray-400 font-medium truncate mt-0.5">{user?.email ?? '—'}</p>
+            <h4 className="font-black text-gray-900  break-words">{user?.name ?? '—'}</h4>
+            <p className="text-xs text-gray-400 font-medium break-all mt-0.5">{user?.email ?? '—'}</p>
           </div>
         </div>
  
@@ -235,7 +235,7 @@ const UserProfile = () => {
               onChange={(e) => handleNameChange(e.target.value)}
               placeholder="Enter your full name"
               autoComplete="name"
-              className="w-full px-4 py-3.5 bg-gray-50 border-2 border-transparent focus:border-orange-400 focus:bg-white rounded-xl outline-none font-semibold text-sm transition-all placeholder:font-normal placeholder:text-gray-300"
+              className="w-full px-4 py-3.5 bg-gray-100 border-2 border-transparent focus:border-orange-400 focus:bg-white rounded-xl outline-none font-semibold text-sm transition-all placeholder:font-normal placeholder:text-gray-300"
             />
           </Field>
  
@@ -249,7 +249,8 @@ const UserProfile = () => {
               placeholder="+91 XXXXX XXXXX"
               autoComplete="tel"
               inputMode="tel"
-              className="w-full px-4 py-3.5 bg-gray-50 border-2 border-transparent focus:border-orange-400 focus:bg-white rounded-xl outline-none font-semibold text-sm transition-all placeholder:font-normal placeholder:text-gray-300"
+              disabled
+              className="w-full cursor-not-allowed px-4 py-3.5 bg-gray-100 border-2 border-transparent focus:border-orange-400 focus:bg-white rounded-xl outline-none font-semibold text-sm transition-all placeholder:font-normal placeholder:text-gray-300"
             />
           </Field>
  
@@ -280,7 +281,7 @@ const UserProfile = () => {
             <button
               type="button"
               onClick={handleReset}
-              className="sm:order-first flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all border border-transparent hover:border-gray-200 active:scale-95"
+              className="sm:order-first cursor-pointer flex items-center justify-center gap-2 px-5 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest text-gray-700  bg-gray-100 transition-all border border-transparent border-gray-700 active:scale-95"
             >
               Cancel
             </button>
@@ -289,7 +290,7 @@ const UserProfile = () => {
           <button
             type="submit"
             disabled={!isDirty || saving}
-            className={`flex items-center justify-center gap-2 px-8 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 ${
+            className={`flex items-center cursor-pointer justify-center gap-2 px-8 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 ${
               !isDirty || saving
                 ? 'bg-gray-100 text-gray-400 cursor-not-allowed'
                 : 'bg-black text-white hover:bg-[#F7A221] shadow-sm shadow-gray-200'
@@ -308,55 +309,3 @@ const UserProfile = () => {
 };
  
 export default UserProfile;
-// // UserSubPages/UserProfile.jsx
-// import React from 'react';
-// import { Camera, Mail, Phone, Calendar,User } from 'lucide-react';
-
-// const UserProfile = () => {
-//     return (
-//         <div className="max-w-2xl">
-//             <h1 className="text-3xl font-black text-gray-900 mb-2">Personal Settings</h1>
-//             <p className="text-gray-500 font-medium mb-10">Update your information to ensure a smooth checkout experience.</p>
-
-//             <div className="space-y-8">
-//                 {/* Avatar Section */}
-//                 <div className="flex items-center gap-6">
-//                     <div className="relative">
-//                         <div className="w-24 h-24 rounded-3xl bg-gray-100 border-4 border-white shadow-md flex items-center justify-center">
-//                             <User size={40} className="text-gray-300" />
-//                         </div>
-//                         <button className="absolute -bottom-2 -right-2 bg-black text-white p-2 rounded-xl border-4 border-white hover:bg-[#F7A221] transition-colors">
-//                             <Camera size={16} />
-//                         </button>
-//                     </div>
-//                     <div>
-//                         <h4 className="font-black text-gray-900">Profile Photo</h4>
-//                         <p className="text-xs text-gray-500 font-bold uppercase tracking-wider">JPG, PNG or GIF • Max 1MB</p>
-//                     </div>
-//                 </div>
-
-//                 {/* Form Grid */}
-//                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-//                     <div className="space-y-2">
-//                         <label className="text-[11px] font-black uppercase text-gray-400 ml-1">Full Name</label>
-//                         <input type="text" defaultValue="John Doe" className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-orange-400 focus:bg-white rounded-2xl outline-none font-bold transition-all" />
-//                     </div>
-//                     <div className="space-y-2">
-//                         <label className="text-[11px] font-black uppercase text-gray-400 ml-1">Phone Number</label>
-//                         <input type="text" defaultValue="+91 98765 43210" className="w-full p-4 bg-gray-50 border-2 border-transparent focus:border-orange-400 focus:bg-white rounded-2xl outline-none font-bold transition-all" />
-//                     </div>
-//                     <div className="col-span-full space-y-2">
-//                         <label className="text-[11px] font-black uppercase text-gray-400 ml-1">Email Address</label>
-//                         <input type="email" defaultValue="john.doe@example.com" disabled className="w-full p-4 bg-gray-100 border-2 border-transparent rounded-2xl font-bold text-gray-400 cursor-not-allowed" />
-//                     </div>
-//                 </div>
-
-//                 <button className="bg-black text-white px-10 py-4 rounded-2xl font-black text-sm uppercase tracking-widest hover:bg-[#F7A221] shadow-lg shadow-gray-200 transition-all active:scale-95">
-//                     Save Changes
-//                 </button>
-//             </div>
-//         </div>
-//     );
-// };
-
-// export default UserProfile;
