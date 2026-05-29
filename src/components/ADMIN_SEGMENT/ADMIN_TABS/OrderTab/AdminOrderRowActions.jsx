@@ -1,4 +1,5 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   useAdminBulkApprovalCancelMutation,
   useAdminBulkApprovalConfirmMutation,
@@ -56,6 +57,44 @@ function resolveSupportUrl(externalLinks) {
     externalLinks?.shiprocketOrderUrl ||
     "https://app.shiprocket.in/seller/support"
   );
+}
+
+function useFloatingPanelStyle(anchorRef, open, widthPx = 176) {
+  const [style, setStyle] = useState(null);
+
+  useEffect(() => {
+    if (!open) {
+      setStyle(null);
+      return undefined;
+    }
+
+    const update = () => {
+      const el = anchorRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const gap = 4;
+      const maxLeft = Math.max(8, window.innerWidth - widthPx - 8);
+      const left = Math.min(Math.max(8, rect.right - widthPx), maxLeft);
+
+      setStyle({
+        position: "fixed",
+        left,
+        top: rect.bottom + gap,
+        zIndex: 9999,
+        width: widthPx,
+      });
+    };
+
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [anchorRef, open, widthPx]);
+
+  return style;
 }
 
 async function downloadBlobFromGet(url, defaultFilename) {
@@ -187,6 +226,35 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback }
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const [pickupDate, setPickupDate] = useState("");
   const [busy, setBusy] = useState(false);
+  const anchorRef = useRef(null);
+
+  const menuPanelStyle = useFloatingPanelStyle(anchorRef, menuOpen, 176);
+  const schedulePanelStyle = useFloatingPanelStyle(anchorRef, scheduleOpen, 224);
+
+  useEffect(() => {
+    if (!menuOpen && !scheduleOpen) return undefined;
+    const onKeyDown = (e) => {
+      if (e.key === "Escape") {
+        setMenuOpen(false);
+        setScheduleOpen(false);
+      }
+    };
+    const onPointerDown = (e) => {
+      if (anchorRef.current?.contains(e.target)) return;
+      if (e.target.closest?.("[data-order-row-floating-panel]")) return;
+      setMenuOpen(false);
+      setScheduleOpen(false);
+    };
+    document.addEventListener("keydown", onKeyDown);
+    const t = window.setTimeout(() => {
+      document.addEventListener("pointerdown", onPointerDown);
+    }, 0);
+    return () => {
+      window.clearTimeout(t);
+      document.removeEventListener("keydown", onKeyDown);
+      document.removeEventListener("pointerdown", onPointerDown);
+    };
+  }, [menuOpen, scheduleOpen]);
 
   const [bulkConfirm] = useAdminBulkApprovalConfirmMutation();
   const [bulkCancel] = useAdminBulkApprovalCancelMutation();
@@ -296,6 +364,7 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback }
 
   return (
     <div
+      ref={anchorRef}
       className={`relative flex items-center justify-center gap-1 ${busy ? "opacity-60" : ""}`}
       onClick={(e) => e.stopPropagation()}
     >
@@ -331,81 +400,94 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback }
           >
             ▾
           </button>
-          {menuOpen ? (
-            <div className="absolute right-0 top-full mt-1 z-50 min-w-[11rem] rounded-lg border border-slate-200 bg-white shadow-xl py-1">
-              {menuItems.map((key) => (
-                <button
-                  key={key}
-                  type="button"
-                  disabled={busy}
-                  title={blockReasons[key] || undefined}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (key === "schedulePickup") {
-                      setScheduleOpen(true);
-                      setMenuOpen(false);
-                      return;
-                    }
-                    void run(key);
-                  }}
-                  className="w-full text-left px-3 py-1.5 text-xs text-slate-800 hover:bg-slate-50 disabled:opacity-50"
+          {menuOpen && menuPanelStyle
+            ? createPortal(
+                <div
+                  data-order-row-floating-panel=""
+                  style={menuPanelStyle}
+                  className="rounded-lg border border-slate-200 bg-white shadow-xl py-1"
+                  onClick={(e) => e.stopPropagation()}
                 >
-                  {ACTION_LABELS[key] || key}
-                </button>
-              ))}
-            </div>
-          ) : null}
+                  {menuItems.map((key) => (
+                    <button
+                      key={key}
+                      type="button"
+                      disabled={busy}
+                      title={blockReasons[key] || undefined}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (key === "schedulePickup") {
+                          setScheduleOpen(true);
+                          setMenuOpen(false);
+                          return;
+                        }
+                        void run(key);
+                      }}
+                      className="w-full text-left px-3 py-1.5 text-xs text-slate-800 hover:bg-slate-50 disabled:opacity-50 whitespace-nowrap"
+                    >
+                      {ACTION_LABELS[key] || key}
+                    </button>
+                  ))}
+                </div>,
+                document.body
+              )
+            : null}
         </>
       ) : null}
-      {scheduleOpen ? (
-        <div
-          className="absolute right-0 top-full mt-1 z-50 w-56 rounded-lg border border-slate-200 bg-white shadow-xl p-3 text-left"
-          onClick={(e) => e.stopPropagation()}
-        >
-          <p className="text-[10px] font-bold uppercase text-slate-500 mb-2">Pickup date</p>
-          {allowedPickupDates.length > 0 ? (
-            <select
-              value={allowedPickupDates.includes(pickupDate) ? pickupDate : allowedPickupDates[0]}
-              onChange={(e) => setPickupDate(e.target.value)}
-              className="w-full text-xs border border-slate-200 rounded-md px-2 py-1.5 mb-2"
+      {scheduleOpen && schedulePanelStyle
+        ? createPortal(
+            <div
+              data-order-row-floating-panel=""
+              style={schedulePanelStyle}
+              className="w-56 rounded-lg border border-slate-200 bg-white shadow-xl p-3 text-left"
+              onClick={(e) => e.stopPropagation()}
             >
-              {allowedPickupDates.map((d) => (
-                <option key={d} value={d}>
-                  {d}
-                </option>
-              ))}
-            </select>
-          ) : (
-            <input
-              type="date"
-              min={addLocalDaysYmd(0)}
-              value={pickupDate}
-              onChange={(e) => setPickupDate(e.target.value)}
-              className="w-full text-xs border border-slate-200 rounded-md px-2 py-1.5 mb-2"
-            />
-          )}
-          <div className="flex gap-2">
-            <button
-              type="button"
-              disabled={busy || !/^\d{4}-\d{2}-\d{2}$/.test(String(pickupDate || "").trim())}
-              onClick={() => {
-                void run("schedulePickup");
-                setScheduleOpen(false);
-              }}
-              className="flex-1 px-2 py-1.5 text-xs font-semibold text-white bg-slate-800 rounded-md disabled:opacity-50"
-            >
-              {busy ? "…" : "Schedule"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setScheduleOpen(false)}
-              className="px-2 py-1.5 text-xs text-slate-600 hover:underline"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : null}
+              <p className="text-[10px] font-bold uppercase text-slate-500 mb-2">Pickup date</p>
+              {allowedPickupDates.length > 0 ? (
+                <select
+                  value={allowedPickupDates.includes(pickupDate) ? pickupDate : allowedPickupDates[0]}
+                  onChange={(e) => setPickupDate(e.target.value)}
+                  className="w-full text-xs border border-slate-200 rounded-md px-2 py-1.5 mb-2"
+                >
+                  {allowedPickupDates.map((d) => (
+                    <option key={d} value={d}>
+                      {d}
+                    </option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="date"
+                  min={addLocalDaysYmd(0)}
+                  value={pickupDate}
+                  onChange={(e) => setPickupDate(e.target.value)}
+                  className="w-full text-xs border border-slate-200 rounded-md px-2 py-1.5 mb-2"
+                />
+              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  disabled={busy || !/^\d{4}-\d{2}-\d{2}$/.test(String(pickupDate || "").trim())}
+                  onClick={() => {
+                    void run("schedulePickup");
+                    setScheduleOpen(false);
+                  }}
+                  className="flex-1 px-2 py-1.5 text-xs font-semibold text-white bg-slate-800 rounded-md disabled:opacity-50"
+                >
+                  {busy ? "…" : "Schedule"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setScheduleOpen(false)}
+                  className="px-2 py-1.5 text-xs text-slate-600 hover:underline"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }

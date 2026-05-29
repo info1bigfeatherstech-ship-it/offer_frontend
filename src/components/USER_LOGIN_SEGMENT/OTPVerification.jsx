@@ -27,7 +27,7 @@ import { verifyOTP, registerUser, clearError } from "../REDUX_FEATURES/REDUX_SLI
   LogRegister's card shell. No fixed/backdrop/z-index.
 */
 
-const OTP_TIMER_SECONDS = 30;  // Changed from 5 * 60 to 30 seconds
+const OTP_TIMER_SECONDS = 5*60;  // Changed from 5 * 60 to 30 seconds
 
 const formatTimer = (totalSec) => {
   const safe = Math.max(0, Number(totalSec) || 0);

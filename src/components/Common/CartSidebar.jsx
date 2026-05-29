@@ -314,8 +314,8 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth }) => {
     try {
       if (isLoggedIn) {
         await dispatch(removeCartItem({
-          productId:   String(item.productId),
-          variantId:   String(item.variantId),
+          productId:   String(item.productId?._id || item.product?._id || item.productId),
+          variantId:   String(item.variantId?._id || item.variantId),
           productSlug: item.product?.slug || item._productSlug,
         })).unwrap();
       } else {
@@ -344,8 +344,8 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth }) => {
     try {
       if (isLoggedIn) {
         await dispatch(updateCartItem({
-          productId:   String(item.productId),
-          variantId:   String(item.variantId),
+          productId:   String(item.productId?._id || item.product?._id || item.productId),
+          variantId:   String(item.variantId?._id || item.variantId),
           quantity:    newQty,
           productSlug: item.product?.slug || item._productSlug,
         })).unwrap();

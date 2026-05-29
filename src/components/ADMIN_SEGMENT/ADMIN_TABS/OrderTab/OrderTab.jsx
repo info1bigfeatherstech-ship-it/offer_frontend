@@ -1208,7 +1208,7 @@ const OrderTab = () => {
                       <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">{order.courierOpsLine2}</p>
                     ) : null}
                   </td>
-                  <td className="px-4 py-4 text-center">
+                  <td className="px-4 py-4 text-center relative overflow-visible">
                     <AdminOrderRowActions
                       order={order}
                       onOpenDetail={setSelectedOrderId}

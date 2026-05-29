@@ -12,9 +12,9 @@ import { fetchMe, clearError } from '../../../components/REDUX_FEATURES/REDUX_SL
 // ─────────────────────────────────────────────────────────────────────────────
 const updateProfile = createAsyncThunk(
   'auth/updateProfile',
-  async ({ name, phone }, { rejectWithValue }) => {
+  async ({ name}, { rejectWithValue }) => {
     try {
-      const res = await axiosInstance.put('/auth/profile', { name, phone });
+      const res = await axiosInstance.put('/auth/profile', { name });
       if (!res.data.success)
         throw new Error(res.data.message || 'Failed to update profile');
       return res.data; // { success, user }

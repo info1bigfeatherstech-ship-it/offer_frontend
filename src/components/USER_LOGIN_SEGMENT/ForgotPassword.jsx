@@ -43,7 +43,7 @@ import LOGO from "../../assets/logo2.svg";
 const STEPS = ["identifier", "otp", "password"];
 
 // Resend cooldown in seconds — change here to adjust the timer
-const RESEND_COOLDOWN = 30;
+const RESEND_COOLDOWN = 5*60;
 
 const ForgotPassword = ({ onBack, onLoginClick }) => {
   const dispatch = useDispatch();
