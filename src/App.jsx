@@ -39,7 +39,7 @@ import AboutUs from "./components/Common/AboutUs";
 import Policy from "./components/Common/Policy";
 import InfluencerFormPage from "./components/ADMIN_SEGMENT/Influencer/Influencer";
 // import ScrollToTop from "./components/ScrollToTop";
-// import SideVideo from "./components/Common/SideVideo/SideVideo";
+// import SideVideo from "./components/Common/SideVideo/SideVideo";  //remove this line if you want to remove the side video
 // ─────────────────────────────────────────────────────────────────────────────
 
 // ── Optional: protect /account routes ────────────────────────────────────────
