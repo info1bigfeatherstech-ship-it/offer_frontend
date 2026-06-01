@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback, useMemo, useRef } from "react"
 import { useParams, useNavigate, useLocation, Link, useNavigationType } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { IoLogoWhatsapp, IoLogoFacebook, IoLogoInstagram } from "react-icons/io5";
-import { ChevronDown, FileText, Globe, Receipt } from "lucide-react";
+import { ChevronDown, ClipboardCopy, FileText, Globe, Receipt } from "lucide-react";
 import { FaTelegram } from "react-icons/fa6";
 import LazyImage from "./LazyImage";
 import {
@@ -512,7 +512,7 @@ const ProductUI = ({ openAuthModal }) => {
   const [couponsLoading, setCouponsLoading] = useState(false);
   const [copiedCouponCode, setCopiedCouponCode] = useState("");
   const [reviewSummary, setReviewSummary] = useState(null);
-  const [reviewsList, setReviewsList] = useState([]);
+  const [reviewsList, setReviewsList] = useState([]); 
   const [reviewsLoading, setReviewsLoading] = useState(false);
   const [myReview, setMyReview] = useState(null);
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
@@ -1863,16 +1863,29 @@ const ProductUI = ({ openAuthModal }) => {
                                 {shareOpen && (
                                   <div className="absolute bottom-[calc(100%+10px)] right-0 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-lg z-50 flex gap-3">
                                     {[
-                                      { type: "whatsapp", Icon: IoLogoWhatsapp, cls: "bg-green-500 hover:bg-green-600", link: "https://wa.me/message/72BTQZMTQU2AG1" },
+                                      // { type: "whatsapp", Icon: IoLogoWhatsapp, cls: "bg-green-500 hover:bg-green-600", link: "https://wa.me/message/72BTQZMTQU2AG1" },
+                                      { type: "whatsapp", Icon: IoLogoWhatsapp, cls: "bg-green-500 hover:bg-green-600", link: `https://wa.me/?text=${encodeURIComponent(`Check out this product: ${title}\n${window.location.href}`)}` },
                                       { type: "facebook", Icon: IoLogoFacebook, cls: "bg-blue-600 hover:bg-blue-700", link: "https://www.facebook.com/share/1Eej9auTBB/" },
                                       { type: "instagram", Icon: IoLogoInstagram, cls: "bg-gradient-to-br from-yellow-400 via-pink-500 to-purple-600", link: "https://www.instagram.com/offer_wale_baba?igsh=Mjd6aG84bXV5dmRn" },
                                       { type: "telegram", Icon: FaTelegram, cls: "bg-sky-500 hover:bg-sky-600", link: "https://t.me/OfferWaleBabaRetail" },
                                     ].map(({ type, Icon, cls, link }) => (
                                       <a key={type} onClick={() => { window.open(link, "_blank"); setShareOpen(false); }}
-                                        className={`w-9 h-9 rounded-full ${cls} text-white flex items-center cursor-pointer justify-center hover:scale-110 active:scale-95 transition-all duration-150 shadow-sm`}>
-                                        <Icon size={16} />
+                                          className={`w-9 h-9 rounded-full ${cls} text-white flex items-center cursor-pointer justify-center hover:scale-110 active:scale-95 transition-all duration-150 shadow-sm`}>
+                                      <Icon size={16} />
                                       </a>
-                                    ))}
+                                      ))}
+                                       
+                                      {/* Copy Link button */}
+                                      <button
+                                        onClick={() => {
+                                          navigator.clipboard.writeText(window.location.href);
+                                          toast.success("Link copied!");
+                                          setShareOpen(false);
+                                        }}
+                                        className="w-9 h-9 rounded-full bg-gray-700 hover:bg-gray-900 text-white flex items-center cursor-pointer justify-center hover:scale-110 active:scale-95 transition-all duration-150 shadow-sm"
+                                      >
+                                      <ClipboardCopy  size={16} />
+                                      </button>
                                   </div>
                                 )}
                               </div>

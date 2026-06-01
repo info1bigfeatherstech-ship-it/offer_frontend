@@ -27,6 +27,10 @@ import { isPostConfirmOrderStatus } from "../../ADMIN_REDUX_MANAGEMENT/order_man
 import {
   canAdminBulkCancelOrderRow,
   canAdminBulkConfirmOrderRow,
+  canAdminBulkDownloadLabelOrderRow,
+  canAdminBulkDownloadManifestOrderRow,
+  canAdminBulkSchedulePickupOrderRow,
+  canAdminBulkShipNowOrderRow,
 } from "../../../../utils/adminOrderFulfillmentEligibility";
 import AdminOrderDetailView from "./AdminOrderDetailView";
 import AdminOrderRowActions from "./AdminOrderRowActions";
@@ -244,15 +248,19 @@ const OrderTab = () => {
     () =>
       selectedOrders.filter((id) => {
         const o = orderById.get(id);
-        if (!o) return false;
-        const st = String(o.orderStatus || "").toLowerCase();
-        if (st === "cancelled" || st === "payment_failed") return false;
-        return Boolean(o.hasShipmentId && o.hasAwb);
+        return canAdminBulkDownloadLabelOrderRow(o);
       }),
     [selectedOrders, orderById]
   );
 
-  const eligibleBulkManifestIds = eligibleBulkLabelIds;
+  const eligibleBulkManifestIds = useMemo(
+    () =>
+      selectedOrders.filter((id) => {
+        const o = orderById.get(id);
+        return canAdminBulkDownloadManifestOrderRow(o);
+      }),
+    [selectedOrders, orderById]
+  );
 
   const invoiceSelectionMissingAwb = useMemo(
     () => eligibleBulkInvoiceIds.filter((id) => !orderById.get(id)?.hasAwb).length,
@@ -260,11 +268,7 @@ const OrderTab = () => {
   );
 
   const showBulkTaxInvoicesZip = ui.activeTabLabel === "Confirmed";
-  const showBulkShippingLabelsZip =
-    ui.activeTabLabel === "All" ||
-    ui.activeTabLabel === "Confirmed" ||
-    ui.activeTabLabel === "Processing" ||
-    ui.activeTabLabel === "In transit";
+  const showBulkFulfillmentActions = selectedOrders.length > 0;
 
   /** Any pending row — cancel does not require payment capture. */
   const eligibleBulkPendingIds = useMemo(
@@ -287,18 +291,12 @@ const OrderTab = () => {
   );
 
   const showBulkPendingActions = ui.activeTabLabel === "Pending";
-  const showBulkShipNowActions =
-    ui.activeTabLabel === "Confirmed" || ui.activeTabLabel === "All";
-  const showBulkProcessingActions =
-    ui.activeTabLabel === "Processing" || ui.activeTabLabel === "All";
 
   const eligibleBulkShipIds = useMemo(
     () =>
       selectedOrders.filter((id) => {
         const o = orderById.get(id);
-        if (!o) return false;
-        const st = String(o.orderStatus || "").toLowerCase();
-        return st === "confirmed" && !o.hasAwb;
+        return canAdminBulkShipNowOrderRow(o);
       }),
     [selectedOrders, orderById]
   );
@@ -307,9 +305,7 @@ const OrderTab = () => {
     () =>
       selectedOrders.filter((id) => {
         const o = orderById.get(id);
-        if (!o) return false;
-        const st = String(o.orderStatus || "").toLowerCase();
-        return (st === "confirmed" || st === "processing") && o.hasAwb && !o.pickupScheduled;
+        return canAdminBulkSchedulePickupOrderRow(o);
       }),
     [selectedOrders, orderById]
   );
@@ -906,14 +902,14 @@ const OrderTab = () => {
                         </button>
                       </>
                     ) : null}
-                    {showBulkShipNowActions ? (
+                    {showBulkFulfillmentActions ? (
                       <button
                         type="button"
                         onClick={handleBulkShipNow}
                         disabled={bulkActionsBusy || !eligibleBulkShipIds.length}
                         title={
                           !eligibleBulkShipIds.length
-                            ? "Needs order status Confirmed and no AWB yet (shipped / in-transit / pending are skipped)."
+                            ? "No selected orders are ready for Ship now (needs Confirmed + no AWB)."
                             : undefined
                         }
                         className="w-full text-left px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed border-t border-slate-100"
@@ -921,14 +917,14 @@ const OrderTab = () => {
                         Ship now (Shiprocket)
                       </button>
                     ) : null}
-                    {showBulkShipNowActions || showBulkProcessingActions ? (
+                    {showBulkFulfillmentActions ? (
                       <button
                         type="button"
                         onClick={openBulkPickupPanel}
                         disabled={bulkActionsBusy || !eligibleBulkPickupIds.length}
                         title={
                           !eligibleBulkPickupIds.length
-                            ? "Needs AWB assigned, pickup not set yet, and Confirmed or Processing (not after shipped)."
+                            ? "No selected orders need pickup scheduling (needs AWB, no pickup booked yet)."
                             : undefined
                         }
                         className="w-full text-left px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
@@ -951,7 +947,7 @@ const OrderTab = () => {
                         Bulk tax invoices (ZIP)
                       </button>
                     )}
-                    {showBulkShippingLabelsZip && (
+                    {showBulkFulfillmentActions ? (
                       <>
                         <button
                           type="button"
@@ -959,7 +955,7 @@ const OrderTab = () => {
                           disabled={bulkActionsBusy || !eligibleBulkManifestIds.length}
                           title={
                             !eligibleBulkManifestIds.length
-                              ? "Needs AWB and shipment id on each selected order."
+                              ? "No selected orders can download manifest (needs AWB + shipment ops allow download)."
                               : undefined
                           }
                           className="w-full text-left px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed border-t border-slate-100"
@@ -972,7 +968,7 @@ const OrderTab = () => {
                           disabled={bulkActionsBusy || !eligibleBulkLabelIds.length}
                           title={
                             !eligibleBulkLabelIds.length
-                              ? "Courier AWB labels from Shiprocket (not tax invoice). Needs AWB + shipment id."
+                              ? "No selected orders can download label (needs AWB + shipment ops allow download)."
                               : undefined
                           }
                           className="w-full text-left px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed"
@@ -980,11 +976,14 @@ const OrderTab = () => {
                           Bulk shipping labels (ZIP)
                         </button>
                       </>
-                    )}
-                    {!eligibleBulkShipIds.length && !eligibleBulkPickupIds.length && (
+                    ) : null}
+                    {!eligibleBulkShipIds.length &&
+                    !eligibleBulkPickupIds.length &&
+                    !eligibleBulkManifestIds.length &&
+                    !eligibleBulkLabelIds.length && (
                       <p className="px-4 py-2 text-[11px] text-slate-500 border-t border-slate-100">
-                        Ship / pickup do not apply to these rows right now. You can still use tax invoice ZIP or label ZIP
-                        if the counts above are greater than zero.
+                        No ship, pickup, manifest, or label actions apply to the current selection. Try another tab or
+                        refresh Shiprocket on individual orders.
                       </p>
                     )}
                   </div>
@@ -1017,10 +1016,13 @@ const OrderTab = () => {
                       <span className="font-semibold text-slate-700">{eligibleBulkInvoiceIds.length}</span>
                     </>
                   )}
-                  {showBulkShippingLabelsZip && (
+                  {showBulkFulfillmentActions && (
                     <>
                       {" · "}
-                      Shipping label (ZIP), needs AWB:{" "}
+                      Manifest (ZIP):{" "}
+                      <span className="font-semibold text-slate-700">{eligibleBulkManifestIds.length}</span>
+                      {" · "}
+                      Shipping label (ZIP):{" "}
                       <span className="font-semibold text-slate-700">{eligibleBulkLabelIds.length}</span>
                     </>
                   )}
@@ -1208,7 +1210,7 @@ const OrderTab = () => {
                       <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">{order.courierOpsLine2}</p>
                     ) : null}
                   </td>
-                  <td className="px-4 py-4 text-center">
+                  <td className="px-4 py-4 text-center relative overflow-visible">
                     <AdminOrderRowActions
                       order={order}
                       onOpenDetail={setSelectedOrderId}

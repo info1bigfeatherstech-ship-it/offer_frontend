@@ -543,7 +543,12 @@ const OrderSummaryCard = ({
   const discount = quote?.promotionDiscount ?? 0;
   const delivery = quote?.deliveryCharges ?? 0;
   const gst = quote?.taxes ?? 0;
-  const total = quote?.amountPayable ?? subtotal;
+  const cartSubtotalFallback = cartItems.reduce((sum, item) => {
+    const unit =
+      item.price?.current ?? item.price?.sale ?? item.price?.base ?? 0;
+    return sum + (Number(item.total) || Number(unit) * (item.quantity || 1));
+  }, 0);
+  const total = quote?.amountPayable ?? (subtotal > 0 ? subtotal : cartSubtotalFallback);
 
   const psych = useMemo(
     () => computeCheckoutPsychologyPricing(cartItems, quote),
@@ -556,8 +561,8 @@ const OrderSummaryCard = ({
   );
 
   const handleUpdateQty = useCallback(async (item, delta) => {
-    const productId = String(item.productId?._id || item.productId);
-    const variantId = String(item.variantId);
+    const productId = String(item.productId?._id || item.product?._id || item.productId);
+    const variantId = String(item.variantId?._id || item.variantId);
     const newQty = item.quantity + delta;
     const key = `${productId}-${variantId}`;
 
@@ -579,8 +584,8 @@ const OrderSummaryCard = ({
   }, [dispatch, onCartMutationSuccess]);
 
   const handleRemove = useCallback(async (item) => {
-    const productId = String(item.productId?._id || item.productId);
-    const variantId = String(item.variantId);
+    const productId = String(item.productId?._id || item.product?._id || item.productId);
+    const variantId = String(item.variantId?._id || item.variantId);
     const key = `${productId}-${variantId}`;
     setUpdatingId(key);
     try {
@@ -1054,6 +1059,12 @@ const Checkout = () => {
       navigate("/", { replace: true });
     }
   }, [cartItems.length, placedOrder, loading.quote, navigate]);
+
+  useEffect(() => {
+    if (error.quote?.message) {
+      dispatch(fetchCart());
+    }
+  }, [error.quote?.message, dispatch]);
 
   useEffect(() => {
     if (step === 3) {

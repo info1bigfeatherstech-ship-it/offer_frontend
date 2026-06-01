@@ -375,6 +375,17 @@ export const adminOrdersApi = createApi({
         { type: 'AdminOrderTracking', id: orderId },
       ],
     }),
+
+    adminFulfillmentRetryPickup: builder.mutation({
+      query: (orderId) => ({
+        url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/retry-pickup`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, orderId) => [
+        { type: 'AdminOrdersList', id: orderId },
+        { type: 'AdminOrderTracking', id: orderId },
+      ],
+    }),
   }),
 });
 
@@ -397,6 +408,7 @@ export const {
   useAdminFulfillmentManifestMutation,
   useAdminFulfillmentShippingLabelMutation,
   useAdminFulfillmentCancelShipmentMutation,
+  useAdminFulfillmentRetryPickupMutation,
   useAdminBulkApprovalConfirmMutation,
   useAdminBulkApprovalCancelMutation,
   useAdminBulkFulfillmentShipNowMutation,

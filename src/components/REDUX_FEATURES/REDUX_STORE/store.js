@@ -16,7 +16,7 @@ import staffReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/staffSlice"
 import { wholesalerApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/wholesalerApi/wholesalerApi";
 import couponReducer from '../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/couponApi/CouponSlice';
 import { couponApi } from '../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/couponApi/couponApi';
-
+import staffPasswordReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/staffPasswordSlice";
 
 // USER REDUCER 
 import userProductsReducer from "../REDUX_SLICES/userProductsSlice";
@@ -36,6 +36,7 @@ const store = configureStore({
     auth: authReducer,   //user authentication reducer
     adminProductCreate: adminProductCreateReducer,
     staff: staffReducer,
+    staffPassword: staffPasswordReducer,
     adminGetProducts: adminGetProductsReducer,
     adminEditProduct: adminEditProductReducer,
     adminArchived: adminArchivedReducer,
@@ -81,12 +82,3 @@ const store = configureStore({
 
 export default store;
 
-// import { configureStore } from "@reduxjs/toolkit";
-
-// const store = configureStore({
-//   reducer: {
-//     // Add your reducers here
-//   },
-// });
-
-// export default store;

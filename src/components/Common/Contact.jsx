@@ -74,9 +74,9 @@ const InfoRow = ({ icon: Icon, label, value, href }) => (
     </div>
     <div>
       <p className="text-[12px] text-gray-500 uppercase tracking-widest font-semibold">{label}</p>
-      <p className="text-gray-200 text-md mt-0.5 group-hover:text-amber-300 transition-colors">{value}</p>
+      <p className="text-gray-200 text-sm sm:text-[15px] break-words mt-0.5 group-hover:text-amber-300 transition-colors">{value}</p>
     </div>
-    <ArrowRight size={13} className="text-gray-600 group-hover:text-amber-400 ml-auto mt-2 transition-colors" />
+    <ArrowRight size={12} className="text-gray-600 group-hover:text-amber-400 ml-auto mt-2 transition-colors" />
   </a>
 );
 
@@ -92,7 +92,7 @@ const Field = ({ label, required, children }) => (
 );
 
 const inputCls = `
-  w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-3.5 text-sm text-gray-900
+  w-full bg-gray-50 border border-gray-200 rounded-xl px-3.5 py-3 text-sm text-gray-900
   placeholder:text-gray-400 outline-none
   focus:border-amber-400 focus:bg-white focus:ring-4 focus:ring-amber-400/10
   transition-all duration-200
@@ -166,27 +166,26 @@ export default function ContactUs() {
         .slide-up-5 { animation-delay: 0.36s; }
       `}</style>
 
-      <div className="contact-root max-w-6xl mx-auto px-4 sm:px-6 py-10 sm:py-16">
-
+<div className="contact-root max-w-6xl mx-auto px-3 sm:px-6 py-6 sm:py-16">
         {/* ── Page header ── */}
         <div className="mb-10 slide-up slide-up-1">
           <div className="inline-flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-bold px-3 py-1.5 rounded-full mb-4 uppercase tracking-wider">
             <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
             We're here to help
           </div>
-          <h1 className="font-satoshi text-4xl sm:text-5xl font-extrabold text-gray-900 leading-tight">
+         <h1 className="font-satoshi text-3xl sm:text-5xl font-extrabold text-gray-900 leading-tight">
             Get in <span className="text-amber-500">Touch</span>
           </h1>
         </div>
 
         {/* ── Main grid ── */}
-        <div className="grid lg:grid-cols-5 gap-6">
+       <div className="grid lg:grid-cols-5 gap-4 sm:gap-6">
 
           {/* ── LEFT PANEL ── */}
           <div className="lg:col-span-2 flex flex-col gap-5">
 
             {/* Dark card */}
-            <div className="relative bg-gray-900 rounded-3xl overflow-hidden p-7 slide-up slide-up-2">
+            <div className="relative bg-gray-900 rounded-[28px] overflow-hidden p-5 sm:p-7 slide-up slide-up-2">
               <Particles />
               <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-amber-400 to-transparent" />
 
@@ -213,7 +212,7 @@ export default function ContactUs() {
                   href="https://wa.me/919370686008"
                   target="_blank"
                   rel="noreferrer"
-                  className="mt-5 flex items-center justify-center gap-2.5 bg-green-500 hover:bg-green-400 active:scale-[0.98] text-white font-bold py-3.5 rounded-2xl transition-all duration-200 text-sm"
+                  className="mt-5 flex items-center justify-center gap-2.5 bg-green-500 hover:bg-green-400 active:scale-[0.98] text-white font-bold py-3 rounded-xl sm:rounded-2xl transition-all duration-200 text-sm"
                 >
                   <WhatsAppIcon />
                   Chat on WhatsApp <ArrowRight size={14} />
@@ -238,8 +237,19 @@ export default function ContactUs() {
                 { icon: <Truck />, text: "PAN India Delivery" },
                 { icon: <BadgeIndianRupee />, text: "Best Price" },
               ].map((b) => (
-                <div key={b.text} className="bg-white border border-gray-200 rounded-2xl p-3 text-center hover:border-amber-300 hover:shadow-sm transition-all duration-200">
-                  <div className="text-xl ml-10 mb-1">{b.icon}</div>
+               <div
+  key={b.text}
+  className="
+    bg-white border border-gray-200
+    rounded-2xl
+    p-2.5 sm:p-3
+    text-center
+    hover:border-amber-300
+    hover:shadow-sm
+    transition-all duration-200
+  "
+>
+                  <div className="flex justify-center text-lg sm:text-xl mb-1">{b.icon}</div>
                   <p className="text-[10px] font-bold text-gray-600 leading-tight">{b.text}</p>
                 </div>
               ))}
@@ -248,7 +258,7 @@ export default function ContactUs() {
 
           {/* ── RIGHT PANEL: Form ── */}
           <div className="lg:col-span-3 slide-up slide-up-3">
-            <div className="bg-white border border-gray-200 rounded-3xl p-7 sm:p-9 h-full">
+            <div className="bg-white border border-gray-200 rounded-[28px] p-4 sm:p-9 h-full">
 
               <div className="mb-7">
                 <h2 className="font-display text-2xl font-bold text-gray-900">Send a Message</h2>
@@ -350,7 +360,7 @@ export default function ContactUs() {
 
                   {/* ── Captcha ── */}
                   <Field label="Verification" required>
-                    <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center">
+                   <div className="flex flex-wrap gap-3 items-start sm:items-center">
                       <div className="px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-sm font-bold text-gray-700 select-none">
                         {captcha.q}
                       </div>
@@ -359,7 +369,7 @@ export default function ContactUs() {
                         placeholder="Your answer"
                         value={userAnswer}
                         onChange={handleCaptchaChange}
-                        className={inputCls + " max-w-[140px]"}
+                        className={inputCls + " w-[120px]"}
                       />
                       {/* Inline status icon */}
                       {userAnswer !== "" && (
@@ -396,7 +406,7 @@ export default function ContactUs() {
                       type="submit"
                       disabled={!isVerified || status === "loading"}
                       className={`
-                        w-full font-bold py-4 rounded-2xl flex items-center justify-center gap-2.5
+                        w-full font-bold py-3.5 rounded-xl sm:rounded-2xl flex items-center justify-center gap-2.5
                         transition-all duration-200 text-sm
                         ${isVerified
                           ? "bg-gray-900 hover:bg-amber-500 active:scale-[0.98] text-white cursor-pointer"
@@ -434,7 +444,7 @@ export default function ContactUs() {
         </div>
 
         {/* ── Map embed ── */}
-        <div className="mt-6 rounded-3xl overflow-hidden border border-gray-200 slide-up slide-up-5" style={{ height: 260 }}>
+        <div className="mt-6 rounded-[28px] overflow-hidden border border-gray-200 slide-up slide-up-5" style={{ height: window.innerWidth < 640 ? 200 : 260 }}>
           <iframe
             title="OfferWaleBaba Location"
             src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3767.0!2d73.155!3d19.215!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3be7950000000001%3A0x0!2sUlhasnagar%2C+Maharashtra+421004!5e0!3m2!1sen!2sin!4v1"
