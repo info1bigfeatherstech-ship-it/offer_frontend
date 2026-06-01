@@ -57,6 +57,10 @@ const CATEGORY_THUMBNAILS = {
     "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572771/sve/frere/mix_items.jpg",
   "car-accessories":
     "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572774/sve/frere/Car_Accessories.jpg",
+  "beauty-and-personal-care":
+    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1780309616/sve/gh/12.jpg",
+  "home-improvement":
+    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1780309618/sve/gh/13.jpg",
 };
 
 const Categories = () => {
