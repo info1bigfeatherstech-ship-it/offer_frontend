@@ -21,6 +21,7 @@ import {
   useAdminBulkApprovalConfirmMutation,
   useAdminBulkFulfillmentShipNowMutation,
   useAdminBulkFulfillmentSchedulePickupMutation,
+  useAdminBulkFulfillmentSyncShiprocketMutation,
   useGetAdminPickupCalendarQuery,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 import { isPostConfirmOrderStatus } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersSlice";
@@ -31,6 +32,7 @@ import {
   canAdminBulkDownloadManifestOrderRow,
   canAdminBulkSchedulePickupOrderRow,
   canAdminBulkShipNowOrderRow,
+  canAdminBulkSyncShiprocketOrderRow,
 } from "../../../../utils/adminOrderFulfillmentEligibility";
 import AdminOrderDetailView from "./AdminOrderDetailView";
 import AdminOrderRowActions from "./AdminOrderRowActions";
@@ -222,11 +224,13 @@ const OrderTab = () => {
   const [bulkCancel, bulkCancelState] = useAdminBulkApprovalCancelMutation();
   const [bulkShipNow, bulkShipNowState] = useAdminBulkFulfillmentShipNowMutation();
   const [bulkSchedulePickup, bulkSchedulePickupState] = useAdminBulkFulfillmentSchedulePickupMutation();
+  const [bulkSyncShiprocket, bulkSyncShiprocketState] = useAdminBulkFulfillmentSyncShiprocketMutation();
   const bulkBusy =
     bulkConfirmState.isLoading ||
     bulkCancelState.isLoading ||
     bulkShipNowState.isLoading ||
-    bulkSchedulePickupState.isLoading;
+    bulkSchedulePickupState.isLoading ||
+    bulkSyncShiprocketState.isLoading;
   const [bulkZipBusy, setBulkZipBusy] = useState(false);
   const [bulkInvoiceAwbModalOpen, setBulkInvoiceAwbModalOpen] = useState(false);
   const [rowActionFeedback, setRowActionFeedback] = useState(null);
@@ -306,6 +310,15 @@ const OrderTab = () => {
       selectedOrders.filter((id) => {
         const o = orderById.get(id);
         return canAdminBulkSchedulePickupOrderRow(o);
+      }),
+    [selectedOrders, orderById]
+  );
+
+  const eligibleBulkSyncIds = useMemo(
+    () =>
+      selectedOrders.filter((id) => {
+        const o = orderById.get(id);
+        return canAdminBulkSyncShiprocketOrderRow(o);
       }),
     [selectedOrders, orderById]
   );
@@ -506,6 +519,34 @@ const OrderTab = () => {
     eligibleBulkPickupIds,
     selectedOrders.length,
   ]);
+
+  const handleBulkSyncShiprocket = useCallback(async () => {
+    setBulkInlineError(null);
+    setBulkFeedback(null);
+    if (!eligibleBulkSyncIds.length) {
+      setBulkInlineError("No eligible orders. Refresh Shiprocket needs a Shiprocket shipment on the order.");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Refresh Shiprocket for ${eligibleBulkSyncIds.length} order(s)? This syncs status and pickup ID (SRPID).`
+      )
+    ) {
+      return;
+    }
+    try {
+      const data = await bulkSyncShiprocket({ orderIds: eligibleBulkSyncIds }).unwrap();
+      setBulkFeedback({
+        kind: "sync",
+        summary: data.summary,
+        results: data.results || [],
+        extraSkipped: Math.max(0, selectedOrders.length - eligibleBulkSyncIds.length),
+      });
+      setShowBulkMenu(false);
+    } catch (err) {
+      setBulkInlineError(mutationErrorToString(err));
+    }
+  }, [bulkSyncShiprocket, eligibleBulkSyncIds, selectedOrders.length]);
 
   const openBulkPickupPanel = useCallback(() => {
     setBulkInlineError(null);
@@ -920,6 +961,21 @@ const OrderTab = () => {
                     {showBulkFulfillmentActions ? (
                       <button
                         type="button"
+                        onClick={handleBulkSyncShiprocket}
+                        disabled={bulkActionsBusy || !eligibleBulkSyncIds.length}
+                        title={
+                          !eligibleBulkSyncIds.length
+                            ? "No selected orders have a Shiprocket shipment to refresh."
+                            : "Sync status, pickup date, and SRPID from Shiprocket."
+                        }
+                        className="w-full text-left px-4 py-2 text-xs text-slate-800 hover:bg-slate-50 disabled:text-slate-400 disabled:cursor-not-allowed border-t border-slate-100"
+                      >
+                        Refresh Shiprocket (sync + SRPID)
+                      </button>
+                    ) : null}
+                    {showBulkFulfillmentActions ? (
+                      <button
+                        type="button"
                         onClick={openBulkPickupPanel}
                         disabled={bulkActionsBusy || !eligibleBulkPickupIds.length}
                         title={
@@ -978,12 +1034,13 @@ const OrderTab = () => {
                       </>
                     ) : null}
                     {!eligibleBulkShipIds.length &&
+                    !eligibleBulkSyncIds.length &&
                     !eligibleBulkPickupIds.length &&
                     !eligibleBulkManifestIds.length &&
                     !eligibleBulkLabelIds.length && (
                       <p className="px-4 py-2 text-[11px] text-slate-500 border-t border-slate-100">
-                        No ship, pickup, manifest, or label actions apply to the current selection. Try another tab or
-                        refresh Shiprocket on individual orders.
+                        No ship, pickup, manifest, or label actions apply to the current selection. Select orders with
+                        Shiprocket shipments and use Refresh Shiprocket to load SRPID.
                       </p>
                     )}
                   </div>
@@ -1006,6 +1063,9 @@ const OrderTab = () => {
                     </>
                   ) : null}
                   Ready for ship: <span className="font-semibold text-slate-700">{eligibleBulkShipIds.length}</span>
+                  {" · "}
+                  Refresh Shiprocket:{" "}
+                  <span className="font-semibold text-slate-700">{eligibleBulkSyncIds.length}</span>
                   {" · "}
                   Ready for pickup:{" "}
                   <span className="font-semibold text-slate-700">{eligibleBulkPickupIds.length}</span>
@@ -1049,11 +1109,19 @@ const OrderTab = () => {
                         ? "Bulk cancel"
                         : bulkFeedback.kind === "ship"
                           ? "Bulk ship"
-                          : "Bulk pickup"} finished:{" "}
+                          : bulkFeedback.kind === "sync"
+                            ? "Bulk Refresh Shiprocket"
+                            : "Bulk pickup"} finished:{" "}
                     <strong>{bulkFeedback.summary?.completed ?? 0}</strong> completed,{" "}
                     <strong>{bulkFeedback.summary?.skipped ?? 0}</strong> skipped,{" "}
                     <strong>{bulkFeedback.summary?.failed ?? 0}</strong> failed (of {bulkFeedback.summary?.total ?? 0}
                     ).
+                    {bulkFeedback.kind === "sync" && bulkFeedback.summary?.pickupIdsSaved != null ? (
+                      <>
+                        {" "}
+                        SRPID saved: <strong>{bulkFeedback.summary.pickupIdsSaved}</strong>.
+                      </>
+                    ) : null}
                     {bulkFeedback.extraSkipped > 0
                       ? ` ${bulkFeedback.extraSkipped} selected row(s) were not sent (ineligible).`
                       : ""}
@@ -1190,7 +1258,12 @@ const OrderTab = () => {
                     />
                   </td>
                   <td className="px-4 py-4 text-slate-900 font-medium">
-                    {order.orderIdDisplay || order.orderId}
+                    <div>{order.orderIdDisplay || order.orderId}</div>
+                    {order.shiprocketPickupIdDisplay ? (
+                      <p className="text-[10px] font-semibold text-indigo-600 mt-0.5 tracking-wide">
+                        {order.shiprocketPickupIdDisplay}
+                      </p>
+                    ) : null}
                   </td>
                   <td className="px-4 py-4 font-medium text-slate-500">{order.contactPhone || "—"}</td>
                   <td className="px-4 py-4 text-slate-400 whitespace-nowrap">
