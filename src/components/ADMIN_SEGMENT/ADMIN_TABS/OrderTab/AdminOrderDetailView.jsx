@@ -950,6 +950,13 @@ export default function AdminOrderDetailView({
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">
               #{String(order.orderId || "").replace(/^#/, "")}
             </h2>
+            {ship?.shiprocketPickupId ? (
+              <p className="text-sm font-semibold text-indigo-600 mt-1 tracking-wide">
+                {String(ship.shiprocketPickupId).match(/^SRPID-/i)
+                  ? String(ship.shiprocketPickupId).toUpperCase()
+                  : `SRPID-${String(ship.shiprocketPickupId).replace(/\D/g, "")}`}
+              </p>
+            ) : null}
             <p className="text-sm text-slate-500 mt-1">{formatDateHeader(order.createdAt)}</p>
           </div>
           <div className="flex flex-wrap gap-2 items-center">
@@ -2192,7 +2199,7 @@ export default function AdminOrderDetailView({
                   <span>{formatInr(order.subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-slate-600">
-                  <span>Tax (GST)</span>
+                  <span>Taxes & Others</span>
                   <span>{formatInr(order.tax)}</span>
                 </div>
                 <div className="flex justify-between text-slate-600">

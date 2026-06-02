@@ -88,3 +88,16 @@ export function canAdminBulkDownloadLabelOrderRow(row) {
   if (fromCaps != null) return fromCaps;
   return Boolean(row.hasShipmentId && row.hasAwb);
 }
+
+/**
+ * Bulk Refresh Shiprocket — sync status + backfill SRPID from pickup list.
+ * @param {{ orderStatus?: string, hasAwb?: boolean, hasShipmentId?: boolean, hasShiprocketOrderId?: boolean, actionCapabilities?: Record<string, boolean> } | null | undefined} row
+ */
+export function canAdminBulkSyncShiprocketOrderRow(row) {
+  if (!row) return false;
+  const st = String(row.orderStatus || "").toLowerCase();
+  if (st === "cancelled" || st === "payment_failed") return false;
+  const fromCaps = rowActionEnabled(row, "syncShiprocket");
+  if (fromCaps === true) return true;
+  return Boolean(row.hasShiprocketOrderId || row.hasShipmentId || row.hasAwb);
+}
