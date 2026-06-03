@@ -1,7 +1,7 @@
 
 // ADMIN_TABS/ProductsTab.jsx
 
-import React, { useState, useEffect, useRef, useMemo,useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 
@@ -137,11 +137,10 @@ const DateFilterButton = ({ dateFilter, setDateFilter }) => {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`flex cursor-pointer items-center gap-2 px-4 py-3 rounded-xl border font-medium text-sm transition-all ${
-          isActive
-            ? "bg-blue-600 text-white border-blue-600 shadow-md"
-            : "bg-gray-50 text-gray-700 border-gray-200 hover:border-blue-400 hover:bg-blue-50"
-        }`}
+        className={`flex cursor-pointer items-center gap-2 px-4 py-3 rounded-xl border font-medium text-sm transition-all ${isActive
+          ? "bg-blue-600 text-white border-blue-600 shadow-md"
+          : "bg-gray-50 text-gray-700 border-gray-200 hover:border-blue-400 hover:bg-blue-50"
+          }`}
       >
         <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -172,11 +171,10 @@ const DateFilterButton = ({ dateFilter, setDateFilter }) => {
                 <button
                   key={value}
                   onClick={() => setDateFilter((prev) => ({ ...prev, dateField: value }))}
-                  className={`flex-1 py-1.5 cursor-pointer text-xs rounded-lg font-medium transition-colors ${
-                    dateFilter.dateField === value
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
+                  className={`flex-1 py-1.5 cursor-pointer text-xs rounded-lg font-medium transition-colors ${dateFilter.dateField === value
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
                 >
                   {label}
                 </button>
@@ -191,11 +189,10 @@ const DateFilterButton = ({ dateFilter, setDateFilter }) => {
                 <button
                   key={p.value}
                   onClick={() => handlePresetClick(p.value)}
-                  className={`w-full cursor-pointer text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${
-                    dateFilter.preset === p.value
-                      ? "bg-blue-50 cursor-pointer text-blue-700 font-medium"
-                      : "text-gray-700 hover:bg-gray-50"
-                  }`}
+                  className={`w-full cursor-pointer text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${dateFilter.preset === p.value
+                    ? "bg-blue-50 cursor-pointer text-blue-700 font-medium"
+                    : "text-gray-700 hover:bg-gray-50"
+                    }`}
                 >
                   {p.label}
                   {dateFilter.preset === p.value && (
@@ -211,11 +208,10 @@ const DateFilterButton = ({ dateFilter, setDateFilter }) => {
           <div className="px-4 pb-4 border-t border-gray-100 pt-3">
             <button
               onClick={() => handlePresetClick("custom")}
-              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between mb-2 ${
-                dateFilter.preset === "custom"
-                  ? "bg-blue-50 text-blue-700 font-medium"
-                  : "text-gray-700 hover:bg-gray-50"
-              }`}
+              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between mb-2 ${dateFilter.preset === "custom"
+                ? "bg-blue-50 text-blue-700 font-medium"
+                : "text-gray-700 hover:bg-gray-50"
+                }`}
             >
               Custom range
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -278,79 +274,79 @@ const DateFilterButton = ({ dateFilter, setDateFilter }) => {
 const ProductsTab = ({ onSwitchTab }) => {
   const dispatch = useDispatch();
   const [todayArrival, setTodayArrival] = useState(false);
-const [onSale, setOnSale] = useState(false);
-const [flagLoading, setFlagLoading] = useState(false);
+  const [onSale, setOnSale] = useState(false);
+  const [flagLoading, setFlagLoading] = useState(false);
 
-const handleBulkFlagUpdate = async (flagType) => {
-  if (selectedSlugs.size === 0) {
-    toast.error("No products selected");
-    return;
-  }
+  const handleBulkFlagUpdate = async (flagType) => {
+    if (selectedSlugs.size === 0) {
+      toast.error("No products selected");
+      return;
+    }
     const slugs = Array.from(selectedSlugs);
 
-  if (flagLoading) return;
+    if (flagLoading) return;
 
-  const stateMap = {
-    "today-arrival": [todayArrival, setTodayArrival],
-    "on-sale": [onSale, setOnSale],
-  };
+    const stateMap = {
+      "today-arrival": [todayArrival, setTodayArrival],
+      "on-sale": [onSale, setOnSale],
+    };
 
-  const stateEntry = stateMap[flagType];
+    const stateEntry = stateMap[flagType];
 
-  if (!stateEntry) {
-    console.error("Invalid flagType:", flagType);
-    return;
-  }
-
-  const [currentValue, setValue] = stateEntry;
-
-  const isIndeterminate =
-    flagType === "today-arrival"
-      ? todayIndeterminate
-      : saleIndeterminate;
-
-  let newValue = isIndeterminate ? true : !currentValue;
-
-  setFlagLoading(true);
-
-  // optimistic UI
-  setValue(newValue);
-  dispatch(optimisticBulkTagUpdate({
-  slugs,
-  flagType,
-  value: newValue
-}));
-
-  try {
-    const res = await axiosInstance.put(`/admin/products/updateFlags`, {
-      slugs,
-      flagType,
-      value: newValue,
-    });
-
-    if (!res?.data?.success) {
-      throw new Error(res?.data?.message || "Update failed");
+    if (!stateEntry) {
+      console.error("Invalid flagType:", flagType);
+      return;
     }
 
-    toast.success("Products updated successfully");
-   setTimeout(() => {
-  setSelectedSlugs(new Set());
-}, 400);
+    const [currentValue, setValue] = stateEntry;
 
-  } catch (err) {
-    setValue(currentValue);
+    const isIndeterminate =
+      flagType === "today-arrival"
+        ? todayIndeterminate
+        : saleIndeterminate;
+
+    let newValue = isIndeterminate ? true : !currentValue;
+
+    setFlagLoading(true);
+
+    // optimistic UI
+    setValue(newValue);
     dispatch(optimisticBulkTagUpdate({
-  slugs,
-  flagType,
-  value: !newValue
-}));
-    toast.error(err?.response?.data?.message || "Failed to update flags");
+      slugs,
+      flagType,
+      value: newValue
+    }));
 
-    // rollback
-  } finally {
-    setFlagLoading(false);
-  }
-};
+    try {
+      const res = await axiosInstance.put(`/admin/products/updateFlags`, {
+        slugs,
+        flagType,
+        value: newValue,
+      });
+
+      if (!res?.data?.success) {
+        throw new Error(res?.data?.message || "Update failed");
+      }
+
+      toast.success("Products updated successfully");
+      setTimeout(() => {
+        setSelectedSlugs(new Set());
+      }, 400);
+
+    } catch (err) {
+      setValue(currentValue);
+      dispatch(optimisticBulkTagUpdate({
+        slugs,
+        flagType,
+        value: !newValue
+      }));
+      toast.error(err?.response?.data?.message || "Failed to update flags");
+
+      // rollback
+    } finally {
+      setFlagLoading(false);
+    }
+  };
 
   const {
     products,
@@ -362,14 +358,14 @@ const handleBulkFlagUpdate = async (flagType) => {
     loading: productsLoading,
     error: productsError,
   } = useSelector((s) => s.adminGetProducts);
- const normalizedProducts = useMemo(
-  () =>
-    products.map((p) => ({
-      ...p,
-      tags: p.tags || [],
-    })),
-  [products]
-);
+  const normalizedProducts = useMemo(
+    () =>
+      products.map((p) => ({
+        ...p,
+        tags: p.tags || [],
+      })),
+    [products]
+  );
 
   const {
     products: lowStockProducts,
@@ -417,40 +413,40 @@ const handleBulkFlagUpdate = async (flagType) => {
     dispatch(fetchActiveProductsCount());
   }, [dispatch]);
   const [todayIndeterminate, setTodayIndeterminate] = useState(false);
-const [saleIndeterminate, setSaleIndeterminate] = useState(false);
+  const [saleIndeterminate, setSaleIndeterminate] = useState(false);
 
-useEffect(() => {
-  if (selectedSlugs.size === 0) {
-    setTodayArrival(false);
-    setOnSale(false);
-    setTodayIndeterminate(false);
-    setSaleIndeterminate(false);
-    return;
-  }
+  useEffect(() => {
+    if (selectedSlugs.size === 0) {
+      setTodayArrival(false);
+      setOnSale(false);
+      setTodayIndeterminate(false);
+      setSaleIndeterminate(false);
+      return;
+    }
 
-  const selected = normalizedProducts.filter(p =>
-    selectedSlugs.has(p.slug)
-  );
+    const selected = normalizedProducts.filter(p =>
+      selectedSlugs.has(p.slug)
+    );
 
-  const total = selected.length;
+    const total = selected.length;
 
-  const todayCount = selected.filter(p =>
-    p.tags?.includes("today-arrival")
-  ).length;
+    const todayCount = selected.filter(p =>
+      p.tags?.includes("today-arrival")
+    ).length;
 
-  const saleCount = selected.filter(p =>
-    p.tags?.includes("on-sale")
-  ).length;
+    const saleCount = selected.filter(p =>
+      p.tags?.includes("on-sale")
+    ).length;
 
-  // today arrival
-  setTodayArrival(todayCount === total);
-  setTodayIndeterminate(todayCount > 0 && todayCount < total);
+    // today arrival
+    setTodayArrival(todayCount === total);
+    setTodayIndeterminate(todayCount > 0 && todayCount < total);
 
-  // on sale
-  setOnSale(saleCount === total);
-  setSaleIndeterminate(saleCount > 0 && saleCount < total);
+    // on sale
+    setOnSale(saleCount === total);
+    setSaleIndeterminate(saleCount > 0 && saleCount < total);
 
-}, [selectedSlugs, normalizedProducts]);
+  }, [selectedSlugs, normalizedProducts]);
 
   useEffect(() => {
     setSelectedSlugs(new Set());
@@ -475,10 +471,10 @@ useEffect(() => {
     }
   }, [deleteSuccess, dispatch]);
 
- const refreshProducts = useCallback(() => {
-  dispatch(fetchProducts({ page: currentPage, limit: 15 }));
-  dispatch(fetchLowStockProducts({ page: 1, limit: 1 }));
-}, [dispatch, currentPage]);
+  const refreshProducts = useCallback(() => {
+    dispatch(fetchProducts({ page: currentPage, limit: 15 }));
+    dispatch(fetchLowStockProducts({ page: 1, limit: 1 }));
+  }, [dispatch, currentPage]);
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
@@ -552,7 +548,7 @@ useEffect(() => {
 
     const channelName = channel === "ecomm" ? "Ecom" : channel === "wholesale" ? "Wholesale" : "";
     const actionLabel = channelName ? `Set as ${channelName} → ${status}` : `Set as ${status}`;
-    
+
     if (!window.confirm(`${actionLabel} for ${selectedSlugs.size} product(s)?`)) return;
 
     setBulkLoading(true);
@@ -637,26 +633,26 @@ useEffect(() => {
         product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase()));
 
-    const matchesStatus = filterStatus === "all" || product.status === filterStatus;
-    const matchesCategory = filterCategory === "all" || getCategoryId(product.category) === filterCategory;
-    const matchesLowStock = !showLowStockOnly || lowStockProducts.some((lp) => lp._id === product._id);
+      const matchesStatus = filterStatus === "all" || product.status === filterStatus;
+      const matchesCategory = filterCategory === "all" || getCategoryId(product.category) === filterCategory;
+      const matchesLowStock = !showLowStockOnly || lowStockProducts.some((lp) => lp._id === product._id);
 
-    const range = getDateFilterRange();
-    let matchesDate = true;
-    if (range) {
-      const raw = product[range.dateField];
-      if (raw) {
-        const d = new Date(raw);
-        matchesDate = d >= range.start && d <= range.end;
-      } else {
-        matchesDate = false;
+      const range = getDateFilterRange();
+      let matchesDate = true;
+      if (range) {
+        const raw = product[range.dateField];
+        if (raw) {
+          const d = new Date(raw);
+          matchesDate = d >= range.start && d <= range.end;
+        } else {
+          matchesDate = false;
+        }
       }
-    }
 
-    return matchesSearch && matchesStatus && matchesCategory && matchesLowStock && matchesDate;
-  });
-}, [normalizedProducts, searchTerm, filterStatus, filterCategory, showLowStockOnly, lowStockProducts,
-  getDateFilterRange])
+      return matchesSearch && matchesStatus && matchesCategory && matchesLowStock && matchesDate;
+    });
+  }, [normalizedProducts, searchTerm, filterStatus, filterCategory, showLowStockOnly, lowStockProducts,
+    getDateFilterRange])
 
   const allOnPageSelected = filteredProducts.length > 0 && filteredProducts.every((p) => selectedSlugs.has(p.slug));
   const someSelected = selectedSlugs.size > 0;
@@ -758,9 +754,8 @@ useEffect(() => {
           </div>
         </div>
         <div
-          className={`bg-white rounded-2xl shadow-sm border p-6 cursor-pointer transition-all ${
-            showLowStockOnly ? "border-red-500 ring-2 ring-red-200" : "border-gray-200 hover:border-red-300"
-          }`}
+          className={`bg-white rounded-2xl shadow-sm border p-6 cursor-pointer transition-all ${showLowStockOnly ? "border-red-500 ring-2 ring-red-200" : "border-gray-200 hover:border-red-300"
+            }`}
           onClick={() => setShowLowStockOnly(!showLowStockOnly)}
         >
           <div className="flex items-center justify-between relative cursor-pointer group">
@@ -799,21 +794,21 @@ useEffect(() => {
               </button>
             </div>
             <div className="flex items-center gap-3">
-  <FlagToggle
-    label="Today Deals"
-    checked={todayArrival}
-    indeterminate={todayIndeterminate}
-    loading={flagLoading}
-    onChange={() => handleBulkFlagUpdate("today-arrival")}
-  />
-  <FlagToggle
-    label="On Sale"
-    checked={onSale}
-    indeterminate={saleIndeterminate}
-    loading={flagLoading}
-    onChange={() => handleBulkFlagUpdate("on-sale")}
-  />
-</div>
+              <FlagToggle
+                label="Today Deals"
+                checked={todayArrival}
+                indeterminate={todayIndeterminate}
+                loading={flagLoading}
+                onChange={() => handleBulkFlagUpdate("today-arrival")}
+              />
+              <FlagToggle
+                label="On Sale"
+                checked={onSale}
+                indeterminate={saleIndeterminate}
+                loading={flagLoading}
+                onChange={() => handleBulkFlagUpdate("on-sale")}
+              />
+            </div>
 
             {/* SET AS ECOM BUTTON */}
             <div className="relative group">
@@ -989,7 +984,7 @@ useEffect(() => {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredProducts.map((product) => {
-                const isChecked = selectedSlugs.has(product.slug)                
+                const isChecked = selectedSlugs.has(product.slug)
                 const mainVariant = product.variants?.[0] || {};
                 const basePrice = mainVariant.price?.base || 0;
                 const salePrice = mainVariant.price?.sale;
@@ -1022,8 +1017,10 @@ useEffect(() => {
                           </div>
                         )}
                         <div className="min-w-0">
-                          <div className="font-medium text-gray-900 truncate">{product.name}</div>
-                          <div className="text-sm text-gray-500 truncate max-w-xs">{product.title}</div>
+                          <div className="font-medium text-gray-900 truncate w-32">{product.name}</div>
+                          <div className="text-sm text-gray-500 truncate w-24">{product.title}</div>
+                          {/* <div className="font-medium text-gray-900 truncate">{product.name}</div>
+                          <div className="text-sm text-gray-500 truncate max-w-xs">{product.title}</div> */}
                         </div>
                       </div>
                     </td>
@@ -1068,13 +1065,11 @@ useEffect(() => {
                       <button
                         onClick={() => toggleFeatured(product._id)}
                         disabled={actionLoading}
-                        className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-colors ${
-                          actionLoading ? "opacity-50 cursor-not-allowed" : ""
-                        } ${
-                          product.isFeatured
+                        className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-colors ${actionLoading ? "opacity-50 cursor-not-allowed" : ""
+                          } ${product.isFeatured
                             ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
+                          }`}
                       >
                         {product.isFeatured ? "⭐ Featured" : "Regular"}
                       </button>
@@ -1159,9 +1154,8 @@ useEffect(() => {
                     <button
                       key={pageNum}
                       onClick={() => handlePageChange(pageNum)}
-                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
-                        pageNum === currentPage ? "bg-blue-600 text-white" : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
-                      }`}
+                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${pageNum === currentPage ? "bg-blue-600 text-white" : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                        }`}
                     >
                       {pageNum}
                     </button>
