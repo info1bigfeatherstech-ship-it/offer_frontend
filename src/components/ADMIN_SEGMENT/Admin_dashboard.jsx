@@ -7,8 +7,8 @@ import { useSearchParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { TAB_REGISTRY } from "./TabRegistry";
 import { ROLE_PERMISSIONS, ROLE_LABELS, ROLES } from "./roles";
-import { useNavigate }               from "react-router-dom";
-import { useAdminLogoutMutation }    from "./ADMIN_REDUX_MANAGEMENT/adminAuthApi";
+import { useNavigate } from "react-router-dom";
+import { useAdminLogoutMutation } from "./ADMIN_REDUX_MANAGEMENT/adminAuthApi";
 import LOGO from "../../assets/logo2.png";
 // ── Settings dashboard import (used when activeTab === "settings") ─────────
 import SettingsDashboard from "./ADMIN_TABS/SETTINGS/SettingsDashboard";
@@ -25,14 +25,14 @@ const AdminDashboard = () => {
   const { user } = useSelector((state) => state.adminAuth);
   const HARDCODED_ROLE = user?.role || ROLES.ORDER_MANAGER;
   // ── Role & permissions ────────────────────────────────────────────────────
-  const activeRole    = HARDCODED_ROLE;
+  const activeRole = HARDCODED_ROLE;
   const allowedTabIds = ROLE_PERMISSIONS[activeRole] || [];
-  const allowedTabs   = TAB_REGISTRY.filter((tab) => allowedTabIds.includes(tab.id));
-  const defaultTab    = allowedTabs[0]?.id || "products";
+  const allowedTabs = TAB_REGISTRY.filter((tab) => allowedTabIds.includes(tab.id));
+  const defaultTab = allowedTabs[0]?.id || "products";
 
   // ── Derive activeTab synchronously from URL + permissions ─────────────────
   const tabFromUrl = searchParams.get("tab");
-  const activeTab  = tabFromUrl && allowedTabIds.includes(tabFromUrl)
+  const activeTab = tabFromUrl && allowedTabIds.includes(tabFromUrl)
     ? tabFromUrl
     : defaultTab;
 
@@ -43,27 +43,27 @@ const AdminDashboard = () => {
   // After that, the user controls it via click (toggle).
   const [expandedTab, setExpandedTab] = useState(() => {
     const urlTab = new URLSearchParams(window.location.search).get("tab");
-    const entry  = allowedTabs.find((t) => t.id === urlTab && t.subItems?.length);
+    const entry = allowedTabs.find((t) => t.id === urlTab && t.subItems?.length);
     return entry ? entry.id : null;
   });
 
-  const navigate                              = useNavigate();
-const [adminLogout, { isLoading: loggingOut }] = useAdminLogoutMutation();
- 
-const handleLogout = async () => {
-  try {
-    await adminLogout().unwrap();
-  } catch {
-    // even if API fails, adminAuthApi.transformResponse already clears the token
-    // and adminAuthSlice extraReducer (matchRejected) clears the state
-  } finally {
-    navigate("/admin/login", { replace: true });
-  }
-};
+  const navigate = useNavigate();
+  const [adminLogout, { isLoading: loggingOut }] = useAdminLogoutMutation();
+
+  const handleLogout = async () => {
+    try {
+      await adminLogout().unwrap();
+    } catch {
+      // even if API fails, adminAuthApi.transformResponse already clears the token
+      // and adminAuthSlice extraReducer (matchRejected) clears the state
+    } finally {
+      navigate("/admin/login", { replace: true });
+    }
+  };
 
   // ── Single-responsibility effect: keep URL honest ─────────────────────────
   useEffect(() => {
-    const urlTab    = searchParams.get("tab");
+    const urlTab = searchParams.get("tab");
     const urlIsWrong = !urlTab || !allowedTabIds.includes(urlTab);
 
     if (urlIsWrong) {
@@ -84,7 +84,7 @@ const handleLogout = async () => {
 
   // ── Badges ────────────────────────────────────────────────────────────────
   const productsBadge = useSelector((s) => s.adminGetProducts?.products?.length || 0);
-  const archivedBadge = useSelector((s) => s.adminArchived?.products?.length   || 0);
+  const archivedBadge = useSelector((s) => s.adminArchived?.products?.length || 0);
   const BADGE_MAP = { products: productsBadge, archived: archivedBadge };
 
   // ── Parent tab click ──────────────────────────────────────────────────────
@@ -129,7 +129,7 @@ const handleLogout = async () => {
   // ─────────────────────────────────────────────────────────────────────────
 
   const activeTabConfig = allowedTabs.find((t) => t.id === activeTab);
-  const TabComponent    = activeTabConfig?.component ?? null;
+  const TabComponent = activeTabConfig?.component ?? null;
 
   // ── Settings full-screen swap ─────────────────────────────────────────────
   // When activeTab === "settings":
@@ -165,16 +165,16 @@ const handleLogout = async () => {
           <div className="p-4 flex flex-col items-center border-b border-slate-50">
             {/* Logo at Top */}
             {/* E-COM Context Tag - Top Right Floating */}
-           <div className="absolute top-3 right-3">
-            <span className="cursor-pointer inline-flex items-center gap-1.5 px-2 py-1 bg-green-50 hover:bg-green-100 border border-green-100 rounded-md transition-all duration-300 group shadow-sm">
-              {/* Small Dot Indicator for 'Live' feel */}
-              <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
-              
-              <span className="text-[10px] font-black text-green-700 tracking-widest uppercase leading-none">
-                E-COM
+            <div className="absolute top-3 right-3">
+              <span className="cursor-pointer inline-flex items-center gap-1.5 px-2 py-1 bg-green-50 hover:bg-green-100 border border-green-100 rounded-md transition-all duration-300 group shadow-sm">
+                {/* Small Dot Indicator for 'Live' feel */}
+                <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+
+                <span className="text-[10px] font-black text-green-700 tracking-widest uppercase leading-none">
+                  E-COM
+                </span>
               </span>
-            </span>
-          </div>
+            </div>
             <div className="w-25 h-22 flex items-center justify-center flex-shrink-0">
               <img src={LOGO} alt="logo" className="max-h-full object-contain" />
             </div>
@@ -193,9 +193,9 @@ const handleLogout = async () => {
           {/* Nav — only allowed tabs rendered */}
           <nav className="flex-1 px-4 space-y-1 mt-4 overflow-y-auto">
             {allowedTabs.map((tab) => {
-              const isActive      = activeTab === tab.id;
-              const hasSubItems   = tab.subItems?.length > 0;
-              const isExpanded    = expandedTab === tab.id;
+              const isActive = activeTab === tab.id;
+              const hasSubItems = tab.subItems?.length > 0;
+              const isExpanded = expandedTab === tab.id;
 
               return (
                 <div key={tab.id}>
@@ -203,11 +203,10 @@ const handleLogout = async () => {
                   {/* Parent button */}
                   <button
                     onClick={() => handleTabClick(tab)}
-                    className={`w-full flex items-center cursor-pointer justify-between px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${
-                      isActive
+                    className={`w-full flex items-center cursor-pointer justify-between px-4 py-3 text-sm font-medium rounded-lg transition-all duration-200 ${isActive
                         ? "bg-blue-50 text-blue-600 shadow-sm"
                         : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
-                    }`}
+                      }`}
                   >
                     <div className="flex items-center space-x-3">
                       <svg
@@ -222,9 +221,8 @@ const handleLogout = async () => {
                     <div className="flex items-center gap-2">
                       {/* Badge */}
                       {BADGE_MAP[tab.id] != null && BADGE_MAP[tab.id] > 0 && (
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                          isActive ? "bg-blue-200 text-blue-700" : "bg-gray-200 text-gray-600"
-                        }`}>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${isActive ? "bg-blue-200 text-blue-700" : "bg-gray-200 text-gray-600"
+                          }`}>
                           {BADGE_MAP[tab.id]}
                         </span>
                       )}
@@ -232,9 +230,8 @@ const handleLogout = async () => {
                       {/* Chevron — only for tabs with sub-items */}
                       {hasSubItems && (
                         <svg
-                          className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""} ${
-                            isActive ? "text-blue-500" : "text-gray-400"
-                          }`}
+                          className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? "rotate-180" : ""} ${isActive ? "text-blue-500" : "text-gray-400"
+                            }`}
                           fill="none" stroke="currentColor" viewBox="0 0 24 24"
                         >
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
@@ -255,11 +252,10 @@ const handleLogout = async () => {
                           <button
                             key={sub.id}
                             onClick={() => handleSubItemClick(tab.id, sub.id)}
-                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-lg transition-all duration-150 cursor-pointer text-left ${
-                              isSubActive
+                            className={`w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium rounded-lg transition-all duration-150 cursor-pointer text-left ${isSubActive
                                 ? "bg-blue-50 text-blue-700"
                                 : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
-                            }`}
+                              }`}
                           >
                             <svg
                               className={`w-3.5 h-3.5 shrink-0 ${isSubActive ? "text-blue-600" : "text-gray-400"}`}
@@ -284,12 +280,12 @@ const handleLogout = async () => {
             <p className="text-[10px] text-gray-400 uppercase mb-2 tracking-widest font-bold">
               System v1.0.4
             </p>
-            
-    {/* Logout button */}
-    <button
-      onClick={handleLogout}
-      disabled={loggingOut}
-      className="
+
+            {/* Logout button */}
+            <button
+              onClick={handleLogout}
+              disabled={loggingOut}
+              className="
         w-full flex items-center justify-center gap-2
         py-2.5 px-4 rounded-xl
         text-[11px] font-bold uppercase tracking-widest
@@ -299,18 +295,18 @@ const handleLogout = async () => {
         disabled:opacity-40 disabled:cursor-not-allowed
         transition-all duration-200 cursor-pointer
       "
-    >
-      {/* Logout icon */}
-      <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
-        stroke="currentColor" strokeWidth="2.5"
-        strokeLinecap="round" strokeLinejoin="round"
-      >
-        <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
-        <polyline points="16 17 21 12 16 7" />
-        <line x1="21" y1="12" x2="9" y2="12" />
-      </svg>
-      {loggingOut ? "Signing out…" : "Sign out"}
-    </button>
+            >
+              {/* Logout icon */}
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" strokeWidth="2.5"
+                strokeLinecap="round" strokeLinejoin="round"
+              >
+                <path d="M9 21H5a2 2 0 01-2-2V5a2 2 0 012-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
+              {loggingOut ? "Signing out…" : "Sign out"}
+            </button>
           </div>
         </aside>
       )}

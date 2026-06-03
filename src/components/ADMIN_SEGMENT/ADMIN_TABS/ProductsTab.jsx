@@ -661,7 +661,7 @@ const ProductsTab = ({ onSwitchTab }) => {
   if (productsLoading || lowStockLoading) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 xl:gap-6"> {/* RESPONSIVE FIX */}
           <StatsCardSkeleton />
           <StatsCardSkeleton />
           <StatsCardSkeleton />
@@ -713,12 +713,12 @@ const ProductsTab = ({ onSwitchTab }) => {
         onViewArchived={() => onSwitchTab("archived")}
       />
 
-      <div className="grid grid-cols-4 gap-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 xl:gap-6"> {/* RESPONSIVE FIX */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 xl:p-5" /* RESPONSIVE FIX */>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 mb-1">Total Products</p>
-              <p className="text-3xl font-bold text-gray-900">{totalProducts}</p>
+              <p className="text-2xl xl:text-3xl font-bold text-gray-900 /* RESPONSIVE FIX */">{totalProducts}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
               <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -727,11 +727,11 @@ const ProductsTab = ({ onSwitchTab }) => {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 xl:p-5" /* RESPONSIVE FIX */>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 mb-1">Active Products (Ecom)</p>
-              <p className="text-3xl font-bold text-gray-900">{activeProducts}</p>
+              <p className="text-2xl xl:text-3xl font-bold text-gray-900 /* RESPONSIVE FIX */">{activeProducts}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
               <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -740,11 +740,11 @@ const ProductsTab = ({ onSwitchTab }) => {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 xl:p-5" /* RESPONSIVE FIX */>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 mb-1">Featured (Ecom)</p>
-              <p className="text-3xl font-bold text-gray-900">{featuredProducts}</p>
+              <p className="text-2xl xl:text-3xl font-bold text-gray-900 /* RESPONSIVE FIX */">{featuredProducts}</p>
             </div>
             <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
               <svg className="w-6 h-6 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
@@ -754,14 +754,14 @@ const ProductsTab = ({ onSwitchTab }) => {
           </div>
         </div>
         <div
-          className={`bg-white rounded-2xl shadow-sm border p-6 cursor-pointer transition-all ${showLowStockOnly ? "border-red-500 ring-2 ring-red-200" : "border-gray-200 hover:border-red-300"
+          className={`bg-white rounded-2xl shadow-sm border p-3 xl:p-5 cursor-pointer /* RESPONSIVE FIX */ transition-all ${showLowStockOnly ? "border-red-500 ring-2 ring-red-200" : "border-gray-200 hover:border-red-300"
             }`}
           onClick={() => setShowLowStockOnly(!showLowStockOnly)}
         >
           <div className="flex items-center justify-between relative cursor-pointer group">
             <div>
               <p className="text-sm text-gray-500 mb-1">Low Stock</p>
-              <p className="text-3xl font-bold text-gray-900">{lowStockCount}</p>
+              <p className="text-2xl xl:text-3xl font-bold text-gray-900 /* RESPONSIVE FIX */">{lowStockCount}</p>
               {showLowStockOnly && <p className="text-xs text-red-600 mt-1">Filter active</p>}
             </div>
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${showLowStockOnly ? "bg-red-200" : "bg-red-100"}`}>
@@ -879,7 +879,7 @@ const ProductsTab = ({ onSwitchTab }) => {
             </div>
           </div>
         ) : (
-          <div className="flex gap-4 flex-wrap">
+          <div className="flex gap-2 xl:gap-4 flex-wrap"> {/* RESPONSIVE FIX */}
             <div className="flex-1 relative">
               <svg className="w-5 h-5 text-gray-400 absolute left-4 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -957,10 +957,10 @@ const ProductsTab = ({ onSwitchTab }) => {
         <ProductTableSkeleton />
       ) : (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
-          <table className="w-full">
+          <table className="w-full min-w-[850px]"> {/* RESPONSIVE FIX */}
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-4 py-4 w-10">
+                <th className="px-2 py-3 w-10"> {/* RESPONSIVE FIX */}
                   <input
                     type="checkbox"
                     checked={allOnPageSelected}
@@ -971,15 +971,15 @@ const ProductsTab = ({ onSwitchTab }) => {
                     className="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer"
                   />
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price (₹)</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inventory</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ecom Status</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wholesale Status</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Featured</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Product</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Category</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Brand</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Price (₹)</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Inventory</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Ecom Status</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Wholesale Status</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Featured</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
@@ -997,7 +997,7 @@ const ProductsTab = ({ onSwitchTab }) => {
                 return (
                   <tr key={product._id} className={`hover:bg-gray-50 transition-colors group ${isChecked ? "bg-blue-50 hover:bg-blue-50" : ""}`}>
                     {/* { console.log(product.name, product.tags)} */}
-                    <td className="px-4 py-4">
+                    <td className="px-2 py-3"> {/* RESPONSIVE FIX */}
                       <input
                         type="checkbox"
                         checked={isChecked}
@@ -1005,7 +1005,7 @@ const ProductsTab = ({ onSwitchTab }) => {
                         className="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer"
                       />
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
                       <div className="flex items-center gap-3">
                         {thumbUrl ? (
                           <img src={thumbUrl} alt={product.name} className="w-10 h-10 rounded-lg object-cover border border-gray-200 flex-shrink-0" />
@@ -1024,19 +1024,19 @@ const ProductsTab = ({ onSwitchTab }) => {
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
                       <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
                         {getCategoryName(product.category)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm">
+                    <td className="px-3 py-3 text-sm"> {/* RESPONSIVE FIX */}
                       {!product.brand || product.brand === "Generic" ? (
                         <span className="text-gray-400">—</span>
                       ) : (
                         <span className="font-medium text-gray-700">{product.brand}</span>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
                       <div className="text-sm">
                         {salePrice ? (
                           <>
@@ -1053,15 +1053,15 @@ const ProductsTab = ({ onSwitchTab }) => {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
                       <div className="flex items-center space-x-2">
                         <span className={`text-sm font-medium ${isLowStock ? "text-red-600" : "text-gray-700"}`}>{totalStock}</span>
                         {isLowStock && <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">Low</span>}
                       </div>
                     </td>
-                    <td className="px-6 py-4">{getEcomStatusBadge(product)}</td>
-                    <td className="px-6 py-4">{getWholesaleStatusBadge(product)}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}{getEcomStatusBadge(product)}</td>
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}{getWholesaleStatusBadge(product)}</td>
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
                       <button
                         onClick={() => toggleFeatured(product._id)}
                         disabled={actionLoading}
@@ -1074,7 +1074,7 @@ const ProductsTab = ({ onSwitchTab }) => {
                         {product.isFeatured ? "⭐ Featured" : "Regular"}
                       </button>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
                       <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => setDetailProduct(product)}
