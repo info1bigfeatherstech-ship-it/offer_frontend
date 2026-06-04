@@ -1534,14 +1534,13 @@ const ProductUI = ({ openAuthModal }) => {
                         </div>
                       )}
 
-                      {/* ── SECTION 3: PUBLISHED REVIEWS LIST ── */}
+                      {/* ── SECTION 3: PUBLISHED REVIEWS LIST (only when at least one exists) ── */}
+                      {!reviewsLoading && reviewsList.length > 0 && (
                       <div
                         className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 overscroll-y-contain [scrollbar-gutter:stable]"
                         aria-label="Published reviews list"
                       >
-                        {reviewsLoading ? null : reviewsList.length === 0 ? (
-                          <p className="text-sm text-gray-500">No published reviews yet.</p>
-                        ) : filteredReviews.length === 0 && filterStar !== null ? (
+                        {filteredReviews.length === 0 && filterStar !== null ? (
                           <p className="text-sm text-gray-500">No reviews with {filterStar} stars.</p>
                         ) : (
                           <>
@@ -1581,12 +1580,10 @@ const ProductUI = ({ openAuthModal }) => {
                                         ))}
                                       </div>
 
-                                      {/* Comment */}
-                                      {r.comment ? (
-                                        <p className="text-sm text-gray-600 leading-relaxed">{r.comment}</p>
-                                      ) : (
-                                        <p className="text-xs text-gray-400 italic">No comment left</p>
-                                      )}
+                                      {/* Comment — only when present */}
+                                      {r.comment?.trim() ? (
+                                        <p className="text-sm text-gray-600 leading-relaxed">{r.comment.trim()}</p>
+                                      ) : null}
                                     </div>
                                   </div>
                                 </li>
@@ -1612,6 +1609,7 @@ const ProductUI = ({ openAuthModal }) => {
                           </>
                         )}
                       </div>
+                      )}
                     </div>
                   );
                 })()}

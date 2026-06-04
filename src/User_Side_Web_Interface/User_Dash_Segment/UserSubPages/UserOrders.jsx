@@ -5,7 +5,6 @@ import {
   fetchUserOrders,
   fetchOrderById,
   trackOrder,
-  cancelOrder,
   createReturnRequest,
   clearOrderErrors,
   clearActiveOrder,
@@ -141,48 +140,133 @@ const StatusBadge = ({ status }) => {
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Tracking Timeline
+// Tracking timelines (Layer A = order steps, Layer B = courier scans)
 // ─────────────────────────────────────────────────────────────────────────────
-const TrackingTimeline = ({ timeline = [] }) => (
-  <div className="space-y-0">
-    {timeline.map((step, i) => (
-      <div key={i} className="flex gap-3">
-        {/* Dot + line */}
-        <div className="flex flex-col items-center">
-          <div
-            className={`w-4 h-4 rounded-full border-2 flex-shrink-0 flex items-center justify-center mt-1 ${
-              step.completed
-                ? "bg-black border-black"
-                : "bg-white border-gray-200"
-            }`}
-          >
-            {step.completed && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
-          </div>
-          {i < timeline.length - 1 && (
-            <div className={`w-0.5 flex-1 min-h-[20px] my-1 ${step.completed ? "bg-black" : "bg-gray-200"}`} />
-          )}
-        </div>
+const TrackingTimeline = ({ timeline = [], showLocation = false, useDateTime = false }) => {
+  if (!timeline.length) return null;
 
-        {/* Content */}
-        <div className="pb-4">
-          <p className={`text-xs font-black ${step.completed ? "text-gray-900" : "text-gray-400"}`}>
-            {step.status}
-          </p>
-          {step.timestamp && (
-            <p className="text-[10px] text-gray-400 font-medium mt-0.5">
-              {fmtDate(step.timestamp)}
+  return (
+    <div className="space-y-0">
+      {timeline.map((step, i) => (
+        <div key={`${step.status}-${i}-${step.timestamp || ""}`} className="flex gap-3">
+          <div className="flex flex-col items-center">
+            <div
+              className={`w-4 h-4 rounded-full border-2 shrink-0 flex items-center justify-center mt-1 ${
+                step.completed ? "bg-black border-black" : "bg-white border-gray-200"
+              }`}
+            >
+              {step.completed && <div className="w-1.5 h-1.5 bg-white rounded-full" />}
+            </div>
+            {i < timeline.length - 1 && (
+              <div
+                className={`w-0.5 flex-1 min-h-[20px] my-1 ${
+                  step.completed ? "bg-black" : "bg-gray-200"
+                }`}
+              />
+            )}
+          </div>
+
+          <div className="pb-4 min-w-0">
+            <p
+              className={`text-xs font-black leading-snug ${
+                step.completed ? "text-gray-900" : "text-gray-400"
+              }`}
+            >
+              {step.status}
             </p>
+            {showLocation && step.location && (
+              <p className="text-[10px] text-gray-500 font-medium mt-0.5">{step.location}</p>
+            )}
+            {step.timestamp && (
+              <p className="text-[10px] text-gray-400 font-medium mt-0.5">
+                {useDateTime ? fmtDateTime(step.timestamp) : fmtDate(step.timestamp)}
+              </p>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const UserOrderTrackingPanel = ({ tracking }) => {
+  const [showCourierDetails, setShowCourierDetails] = useState(false);
+
+  const simpleTimeline =
+    Array.isArray(tracking?.simpleTimeline) && tracking.simpleTimeline.length > 0
+      ? tracking.simpleTimeline
+      : Array.isArray(tracking?.timeline)
+        ? tracking.timeline
+        : [];
+
+  const courierTimeline = Array.isArray(tracking?.courierTimeline) ? tracking.courierTimeline : [];
+  const hasCourierDetail = courierTimeline.length > 0 && Boolean(tracking?.trackingNumber);
+  const summaryHeadline = tracking?.statusSummary?.headline;
+
+  useEffect(() => {
+    setShowCourierDetails(false);
+  }, [tracking?.orderId, tracking?.trackingNumber]);
+
+  return (
+    <div className="space-y-4">
+      {summaryHeadline && (
+        <p className="text-sm font-bold text-gray-900 leading-snug">{summaryHeadline}</p>
+      )}
+
+      {tracking?.estimatedDelivery && (
+        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
+          Est. delivery:{" "}
+          <span className="text-gray-600 normal-case tracking-normal font-semibold">
+            {fmtDate(tracking.estimatedDelivery)}
+          </span>
+        </p>
+      )}
+
+      {simpleTimeline.length > 0 ? (
+        <div>
+          <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-3">
+            Order progress
+          </p>
+          <TrackingTimeline timeline={simpleTimeline} />
+        </div>
+      ) : null}
+
+      {hasCourierDetail && (
+        <div className="pt-2 border-t border-gray-100">
+          <button
+            type="button"
+            onClick={() => setShowCourierDetails((v) => !v)}
+            className="flex items-center justify-between w-full gap-2 text-left cursor-pointer group"
+          >
+            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 group-hover:text-gray-800">
+              Courier updates ({courierTimeline.length})
+            </span>
+            <ChevronRight
+              size={14}
+              className={`text-gray-400 shrink-0 transition-transform ${
+                showCourierDetails ? "rotate-90" : ""
+              }`}
+            />
+          </button>
+          {showCourierDetails && (
+            <div className="mt-3">
+              <TrackingTimeline
+                timeline={courierTimeline}
+                showLocation
+                useDateTime
+              />
+            </div>
           )}
         </div>
-      </div>
-    ))}
-  </div>
-);
+      )}
+    </div>
+  );
+};
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Order Detail Drawer
 // ─────────────────────────────────────────────────────────────────────────────
-const OrderDetail = ({ orderId, onBack, onCancel, isCancelling, cancelError }) => {
+const OrderDetail = ({ orderId, onBack }) => {
   const dispatch = useDispatch();
   const order = useSelector(selectActiveOrder);
   const user = useSelector(selectUser);
@@ -196,7 +280,6 @@ const OrderDetail = ({ orderId, onBack, onCancel, isCancelling, cancelError }) =
   const paymentVerification = useSelector(selectPaymentVerification);
 
   const [showTracking, setShowTracking] = useState(false);
-  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showReturnForm, setShowReturnForm] = useState(false);
   const [showRazorpay, setShowRazorpay] = useState(false);
   const [razorpayBundle, setRazorpayBundle] = useState(null);
@@ -311,12 +394,7 @@ const OrderDetail = ({ orderId, onBack, onCancel, isCancelling, cancelError }) =
     );
   }
 
-  // Per client requirement: once the order is created, cancel option should not be shown to the customer.
-const canCancel =
-  ["pending", "confirmed", "processing"].includes(
-    String(order?.orderStatus || "").toLowerCase()
-  ) &&
-  String(order?.paymentStatus || "").toLowerCase() !== "refunded";  const returnStatus = String(order?.returnInfo?.status || "").toLowerCase();
+  const returnStatus = String(order?.returnInfo?.status || "").toLowerCase();
   const RETURN_WINDOW_DAYS = 2;
   const deliveredAtRaw = order?.shipmentInfo?.deliveredAt || null;
   const deliveredAt = deliveredAtRaw ? new Date(deliveredAtRaw) : null;
@@ -800,7 +878,7 @@ const canCancel =
             </p>
           )}
 
-          <TrackingTimeline timeline={tracking.timeline || []} />
+          <UserOrderTrackingPanel tracking={tracking} />
         </div>
       )}
     </div>
@@ -1124,105 +1202,6 @@ const canCancel =
       </div>
     )}
 
-    {/* CANCEL ORDER */}
-    {canCancel && (
-      <div className="bg-white rounded-[24px] sm:rounded-[32px] p-4 sm:p-6">
-
-        {cancelError && (
-          <p className="text-xs text-red-500 font-bold mb-3">
-            {cancelError.message}
-          </p>
-        )}
-
-        {showCancelConfirm ? (
-          <div className="space-y-3">
-
-            <p className="text-sm font-bold text-gray-900">
-              Are you sure you want to cancel this order?
-            </p>
-
-            <p
-              className="
-                text-xs
-                text-gray-500
-                font-medium
-                leading-relaxed
-              "
-            >
-              This cannot be undone.
-              Refund (if paid online) will be initiated automatically.
-            </p>
-
-            <div className="flex flex-col sm:flex-row gap-3">
-
-              <button
-                onClick={() => setShowCancelConfirm(false)}
-                className="
-                  w-full flex-1
-                  py-3
-                  rounded-2xl
-                  border-2 border-gray-200
-                  text-xs
-                  font-black
-                  uppercase tracking-widest
-                  hover:border-black
-                  transition-all
-                  cursor-pointer
-                "
-              >
-                Keep Order
-              </button>
-
-              <button
-                onClick={() => onCancel(order.orderId)}
-                disabled={isCancelling}
-                className="
-                  w-full flex-1
-                  py-3
-                  rounded-2xl
-                  bg-red-500
-                  text-white
-                  text-xs
-                  font-black
-                  uppercase tracking-widest
-                  hover:bg-red-600
-                  disabled:opacity-50
-                  transition-all
-                  cursor-pointer
-                "
-              >
-                {isCancelling ? (
-                  <Loader2
-                    size={14}
-                    className="animate-spin mx-auto"
-                  />
-                ) : (
-                  "Yes, Cancel"
-                )}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            onClick={() => setShowCancelConfirm(true)}
-            className="
-              flex items-center gap-2
-              text-xs
-              font-black
-              uppercase tracking-widest
-              text-red-400
-              hover:text-red-600
-              transition-colors
-              cursor-pointer
-            "
-          >
-            <XCircle size={14} />
-            Cancel Order
-          </button>
-        )}
-      </div>
-    )}
-
     {/* RAZORPAY */}
     {showRazorpay && razorpayBundle && order && (
       <RazorpayCheckout
@@ -1284,24 +1263,12 @@ const UserOrders = () => {
     return () => dispatch(clearOrderErrors());
   }, [dispatch]);
 
-  const handleCancel = async (orderId) => {
-    try {
-      await dispatch(cancelOrder(orderId)).unwrap();
-      setActiveOrderId(null); // go back to list
-    } catch {
-      // error shown in OrderDetail
-    }
-  };
-
   // ── Detail view ──────────────────────────────────────────────────────────
   if (activeOrderId) {
     return (
       <OrderDetail
         orderId={activeOrderId}
         onBack={() => setActiveOrderId(null)}
-        onCancel={handleCancel}
-        isCancelling={loading.cancel}
-        cancelError={error.cancel}
       />
     );
   }

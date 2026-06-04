@@ -1,7 +1,7 @@
 
 // ADMIN_TABS/ProductsTab.jsx
 
-import React, { useState, useEffect, useRef, useMemo,useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 
@@ -49,6 +49,8 @@ const getDiscountPercentage = (base, sale) => {
 };
 
 const DEFAULT_BRANDS = ["Sony", "Samsung", "Apple", "Nike", "Adidas", "Generic"];
+const PRODUCTS_PAGE_LIMIT = 15;
+const SEARCH_DEBOUNCE_MS = 500;
 
 // ── Date filter presets ───────────────────────────────────────────────────────
 const DATE_PRESETS = [
@@ -137,11 +139,10 @@ const DateFilterButton = ({ dateFilter, setDateFilter }) => {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`flex cursor-pointer items-center gap-2 px-4 py-3 rounded-xl border font-medium text-sm transition-all ${
-          isActive
-            ? "bg-blue-600 text-white border-blue-600 shadow-md"
-            : "bg-gray-50 text-gray-700 border-gray-200 hover:border-blue-400 hover:bg-blue-50"
-        }`}
+        className={`flex cursor-pointer items-center gap-2 px-4 py-3 rounded-xl border font-medium text-sm transition-all ${isActive
+          ? "bg-blue-600 text-white border-blue-600 shadow-md"
+          : "bg-gray-50 text-gray-700 border-gray-200 hover:border-blue-400 hover:bg-blue-50"
+          }`}
       >
         <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -172,11 +173,10 @@ const DateFilterButton = ({ dateFilter, setDateFilter }) => {
                 <button
                   key={value}
                   onClick={() => setDateFilter((prev) => ({ ...prev, dateField: value }))}
-                  className={`flex-1 py-1.5 cursor-pointer text-xs rounded-lg font-medium transition-colors ${
-                    dateFilter.dateField === value
-                      ? "bg-blue-600 text-white"
-                      : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                  }`}
+                  className={`flex-1 py-1.5 cursor-pointer text-xs rounded-lg font-medium transition-colors ${dateFilter.dateField === value
+                    ? "bg-blue-600 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
                 >
                   {label}
                 </button>
@@ -191,11 +191,10 @@ const DateFilterButton = ({ dateFilter, setDateFilter }) => {
                 <button
                   key={p.value}
                   onClick={() => handlePresetClick(p.value)}
-                  className={`w-full cursor-pointer text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${
-                    dateFilter.preset === p.value
-                      ? "bg-blue-50 cursor-pointer text-blue-700 font-medium"
-                      : "text-gray-700 hover:bg-gray-50"
-                  }`}
+                  className={`w-full cursor-pointer text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between ${dateFilter.preset === p.value
+                    ? "bg-blue-50 cursor-pointer text-blue-700 font-medium"
+                    : "text-gray-700 hover:bg-gray-50"
+                    }`}
                 >
                   {p.label}
                   {dateFilter.preset === p.value && (
@@ -211,11 +210,10 @@ const DateFilterButton = ({ dateFilter, setDateFilter }) => {
           <div className="px-4 pb-4 border-t border-gray-100 pt-3">
             <button
               onClick={() => handlePresetClick("custom")}
-              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between mb-2 ${
-                dateFilter.preset === "custom"
-                  ? "bg-blue-50 text-blue-700 font-medium"
-                  : "text-gray-700 hover:bg-gray-50"
-              }`}
+              className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors flex items-center justify-between mb-2 ${dateFilter.preset === "custom"
+                ? "bg-blue-50 text-blue-700 font-medium"
+                : "text-gray-700 hover:bg-gray-50"
+                }`}
             >
               Custom range
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -278,79 +276,79 @@ const DateFilterButton = ({ dateFilter, setDateFilter }) => {
 const ProductsTab = ({ onSwitchTab }) => {
   const dispatch = useDispatch();
   const [todayArrival, setTodayArrival] = useState(false);
-const [onSale, setOnSale] = useState(false);
-const [flagLoading, setFlagLoading] = useState(false);
+  const [onSale, setOnSale] = useState(false);
+  const [flagLoading, setFlagLoading] = useState(false);
 
-const handleBulkFlagUpdate = async (flagType) => {
-  if (selectedSlugs.size === 0) {
-    toast.error("No products selected");
-    return;
-  }
+  const handleBulkFlagUpdate = async (flagType) => {
+    if (selectedSlugs.size === 0) {
+      toast.error("No products selected");
+      return;
+    }
     const slugs = Array.from(selectedSlugs);
 
-  if (flagLoading) return;
+    if (flagLoading) return;
 
-  const stateMap = {
-    "today-arrival": [todayArrival, setTodayArrival],
-    "on-sale": [onSale, setOnSale],
-  };
+    const stateMap = {
+      "today-arrival": [todayArrival, setTodayArrival],
+      "on-sale": [onSale, setOnSale],
+    };
 
-  const stateEntry = stateMap[flagType];
+    const stateEntry = stateMap[flagType];
 
-  if (!stateEntry) {
-    console.error("Invalid flagType:", flagType);
-    return;
-  }
-
-  const [currentValue, setValue] = stateEntry;
-
-  const isIndeterminate =
-    flagType === "today-arrival"
-      ? todayIndeterminate
-      : saleIndeterminate;
-
-  let newValue = isIndeterminate ? true : !currentValue;
-
-  setFlagLoading(true);
-
-  // optimistic UI
-  setValue(newValue);
-  dispatch(optimisticBulkTagUpdate({
-  slugs,
-  flagType,
-  value: newValue
-}));
-
-  try {
-    const res = await axiosInstance.put(`/admin/products/updateFlags`, {
-      slugs,
-      flagType,
-      value: newValue,
-    });
-
-    if (!res?.data?.success) {
-      throw new Error(res?.data?.message || "Update failed");
+    if (!stateEntry) {
+      console.error("Invalid flagType:", flagType);
+      return;
     }
 
-    toast.success("Products updated successfully");
-   setTimeout(() => {
-  setSelectedSlugs(new Set());
-}, 400);
+    const [currentValue, setValue] = stateEntry;
 
-  } catch (err) {
-    setValue(currentValue);
+    const isIndeterminate =
+      flagType === "today-arrival"
+        ? todayIndeterminate
+        : saleIndeterminate;
+
+    let newValue = isIndeterminate ? true : !currentValue;
+
+    setFlagLoading(true);
+
+    // optimistic UI
+    setValue(newValue);
     dispatch(optimisticBulkTagUpdate({
-  slugs,
-  flagType,
-  value: !newValue
-}));
-    toast.error(err?.response?.data?.message || "Failed to update flags");
+      slugs,
+      flagType,
+      value: newValue
+    }));
 
-    // rollback
-  } finally {
-    setFlagLoading(false);
-  }
-};
+    try {
+      const res = await axiosInstance.put(`/admin/products/updateFlags`, {
+        slugs,
+        flagType,
+        value: newValue,
+      });
+
+      if (!res?.data?.success) {
+        throw new Error(res?.data?.message || "Update failed");
+      }
+
+      toast.success("Products updated successfully");
+      setTimeout(() => {
+        setSelectedSlugs(new Set());
+      }, 400);
+
+    } catch (err) {
+      setValue(currentValue);
+      dispatch(optimisticBulkTagUpdate({
+        slugs,
+        flagType,
+        value: !newValue
+      }));
+      toast.error(err?.response?.data?.message || "Failed to update flags");
+
+      // rollback
+    } finally {
+      setFlagLoading(false);
+    }
+  };
 
   const {
     products,
@@ -360,16 +358,18 @@ const handleBulkFlagUpdate = async (flagType) => {
     realActiveCount,
     realLowStockCount,
     loading: productsLoading,
+    isFetching: productsFetching,
+    hasLoadedOnce: productsHasLoadedOnce,
     error: productsError,
   } = useSelector((s) => s.adminGetProducts);
- const normalizedProducts = useMemo(
-  () =>
-    products.map((p) => ({
-      ...p,
-      tags: p.tags || [],
-    })),
-  [products]
-);
+  const normalizedProducts = useMemo(
+    () =>
+      products.map((p) => ({
+        ...p,
+        tags: p.tags || [],
+      })),
+    [products]
+  );
 
   const {
     products: lowStockProducts,
@@ -394,6 +394,7 @@ const handleBulkFlagUpdate = async (flagType) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [detailProduct, setDetailProduct] = useState(null);
@@ -411,46 +412,56 @@ const handleBulkFlagUpdate = async (flagType) => {
   });
 
   useEffect(() => {
-    dispatch(fetchProducts({ page: 1, limit: 15 }));
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
     dispatch(fetchCategories());
     dispatch(fetchLowStockProducts({ page: 1, limit: 1 }));
     dispatch(fetchActiveProductsCount());
   }, [dispatch]);
+
+  useEffect(() => {
+    dispatch(
+      fetchProducts({ page: 1, limit: PRODUCTS_PAGE_LIMIT, search: debouncedSearch })
+    );
+  }, [dispatch, debouncedSearch]);
   const [todayIndeterminate, setTodayIndeterminate] = useState(false);
-const [saleIndeterminate, setSaleIndeterminate] = useState(false);
+  const [saleIndeterminate, setSaleIndeterminate] = useState(false);
 
-useEffect(() => {
-  if (selectedSlugs.size === 0) {
-    setTodayArrival(false);
-    setOnSale(false);
-    setTodayIndeterminate(false);
-    setSaleIndeterminate(false);
-    return;
-  }
+  useEffect(() => {
+    if (selectedSlugs.size === 0) {
+      setTodayArrival(false);
+      setOnSale(false);
+      setTodayIndeterminate(false);
+      setSaleIndeterminate(false);
+      return;
+    }
 
-  const selected = normalizedProducts.filter(p =>
-    selectedSlugs.has(p.slug)
-  );
+    const selected = normalizedProducts.filter(p =>
+      selectedSlugs.has(p.slug)
+    );
 
-  const total = selected.length;
+    const total = selected.length;
 
-  const todayCount = selected.filter(p =>
-    p.tags?.includes("today-arrival")
-  ).length;
+    const todayCount = selected.filter(p =>
+      p.tags?.includes("today-arrival")
+    ).length;
 
-  const saleCount = selected.filter(p =>
-    p.tags?.includes("on-sale")
-  ).length;
+    const saleCount = selected.filter(p =>
+      p.tags?.includes("on-sale")
+    ).length;
 
-  // today arrival
-  setTodayArrival(todayCount === total);
-  setTodayIndeterminate(todayCount > 0 && todayCount < total);
+    // today arrival
+    setTodayArrival(todayCount === total);
+    setTodayIndeterminate(todayCount > 0 && todayCount < total);
 
-  // on sale
-  setOnSale(saleCount === total);
-  setSaleIndeterminate(saleCount > 0 && saleCount < total);
+    // on sale
+    setOnSale(saleCount === total);
+    setSaleIndeterminate(saleCount > 0 && saleCount < total);
 
-}, [selectedSlugs, normalizedProducts]);
+  }, [selectedSlugs, normalizedProducts]);
 
   useEffect(() => {
     setSelectedSlugs(new Set());
@@ -475,14 +486,26 @@ useEffect(() => {
     }
   }, [deleteSuccess, dispatch]);
 
- const refreshProducts = useCallback(() => {
-  dispatch(fetchProducts({ page: currentPage, limit: 15 }));
-  dispatch(fetchLowStockProducts({ page: 1, limit: 1 }));
-}, [dispatch, currentPage]);
+  const refreshProducts = useCallback(() => {
+    dispatch(
+      fetchProducts({
+        page: currentPage,
+        limit: PRODUCTS_PAGE_LIMIT,
+        search: debouncedSearch,
+      })
+    );
+    dispatch(fetchLowStockProducts({ page: 1, limit: 1 }));
+  }, [dispatch, currentPage, debouncedSearch]);
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
-      dispatch(fetchProducts({ page: newPage, limit: 15 }));
+      dispatch(
+        fetchProducts({
+          page: newPage,
+          limit: PRODUCTS_PAGE_LIMIT,
+          search: debouncedSearch,
+        })
+      );
     }
   };
 
@@ -552,7 +575,7 @@ useEffect(() => {
 
     const channelName = channel === "ecomm" ? "Ecom" : channel === "wholesale" ? "Wholesale" : "";
     const actionLabel = channelName ? `Set as ${channelName} → ${status}` : `Set as ${status}`;
-    
+
     if (!window.confirm(`${actionLabel} for ${selectedSlugs.size} product(s)?`)) return;
 
     setBulkLoading(true);
@@ -632,40 +655,46 @@ useEffect(() => {
 
   const filteredProducts = useMemo(() => {
     return normalizedProducts.filter((product) => {
-      const matchesSearch =
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase()));
+      const matchesStatus = filterStatus === "all" || product.status === filterStatus;
+      const matchesCategory =
+        filterCategory === "all" || getCategoryId(product.category) === filterCategory;
+      const matchesLowStock =
+        !showLowStockOnly || lowStockProducts.some((lp) => lp._id === product._id);
 
-    const matchesStatus = filterStatus === "all" || product.status === filterStatus;
-    const matchesCategory = filterCategory === "all" || getCategoryId(product.category) === filterCategory;
-    const matchesLowStock = !showLowStockOnly || lowStockProducts.some((lp) => lp._id === product._id);
-
-    const range = getDateFilterRange();
-    let matchesDate = true;
-    if (range) {
-      const raw = product[range.dateField];
-      if (raw) {
-        const d = new Date(raw);
-        matchesDate = d >= range.start && d <= range.end;
-      } else {
-        matchesDate = false;
+      const range = getDateFilterRange();
+      let matchesDate = true;
+      if (range) {
+        const raw = product[range.dateField];
+        if (raw) {
+          const d = new Date(raw);
+          matchesDate = d >= range.start && d <= range.end;
+        } else {
+          matchesDate = false;
+        }
       }
-    }
 
-    return matchesSearch && matchesStatus && matchesCategory && matchesLowStock && matchesDate;
-  });
-}, [normalizedProducts, searchTerm, filterStatus, filterCategory, showLowStockOnly, lowStockProducts,
-  getDateFilterRange])
+      return matchesStatus && matchesCategory && matchesLowStock && matchesDate;
+    });
+  }, [
+    normalizedProducts,
+    filterStatus,
+    filterCategory,
+    showLowStockOnly,
+    lowStockProducts,
+    getDateFilterRange,
+  ]);
 
   const allOnPageSelected = filteredProducts.length > 0 && filteredProducts.every((p) => selectedSlugs.has(p.slug));
   const someSelected = selectedSlugs.size > 0;
   const isIndeterminate = someSelected && !filteredProducts.every((p) => selectedSlugs.has(p.slug));
 
-  if (productsLoading || lowStockLoading) {
+  const isInitialLoad =
+    !productsHasLoadedOnce && (productsLoading || lowStockLoading);
+
+  if (isInitialLoad) {
     return (
       <div className="space-y-6">
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 xl:gap-6"> {/* RESPONSIVE FIX */}
           <StatsCardSkeleton />
           <StatsCardSkeleton />
           <StatsCardSkeleton />
@@ -717,12 +746,12 @@ useEffect(() => {
         onViewArchived={() => onSwitchTab("archived")}
       />
 
-      <div className="grid grid-cols-4 gap-6">
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 xl:gap-6"> {/* RESPONSIVE FIX */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 xl:p-5" /* RESPONSIVE FIX */>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 mb-1">Total Products</p>
-              <p className="text-3xl font-bold text-gray-900">{totalProducts}</p>
+              <p className="text-2xl xl:text-3xl font-bold text-gray-900 /* RESPONSIVE FIX */">{totalProducts}</p>
             </div>
             <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
               <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -731,11 +760,11 @@ useEffect(() => {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 xl:p-5" /* RESPONSIVE FIX */>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 mb-1">Active Products (Ecom)</p>
-              <p className="text-3xl font-bold text-gray-900">{activeProducts}</p>
+              <p className="text-2xl xl:text-3xl font-bold text-gray-900 /* RESPONSIVE FIX */">{activeProducts}</p>
             </div>
             <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
               <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -744,11 +773,11 @@ useEffect(() => {
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 xl:p-5" /* RESPONSIVE FIX */>
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 mb-1">Featured (Ecom)</p>
-              <p className="text-3xl font-bold text-gray-900">{featuredProducts}</p>
+              <p className="text-2xl xl:text-3xl font-bold text-gray-900 /* RESPONSIVE FIX */">{featuredProducts}</p>
             </div>
             <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
               <svg className="w-6 h-6 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
@@ -758,15 +787,14 @@ useEffect(() => {
           </div>
         </div>
         <div
-          className={`bg-white rounded-2xl shadow-sm border p-6 cursor-pointer transition-all ${
-            showLowStockOnly ? "border-red-500 ring-2 ring-red-200" : "border-gray-200 hover:border-red-300"
-          }`}
+          className={`bg-white rounded-2xl shadow-sm border p-3 xl:p-5 cursor-pointer /* RESPONSIVE FIX */ transition-all ${showLowStockOnly ? "border-red-500 ring-2 ring-red-200" : "border-gray-200 hover:border-red-300"
+            }`}
           onClick={() => setShowLowStockOnly(!showLowStockOnly)}
         >
           <div className="flex items-center justify-between relative cursor-pointer group">
             <div>
               <p className="text-sm text-gray-500 mb-1">Low Stock</p>
-              <p className="text-3xl font-bold text-gray-900">{lowStockCount}</p>
+              <p className="text-2xl xl:text-3xl font-bold text-gray-900 /* RESPONSIVE FIX */">{lowStockCount}</p>
               {showLowStockOnly && <p className="text-xs text-red-600 mt-1">Filter active</p>}
             </div>
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${showLowStockOnly ? "bg-red-200" : "bg-red-100"}`}>
@@ -799,21 +827,21 @@ useEffect(() => {
               </button>
             </div>
             <div className="flex items-center gap-3">
-  <FlagToggle
-    label="Today Deals"
-    checked={todayArrival}
-    indeterminate={todayIndeterminate}
-    loading={flagLoading}
-    onChange={() => handleBulkFlagUpdate("today-arrival")}
-  />
-  <FlagToggle
-    label="On Sale"
-    checked={onSale}
-    indeterminate={saleIndeterminate}
-    loading={flagLoading}
-    onChange={() => handleBulkFlagUpdate("on-sale")}
-  />
-</div>
+              <FlagToggle
+                label="Today Deals"
+                checked={todayArrival}
+                indeterminate={todayIndeterminate}
+                loading={flagLoading}
+                onChange={() => handleBulkFlagUpdate("today-arrival")}
+              />
+              <FlagToggle
+                label="On Sale"
+                checked={onSale}
+                indeterminate={saleIndeterminate}
+                loading={flagLoading}
+                onChange={() => handleBulkFlagUpdate("on-sale")}
+              />
+            </div>
 
             {/* SET AS ECOM BUTTON */}
             <div className="relative group">
@@ -884,7 +912,7 @@ useEffect(() => {
             </div>
           </div>
         ) : (
-          <div className="flex gap-4 flex-wrap">
+          <div className="flex gap-2 xl:gap-4 flex-wrap"> {/* RESPONSIVE FIX */}
             <div className="flex-1 relative">
               <svg className="w-5 h-5 text-gray-400 absolute left-4 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -958,14 +986,23 @@ useEffect(() => {
         )}
       </div>
 
-      {productsLoading ? (
-        <ProductTableSkeleton />
-      ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
-          <table className="w-full">
+      <div className="relative bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
+          {productsFetching && (
+            <div
+              className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/70 backdrop-blur-[1px]"
+              aria-busy="true"
+              aria-live="polite"
+            >
+              <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                <span className="text-sm font-medium text-gray-600">Updating results…</span>
+              </div>
+            </div>
+          )}
+          <table className="w-full min-w-[850px]"> {/* RESPONSIVE FIX */}
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-4 py-4 w-10">
+                <th className="px-2 py-3 w-10"> {/* RESPONSIVE FIX */}
                   <input
                     type="checkbox"
                     checked={allOnPageSelected}
@@ -976,20 +1013,20 @@ useEffect(() => {
                     className="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer"
                   />
                 </th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Product</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Brand</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Price (₹)</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Inventory</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Ecom Status</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Wholesale Status</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Featured</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Product</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Category</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Brand</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Price (₹)</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Inventory</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Ecom Status</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Wholesale Status</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Featured</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {filteredProducts.map((product) => {
-                const isChecked = selectedSlugs.has(product.slug)                
+                const isChecked = selectedSlugs.has(product.slug)
                 const mainVariant = product.variants?.[0] || {};
                 const basePrice = mainVariant.price?.base || 0;
                 const salePrice = mainVariant.price?.sale;
@@ -1002,7 +1039,7 @@ useEffect(() => {
                 return (
                   <tr key={product._id} className={`hover:bg-gray-50 transition-colors group ${isChecked ? "bg-blue-50 hover:bg-blue-50" : ""}`}>
                     {/* { console.log(product.name, product.tags)} */}
-                    <td className="px-4 py-4">
+                    <td className="px-2 py-3"> {/* RESPONSIVE FIX */}
                       <input
                         type="checkbox"
                         checked={isChecked}
@@ -1010,7 +1047,7 @@ useEffect(() => {
                         className="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer"
                       />
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
                       <div className="flex items-center gap-3">
                         {thumbUrl ? (
                           <img src={thumbUrl} alt={product.name} className="w-10 h-10 rounded-lg object-cover border border-gray-200 flex-shrink-0" />
@@ -1022,24 +1059,26 @@ useEffect(() => {
                           </div>
                         )}
                         <div className="min-w-0">
-                          <div className="font-medium text-gray-900 truncate">{product.name}</div>
-                          <div className="text-sm text-gray-500 truncate max-w-xs">{product.title}</div>
+                          <div className="font-medium text-gray-900 truncate w-32">{product.name}</div>
+                          <div className="text-sm text-gray-500 truncate w-24">{product.title}</div>
+                          {/* <div className="font-medium text-gray-900 truncate">{product.name}</div>
+                          <div className="text-sm text-gray-500 truncate max-w-xs">{product.title}</div> */}
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
                       <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-full text-xs font-medium">
                         {getCategoryName(product.category)}
                       </span>
                     </td>
-                    <td className="px-6 py-4 text-sm">
+                    <td className="px-3 py-3 text-sm"> {/* RESPONSIVE FIX */}
                       {!product.brand || product.brand === "Generic" ? (
                         <span className="text-gray-400">—</span>
                       ) : (
                         <span className="font-medium text-gray-700">{product.brand}</span>
                       )}
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
                       <div className="text-sm">
                         {salePrice ? (
                           <>
@@ -1056,30 +1095,28 @@ useEffect(() => {
                         )}
                       </div>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
                       <div className="flex items-center space-x-2">
                         <span className={`text-sm font-medium ${isLowStock ? "text-red-600" : "text-gray-700"}`}>{totalStock}</span>
                         {isLowStock && <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">Low</span>}
                       </div>
                     </td>
-                    <td className="px-6 py-4">{getEcomStatusBadge(product)}</td>
-                    <td className="px-6 py-4">{getWholesaleStatusBadge(product)}</td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}{getEcomStatusBadge(product)}</td>
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}{getWholesaleStatusBadge(product)}</td>
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
                       <button
                         onClick={() => toggleFeatured(product._id)}
                         disabled={actionLoading}
-                        className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-colors ${
-                          actionLoading ? "opacity-50 cursor-not-allowed" : ""
-                        } ${
-                          product.isFeatured
+                        className={`px-3 py-1.5 text-xs rounded-xl font-medium transition-colors ${actionLoading ? "opacity-50 cursor-not-allowed" : ""
+                          } ${product.isFeatured
                             ? "bg-yellow-100 text-yellow-700 hover:bg-yellow-200"
                             : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-                        }`}
+                          }`}
                       >
                         {product.isFeatured ? "⭐ Featured" : "Regular"}
                       </button>
                     </td>
-                    <td className="px-6 py-4">
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
                       <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
                           onClick={() => setDetailProduct(product)}
@@ -1124,18 +1161,25 @@ useEffect(() => {
               </svg>
               <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
               <p className="text-gray-500">
-                {showLowStockOnly ? "No low stock products at the moment" : dateFilter.preset ? "No products match the selected date range" : `Click "Add Product" to create your first product`}
+                {debouncedSearch
+                  ? `No products match "${debouncedSearch}"`
+                  : showLowStockOnly
+                    ? "No low stock products at the moment"
+                    : dateFilter.preset
+                      ? "No products match the selected date range"
+                      : `Click "Add Product" to create your first product`}
               </p>
             </div>
           )}
         </div>
-      )}
 
       {totalPages > 1 && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500">
-              Showing {(currentPage - 1) * 15 + 1}–{Math.min(currentPage * 15, totalProducts)} of {totalProducts} products
+              Showing {(currentPage - 1) * PRODUCTS_PAGE_LIMIT + 1}–
+              {Math.min(currentPage * PRODUCTS_PAGE_LIMIT, totalProducts)} of {totalProducts} products
+              {debouncedSearch ? ` matching "${debouncedSearch}"` : ""}
             </p>
             <div className="flex items-center gap-2">
               <button
@@ -1159,9 +1203,8 @@ useEffect(() => {
                     <button
                       key={pageNum}
                       onClick={() => handlePageChange(pageNum)}
-                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${
-                        pageNum === currentPage ? "bg-blue-600 text-white" : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
-                      }`}
+                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${pageNum === currentPage ? "bg-blue-600 text-white" : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                        }`}
                     >
                       {pageNum}
                     </button>
