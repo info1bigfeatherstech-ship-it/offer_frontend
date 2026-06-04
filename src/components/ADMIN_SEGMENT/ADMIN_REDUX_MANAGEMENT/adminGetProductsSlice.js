@@ -11,10 +11,15 @@ import {
 // Existing thunk for fetching all products - NOW RETURNS FULL RESPONSE
 export const fetchProducts = createAsyncThunk(
   "adminGetProducts/fetchProducts",
-  async ({ page = 1, limit = 15 } = {}, { rejectWithValue }) => {
+  async ({ page = 1, limit = 15, search = "" } = {}, { rejectWithValue }) => {
     try {
+      const trimmedSearch = typeof search === "string" ? search.trim() : "";
       const response = await axiosInstance.get("/admin/products/all", {
-        params: { page, limit },
+        params: {
+          page,
+          limit,
+          ...(trimmedSearch ? { search: trimmedSearch } : {}),
+        },
       });      
       if (response.data.success) return response.data; // ✅ FIXED: return full response, not just products
       return rejectWithValue(response.data.message || "Failed to fetch products");
@@ -69,9 +74,12 @@ const adminGetProductsSlice = createSlice({
     currentPage: 1,        // ✅ ADDED: current page
     totalPages: 1,         // ✅ ADDED: total pages available
     loading: false,
+    isFetching: false,
+    hasLoadedOnce: false,
     error: null,
+    productsFetchRequestId: null,
 
-      realActiveCount: 0,     // Real active products count from backend
+    realActiveCount: 0,     // Real active products count from backend
   realLowStockCount: 0,   // Real low stock count from backend
     
     // Low stock products state
@@ -145,22 +153,32 @@ const adminGetProductsSlice = createSlice({
   extraReducers: (builder) => {
     builder
       // ── Fetch all products ────────────────────────────────────
-      .addCase(fetchProducts.pending, (state) => { 
-        state.loading = true;  
-        state.error = null; 
+      .addCase(fetchProducts.pending, (state, action) => {
+        state.error = null;
+        state.productsFetchRequestId = action.meta.requestId;
+        if (!state.hasLoadedOnce) {
+          state.loading = true;
+        } else {
+          state.isFetching = true;
+        }
       })
-      .addCase(fetchProducts.fulfilled, (state, { payload }) => {
+      .addCase(fetchProducts.fulfilled, (state, action) => {
+        if (action.meta.requestId !== state.productsFetchRequestId) return;
         state.loading = false;
+        state.isFetching = false;
+        state.hasLoadedOnce = true;
+        const { payload } = action;
         // Filter out archived products from the products tab
         state.products = payload.products.filter((p) => p.status !== "archived");
-        // ✅ ADDED: Store pagination metadata from backend
         state.totalProducts = payload.totalProducts || payload.products.length;
         state.currentPage = payload.currentPage || 1;
         state.totalPages = payload.totalPages || 1;
       })
-      .addCase(fetchProducts.rejected, (state, { payload }) => { 
-        state.loading = false; 
-        state.error = payload; 
+      .addCase(fetchProducts.rejected, (state, action) => {
+        if (action.meta.requestId !== state.productsFetchRequestId) return;
+        state.loading = false;
+        state.isFetching = false;
+        state.error = action.payload;
       })
       
       // ── Fetch low stock products ─────────────────────────────

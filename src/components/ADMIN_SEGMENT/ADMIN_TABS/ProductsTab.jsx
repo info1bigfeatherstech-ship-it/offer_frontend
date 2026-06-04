@@ -49,6 +49,8 @@ const getDiscountPercentage = (base, sale) => {
 };
 
 const DEFAULT_BRANDS = ["Sony", "Samsung", "Apple", "Nike", "Adidas", "Generic"];
+const PRODUCTS_PAGE_LIMIT = 15;
+const SEARCH_DEBOUNCE_MS = 500;
 
 // ── Date filter presets ───────────────────────────────────────────────────────
 const DATE_PRESETS = [
@@ -356,6 +358,8 @@ const ProductsTab = ({ onSwitchTab }) => {
     realActiveCount,
     realLowStockCount,
     loading: productsLoading,
+    isFetching: productsFetching,
+    hasLoadedOnce: productsHasLoadedOnce,
     error: productsError,
   } = useSelector((s) => s.adminGetProducts);
   const normalizedProducts = useMemo(
@@ -390,6 +394,7 @@ const ProductsTab = ({ onSwitchTab }) => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [detailProduct, setDetailProduct] = useState(null);
@@ -407,11 +412,21 @@ const ProductsTab = ({ onSwitchTab }) => {
   });
 
   useEffect(() => {
-    dispatch(fetchProducts({ page: 1, limit: 15 }));
+    const timer = setTimeout(() => setDebouncedSearch(searchTerm.trim()), SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
+
+  useEffect(() => {
     dispatch(fetchCategories());
     dispatch(fetchLowStockProducts({ page: 1, limit: 1 }));
     dispatch(fetchActiveProductsCount());
   }, [dispatch]);
+
+  useEffect(() => {
+    dispatch(
+      fetchProducts({ page: 1, limit: PRODUCTS_PAGE_LIMIT, search: debouncedSearch })
+    );
+  }, [dispatch, debouncedSearch]);
   const [todayIndeterminate, setTodayIndeterminate] = useState(false);
   const [saleIndeterminate, setSaleIndeterminate] = useState(false);
 
@@ -472,13 +487,25 @@ const ProductsTab = ({ onSwitchTab }) => {
   }, [deleteSuccess, dispatch]);
 
   const refreshProducts = useCallback(() => {
-    dispatch(fetchProducts({ page: currentPage, limit: 15 }));
+    dispatch(
+      fetchProducts({
+        page: currentPage,
+        limit: PRODUCTS_PAGE_LIMIT,
+        search: debouncedSearch,
+      })
+    );
     dispatch(fetchLowStockProducts({ page: 1, limit: 1 }));
-  }, [dispatch, currentPage]);
+  }, [dispatch, currentPage, debouncedSearch]);
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPages) {
-      dispatch(fetchProducts({ page: newPage, limit: 15 }));
+      dispatch(
+        fetchProducts({
+          page: newPage,
+          limit: PRODUCTS_PAGE_LIMIT,
+          search: debouncedSearch,
+        })
+      );
     }
   };
 
@@ -628,14 +655,11 @@ const ProductsTab = ({ onSwitchTab }) => {
 
   const filteredProducts = useMemo(() => {
     return normalizedProducts.filter((product) => {
-      const matchesSearch =
-        product.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        product.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (product.brand && product.brand.toLowerCase().includes(searchTerm.toLowerCase()));
-
       const matchesStatus = filterStatus === "all" || product.status === filterStatus;
-      const matchesCategory = filterCategory === "all" || getCategoryId(product.category) === filterCategory;
-      const matchesLowStock = !showLowStockOnly || lowStockProducts.some((lp) => lp._id === product._id);
+      const matchesCategory =
+        filterCategory === "all" || getCategoryId(product.category) === filterCategory;
+      const matchesLowStock =
+        !showLowStockOnly || lowStockProducts.some((lp) => lp._id === product._id);
 
       const range = getDateFilterRange();
       let matchesDate = true;
@@ -649,16 +673,25 @@ const ProductsTab = ({ onSwitchTab }) => {
         }
       }
 
-      return matchesSearch && matchesStatus && matchesCategory && matchesLowStock && matchesDate;
+      return matchesStatus && matchesCategory && matchesLowStock && matchesDate;
     });
-  }, [normalizedProducts, searchTerm, filterStatus, filterCategory, showLowStockOnly, lowStockProducts,
-    getDateFilterRange])
+  }, [
+    normalizedProducts,
+    filterStatus,
+    filterCategory,
+    showLowStockOnly,
+    lowStockProducts,
+    getDateFilterRange,
+  ]);
 
   const allOnPageSelected = filteredProducts.length > 0 && filteredProducts.every((p) => selectedSlugs.has(p.slug));
   const someSelected = selectedSlugs.size > 0;
   const isIndeterminate = someSelected && !filteredProducts.every((p) => selectedSlugs.has(p.slug));
 
-  if (productsLoading || lowStockLoading) {
+  const isInitialLoad =
+    !productsHasLoadedOnce && (productsLoading || lowStockLoading);
+
+  if (isInitialLoad) {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 xl:gap-6"> {/* RESPONSIVE FIX */}
@@ -953,10 +986,19 @@ const ProductsTab = ({ onSwitchTab }) => {
         )}
       </div>
 
-      {productsLoading ? (
-        <ProductTableSkeleton />
-      ) : (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
+      <div className="relative bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
+          {productsFetching && (
+            <div
+              className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/70 backdrop-blur-[1px]"
+              aria-busy="true"
+              aria-live="polite"
+            >
+              <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+                <span className="text-sm font-medium text-gray-600">Updating results…</span>
+              </div>
+            </div>
+          )}
           <table className="w-full min-w-[850px]"> {/* RESPONSIVE FIX */}
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
@@ -1119,18 +1161,25 @@ const ProductsTab = ({ onSwitchTab }) => {
               </svg>
               <h3 className="text-lg font-medium text-gray-900 mb-2">No products found</h3>
               <p className="text-gray-500">
-                {showLowStockOnly ? "No low stock products at the moment" : dateFilter.preset ? "No products match the selected date range" : `Click "Add Product" to create your first product`}
+                {debouncedSearch
+                  ? `No products match "${debouncedSearch}"`
+                  : showLowStockOnly
+                    ? "No low stock products at the moment"
+                    : dateFilter.preset
+                      ? "No products match the selected date range"
+                      : `Click "Add Product" to create your first product`}
               </p>
             </div>
           )}
         </div>
-      )}
 
       {totalPages > 1 && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500">
-              Showing {(currentPage - 1) * 15 + 1}–{Math.min(currentPage * 15, totalProducts)} of {totalProducts} products
+              Showing {(currentPage - 1) * PRODUCTS_PAGE_LIMIT + 1}–
+              {Math.min(currentPage * PRODUCTS_PAGE_LIMIT, totalProducts)} of {totalProducts} products
+              {debouncedSearch ? ` matching "${debouncedSearch}"` : ""}
             </p>
             <div className="flex items-center gap-2">
               <button

@@ -397,8 +397,8 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                 🔗 <strong>Mode: Image URLs in Excel</strong> — Make sure your Excel has an{' '}
                 <code className="bg-white px-1 rounded">images</code> column with comma-separated URLs per row.
               </p>
-              <DropZone accept=".csv,.xls,.xlsx" label="Drop your Excel / CSV file"
-                hint="CSV, XLS or XLSX — max 10 MB" icon="📄"
+              <DropZone accept=".csv" label="Drop your CSV file"
+                hint="CSV File - max 10 MB" icon="📄"
                 file={csvFile} onFile={(f) => dispatch(setCsvFile(f))} disabled={previewing} />
               {csvError && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{csvError}</p>}
               {previewing && (
@@ -419,8 +419,8 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                 📦 <strong>Mode: Separate ZIP images</strong> — Upload your Excel first to preview
                 products, then you'll upload the ZIP file.
               </p>
-              <DropZone accept=".csv,.xls,.xlsx" label="Drop your Excel / CSV file"
-                hint="CSV, XLS or XLSX — max 10 MB" icon="📄"
+              <DropZone accept=".csv" label="Drop your  CSV file"
+                hint="CSV File — max 10 MB" icon="📄"
                 file={csvFile} onFile={(f) => dispatch(setCsvFile(f))} disabled={previewing} />
               {csvError && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{csvError}</p>}
               {previewing && (
