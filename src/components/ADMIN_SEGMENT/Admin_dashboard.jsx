@@ -49,7 +49,7 @@ const AdminDashboard = () => {
 
   const navigate = useNavigate();
   const [adminLogout, { isLoading: loggingOut }] = useAdminLogoutMutation();
-
+  const [tabClickCount, setTabClickCount] = useState(0);
   const handleLogout = async () => {
     try {
       await adminLogout().unwrap();
@@ -105,6 +105,7 @@ const AdminDashboard = () => {
       // Plain tab → close any open dropdown, navigate
       setExpandedTab(null);
       setSearchParams({ tab: tab.id });
+        setTabClickCount((c) => c + 1);
     }
   };
 
@@ -333,7 +334,8 @@ const AdminDashboard = () => {
               </div>
             }>
               {TabComponent ? (
-                <TabComponent onSwitchTab={handleSwitchTab} />
+              //  <TabComponent onSwitchTab={handleSwitchTab} /> 
+              <TabComponent key={`${activeTab}-${tabClickCount}`} onSwitchTab={handleSwitchTab} />
               ) : (
                 <div className="flex flex-col items-center justify-center h-64 text-gray-400">
                   <svg className="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
