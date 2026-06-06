@@ -137,10 +137,14 @@ const ProductFormBody = ({
       const v = [...(p.variants || [])];
       if (!v[0]) return p;
       const currentVisibility = v[0].channelVisibility || { ecomm: "active", wholesale: "draft" };
-      v[0] = {
+      const nextVariant = {
         ...v[0],
-        channelVisibility: { ...currentVisibility, [field]: value }
+        channelVisibility: { ...currentVisibility, [field]: value },
       };
+      if (field === "ecomm") {
+        nextVariant.isActive = value === "active";
+      }
+      v[0] = nextVariant;
       return { ...p, variants: v };
     });
   };
@@ -508,9 +512,9 @@ const ProductFormBody = ({
               <p className="text-xs text-gray-500 mt-1">Harmonized System Nomenclature code for tax purposes</p>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Tax Rate </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">GST Rate </label>
               <select value={formData.taxRate ?? ""} onChange={(e) => setFormData((p) => ({ ...p, taxRate: e.target.value === "" ? "" : parseFloat(e.target.value) }))} className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:bg-white focus:ring-2 focus:ring-blue-500">
-                <option value="">Select Tax Rate</option>
+                <option value="">Select GST Rate</option>
                 {TAX_RATE_OPTIONS.map((option) => (<option key={option.value} value={option.value}>{option.label}</option>))}
               </select>
             </div>

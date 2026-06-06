@@ -154,7 +154,7 @@ const AdminDashboard = () => {
             </div>
             <div className="overflow-hidden">
               <h1 className="text-xl font- text-gray-900 truncate">
-                {user?.name || "Admin"}
+                {user?.name?.trim() || ""}
               </h1>
               <span className="text-xs font-semibold text-blue-500 tracking-wide">
                 {ROLE_LABELS[activeRole] || activeRole}
@@ -182,9 +182,11 @@ const AdminDashboard = () => {
 
             {/* User Info Downward */}
             <div className="mt-2 text-center overflow-hidden w-full">
-              <h1 className="text-sm font- text-slate-800 truncate">
-                {user?.name || "Admin"}
-              </h1>
+              {user?.name?.trim() ? (
+                <h1 className="text-sm font- text-slate-800 truncate">
+                  {user.name.trim()}
+                </h1>
+              ) : null}
               <p className="text-[10px] font- text-blue-600 tracking-wider uppercase leading-none mt-1">
                 {ROLE_LABELS[activeRole] || activeRole}
               </p>

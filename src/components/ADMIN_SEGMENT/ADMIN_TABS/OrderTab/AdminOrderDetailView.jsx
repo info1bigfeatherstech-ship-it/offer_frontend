@@ -87,6 +87,8 @@ function formatKg(kg) {
   return `${n.toFixed(2)} kg`;
 }
 
+const DIM_WEIGHT_DIVISOR = 5000;
+
 function formatPackageDims(dims) {
   if (!dims || typeof dims !== "object") return null;
   const l = Number(dims.lengthCm);
@@ -94,6 +96,15 @@ function formatPackageDims(dims) {
   const h = Number(dims.heightCm);
   if (![l, w, h].every((n) => Number.isFinite(n) && n > 0)) return null;
   return `${l} × ${w} × ${h} cm`;
+}
+
+function dimWeightKgFromDims(dims) {
+  if (!dims || typeof dims !== "object") return null;
+  const l = Number(dims.lengthCm);
+  const w = Number(dims.widthCm);
+  const h = Number(dims.heightCm);
+  if (![l, w, h].every((n) => Number.isFinite(n) && n > 0)) return null;
+  return Math.round(((l * w * h) / DIM_WEIGHT_DIVISOR) * 100) / 100;
 }
 
 function formatDateHeader(iso) {
@@ -831,6 +842,10 @@ export default function AdminOrderDetailView({
     if (row?.variantId != null) weightByVariantId.set(String(row.variantId), row);
   }
   const packageDimsLabel = formatPackageDims(weightSnap?.dims);
+  const packageDimWeightKg =
+    weightSnap?.totalDimWeightKg != null
+      ? Number(weightSnap.totalDimWeightKg)
+      : dimWeightKgFromDims(weightSnap?.dims);
   const weightSourceCatalogFallback = String(weightSnap?.source || "") === "catalog_fallback";
   const pi = order.paymentInfo && typeof order.paymentInfo === "object" ? order.paymentInfo : {};
   const refundHistory = Array.isArray(order.refundHistory) ? order.refundHistory : [];
@@ -2140,13 +2155,23 @@ export default function AdminOrderDetailView({
               <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80 flex flex-wrap items-start justify-between gap-3">
                 <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500">Items</h3>
                 {weightSnap?.totalWeightKg != null && (
-                  <div className="text-right text-xs">
+                  <div className="text-right text-xs space-y-0.5">
                     <p className="text-slate-600">
-                      Package weight{" "}
+                      Total weight{" "}
                       <span className="font-semibold text-slate-900">{formatKg(weightSnap.totalWeightKg)}</span>
                     </p>
                     {packageDimsLabel && (
-                      <p className="text-slate-500 mt-0.5">Dims (checkout): {packageDimsLabel}</p>
+                      <p className="text-slate-600">
+                        Total dimensions{" "}
+                        <span className="font-semibold text-slate-900">{packageDimsLabel}</span>
+                      </p>
+                    )}
+                    {packageDimWeightKg != null && (
+                      <p className="text-slate-600">
+                        Total dim weight{" "}
+                        <span className="font-semibold text-slate-900">{formatKg(packageDimWeightKg)}</span>
+                        <span className="text-slate-400 ml-1">(L×B×H÷5000)</span>
+                      </p>
                     )}
                     {weightSourceCatalogFallback && (
                       <p className="text-amber-700 mt-0.5 text-[11px]">Estimated from current catalog (legacy order)</p>
@@ -2162,6 +2187,19 @@ export default function AdminOrderDetailView({
                   const qty = line?.quantity ?? 0;
                   const lineTotal = Number(line?.lineTotal ?? line?.priceSnapshot?.total) || 0;
                   const weightRow = weightByVariantId.get(String(line?.variantId ?? ""));
+                  const lineDimsLabel = weightRow ? formatPackageDims(weightRow) : null;
+                  const unitDimWeightKg =
+                    weightRow?.unitDimWeightKg != null
+                      ? Number(weightRow.unitDimWeightKg)
+                      : weightRow
+                        ? dimWeightKgFromDims(weightRow)
+                        : null;
+                  const lineDimWeightKg =
+                    weightRow?.lineDimWeightKg != null
+                      ? Number(weightRow.lineDimWeightKg)
+                      : unitDimWeightKg != null
+                        ? Math.round(unitDimWeightKg * qty * 100) / 100
+                        : null;
                   return (
                     <div key={idx} className="p-4 flex gap-4">
                       <div className="w-20 h-20 shrink-0 rounded-lg border border-slate-100 bg-slate-50 overflow-hidden">
@@ -2176,15 +2214,34 @@ export default function AdminOrderDetailView({
                         <p className="text-[11px] text-slate-500 mt-1">
                           SKU: <span className="font-mono">{sku}</span>
                         </p>
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-xs text-slate-600">
-                          <span>Qty: {qty}</span>
-                          {weightRow && (
-                            <span>
-                              Weight: {formatKg(weightRow.unitWeightKg)} × {qty} ={" "}
-                              <span className="font-semibold text-slate-800">{formatKg(weightRow.lineWeightKg)}</span>
-                            </span>
+                        <div className="mt-2 space-y-1 text-xs text-slate-600">
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                            <span>Qty: {qty}</span>
+                            {weightRow && (
+                              <span>
+                                Weight: {formatKg(weightRow.unitWeightKg)} × {qty} ={" "}
+                                <span className="font-semibold text-slate-800">{formatKg(weightRow.lineWeightKg)}</span>
+                              </span>
+                            )}
+                          </div>
+                          {lineDimsLabel && (
+                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                              <span>
+                                Dimensions: <span className="font-medium text-slate-800">{lineDimsLabel}</span>
+                              </span>
+                              {unitDimWeightKg != null && (
+                                <span>
+                                  Dim weight: {formatKg(unitDimWeightKg)} × {qty} ={" "}
+                                  <span className="font-semibold text-slate-800">{formatKg(lineDimWeightKg)}</span>
+                                  <span className="text-slate-400 ml-1">(L×B×H÷5000)</span>
+                                </span>
+                              )}
+                            </div>
                           )}
-                          <span className="font-semibold text-slate-900">{formatInr(lineTotal)}</span>
+                          <div>
+                            <span>Price: </span>
+                            <span className="font-semibold text-slate-900">{formatInr(lineTotal)}</span>
+                          </div>
                         </div>
                       </div>
                     </div>

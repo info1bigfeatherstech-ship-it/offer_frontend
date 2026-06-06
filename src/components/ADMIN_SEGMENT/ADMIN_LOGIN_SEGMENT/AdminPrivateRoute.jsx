@@ -44,22 +44,20 @@ const AdminPrivateRoute = ({ children }) => {
     const token   = localStorage.getItem(ADMIN_ACCESS_TOKEN_KEY);
     const payload = decodeToken(token);
 
-    // ── Fire /auth/me ONLY when:
-    //    - token exists in localStorage
-    //    - AND status is still idle (token existed but couldn't decode on startup)
-    //    - NOT when already authenticated or unauthenticated (final states)
-    //    - NOT when no token (nothing to verify)
-    const skip = !token || status === "authenticated" || status === "unauthenticated";
+    // Always refresh profile from /auth/me when a token exists (JWT lacks name, etc.).
+    // Show the loading screen only while bootstrapping — not during background refetch.
+    const skip = !token || status === "unauthenticated";
     const { isFetching } = useGetAdminMeQuery(undefined, { skip });
+    const isBootstrapping = status === "idle" || status === "loading";
 
     // ── 1. No token → login immediately, no spinner ───────────────────────
     if (!token) {
         return <Navigate to="/admin/login" replace state={{ from: location.pathname }} />;
     }
 
-    // ── 2. Token exists but we're still verifying (idle/loading/fetching) ─
+    // ── 2. Token exists but we're still verifying (idle/loading) ─
     // Show spinner — axiosInstance will silently refresh if needed
-    if (isFetching || status === "idle" || status === "loading") {
+    if (isBootstrapping && (isFetching || status === "loading")) {
         return <AdminLoadingScreen />;
     }
 

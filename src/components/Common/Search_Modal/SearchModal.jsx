@@ -12,9 +12,8 @@ const getProductImage = (product) => {
     return null;
   }
 
-  // Find active variant first, then any variant with images
-  const activeVariant = product.variants.find(v => v.isActive === true);
-  const variantToUse = activeVariant || product.variants[0];
+  // Search API returns storefront-listed variants only
+  const variantToUse = product.variants[0];
 
   if (variantToUse?.images && variantToUse.images.length > 0) {
     return variantToUse.images[0].url;
@@ -30,7 +29,6 @@ const getProductPriceRange = (product) => {
   }
 
   const prices = product.variants
-    .filter(v => v.isActive)
     .map(v => v.finalPrice || v.price?.sale || v.price?.base);
 
   if (prices.length === 0) return null;
@@ -143,7 +141,7 @@ const ProductItem = memo(({ product, onClick }) => {
         </div>
         {product.variants && product.variants.length > 1 && (
           <p className="text-[10px] text-gray-400 mt-1">
-            {product.variants.filter(v => v.isActive).length} variants available
+            {product.variants.length} variants available
           </p>
         )}
       </div>

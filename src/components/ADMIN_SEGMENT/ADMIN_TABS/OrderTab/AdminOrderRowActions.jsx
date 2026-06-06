@@ -3,8 +3,9 @@ import { createPortal } from "react-dom";
 import {
   useAdminBulkApprovalCancelMutation,
   useAdminBulkApprovalConfirmMutation,
-  useAdminBulkFulfillmentShipNowMutation,
+  useAdminFulfillmentAssignShipMutation,
   useAdminFulfillmentCancelShipmentMutation,
+  useAdminFulfillmentEnsureShipmentMutation,
   useAdminFulfillmentManifestMutation,
   useAdminFulfillmentRetryPickupMutation,
   useAdminFulfillmentSchedulePickupMutation,
@@ -143,9 +144,30 @@ async function executeAction(key, ctx) {
       }
       await ctx.bulkCancel({ orderIds: [id] }).unwrap();
       return;
-    case "shipNow":
-      await ctx.bulkShipNow({ orderIds: [id] }).unwrap();
+    case "shipNow": {
+      const ensureResult = await ctx.ensureShipment(id).unwrap();
+      if (!ensureResult?.success) {
+        throw new Error(ensureResult?.message || "Shipment step failed.");
+      }
+      const si = ensureResult?.order?.shipmentInfo || {};
+      const sr = ensureResult?.shipment || {};
+      const awbFromResp = Boolean(
+        si.awbCode ||
+          si.trackingNumber ||
+          sr.awb_code ||
+          sr.awbCode ||
+          sr.tracking_number
+      );
+      if (!awbFromResp) {
+        try {
+          await ctx.assignShip({ orderId: id }).unwrap();
+        } catch (assignErr) {
+          if (assignErr?.data?.code === "AWB_ALREADY_ASSIGNED") return;
+          throw assignErr;
+        }
+      }
       return;
+    }
     case "schedulePickup": {
       const ymd = String(ctx.pickupDate || "").trim();
       if (!/^\d{4}-\d{2}-\d{2}$/.test(ymd)) {
@@ -258,7 +280,8 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback }
 
   const [bulkConfirm] = useAdminBulkApprovalConfirmMutation();
   const [bulkCancel] = useAdminBulkApprovalCancelMutation();
-  const [bulkShipNow] = useAdminBulkFulfillmentShipNowMutation();
+  const [ensureShipmentMut] = useAdminFulfillmentEnsureShipmentMutation();
+  const [assignShipMut] = useAdminFulfillmentAssignShipMutation();
   const [schedulePickupMut] = useAdminFulfillmentSchedulePickupMutation();
   const [generateManifestMut] = useAdminFulfillmentManifestMutation();
   const [syncShiprocketMut] = useAdminFulfillmentSyncShiprocketMutation();
@@ -292,7 +315,8 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback }
       orderId,
       bulkConfirm,
       bulkCancel,
-      bulkShipNow,
+      ensureShipment: ensureShipmentMut,
+      assignShip: assignShipMut,
       schedulePickup: schedulePickupMut,
       generateManifest: generateManifestMut,
       syncShiprocket: syncShiprocketMut,
@@ -306,7 +330,8 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback }
       orderId,
       bulkConfirm,
       bulkCancel,
-      bulkShipNow,
+      ensureShipmentMut,
+      assignShipMut,
       schedulePickupMut,
       generateManifestMut,
       syncShiprocketMut,
