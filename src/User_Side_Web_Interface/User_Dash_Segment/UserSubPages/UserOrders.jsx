@@ -190,8 +190,6 @@ const TrackingTimeline = ({ timeline = [], showLocation = false, useDateTime = f
 };
 
 const UserOrderTrackingPanel = ({ tracking }) => {
-  const [showCourierDetails, setShowCourierDetails] = useState(false);
-
   const simpleTimeline =
     Array.isArray(tracking?.simpleTimeline) && tracking.simpleTimeline.length > 0
       ? tracking.simpleTimeline
@@ -199,13 +197,9 @@ const UserOrderTrackingPanel = ({ tracking }) => {
         ? tracking.timeline
         : [];
 
-  const courierTimeline = Array.isArray(tracking?.courierTimeline) ? tracking.courierTimeline : [];
-  const hasCourierDetail = courierTimeline.length > 0 && Boolean(tracking?.trackingNumber);
+  // const courierTimeline = Array.isArray(tracking?.courierTimeline) ? tracking.courierTimeline : [];
+  // const hasCourierDetail = courierTimeline.length > 0 && Boolean(tracking?.trackingNumber);
   const summaryHeadline = tracking?.statusSummary?.headline;
-
-  useEffect(() => {
-    setShowCourierDetails(false);
-  }, [tracking?.orderId, tracking?.trackingNumber]);
 
   return (
     <div className="space-y-4">
@@ -231,6 +225,7 @@ const UserOrderTrackingPanel = ({ tracking }) => {
         </div>
       ) : null}
 
+      {/* Courier updates hidden — show order progress only
       {hasCourierDetail && (
         <div className="pt-2 border-t border-gray-100">
           <button
@@ -259,6 +254,7 @@ const UserOrderTrackingPanel = ({ tracking }) => {
           )}
         </div>
       )}
+      */}
     </div>
   );
 };
