@@ -1,6 +1,11 @@
 // Shared_components/ProductDetailModal.jsx
 
 import React, { useState } from "react";
+import {
+  getEffectiveEcommStatus,
+  getEffectiveVariantEcommStatus,
+  ecommStatusAdminLabel,
+} from "../../../utils/adminProductCatalogStatus";
 
 const ProductDetailModal = ({ product, categories, onClose, formatIndianRupee, getDiscountPercentage }) => {
   const [activeVariantIndex, setActiveVariantIndex] = useState(0);
@@ -15,9 +20,10 @@ const ProductDetailModal = ({ product, categories, onClose, formatIndianRupee, g
   const totalStock = product.variants?.reduce((sum, v) => sum + (v.inventory?.quantity || 0), 0) || 0;
   const isLowStock = product.variants?.some(v => v.inventory?.quantity < v.inventory?.lowStockThreshold);
 
+  const effectiveEcommStatus = getEffectiveEcommStatus(product);
   const statusColors = {
     active: "bg-green-100 text-green-700 border-green-200",
-    draft: "bg-yellow-100 text-yellow-700 border-yellow-200",
+    draft: "bg-gray-100 text-gray-600 border-gray-200",
     archived: "bg-gray-100 text-gray-600 border-gray-200",
   };
 
@@ -63,8 +69,8 @@ const ProductDetailModal = ({ product, categories, onClose, formatIndianRupee, g
               <h2 className="text-xl font-bold text-gray-900">{product.name}</h2>
               <p className="text-sm text-gray-500 mt-0.5">{product.title}</p>
               <div className="flex items-center gap-2 mt-2 flex-wrap">
-                <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${statusColors[product.status] || statusColors.draft}`}>
-                  {product.status?.toUpperCase()}
+                <span className={`px-2.5 py-1 text-xs font-semibold rounded-full border ${statusColors[effectiveEcommStatus] || statusColors.draft}`}>
+                  {ecommStatusAdminLabel(effectiveEcommStatus).toUpperCase()}
                 </span>
                 {product.isFeatured && (
                   <span className="px-2.5 py-1 text-xs font-semibold rounded-full bg-yellow-100 text-yellow-700 border border-yellow-200">
@@ -166,7 +172,9 @@ const ProductDetailModal = ({ product, categories, onClose, formatIndianRupee, g
                       }`}
                   >
                     {v.attributes?.map(a => a.value).join(" / ") || `Variant ${i + 1}`}
-                    {!v.isActive && <span className="ml-1 text-xs text-gray-400">(inactive)</span>}
+                    {getEffectiveVariantEcommStatus(v) !== "active" && (
+                      <span className="ml-1 text-xs text-gray-400">(inactive)</span>
+                    )}
                   </button>
                 ))}
               </div>
@@ -237,8 +245,8 @@ const ProductDetailModal = ({ product, categories, onClose, formatIndianRupee, g
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-500">Status:</span>
-                        <span className={`font-medium ${activeVariant.isActive ? "text-green-600" : "text-gray-400"}`}>
-                          {activeVariant.isActive ? "Active" : "Inactive"}
+                        <span className={`font-medium ${getEffectiveVariantEcommStatus(activeVariant) === "active" ? "text-green-600" : "text-gray-400"}`}>
+                          {ecommStatusAdminLabel(getEffectiveVariantEcommStatus(activeVariant))}
                         </span>
                       </div>
                     </div>

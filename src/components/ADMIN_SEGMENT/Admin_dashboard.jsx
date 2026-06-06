@@ -49,7 +49,7 @@ const AdminDashboard = () => {
 
   const navigate = useNavigate();
   const [adminLogout, { isLoading: loggingOut }] = useAdminLogoutMutation();
-
+  const [tabClickCount, setTabClickCount] = useState(0);
   const handleLogout = async () => {
     try {
       await adminLogout().unwrap();
@@ -105,6 +105,7 @@ const AdminDashboard = () => {
       // Plain tab → close any open dropdown, navigate
       setExpandedTab(null);
       setSearchParams({ tab: tab.id });
+        setTabClickCount((c) => c + 1);
     }
   };
 
@@ -153,7 +154,7 @@ const AdminDashboard = () => {
             </div>
             <div className="overflow-hidden">
               <h1 className="text-xl font- text-gray-900 truncate">
-                {user?.name || "Admin"}
+                {user?.name?.trim() || ""}
               </h1>
               <span className="text-xs font-semibold text-blue-500 tracking-wide">
                 {ROLE_LABELS[activeRole] || activeRole}
@@ -181,9 +182,11 @@ const AdminDashboard = () => {
 
             {/* User Info Downward */}
             <div className="mt-2 text-center overflow-hidden w-full">
-              <h1 className="text-sm font- text-slate-800 truncate">
-                {user?.name || "Admin"}
-              </h1>
+              {user?.name?.trim() ? (
+                <h1 className="text-sm font- text-slate-800 truncate">
+                  {user.name.trim()}
+                </h1>
+              ) : null}
               <p className="text-[10px] font- text-blue-600 tracking-wider uppercase leading-none mt-1">
                 {ROLE_LABELS[activeRole] || activeRole}
               </p>
@@ -333,7 +336,8 @@ const AdminDashboard = () => {
               </div>
             }>
               {TabComponent ? (
-                <TabComponent onSwitchTab={handleSwitchTab} />
+              //  <TabComponent onSwitchTab={handleSwitchTab} /> 
+              <TabComponent key={`${activeTab}-${tabClickCount}`} onSwitchTab={handleSwitchTab} />
               ) : (
                 <div className="flex flex-col items-center justify-center h-64 text-gray-400">
                   <svg className="w-12 h-12 mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">

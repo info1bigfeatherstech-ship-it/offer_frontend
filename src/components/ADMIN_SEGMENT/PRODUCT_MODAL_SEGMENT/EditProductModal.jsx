@@ -48,7 +48,10 @@ const normaliseVariants = (variants = []) =>
         id: img._id || img.publicId || img.url || `var-${vIdx}-img-${iIdx}`,
         isMain: iIdx === 0,
       })),
-    isActive: v.isActive !== false,
+    isActive:
+      v.channelVisibility?.ecomm != null
+        ? v.channelVisibility.ecomm === "active"
+        : v.isActive !== false,
     wholesale: v.wholesale || false,
     minimumOrderQuantity: v.minimumOrderQuantity || 1,
     channelVisibility: v.channelVisibility || { ecomm: "active", wholesale: "draft" },

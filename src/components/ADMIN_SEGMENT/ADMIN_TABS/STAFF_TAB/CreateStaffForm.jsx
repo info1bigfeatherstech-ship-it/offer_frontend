@@ -38,7 +38,16 @@ const CreateStaffForm = ({ onClose }) => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    dispatch(createStaff(form));
+    const payload = {
+      email: form.email.trim(),
+      password: form.password,
+      role: form.role,
+    };
+    const name = form.name.trim();
+    const phone = form.phone.trim();
+    if (name) payload.name = name;
+    if (phone) payload.phone = phone;
+    dispatch(createStaff(payload));
   };
 
   return (
@@ -75,7 +84,7 @@ const CreateStaffForm = ({ onClose }) => {
           {/* Full Name */}
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Full Name
+              Full Name <span className="text-slate-400 font-normal">(optional)</span>
             </label>
             <div className="relative">
               <User size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -84,7 +93,6 @@ const CreateStaffForm = ({ onClose }) => {
                 value={form.name}
                 onChange={set("name")}
                 placeholder="Priya Sharma"
-                required
                 className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
               />
             </div>
@@ -111,7 +119,7 @@ const CreateStaffForm = ({ onClose }) => {
           {/* Phone */}
           <div>
             <label className="block text-sm font-semibold text-slate-700 mb-2">
-              Phone Number
+              Phone Number <span className="text-slate-400 font-normal">(optional)</span>
             </label>
             <div className="relative">
               <Phone size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
@@ -121,8 +129,7 @@ const CreateStaffForm = ({ onClose }) => {
                 onChange={set("phone")}
                 placeholder="9876543210"
                 pattern="[0-9]{10}"
-                title="10-digit phone number"
-                required
+                title="10-digit phone number (optional)"
                 className="w-full pl-10 pr-4 py-2.5 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all text-sm"
               />
             </div>

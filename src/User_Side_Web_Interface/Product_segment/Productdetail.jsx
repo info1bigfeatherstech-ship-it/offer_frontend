@@ -767,9 +767,10 @@ const ProductUI = ({ openAuthModal }) => {
   };
 
   // ── variant logic ──────────────────────────────────────────────────────────
-  const activeVariants = useMemo(
-    () => (product?.variants ?? []).filter((v) => v.isActive === true),
-    [product]
+  // API already returns storefront-listed variants; do not re-filter by legacy isActive.
+  const listedVariants = useMemo(
+    () => (product?.variants ?? []).filter(Boolean),
+    [product?.variants]
   );
 
   function formatCount(count) {
@@ -779,32 +780,32 @@ const ProductUI = ({ openAuthModal }) => {
 
   const attrKeys = useMemo(() => {
     const s = new Set();
-    activeVariants.forEach((v) => v.attributes?.forEach((a) => s.add(a.key)));
+    listedVariants.forEach((v) => v.attributes?.forEach((a) => s.add(a.key)));
     return [...s];
-  }, [activeVariants]);
+  }, [listedVariants]);
 
   const getAllValues = useCallback((key) => {
     const s = new Set();
-    activeVariants.forEach((v) =>
+    listedVariants.forEach((v) =>
       v.attributes?.filter((a) => a.key === key).forEach((a) => s.add(a.value))
     );
     return [...s];
-  }, [activeVariants]);
+  }, [listedVariants]);
 
   const isAvailable = useCallback((key, value) =>
-    activeVariants.some((v) => v.attributes?.some((a) => a.key === key && a.value === value)),
-    [activeVariants]
+    listedVariants.some((v) => v.attributes?.some((a) => a.key === key && a.value === value)),
+    [listedVariants]
   );
 
   const selectedVariant = useMemo(() => {
-    if (!activeVariants.length) return null;
+    if (!listedVariants.length) return null;
 
     // Agar koi bhi attr selected nahi (sab null), return first variant
     const hasAnySelection = Object.values(selectedAttrs).some((v) => v != null);
-    if (!hasAnySelection) return activeVariants[0];
+    if (!hasAnySelection) return listedVariants[0];
 
-    let best = activeVariants[0], bestScore = -1;
-    activeVariants.forEach((v) => {
+    let best = listedVariants[0], bestScore = -1;
+    listedVariants.forEach((v) => {
       const score = Object.entries(selectedAttrs).filter(([k, val]) =>
         val != null &&
         v.attributes?.some((a) => a.key === k && a.value === val)
@@ -812,15 +813,15 @@ const ProductUI = ({ openAuthModal }) => {
       if (score > bestScore) { bestScore = score; best = v; }
     });
     return best;
-  }, [activeVariants, selectedAttrs]);
+  }, [listedVariants, selectedAttrs]);
 
   useEffect(() => {
-    if (!activeVariants.length) return;
+    if (!listedVariants.length) return;
     const init = {};
-    activeVariants[0].attributes?.forEach((a) => { init[a.key] = a.value; });
+    listedVariants[0].attributes?.forEach((a) => { init[a.key] = a.value; });
     setSelectedAttrs(init);
     setActiveThumb(0);
-  }, [activeVariants]);
+  }, [listedVariants]);
 
   useEffect(() => { setActiveThumb(0); }, [selectedVariant?._id]);
 

@@ -37,6 +37,7 @@ import {
 import AdminOrderDetailView from "./AdminOrderDetailView";
 import AdminOrderRowActions from "./AdminOrderRowActions";
 import axiosInstance from "../../../../SERVICES/axiosInstance";
+import { useSearchParams } from "react-router-dom";
 
 const TAB_ORDER = [
   "All",
@@ -145,6 +146,8 @@ const OrderTab = () => {
   const ui = useSelector((s) => s.adminOrdersUi);
 
   const [selectedOrderId, setSelectedOrderId] = useState(null);
+  const [searchParams] = useSearchParams();
+  const activeTab = searchParams.get("tab");
 
   const {
     data: summaryRes,
@@ -332,6 +335,10 @@ const OrderTab = () => {
     setBulkInvoiceAwbModalOpen(false);
     setBulkZipBusy(false);
   }, [ui.page, ui.activeTabLabel, ui.search, ui.datePreset, ui.customDateFrom, ui.customDateTo]);
+
+  useEffect(() => {
+  setSelectedOrderId(null);
+}, [activeTab]);
 
   /** Draft dates for Custom range — committed via Apply only */
   const [draftDateFrom, setDraftDateFrom] = useState("");
