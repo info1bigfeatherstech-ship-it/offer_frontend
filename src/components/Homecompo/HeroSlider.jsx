@@ -17,25 +17,30 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Autoplay, Navigation, Pagination } from 'swiper/modules';
 
-import offer1 from '../../assets/Banner/offerwalebaba-1.jpg';
-import offer2 from '../../assets/Banner/offerwalebaba-2.jpg';
-import offer3 from '../../assets/Banner/offerwalebaba-3.jpg';
-import offer4 from '../../assets/Banner/offerwalebaba-4.jpg';
-import offer5 from '../../assets/Banner/offerwalebaba-5.jpg';
 
 import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 
-/* ─── Slide data ───────────────────────────────────────────── */
-const slides = [
-  { id: 1, image: offer1, alt: 'Offer 1' },
-  { id: 2, image: offer2, alt: 'Offer 2' },
-  { id: 3, image: offer3, alt: 'Offer 3' },
-  { id: 4, image: offer4, alt: 'Offer 4' },
-  { id: 5, image: offer5, alt: 'Offer 5' },
-];
 
+
+/* ─── Slide data ───────────────────────────────────────────── */
+// const slides = [
+//   { id: 1, image: offer1, alt: 'Offer 1' },
+//   { id: 2, image: offer2, alt: 'Offer 2' },
+//   { id: 3, image: offer3, alt: 'Offer 3' },
+//   { id: 4, image: offer4, alt: 'Offer 4' },
+//   { id: 5, image: offer5, alt: 'Offer 5' },
+// ];
+
+
+const slides = [
+  { id: 1, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto/v1780920784/offerwalebaba-1_tkhraz.jpg', alt: 'Offer 1' },
+  { id: 2, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto/v1780920808/offerwalebaba-5_wrhktc.jpg', alt: 'Offer 2' },
+  { id: 3, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto/v1780920808/offerwalebaba-3_h3txig.jpg', alt: 'Offer 3' },
+  { id: 4, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto/v1780920808/offerwalebaba-2_wdtxth.jpg', alt: 'Offer 4' },
+  { id: 5, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto/v1780920808/offerwalebaba-4_jvsqnp.jpg', alt: 'Offer 5' },
+];
 /* ─── Responsive breakpoints ───────────────────────────────── */
 const breakpoints = {
   0: {

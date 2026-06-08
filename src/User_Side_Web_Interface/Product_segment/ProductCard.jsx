@@ -90,11 +90,11 @@ const ProductCard = ({ product, index = 0 }) => {
 
   const ratingUi = useMemo(() => getProductRatingDisplay(product, null), [product]);
 
-  useEffect(() => {
-    dispatch(fetchCategories());
-    // console.log("I m being rendered");
+  // useEffect(() => {
+  //   dispatch(fetchCategories());
+  //   // console.log("I m being rendered");
 
-  }, [dispatch])
+  // }, [dispatch])
 
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -301,7 +301,7 @@ const ProductCard = ({ product, index = 0 }) => {
         {/* Category */}
         {category && (
           <span className="text-[9px] sm:text-[10px] uppercase tracking-wider text-zinc-400 font-medium truncate">
-            {getCategoryName(category)}
+            {category}
           </span>
         )}
 

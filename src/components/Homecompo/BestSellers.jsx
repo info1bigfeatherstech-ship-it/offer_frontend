@@ -31,8 +31,9 @@ const BestSellers = () => {
   const showSkeleton   = isLoading && page === 1;
   const isFetchingMore = isLoading && page > 1;
 
-  // ── Initial fetch
+  // ── Initial fetch — skip if already loaded
   useEffect(() => {
+    if (products?.length > 0) return;
     dispatch(fetchFeaturedProducts({ limit: LIMIT, page: 1 }));
   }, [dispatch]);
 

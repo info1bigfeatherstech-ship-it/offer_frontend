@@ -5,7 +5,7 @@ import { useSelector } from 'react-redux';
 import { selectAllProducts } from '../REDUX_FEATURES/REDUX_SLICES/userProductsSlice';
 
 const PriceBanners = () => {
-    const [isInView, setIsInView] = useState(false);
+    const [isInView, setIsInView] = useState(true);
     const sectionRef = useRef(null);
     const products = useSelector(selectAllProducts);
 
@@ -108,7 +108,7 @@ const PriceBanners = () => {
                     observer.disconnect();
                 }
             },
-            { threshold: 0.1 }
+            { threshold: 0, rootMargin: '0px' }
         );
 
         if (sectionRef.current) {
