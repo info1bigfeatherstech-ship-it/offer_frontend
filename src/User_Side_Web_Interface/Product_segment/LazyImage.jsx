@@ -35,7 +35,7 @@ const LazyImage = ({
 }) => {
   const [loaded,  setLoaded]  = useState(false);
   const [errored, setErrored] = useState(false);
-  const [visible, setVisible] = useState(false);
+  const [visible, setVisible] = useState(true);
   const wrapperRef = useRef(null);
 
   // ── IntersectionObserver: swap src only when near viewport ───────────────
@@ -56,7 +56,7 @@ const LazyImage = ({
           observer.disconnect();
         }
       },
-      { rootMargin: '200px', threshold: 0 }
+      { rootMargin: '800px', threshold: 0 }
     );
 
     observer.observe(wrapperRef.current);
