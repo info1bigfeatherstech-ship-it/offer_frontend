@@ -5,7 +5,9 @@ import {
   useGetPopularWishlistProductsQuery 
 } from '../../ADMIN_REDUX_MANAGEMENT/userAnalyticsApi';
 import CartReminderEmailModal from './CartReminderEmailModal';
+import CartReminderPushModal from './CartReminderPushModal';
 import BulkActionsMenu from './BulkActionsMenu';
+import LeadsAutoPushToggle from './LeadsAutoPushToggle';
 import { DateTimeCell } from './adminDateTime';
 
 const WishlistsTab = () => {
@@ -16,6 +18,8 @@ const WishlistsTab = () => {
   const [selectedUserMeta, setSelectedUserMeta] = useState({});
   const [cartReminderOpen, setCartReminderOpen] = useState(false);
   const [cartReminderRecipients, setCartReminderRecipients] = useState([]);
+  const [cartPushOpen, setCartPushOpen] = useState(false);
+  const [cartPushRecipients, setCartPushRecipients] = useState([]);
 
   const snapshotFromWishlist = useCallback((wishlist) => ({
     _id: wishlist.user?._id,
@@ -101,9 +105,25 @@ const WishlistsTab = () => {
     setCartReminderRecipients([]);
   }, []);
 
+  const openCartPushModal = useCallback((recipientList) => {
+    if (!recipientList?.length) return;
+    setCartPushRecipients(recipientList);
+    setCartPushOpen(true);
+  }, []);
+
+  const closeCartPushModal = useCallback(() => {
+    setCartPushOpen(false);
+    setCartPushRecipients([]);
+  }, []);
+
   const handleBulkCartEmail = () => {
     if (!selectedUserIds.length) return;
     openCartReminderModal(buildRecipientsFromSelection());
+  };
+
+  const handleBulkCartPush = () => {
+    if (!selectedUserIds.length) return;
+    openCartPushModal(buildRecipientsFromSelection());
   };
 
   const selectableIds = data.map((w) => w.user?._id).filter(Boolean);
@@ -194,9 +214,18 @@ const WishlistsTab = () => {
         </div>
       )}
 
-      {activeSubTab !== 'popular' && selectedUserIds.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 flex justify-end">
-          <BulkActionsMenu count={selectedUserIds.length} onCartEmail={handleBulkCartEmail} />
+      {activeSubTab !== 'popular' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3">
+            <LeadsAutoPushToggle />
+            {selectedUserIds.length > 0 && (
+              <BulkActionsMenu
+                count={selectedUserIds.length}
+                onCartEmail={handleBulkCartEmail}
+                onCartPush={handleBulkCartPush}
+              />
+            )}
+          </div>
         </div>
       )}
 
@@ -404,6 +433,12 @@ const WishlistsTab = () => {
         isOpen={cartReminderOpen}
         onClose={closeCartReminderModal}
         recipients={cartReminderRecipients}
+      />
+
+      <CartReminderPushModal
+        isOpen={cartPushOpen}
+        onClose={closeCartPushModal}
+        recipients={cartPushRecipients}
       />
 
       {/* Empty State */}

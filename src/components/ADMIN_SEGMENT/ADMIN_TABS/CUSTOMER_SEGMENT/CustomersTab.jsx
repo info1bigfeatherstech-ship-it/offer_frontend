@@ -4,8 +4,10 @@ import { toast } from 'react-toastify';
 import { useGetAllUsersQuery } from '../../ADMIN_REDUX_MANAGEMENT/userAnalyticsApi';
 import CartDetailsModal from './CartDetailsModal';
 import CartReminderEmailModal from './CartReminderEmailModal';
+import CartReminderPushModal from './CartReminderPushModal';
 import CustomerDetailsModal from './CustomerDetailsModal';
 import BulkActionsMenu from './BulkActionsMenu';
+import LeadsAutoPushToggle from './LeadsAutoPushToggle';
 import { DateTimeCell } from './adminDateTime';
 
 const CustomersTab = () => {
@@ -20,6 +22,8 @@ const CustomersTab = () => {
   const [isCartModalOpen, setIsCartModalOpen] = useState(false);
   const [cartReminderOpen, setCartReminderOpen] = useState(false);
   const [cartReminderRecipients, setCartReminderRecipients] = useState([]);
+  const [cartPushOpen, setCartPushOpen] = useState(false);
+  const [cartPushRecipients, setCartPushRecipients] = useState([]);
 
   const openCartDetails = useCallback((userId) => {
     setCartModalUserId(userId);
@@ -91,6 +95,17 @@ const CustomersTab = () => {
     setCartReminderRecipients([]);
   }, []);
 
+  const openCartPushModal = useCallback((recipientList) => {
+    if (!recipientList?.length) return;
+    setCartPushRecipients(recipientList);
+    setCartPushOpen(true);
+  }, []);
+
+  const closeCartPushModal = useCallback(() => {
+    setCartPushOpen(false);
+    setCartPushRecipients([]);
+  }, []);
+
   const buildRecipientsFromSelection = useCallback(() => {
     return selectedUsers.map((id) => {
       if (selectedUserMeta[id]) return selectedUserMeta[id];
@@ -115,6 +130,11 @@ const CustomersTab = () => {
   const handleBulkCartEmail = () => {
     if (selectedUsers.length === 0) return;
     openCartReminderModal(buildRecipientsFromSelection());
+  };
+
+  const handleBulkCartPush = () => {
+    if (selectedUsers.length === 0) return;
+    openCartPushModal(buildRecipientsFromSelection());
   };
 
   const handleSingleCartEmail = (user) => {
@@ -144,6 +164,7 @@ const CustomersTab = () => {
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+          <LeadsAutoPushToggle />
           <div className="flex items-center gap-3">
             <select 
               className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
@@ -153,7 +174,11 @@ const CustomersTab = () => {
               <option value="user">Customer</option>
               <option value="wholesaler">Wholesaler</option>
             </select>
-            <BulkActionsMenu count={selectedUsers.length} onCartEmail={handleBulkCartEmail} />
+            <BulkActionsMenu
+              count={selectedUsers.length}
+              onCartEmail={handleBulkCartEmail}
+              onCartPush={handleBulkCartPush}
+            />
           </div>
         </div>
       </div>
@@ -280,6 +305,12 @@ const CustomersTab = () => {
         isOpen={cartReminderOpen}
         onClose={closeCartReminderModal}
         recipients={cartReminderRecipients}
+      />
+
+      <CartReminderPushModal
+        isOpen={cartPushOpen}
+        onClose={closeCartPushModal}
+        recipients={cartPushRecipients}
       />
 
       <CustomerDetailsModal

@@ -40,6 +40,11 @@ import {
   productReturnStatusLabel,
 } from "../../../utils/orderRefundDisplay";
 import { shouldShowOnlinePaymentHoldCountdown } from "../../../utils/paymentHoldDisplay";
+import {
+  buildWeightByVariantId,
+  formatKg,
+  formatPackageDims,
+} from "../../../utils/orderShippingDisplay";
 
 const fmtDate = (d) => {
   if (!d) return "—";
@@ -369,6 +374,8 @@ const OrderDetail = ({ orderId, onBack }) => {
   const modalError = paymentVerification.error || razorpayClientError || null;
 
   const holdExpired = order && isPaymentWindowExpired(order);
+  const weightSnap = order?.shippingWeightSnapshot;
+  const weightByVariantId = buildWeightByVariantId(weightSnap);
 
   if (loading.fetchOne) {
     return (
@@ -655,6 +662,9 @@ const OrderDetail = ({ orderId, onBack }) => {
             item.priceSnapshot?.sale ??
             item.priceSnapshot?.base;
 
+          const weightRow = weightByVariantId.get(String(item.variantId ?? ""));
+          const lineDimsLabel = weightRow ? formatPackageDims(weightRow) : null;
+
           return (
             <div
               key={i}
@@ -712,6 +722,17 @@ const OrderDetail = ({ orderId, onBack }) => {
                 >
                   Qty: {item.quantity} × {fmt(price)}
                 </p>
+                {weightRow && (
+                  <p className="mt-1 text-[10px] sm:text-[11px] text-gray-400 font-medium">
+                    Weight: {formatKg(weightRow.unitWeightKg)} × {item.quantity} ={" "}
+                    <span className="text-gray-600">{formatKg(weightRow.lineWeightKg)}</span>
+                    {lineDimsLabel && (
+                      <span className="block sm:inline sm:ml-2">
+                        · {lineDimsLabel}
+                      </span>
+                    )}
+                  </p>
+                )}
               </div>
 
               {/* PRICE */}

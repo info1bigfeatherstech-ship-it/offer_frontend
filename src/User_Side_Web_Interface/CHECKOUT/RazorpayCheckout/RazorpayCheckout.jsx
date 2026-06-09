@@ -320,8 +320,159 @@
 import { useEffect, useRef, forwardRef, useImperativeHandle } from "react";
 import { Loader2, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
- 
+import storeLogo from "../../../assets/logo2.svg";
+
+/** Razorpay checkout runs in a cross-origin iframe; Chrome blocks loopback/private image URLs (LNA). */
+const resolveRazorpayBrandImageUrl = (viteAssetUrl) => {
+  if (typeof window === "undefined" || !viteAssetUrl) return undefined;
+  const { hostname, protocol } = window.location;
+  const isLocalNetwork =
+    hostname === "localhost" ||
+    hostname === "127.0.0.1" ||
+    hostname === "[::1]" ||
+    /^192\.168\./.test(hostname) ||
+    /^10\./.test(hostname) ||
+    /^172\.(1[6-9]|2\d|3[01])\./.test(hostname) ||
+    /\.local$/i.test(hostname);
+  if (isLocalNetwork || protocol !== "https:") return undefined;
+  return viteAssetUrl;
+};
+
 let razorpayScriptLoadPromise = null;
+let activeRazorpayInstance = null;
+let lastRazorpayClosedAt = 0;
+let razorpaySessionGeneration = 0;
+let razorpayPreparedGeneration = -1;
+let razorpayDismissFinalizedGeneration = -1;
+
+/** ~45 frames ≈ 750ms cap — only wait while Razorpay DOM is still visible. */
+const RAZORPAY_DOM_WAIT_MAX_FRAMES = 45;
+
+const countRazorpayDom = () => {
+  if (typeof document === "undefined") return {};
+  return {
+    containers: document.querySelectorAll(".razorpay-container").length,
+    backdrops: document.querySelectorAll(".razorpay-backdrop").length,
+    iframes: document.querySelectorAll('iframe[src*="razorpay.com"]').length,
+    spinners: document.querySelectorAll(".razorpay-body-spinner").length,
+  };
+};
+// #endregion
+
+const removeRazorpayDomArtifacts = () => {
+  if (typeof document === "undefined") return;
+
+  document
+    .querySelectorAll(
+      [
+        ".razorpay-container",
+        ".razorpay-backdrop",
+        ".razorpay-body-spinner",
+        'iframe[src*="razorpay.com"]',
+        'iframe[name*="razorpay"]',
+        'div[id*="razorpay"]',
+      ].join(", ")
+    )
+    .forEach((node) => node.remove());
+
+  document.body.style.overflow = "";
+  document.documentElement.style.overflow = "";
+};
+
+const hasRazorpayDomArtifacts = () => {
+  const dom = countRazorpayDom();
+  return (
+    (dom.containers || 0) +
+      (dom.backdrops || 0) +
+      (dom.iframes || 0) +
+      (dom.spinners || 0) >
+    0
+  );
+};
+
+/** Let Razorpay finish its own afterClose before we touch DOM (avoids replaceChild null). */
+const waitForRazorpayDomGone = (maxFrames = RAZORPAY_DOM_WAIT_MAX_FRAMES) =>
+  new Promise((resolve) => {
+    let frames = 0;
+    const tick = () => {
+      const dom = countRazorpayDom();
+      const stillPresent = hasRazorpayDomArtifacts();
+      if (!stillPresent || frames >= maxFrames) {
+        resolve({ frames, dom, forced: stillPresent && frames >= maxFrames });
+        return;
+      }
+      frames += 1;
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  });
+
+/** Mimics full page refresh for Razorpay only — fixes corrupted window.Razorpay singleton. */
+const hardResetRazorpayScript = () =>
+  new Promise((resolve) => {
+    if (typeof document === "undefined") {
+      resolve(false);
+      return;
+    }
+    document
+      .querySelectorAll('script[src*="checkout.razorpay.com"]')
+      .forEach((node) => node.remove());
+    razorpayScriptLoadPromise = null;
+    try {
+      delete window.Razorpay;
+    } catch {
+      window.Razorpay = undefined;
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.onload = () => resolve(Boolean(window.Razorpay));
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+
+/** Call when user dismisses / closes Razorpay — never remove DOM here. */
+export const markRazorpaySessionClosed = () => {
+  activeRazorpayInstance = null;
+  lastRazorpayClosedAt = Date.now();
+  razorpaySessionGeneration += 1;
+};
+
+/** Cancel path only: wait for Razorpay afterClose, then clear leftover DOM (no script reload). */
+export const finalizeRazorpayDismiss = async () => {
+  await waitForRazorpayDomGone();
+  removeRazorpayDomArtifacts();
+  razorpayDismissFinalizedGeneration = razorpaySessionGeneration;
+};
+
+/** Before second+ open: reload checkout.js (DOM already cleared on dismiss). */
+export const prepareRazorpayCheckoutSession = async () => {
+  if (typeof window === "undefined") return;
+
+  const needsReset = lastRazorpayClosedAt > 0;
+  if (!needsReset) return;
+
+  if (razorpayDismissFinalizedGeneration !== razorpaySessionGeneration) {
+    await waitForRazorpayDomGone();
+    removeRazorpayDomArtifacts();
+    razorpayDismissFinalizedGeneration = razorpaySessionGeneration;
+  }
+
+  await hardResetRazorpayScript();
+  razorpayPreparedGeneration = razorpaySessionGeneration;
+};
+
+/** Hard reset — only when checkout never opened or init failed. */
+export const destroyRazorpayCheckoutSession = () => {
+  if (activeRazorpayInstance) {
+    try {
+      activeRazorpayInstance.close();
+    } catch {
+      /* ignore */
+    }
+    activeRazorpayInstance = null;
+  }
+  markRazorpaySessionClosed();
+};
 
 const ensureRazorpayScript = () => {
   if (typeof window === "undefined") return Promise.resolve(false);
@@ -373,6 +524,7 @@ const ensureRazorpayScript = () => {
  *   onSuccess            - (razorpayResponse) => void
  *   onFailure            - (errorMessage: string) => void
  *   onClose              - () => void — called ONLY when user cancels (state was "initiated")
+ *   onRecoveryStart      - () => void — called when user cancels, before async cleanup
  */
 const RazorpayCheckout = forwardRef(({
   razorpayOrder,
@@ -387,15 +539,20 @@ const RazorpayCheckout = forwardRef(({
   onSuccess,
   onFailure,
   onClose,
+  onRecoveryStart,
 }, ref) => {
   const razorpayInitialized = useRef(false);
   const razorpayInstance = useRef(null);
   const paymentStateRef = useRef(paymentState || "idle");
- 
-  // Keep ref in sync with prop
+  const onRecoveryStartRef = useRef(onRecoveryStart);
+
   useEffect(() => {
     paymentStateRef.current = paymentState;
   }, [paymentState]);
+
+  useEffect(() => {
+    onRecoveryStartRef.current = onRecoveryStart;
+  }, [onRecoveryStart]);
  
   // Expose closeModal() to parent via ref
   useImperativeHandle(ref, () => ({
@@ -424,7 +581,11 @@ const RazorpayCheckout = forwardRef(({
       }
  
       razorpayInitialized.current = true;
- 
+
+      if (razorpayPreparedGeneration !== razorpaySessionGeneration) {
+        await prepareRazorpayCheckoutSession();
+      }
+
       const isScriptLoaded = await ensureRazorpayScript();
       if (!isScriptLoaded) {
         onPaymentStateChange?.("failed");
@@ -432,16 +593,14 @@ const RazorpayCheckout = forwardRef(({
         return;
       }
       const customerName = userName || userEmail?.split("@")[0] || "Customer";
- 
-      // FIXED: Removed the deprecated config.display block that was causing "Browser not supported" error
-      // The config object has been completely removed as it's not supported in standard checkout
+      const brandImageUrl = resolveRazorpayBrandImageUrl(storeLogo);
+
       const options = {
         key: razorpayKey,
         amount: razorpayOrder.amount,
         currency: razorpayOrder.currency || "INR",
         name: "OfferWaleBaba",
         description: `Payment for Order ${orderId}`,
-        image: "/public/logo2.svg",
         order_id: razorpayOrder.id,
  
         handler: (response) => {
@@ -451,10 +610,10 @@ const RazorpayCheckout = forwardRef(({
  
           console.log("✅ Razorpay payment captured:", response);
  
-          // Force-close modal immediately
           try { razorpayInstance.current?.close(); } catch (e) { /* ignore */ }
- 
-          // Hand off to parent for backend verification
+          razorpayInstance.current = null;
+          markRazorpaySessionClosed();
+
           onSuccess?.(response);
         },
  
@@ -486,16 +645,22 @@ const RazorpayCheckout = forwardRef(({
             if (currentState === "initiated") {
               // User cancelled without paying
               console.log("ondismiss — user cancelled payment");
+              onRecoveryStartRef.current?.();
               paymentStateRef.current = "cancelled";
               onPaymentStateChange?.("cancelled");
-              onClose?.();
+              razorpayInstance.current = null;
+              markRazorpaySessionClosed();
+              void finalizeRazorpayDismiss().then(() => onClose?.());
               return;
             }
- 
+
             // Safety fallback
             console.warn(`ondismiss in unexpected state="${currentState}" — treating as cancel`);
+            onRecoveryStartRef.current?.();
             onPaymentStateChange?.("cancelled");
-            onClose?.();
+            razorpayInstance.current = null;
+            markRazorpaySessionClosed();
+            void finalizeRazorpayDismiss().then(() => onClose?.());
           },
           escape: true,
           backdropclose: false,
@@ -503,10 +668,15 @@ const RazorpayCheckout = forwardRef(({
  
         retry: { enabled: true, retryCount: 2 },
       };
- 
+
+      if (brandImageUrl) {
+        options.image = brandImageUrl;
+      }
+
       try {
         razorpayInstance.current = new window.Razorpay(options);
- 
+        activeRazorpayInstance = razorpayInstance.current;
+
         razorpayInstance.current.on("payment.failed", (response) => {
           // Payment explicitly failed
           paymentStateRef.current = "failed";
@@ -519,6 +689,8 @@ const RazorpayCheckout = forwardRef(({
             "Payment failed. Please try again.";
  
           try { razorpayInstance.current?.close(); } catch (e) { /* ignore */ }
+          razorpayInstance.current = null;
+          markRazorpaySessionClosed();
           onFailure?.(errorMessage);
         });
  
@@ -526,7 +698,7 @@ const RazorpayCheckout = forwardRef(({
         paymentStateRef.current = "initiated";
         onPaymentStateChange?.("initiated");
         razorpayInstance.current.open();
- 
+
       } catch (error) {
         console.error("Razorpay initialization error:", error);
         paymentStateRef.current = "failed";
@@ -537,26 +709,11 @@ const RazorpayCheckout = forwardRef(({
  
     initPayment();
  
-       return () => {
+    return () => {
       razorpayInitialized.current = false;
-      // Only close if payment was NOT completed
-      if (
-        razorpayInstance.current &&
-        paymentStateRef.current !== "success" &&
-        paymentStateRef.current !== "failed"
-      ) {
-        try { razorpayInstance.current.close(); } catch (e) { /* ignore */ }
-      }
-      // Clean up Razorpay DOM artifacts
-      const rzpContainer = document.querySelector(".razorpay-container");
-      if (rzpContainer) rzpContainer.remove();
-      const rzpBackdrop = document.querySelector(".razorpay-backdrop");
-      if (rzpBackdrop) rzpBackdrop.remove();
-      // Restore body scroll
-      document.body.style.overflow = "auto";
       razorpayInstance.current = null;
     };
-  }, []); // Run once — options captured via refs
+  }, [razorpayOrder?.id, razorpayKey]); // Re-init when gateway order or key changes
  
   return null;
 });

@@ -4,6 +4,7 @@
 
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "../../../SERVICES/axiosInstance";
+import { buildVariantCatalogApiPayload } from "../../../utils/variantCatalogForm";
 
 const toNum = (raw) => {
   if (raw === "" || raw === null || raw === undefined) return undefined;
@@ -181,6 +182,11 @@ export const createProduct = createAsyncThunk(
             ecomm: v.channelVisibility?.ecomm || "active",
             wholesale: wholesaleVisibility,
           },
+          ...buildVariantCatalogApiPayload({
+            title: v.title,
+            description: v.description,
+            shipping: v.shipping,
+          }),
         });
       }
 

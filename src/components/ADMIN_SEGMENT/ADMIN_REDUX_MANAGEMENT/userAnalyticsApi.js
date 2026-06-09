@@ -36,7 +36,7 @@ const axiosBaseQuery = ({ baseUrl } = { baseUrl: '' }) =>
 export const userAnalyticsApi = createApi({
   reducerPath: 'userAnalyticsApi',
   baseQuery: axiosBaseQuery({ baseUrl: '' }),
-  tagTypes: ['Users', 'Carts', 'Wishlists', 'Dashboard'],
+  tagTypes: ['Users', 'Carts', 'Wishlists', 'Dashboard', 'LeadsPushSettings'],
   keepUnusedDataFor: 60, // Cache for 60 seconds
   endpoints: (builder) => ({
 
@@ -71,6 +71,31 @@ export const userAnalyticsApi = createApi({
         method: 'POST',
         data: { userIds },
       }),
+    }),
+
+    sendBulkCartReminderPush: builder.mutation({
+      query: (userIds) => ({
+        url: '/admin/analytics/users/bulk-cart-reminder-push',
+        method: 'POST',
+        data: { userIds },
+      }),
+    }),
+
+    getLeadsPushSettings: builder.query({
+      query: () => ({
+        url: '/admin/analytics/push-settings',
+        method: 'GET',
+      }),
+      providesTags: ['LeadsPushSettings'],
+    }),
+
+    updateLeadsPushSettings: builder.mutation({
+      query: (body) => ({
+        url: '/admin/analytics/push-settings',
+        method: 'PUT',
+        data: body,
+      }),
+      invalidatesTags: ['LeadsPushSettings'],
     }),
 
     // ========== CART ENDPOINTS ==========
@@ -164,6 +189,9 @@ export const {
   useGetAllUsersQuery,
   useGetUserByIdQuery,
   useSendBulkCartReminderEmailMutation,
+  useSendBulkCartReminderPushMutation,
+  useGetLeadsPushSettingsQuery,
+  useUpdateLeadsPushSettingsMutation,
   useGetAllCartsQuery,
   useGetAbandonedCartsQuery,
   useGetHighValueCartsQuery,

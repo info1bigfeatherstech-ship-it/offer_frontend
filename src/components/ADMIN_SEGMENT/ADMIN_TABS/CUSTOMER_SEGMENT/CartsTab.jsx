@@ -6,7 +6,9 @@ import {
 } from '../../ADMIN_REDUX_MANAGEMENT/userAnalyticsApi';
 import CartDetailsModal from './CartDetailsModal';
 import CartReminderEmailModal from './CartReminderEmailModal';
+import CartReminderPushModal from './CartReminderPushModal';
 import BulkActionsMenu from './BulkActionsMenu';
+import LeadsAutoPushToggle from './LeadsAutoPushToggle';
 import { DateTimeCell } from './adminDateTime';
 
 const CartsTab = () => {
@@ -20,6 +22,8 @@ const CartsTab = () => {
   const [selectedUserMeta, setSelectedUserMeta] = useState({});
   const [cartReminderOpen, setCartReminderOpen] = useState(false);
   const [cartReminderRecipients, setCartReminderRecipients] = useState([]);
+  const [cartPushOpen, setCartPushOpen] = useState(false);
+  const [cartPushRecipients, setCartPushRecipients] = useState([]);
 
   const snapshotFromCart = useCallback((cart) => ({
     _id: cart.user?._id,
@@ -116,9 +120,25 @@ const CartsTab = () => {
     setCartReminderRecipients([]);
   }, []);
 
+  const openCartPushModal = useCallback((recipientList) => {
+    if (!recipientList?.length) return;
+    setCartPushRecipients(recipientList);
+    setCartPushOpen(true);
+  }, []);
+
+  const closeCartPushModal = useCallback(() => {
+    setCartPushOpen(false);
+    setCartPushRecipients([]);
+  }, []);
+
   const handleBulkCartEmail = () => {
     if (!selectedUserIds.length) return;
     openCartReminderModal(buildRecipientsFromSelection());
+  };
+
+  const handleBulkCartPush = () => {
+    if (!selectedUserIds.length) return;
+    openCartPushModal(buildRecipientsFromSelection());
   };
 
   const selectableIds = data.map((c) => c.user?._id).filter(Boolean);
@@ -232,11 +252,18 @@ const CartsTab = () => {
         </div>
       )}
 
-      {selectedUserIds.length > 0 && (
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 flex justify-end">
-          <BulkActionsMenu count={selectedUserIds.length} onCartEmail={handleBulkCartEmail} />
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-end gap-3">
+          <LeadsAutoPushToggle />
+          {selectedUserIds.length > 0 && (
+            <BulkActionsMenu
+              count={selectedUserIds.length}
+              onCartEmail={handleBulkCartEmail}
+              onCartPush={handleBulkCartPush}
+            />
+          )}
         </div>
-      )}
+      </div>
 
       {/* Stats Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -417,6 +444,12 @@ const CartsTab = () => {
         isOpen={cartReminderOpen}
         onClose={closeCartReminderModal}
         recipients={cartReminderRecipients}
+      />
+
+      <CartReminderPushModal
+        isOpen={cartPushOpen}
+        onClose={closeCartPushModal}
+        recipients={cartPushRecipients}
       />
 
       {/* Empty State */}

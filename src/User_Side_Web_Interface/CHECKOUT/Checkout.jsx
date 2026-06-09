@@ -79,10 +79,13 @@ import {
   getCartLineUnitMrp,
 } from "../../utils/checkoutPriceDisplay";
 import { formatInr as fmt } from "../../utils/formatInr";
+import { quoteParamsForPaymentSelection } from "../../utils/checkoutQuoteParams";
 import SavingsBanner from "../../components/Common/SavingsBanner";
 import { AddressFormModal } from "../User_Dash_Segment/UserSubPages/UserAddress";
 import RazorpayCheckout, {
-  PaymentErrorModal, PaymentLoadingModal,
+  PaymentErrorModal,
+  PaymentLoadingModal,
+  markRazorpaySessionClosed,
 } from "./RazorpayCheckout/RazorpayCheckout";
 
 // --- PAYMENT STATE MACHINE ----------------------------------------------------
@@ -111,7 +114,9 @@ const createCheckoutAttemptKey = () => {
 };
 
 const isQuoteRefreshError = (errorCode) =>
-  errorCode === "QUOTE_STALE" || errorCode === "QUOTE_EXPIRED";
+  errorCode === "QUOTE_STALE" ||
+  errorCode === "QUOTE_EXPIRED" ||
+  errorCode === "QUOTE_NOT_FOUND";
 
 /** Aligns with backend checkout policy (1�100 when partial is enabled). */
 const getServerPartialPercent = (policy) => {
@@ -889,8 +894,12 @@ const Checkout = () => {
   const shouldEvaluateCodNudgeRef = useRef(false);
   const onlineFullPayableRef = useRef(null);
   const codSavingsPrefetchKeyRef = useRef(null);
+  const codSavingsPrefetchAbortRef = useRef(null);
   const gatewayDismissRecoveryInFlight = useRef(false);
   const gatewayDismissHandlerRef = useRef(async () => {});
+  const [isRecoveringCheckout, setIsRecoveringCheckout] = useState(false);
+  const [paymentOptionActivated, setPaymentOptionActivated] = useState(false);
+  const activePaymentQuoteIdRef = useRef(null);
   const lastKnownOnlineAmountRef = useRef(null);
   const [onlineFullDisplayAmount, setOnlineFullDisplayAmount] = useState(null);
 
@@ -917,6 +926,16 @@ const Checkout = () => {
     const pct = policyPartialPercent;
     if (pct == null) return total * 0.25;
     return (total * pct) / 100;
+  };
+
+  const getPlaceOrderButtonAmount = () => {
+    if (paymentMethod === "cod") {
+      return quote?.amountPayable ?? 0;
+    }
+    if (paymentMethod === "online" && paymentPlan !== "full") {
+      return getPartialPayNowAmount();
+    }
+    return quote?.amountPayable ?? onlineFullPayableRef.current ?? 0;
   };
 
   const advanceAmount = paymentPlan === "full" ? 0 : getPartialPayNowAmount();
@@ -952,9 +971,12 @@ const Checkout = () => {
     }
   }, [checkoutMode, quote?.amountPayable, loading.quote]);
 
+  // COD-vs-online savings badge only BEFORE user picks a payment option.
+  // Never call POST /checkout/quote after selection — each quote request expires prior active quotes server-side.
   useEffect(() => {
     if (step !== 3 || loading.quote) return;
-    if (checkoutMode === "cod") return;
+    if (checkoutMode != null) return;
+    if (paymentOptionActivated) return;
     if (!selectedAddressId) return;
     if (!showCodOption) return;
 
@@ -967,33 +989,43 @@ const Checkout = () => {
     if (codSavingsPrefetchKeyRef.current === prefetchKey) return;
     codSavingsPrefetchKeyRef.current = prefetchKey;
 
+    const abortController = new AbortController();
+    codSavingsPrefetchAbortRef.current = abortController;
     let cancelled = false;
     (async () => {
       try {
-        const res = await axiosInstance.post("/checkout/quote", {
-          addressId: selectedAddressId,
-          couponCode: isCouponManuallyApplied ? couponCode || undefined : undefined,
-          paymentMethodHint: "cod",
-          paymentPlan: "full",
-          balanceCollection: "online",
-        });
+        const res = await axiosInstance.post(
+          "/checkout/quote",
+          {
+            addressId: selectedAddressId,
+            couponCode: isCouponManuallyApplied ? couponCode || undefined : undefined,
+            paymentMethodHint: "cod",
+            paymentPlan: "full",
+            balanceCollection: "online",
+            quotePurpose: "cod_comparison",
+          },
+          { signal: abortController.signal }
+        );
         if (cancelled || !res.data?.success) return;
         const savings = computeCodVsOnlineSavings(
           res.data?.amountPayable,
           onlinePayable
         );
         setCodVsOnlineSavings(savings);
-      } catch {
+      } catch (err) {
+        if (err?.code === "ERR_CANCELED" || err?.name === "CanceledError") return;
         if (!cancelled) codSavingsPrefetchKeyRef.current = null;
       }
     })();
 
     return () => {
       cancelled = true;
+      abortController.abort();
     };
   }, [
     step,
     checkoutMode,
+    paymentOptionActivated,
     loading.quote,
     selectedAddressId,
     quote?.amountPayable,
@@ -1093,6 +1125,7 @@ const Checkout = () => {
       plan = paymentPlan,
       balance = balanceCollection,
       unwrap = false,
+      forceRefresh = false,
       ...rest
     } = {}) => {
       const hasCouponOverride = Object.prototype.hasOwnProperty.call(rest, "coupon");
@@ -1117,6 +1150,7 @@ const Checkout = () => {
           paymentMethodHint: paymentHint,
           paymentPlan: plan,
           balanceCollection: balance,
+          forceRefresh,
         })
       );
 
@@ -1162,6 +1196,7 @@ const Checkout = () => {
       dispatch(setPaymentMethod("online"));
       dispatch(setPaymentPlan("full"));
       dispatch(setBalanceCollection("online"));
+      setPaymentOptionActivated(true);
       requestQuote({ paymentHint: "online", plan: "full", balance: "online" });
     }
   }, [step, checkoutPolicy, paymentMethod, dispatch, requestQuote]);
@@ -1224,6 +1259,11 @@ const Checkout = () => {
         checkoutAttemptKeyRef.current = null;
         dispatch(resetQuote());
         dispatch(resetPaymentVerification());
+        dispatch(setPaymentMethod(null));
+        dispatch(setPaymentPlan("full"));
+        dispatch(setBalanceCollection("online"));
+        setPaymentOptionActivated(false);
+        activePaymentQuoteIdRef.current = null;
 
         let cartOk = false;
         let lastCartErr = null;
@@ -1234,7 +1274,9 @@ const Checkout = () => {
             break;
           } catch (e) {
             lastCartErr = e;
-            await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+            if (attempt < 2) {
+              await new Promise((r) => setTimeout(r, 150 * (attempt + 1)));
+            }
           }
         }
         if (!cartOk) {
@@ -1248,28 +1290,15 @@ const Checkout = () => {
           return;
         }
 
-        if (selectedAddressId && (step === 2 || step === 3)) {
-          try {
-            await requestQuote({ unwrap: true });
-          } catch (qe) {
-            toast.error(
-              qe?.message ||
-                "Could not refresh totals. Change payment option or address and try again.",
-              { theme: "dark" }
-            );
-          }
-        }
-
         dispatch(clearPlacedOrderForDismissedGateway());
         setRazorpayPaymentState(PAYMENT_STATE.IDLE);
         toast.success(
-          showCodOption
-            ? "Payment window closed. Your bag was restored — pick COD, full pay, or partial, then confirm."
-            : "Payment window closed. Your bag was restored — click Place Order to try again.",
+          "Payment window closed. Your bag was restored — choose a payment option, then place order.",
           { theme: "dark", autoClose: 5000 }
         );
       } finally {
         gatewayDismissRecoveryInFlight.current = false;
+        setIsRecoveringCheckout(false);
       }
     };
   }, [
@@ -1303,26 +1332,40 @@ const Checkout = () => {
       return;
     }
     setStep(2);
-    // Refresh quote when entering order summary (step 2).
-    const hint = paymentMethod === "cod" ? "cod" : "online";
-    const isAdvanceCod =
-      paymentMethod === "online" && paymentPlan === "advance" && balanceCollection === "cod";
-    const plan = paymentMethod === "cod" || !isAdvanceCod ? "full" : "advance";
-    const balance = paymentMethod === "cod" || !isAdvanceCod ? "online" : "cod";
-    requestQuote({ paymentHint: hint, plan, balance });
+    requestQuote(quoteParamsForPaymentSelection({ paymentMethod, paymentPlan, balanceCollection }));
   };
 
-  const handleStep2Next = async () => {
-  if (loading.quote) return;
-  if (!quote) {
-    toast.error("Please wait for order totals to load", { theme: "dark" });
-    return;
-  }
-  await requestQuote({ paymentHint: "online", plan: "full", balance: "online", unwrap: true });
-  setStep(3);
-};
+  const handleStep2Next = () => {
+    if (loading.quote) return;
+    if (!quote) {
+      toast.error("Please wait for order totals to load", { theme: "dark" });
+      return;
+    }
+    dispatch(setPaymentMethod(null));
+    dispatch(setPaymentPlan("full"));
+    dispatch(setBalanceCollection("online"));
+    setPaymentOptionActivated(false);
+    activePaymentQuoteIdRef.current = null;
+    codSavingsPrefetchKeyRef.current = null;
+    codSavingsPrefetchAbortRef.current?.abort();
+    codSavingsPrefetchAbortRef.current = null;
+    setStep(3);
+  };
 
-  const selectCheckoutPaymentMode = (mode) => {
+  const cancelCodSavingsPrefetch = () => {
+    codSavingsPrefetchAbortRef.current?.abort();
+    codSavingsPrefetchAbortRef.current = null;
+    codSavingsPrefetchKeyRef.current = null;
+  };
+
+  const selectCheckoutPaymentMode = async (mode) => {
+    if (isRecoveringCheckout || gatewayDismissRecoveryInFlight.current) {
+      toast.info("Restoring your bag after payment was closed. Please wait a moment.", {
+        theme: "dark",
+      });
+      return;
+    }
+    cancelCodSavingsPrefetch();
     checkoutAttemptKeyRef.current = null;
     shouldEvaluateCodNudgeRef.current = mode === "cod";
     if (mode !== "cod") {
@@ -1350,20 +1393,32 @@ const Checkout = () => {
       dispatch(setPaymentPlan("advance"));
       dispatch(setBalanceCollection("cod"));
     }
-    // Refetch whenever payment mode changes and we have an address (even if quote is null so
-    // totals stay in sync with Shiprocket pricing mode for confirmCheckout).
-    if (selectedAddressId) {
-      dispatch(resetQuote());
-      dispatch(setSelectedAddress(selectedAddressId));
-      const hint = mode === "cod" ? "cod" : "online";
-      const plan = mode === "advance_cod" ? "advance" : "full";
-      const bal = mode === "advance_cod" ? "cod" : "online";
-      requestQuote({
+    if (!selectedAddressId) return;
+
+    dispatch(resetQuote());
+    const quoteParams =
+      mode === "cod"
+        ? { paymentHint: "cod", plan: "full", balance: "online" }
+        : mode === "advance_cod"
+          ? { paymentHint: "online", plan: "advance", balance: "cod" }
+          : { paymentHint: "online", plan: "full", balance: "online" };
+
+    try {
+      const quoteResult = await requestQuote({
         addressId: selectedAddressId,
-        paymentHint: hint,
-        plan,
-        balance: bal,
+        ...quoteParams,
+        unwrap: true,
+        forceRefresh: true,
       });
+      activePaymentQuoteIdRef.current = quoteResult?.quoteId || null;
+      setPaymentOptionActivated(true);
+    } catch (err) {
+      toast.error(err?.message || "Could not refresh totals for this payment option.", {
+        theme: "dark",
+      });
+      dispatch(setPaymentMethod(null));
+      setPaymentOptionActivated(false);
+      activePaymentQuoteIdRef.current = null;
     }
   };
 
@@ -1425,8 +1480,31 @@ const Checkout = () => {
   const handlePlaceOrder = async () => {
     // Guard: prevent double-click / multiple calls
     if (placeOrderInFlight.current || isPlacingOrder) return;
-    if (!quoteId || !selectedAddressId) {
-      toast.error("Missing quote or address. Please refresh.", { theme: "dark" });
+    if (isRecoveringCheckout || gatewayDismissRecoveryInFlight.current) {
+      toast.info("Restoring your bag after payment was closed. Please wait a moment.", {
+        theme: "dark",
+      });
+      return;
+    }
+    if (placedOrder?.order?.orderId && paymentMethod === "online") {
+      toast.info("Please wait — your previous payment attempt is still being cleared.", {
+        theme: "dark",
+      });
+      return;
+    }
+    if (!quoteId || !quote || !selectedAddressId) {
+      toast.error("Select a payment option to refresh totals, then try again.", { theme: "dark" });
+      return;
+    }
+    if (
+      activePaymentQuoteIdRef.current &&
+      String(quoteId) !== String(activePaymentQuoteIdRef.current)
+    ) {
+      toast.error("Totals are refreshing — please wait, then try again.", { theme: "dark" });
+      return;
+    }
+    if (!paymentOptionActivated) {
+      toast.error("Please select a payment option first.", { theme: "dark" });
       return;
     }
     if (!paymentMethod) {
@@ -1436,6 +1514,8 @@ const Checkout = () => {
 
     placeOrderInFlight.current = true;
     setIsPlacingOrder(true);
+
+    let quoteConfirmedThisAttempt = false;
 
     try {
       const idempotencyKey =
@@ -1455,6 +1535,7 @@ const Checkout = () => {
         paymentAdvancePercent: advancePercentForApi,
         balanceCollection,
       })).unwrap();
+      quoteConfirmedThisAttempt = true;
 
       // Step 2: Place order
       const orderResult = await dispatch(placeOrder({
@@ -1486,10 +1567,17 @@ const Checkout = () => {
             "Failed to initiate payment. Please try again."
           );
         }
-        if (!razorpayKey && !razorpayKeyLoading) {
-          await dispatch(getRazorpayKey()).unwrap();
+        let gatewayKey = razorpayKey;
+        if (!gatewayKey) {
+          try {
+            gatewayKey = await dispatch(getRazorpayKey()).unwrap();
+          } catch (keyErr) {
+            throw new Error(
+              keyErr?.message || "Payment gateway not available. Please use COD or try again later."
+            );
+          }
         }
-        if (!razorpayKey && razorpayKeyError) {
+        if (!gatewayKey) {
           throw new Error("Payment gateway not configured. Please use COD.");
         }
         setRazorpayPaymentState(PAYMENT_STATE.IDLE);
@@ -1498,15 +1586,21 @@ const Checkout = () => {
       }
     } catch (e) {
       const msg = e?.message || "Failed to place order";
+      if (quoteConfirmedThisAttempt) {
+        dispatch(resetQuote());
+      }
       if (isQuoteRefreshError(e?.code)) {
         checkoutAttemptKeyRef.current = null;
-        toast.info(msg, { theme: "dark" });
-        requestQuote({
-          addressId: selectedAddressId,
-          paymentHint: paymentMethod || "online",
-          plan: paymentPlan,
-          balance: balanceCollection,
-        });
+        dispatch(resetQuote());
+        setPaymentOptionActivated(false);
+        activePaymentQuoteIdRef.current = null;
+        toast.info(
+          e?.code === "QUOTE_NOT_FOUND"
+            ? "Checkout session expired — select your payment option again."
+            : msg,
+          { theme: "dark" }
+        );
+        dispatch(setPaymentMethod(null));
       } else if (e?.code === "IDEMPOTENCY_REQUEST_IN_PROGRESS") {
         toast.info("Your order is already being processed. Please wait a moment.", { theme: "dark" });
       } else if (e?.code === "IDEMPOTENCY_KEY_REUSED") {
@@ -1561,28 +1655,52 @@ const Checkout = () => {
   };
 
   const handleRazorpayFailure = (error) => {
+    markRazorpaySessionClosed();
     setShowRazorpay(false);
+    setRazorpayOrderData(null);
     setRazorpayPaymentState(PAYMENT_STATE.FAILED);
     setShowPaymentErrorModal(false);
     setPaymentError(null);
 
-    const msg = error?.error?.description || "Payment failed. Please try again.";
-    toast.error(msg, { theme: "dark" });
+    const msg =
+      typeof error === "string"
+        ? error
+        : error?.error?.description || error?.message || "Payment failed. Please try again.";
+    const isGatewayInitFailure = /browser is not supported|failed to initialize|failed to load payment gateway|invalid payment order/i.test(
+      msg
+    );
+    if (isGatewayInitFailure) {
+      toast.error(msg, { theme: "dark" });
+      void gatewayDismissHandlerRef.current();
+      return;
+    }
 
+    toast.error(msg, { theme: "dark" });
     checkoutAttemptKeyRef.current = null;
   };
+
+  const handleRazorpayRecoveryStart = useCallback(() => {
+    setIsRecoveringCheckout(true);
+  }, []);
 
   const handleRazorpayClose = useCallback(() => {
     setShowPaymentErrorModal(false);
     setPaymentError(null);
+    setShowRazorpay(false);
+    setRazorpayOrderData(null);
     void gatewayDismissHandlerRef.current();
   }, []);
 
-  const handleRetryPayment = () => {
+  const handleRetryPayment = async () => {
     setShowPaymentErrorModal(false);
     setPaymentError(null);
     setRazorpayPaymentState(PAYMENT_STATE.IDLE);
-    handlePlaceOrder();
+    checkoutAttemptKeyRef.current = null;
+    dispatch(resetQuote());
+    setPaymentOptionActivated(false);
+    activePaymentQuoteIdRef.current = null;
+    dispatch(setPaymentMethod(null));
+    toast.info("Select your payment option again, then place order.", { theme: "dark" });
   };
 
   const handleSwitchToPrepaidFromPopup = () => {
@@ -1603,14 +1721,19 @@ const Checkout = () => {
   // -- Derived button state ---------------------------------------------------
   const isPlaceOrderDisabled =
     !quote ||
+    !quoteId ||
     !paymentMethod ||
+    !paymentOptionActivated ||
     loading.quote ||
     loading.confirm ||
     loading.placeOrder ||
     loading.abandonCheckout ||
     isPlacingOrder ||
+    isRecoveringCheckout ||
     paymentVerification.loading ||
-    (paymentMethod === "online" && !razorpayKey && !razorpayKeyLoading && !razorpayKeyError);
+    Boolean(placedOrder?.order?.orderId) ||
+    (paymentMethod === "online" &&
+      (!razorpayKey || razorpayKeyLoading || Boolean(razorpayKeyError)));
   const couponApplyDisabled =
     !selectedAddressId ||
     step !== 3 ||
@@ -1934,10 +2057,17 @@ const Checkout = () => {
               {checkoutPolicyLoading && !checkoutPolicy ? (
                 <p className="text-[11px] text-gray-400 font-medium py-2">Loading payment options</p>
               ) : (
-                <div className="space-y-3">
+                <div
+                  className="space-y-3 relative"
+                  style={{
+                    pointerEvents: isRecoveringCheckout ? "none" : "auto",
+                    opacity: isRecoveringCheckout ? 0.55 : 1,
+                  }}
+                >
                   {(showCodOption || partialPlanEnabled) && (
                   <button
                     type="button"
+                    disabled={isRecoveringCheckout}
                     onClick={() => selectCheckoutPaymentMode("online_full")}
                     className="w-full text-left cursor-pointer transition-all active:scale-[0.98]"
                     style={{
@@ -2020,6 +2150,7 @@ const Checkout = () => {
                   {partialPlanEnabled && policyPartialPercent != null && (
                     <button
                       type="button"
+                      disabled={isRecoveringCheckout}
                       onClick={() => selectCheckoutPaymentMode("advance_cod")}
                       className="w-full text-left cursor-pointer transition-all active:scale-[0.98]"
                       style={{
@@ -2080,6 +2211,7 @@ const Checkout = () => {
                   {showCodOption && (
                     <button
                       type="button"
+                      disabled={isRecoveringCheckout}
                       onClick={() => selectCheckoutPaymentMode("cod")}
                       className="w-full text-left cursor-pointer transition-all active:scale-[0.98]"
                       style={{
@@ -2315,10 +2447,7 @@ const Checkout = () => {
                   <><Loader2 size={16} className="animate-spin" /> Getting Quote</>
                 ) : (
                   <>
-                    Place Order {" "}
-                    {paymentMethod === "online" && paymentPlan !== "full"
-                      ? fmt(getPartialPayNowAmount())
-                      : fmt(onlineFullPayableRef.current ?? quote?.amountPayable)}
+                    Place Order {fmt(getPlaceOrderButtonAmount())}
                   </>
                 )}
               </button>
@@ -2352,6 +2481,7 @@ const Checkout = () => {
       {/* -- Razorpay Checkout -- */}
       {showRazorpay && razorpayOrderData && razorpayKey && (
         <RazorpayCheckout
+          key={razorpayOrderData.id}
           razorpayOrder={razorpayOrderData}
           razorpayKey={razorpayKey}
           orderId={placedOrder?.order?.orderId}
@@ -2364,7 +2494,12 @@ const Checkout = () => {
           onSuccess={handleRazorpaySuccess}
           onFailure={handleRazorpayFailure}
           onClose={handleRazorpayClose}
+          onRecoveryStart={handleRazorpayRecoveryStart}
         />
+      )}
+
+      {isRecoveringCheckout && (
+        <PaymentLoadingModal message="Please wait… restoring your bag after payment was closed" />
       )}
 
       {/* -- Payment verification overlay -- */}
