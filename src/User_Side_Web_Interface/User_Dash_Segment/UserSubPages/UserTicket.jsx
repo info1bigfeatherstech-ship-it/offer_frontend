@@ -1,8 +1,10 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Mail, FileText, ArrowUpRight } from 'lucide-react';
-import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 const UserTicket = () => {
+  const navigate = useNavigate();
+
   const WhatsAppIcon = () => (
     <svg 
       viewBox="0 0 24 24" 
@@ -50,8 +52,7 @@ const UserTicket = () => {
     if (item.link.startsWith('http') || item.link.startsWith('mailto')) {
       window.open(item.link, '_blank');
     } else {
-      // You can replace this with your router navigation
-      console.log('Navigate to:', item.link);
+      navigate(item.link);
     }
   };
 

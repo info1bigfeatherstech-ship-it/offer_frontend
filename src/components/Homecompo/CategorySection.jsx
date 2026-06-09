@@ -66,7 +66,7 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
       if (w < 1024) return 500; // Mobile + Tablet
       return 420;               // Desktop
     }, []),
-    overscan: 1,
+    overscan: 3,
   });
 
   return (

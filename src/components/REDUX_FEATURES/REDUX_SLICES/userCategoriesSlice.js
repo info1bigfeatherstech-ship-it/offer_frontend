@@ -34,6 +34,18 @@ export const fetchAllCategories = createAsyncThunk(
         await new Promise((res) => setTimeout(res, 1000));
       }
     }
+  },
+  {
+    condition: (_, { getState }) => {
+      const { userCategories } = getState();
+      if (
+        userCategories.loading.categories ||
+        (userCategories.categories && userCategories.categories.length > 0)
+      ) {
+        return false;
+      }
+      return true;
+    },
   }
 );
 

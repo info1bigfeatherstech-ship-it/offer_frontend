@@ -1,14 +1,35 @@
 // ADMIN_TABS/CustomersTab.jsx
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
+import { toast } from 'react-toastify';
 import { useGetAllUsersQuery } from '../../ADMIN_REDUX_MANAGEMENT/userAnalyticsApi';
+import CartDetailsModal from './CartDetailsModal';
+import CartReminderEmailModal from './CartReminderEmailModal';
+import CustomerDetailsModal from './CustomerDetailsModal';
+import BulkActionsMenu from './BulkActionsMenu';
+import { DateTimeCell } from './adminDateTime';
 
 const CustomersTab = () => {
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
-  const [selectedUsers, setSelectedUsers] = useState([]); // Array of IDs
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [selectedUserMeta, setSelectedUserMeta] = useState({});
   const [showUserModal, setShowUserModal] = useState(false);
   const [activeUser, setActiveUser] = useState(null);
+  const [cartModalUserId, setCartModalUserId] = useState(null);
+  const [isCartModalOpen, setIsCartModalOpen] = useState(false);
+  const [cartReminderOpen, setCartReminderOpen] = useState(false);
+  const [cartReminderRecipients, setCartReminderRecipients] = useState([]);
+
+  const openCartDetails = useCallback((userId) => {
+    setCartModalUserId(userId);
+    setIsCartModalOpen(true);
+  }, []);
+
+  const closeCartDetails = useCallback(() => {
+    setIsCartModalOpen(false);
+    setCartModalUserId(null);
+  }, []);
 
   const { data, isLoading, error, isFetching } = useGetAllUsersQuery({
     page,
@@ -20,20 +41,69 @@ const CustomersTab = () => {
   const users = data?.data || [];
   const pagination = data?.pagination || { total: 0, totalPages: 1 };
 
-  // --- Handlers ---
+  const snapshotUser = useCallback((user) => ({
+    _id: user._id,
+    name: user.name,
+    email: user.email,
+    cartItemsCount: user.cartItemsCount || 0,
+  }), []);
+
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedUsers(users.map(u => u._id));
+      setSelectedUsers(users.map((u) => u._id));
+      setSelectedUserMeta((prev) => {
+        const next = { ...prev };
+        users.forEach((u) => {
+          next[u._id] = snapshotUser(u);
+        });
+        return next;
+      });
     } else {
       setSelectedUsers([]);
+      setSelectedUserMeta({});
     }
   };
 
-  const handleSelectUser = (id) => {
-    setSelectedUsers(prev => 
-      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+  const handleSelectUser = (user) => {
+    const id = user._id;
+    setSelectedUsers((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
     );
+    setSelectedUserMeta((prev) => {
+      const next = { ...prev };
+      if (next[id]) {
+        delete next[id];
+      } else {
+        next[id] = snapshotUser(user);
+      }
+      return next;
+    });
   };
+
+  const openCartReminderModal = useCallback((recipientList) => {
+    if (!recipientList?.length) return;
+    setCartReminderRecipients(recipientList);
+    setCartReminderOpen(true);
+  }, []);
+
+  const closeCartReminderModal = useCallback(() => {
+    setCartReminderOpen(false);
+    setCartReminderRecipients([]);
+  }, []);
+
+  const buildRecipientsFromSelection = useCallback(() => {
+    return selectedUsers.map((id) => {
+      if (selectedUserMeta[id]) return selectedUserMeta[id];
+      const fromPage = users.find((u) => u._id === id);
+      if (fromPage) return snapshotUser(fromPage);
+      return { _id: id, name: 'Customer', email: '—', cartItemsCount: 0 };
+    });
+  }, [selectedUsers, selectedUserMeta, users, snapshotUser]);
+
+  const openCustomerDetails = useCallback((user) => {
+    setActiveUser(user);
+    setShowUserModal(true);
+  }, []);
 
   const shareToWhatsApp = (user) => {
     const message = `Hello ${user.name},\nCheck out our latest collection at: ${window.location.origin}`;
@@ -42,11 +112,18 @@ const CustomersTab = () => {
     window.open(url, '_blank');
   };
 
-  const handleBulkWhatsApp = () => {
+  const handleBulkCartEmail = () => {
     if (selectedUsers.length === 0) return;
-    alert(`Opening WhatsApp broadcast for ${selectedUsers.length} users...`);
-    // Note: WhatsApp API doesn't support multi-send in one click, 
-    // usually we loop or use a business API. For now, we target the first or prompt.
+    openCartReminderModal(buildRecipientsFromSelection());
+  };
+
+  const handleSingleCartEmail = (user) => {
+    if (!user?._id) return;
+    if ((user.cartItemsCount || 0) === 0) {
+      toast.warning('This customer has an empty cart.');
+      return;
+    }
+    openCartReminderModal([snapshotUser(user)]);
   };
 
   if (isLoading) return <div className="p-20 text-center animate-pulse">Loading Customers...</div>;
@@ -76,15 +153,7 @@ const CustomersTab = () => {
               <option value="user">Customer</option>
               <option value="wholesaler">Wholesaler</option>
             </select>
-            {selectedUsers.length > 0 && (
-              <button 
-                onClick={handleBulkWhatsApp}
-                className="flex items-center gap-2 bg-green-600 text-white px-4 py-2.5 rounded-xl hover:bg-green-700 transition-all shadow-md"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.417-.003 6.557-5.338 11.892-11.893 11.892-1.997-.001-3.951-.499-5.688-1.447l-6.305 1.65zm6.59-3.407c1.558.925 3.11 1.411 4.704 1.412 5.384 0 9.762-4.378 9.765-9.761.001-2.609-1.015-5.059-2.863-6.909-1.848-1.849-4.301-2.866-6.911-2.867-5.385 0-9.764 4.379-9.767 9.762-.001 1.745.456 3.447 1.32 4.957l-.821 3.003 3.073-.807z"/></svg>
-                Bulk Message ({selectedUsers.length})
-              </button>
-            )}
+            <BulkActionsMenu count={selectedUsers.length} onCartEmail={handleBulkCartEmail} />
           </div>
         </div>
       </div>
@@ -111,13 +180,17 @@ const CustomersTab = () => {
           </thead>
           <tbody className="divide-y divide-gray-100">
             {users.map((user) => (
-              <tr key={user._id} className="hover:bg-blue-50/30 transition-colors group">
-                <td className="px-6 py-4">
+              <tr
+                key={user._id}
+                onClick={() => openCustomerDetails(user)}
+                className="hover:bg-blue-50/30 transition-colors group cursor-pointer"
+              >
+                <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                   <input 
                     type="checkbox" 
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
                     checked={selectedUsers.includes(user._id)}
-                    onChange={() => handleSelectUser(user._id)}
+                    onChange={() => handleSelectUser(user)}
                   />
                 </td>
                 <td className="px-6 py-4">
@@ -138,15 +211,40 @@ const CustomersTab = () => {
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex items-center gap-2">
-                    <span className="text-xs bg-purple-50 text-purple-600 px-2 py-1 rounded-md font-medium">🛒 {user.cartItemsCount || 0}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openCartDetails(user._id);
+                      }}
+                      className="text-xs bg-purple-50 text-purple-600 px-2 py-1 rounded-md font-medium hover:bg-purple-100 transition-colors cursor-pointer"
+                      title="View cart items"
+                    >
+                      🛒 {user.cartItemsCount || 0}
+                    </button>
                     <span className="text-xs bg-pink-50 text-pink-600 px-2 py-1 rounded-md font-medium">❤️ {user.wishlistCount || 0}</span>
                   </div>
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-600">
-                  {new Date(user.createdAt).toLocaleDateString()}
+                <td className="px-6 py-4">
+                  <DateTimeCell iso={user.createdAt} />
                 </td>
-                <td className="px-6 py-4 text-right">
+                <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
                   <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button
+                      type="button"
+                      onClick={() => handleSingleCartEmail(user)}
+                      disabled={!(user.cartItemsCount > 0)}
+                      className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                      title={
+                        user.cartItemsCount > 0
+                          ? 'Send cart reminder email'
+                          : 'Empty cart — no reminder email'
+                      }
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                    </button>
                     <button 
                       onClick={() => shareToWhatsApp(user)}
                       className="p-2 text-gray-400 hover:text-green-600 hover:bg-green-50 rounded-lg"
@@ -154,9 +252,11 @@ const CustomersTab = () => {
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" /></svg>
                     </button>
-                    <button 
-                      onClick={() => { setActiveUser(user); setShowUserModal(true); }}
+                    <button
+                      type="button"
+                      onClick={() => openCustomerDetails(user)}
                       className="p-2 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg"
+                      title="View customer details"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
                     </button>
@@ -169,6 +269,29 @@ const CustomersTab = () => {
       </div>
 
       {/* Mobile Card View (Omitted for brevity, use similar styling) */}
+
+      <CartDetailsModal
+        isOpen={isCartModalOpen}
+        onClose={closeCartDetails}
+        userId={cartModalUserId}
+      />
+
+      <CartReminderEmailModal
+        isOpen={cartReminderOpen}
+        onClose={closeCartReminderModal}
+        recipients={cartReminderRecipients}
+      />
+
+      <CustomerDetailsModal
+        isOpen={showUserModal}
+        onClose={() => {
+          setShowUserModal(false);
+          setActiveUser(null);
+        }}
+        userId={activeUser?._id}
+        initialUser={activeUser}
+        onViewCart={(id) => openCartDetails(id)}
+      />
 
       {/* Pagination */}
       <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-gray-200">

@@ -164,9 +164,9 @@ const RelatedCard = ({ product, index = 0 }) => {
 
   const ratingUi = useMemo(() => getProductRatingDisplay(product, null), [product]);
 
-  useEffect(() => {
-    dispatch(fetchCategories());
-  }, [dispatch]);
+  // useEffect(() => {
+  //   dispatch(fetchCategories());
+  // }, [dispatch]);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleCardClick = () => {

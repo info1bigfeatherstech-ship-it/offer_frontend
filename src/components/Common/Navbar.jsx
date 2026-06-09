@@ -211,7 +211,7 @@ const MegaDropdown = ({ isOpen, topCategories, bottomCategories }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="absolute top-full left-1/2 -translate-x-1/2 w-screen bg-white border-t border-gray-200 shadow-2xl z-50 hidden lg:block animate-slideDown">
+    <div className="absolute top-full left-0 w-full bg-white border-t border-gray-200 shadow-2xl z-50 hidden lg:block animate-slideDown">
       <CategoryPills topCategories={topCategories} bottomCategories={bottomCategories} />
     </div>
   );
@@ -635,7 +635,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
         </div>
 
         {/* ══ DESKTOP BOTTOM NAV ════════════════════════════════════════════════ */}
-        <nav className="hidden lg:block relative w-full">
+        <nav className="hidden lg:block w-full">
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-between lg:gap-3 xl:gap-6 2xl:gap-8 py-2">
 
@@ -693,7 +693,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
               </div>
 
               {/* Right Zone: Contact us */}
-              <div className="flex items-center shrink-0 min-w-0">
+              <div className="hidden lg:flex items-center shrink-0 min-w-0">
                 <Link
                   to="/contact"
                   className="group relative flex items-center gap-2 lg:gap-2.5 xl:gap-3 px-2.5 lg:px-3 xl:px-4 py-2 lg:py-2.5 xl:py-3 rounded-2xl overflow-hidden transition-all duration-300 hover:bg-white/10 whitespace-nowrap"
@@ -791,6 +791,17 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                     <span className="group-hover:text-[#F7A221]">{link.label}</span>
                   </Link>
                 ))}
+
+                <Link
+                  to="/contact"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center gap-4 p-3 hover:bg-orange-50 rounded-xl transition-all font-bold text-sm group"
+                >
+                  <span className="p-2 bg-gray-50 rounded-lg group-hover:scale-110 transition-transform">
+                    <ImageIcon src={audio} alt="Contact Us" animation="animate-float" />
+                  </span>
+                  <span className="group-hover:text-[#F7A221]">Contact Us</span>
+                </Link>
 
                 {/* Categories — pill chips in sidebar */}
                 <div className="pt-4 border-t">

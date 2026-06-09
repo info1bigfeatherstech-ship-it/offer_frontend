@@ -64,6 +64,15 @@ export const userAnalyticsApi = createApi({
       providesTags: (result, error, userId) => [{ type: 'Users', id: userId }],
     }),
 
+    // Send cart reminder emails to selected users (personalized cart per recipient)
+    sendBulkCartReminderEmail: builder.mutation({
+      query: (userIds) => ({
+        url: '/admin/analytics/users/bulk-cart-reminder-email',
+        method: 'POST',
+        data: { userIds },
+      }),
+    }),
+
     // ========== CART ENDPOINTS ==========
 
     // Get all carts
@@ -94,6 +103,15 @@ export const userAnalyticsApi = createApi({
         params: { page, limit, minAmount },
       }),
       providesTags: ['Carts'],
+    }),
+
+    // Get single cart with full item details
+    getCartById: builder.query({
+      query: (cartId) => ({
+        url: `/admin/analytics/carts/${cartId}`,
+        method: 'GET',
+      }),
+      providesTags: (result, error, cartId) => [{ type: 'Carts', id: cartId }],
     }),
 
     // ========== WISHLIST ENDPOINTS ==========
@@ -145,9 +163,11 @@ export const userAnalyticsApi = createApi({
 export const {
   useGetAllUsersQuery,
   useGetUserByIdQuery,
+  useSendBulkCartReminderEmailMutation,
   useGetAllCartsQuery,
   useGetAbandonedCartsQuery,
   useGetHighValueCartsQuery,
+  useGetCartByIdQuery,
   useGetAllWishlistsQuery,
   useGetStaleWishlistsQuery,
   useGetPopularWishlistProductsQuery,

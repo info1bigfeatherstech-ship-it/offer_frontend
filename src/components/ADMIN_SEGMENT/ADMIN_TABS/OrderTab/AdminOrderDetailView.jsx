@@ -369,6 +369,11 @@ export default function AdminOrderDetailView({
   const syncedOnOpenRef = useRef(null);
   useEffect(() => {
     syncedOnOpenRef.current = null;
+    window.scrollTo({ top: 0, behavior: "instant" });
+    const mainEl = document.querySelector("main.overflow-y-auto");
+    if (mainEl) {
+      mainEl.scrollTop = 0;
+    }
   }, [orderId]);
 
   useEffect(() => {
