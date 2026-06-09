@@ -1,15 +1,42 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   useGetAllCartsQuery, 
   useGetAbandonedCartsQuery, 
   useGetHighValueCartsQuery 
 } from '../../ADMIN_REDUX_MANAGEMENT/userAnalyticsApi';
+import CartDetailsModal from './CartDetailsModal';
+import CartReminderEmailModal from './CartReminderEmailModal';
+import BulkActionsMenu from './BulkActionsMenu';
+import { DateTimeCell } from './adminDateTime';
 
 const CartsTab = () => {
   const [activeSubTab, setActiveSubTab] = useState('all'); // all, abandoned, high-value
   const [page, setPage] = useState(1);
   const [minAmount, setMinAmount] = useState(5000);
   const [hours, setHours] = useState(24);
+  const [selectedCartId, setSelectedCartId] = useState(null);
+  const [isCartModalOpen, setIsCartModalOpen] = useState(false);
+  const [selectedUserIds, setSelectedUserIds] = useState([]);
+  const [selectedUserMeta, setSelectedUserMeta] = useState({});
+  const [cartReminderOpen, setCartReminderOpen] = useState(false);
+  const [cartReminderRecipients, setCartReminderRecipients] = useState([]);
+
+  const snapshotFromCart = useCallback((cart) => ({
+    _id: cart.user?._id,
+    name: cart.user?.name || 'Customer',
+    email: cart.user?.email || '—',
+    cartItemsCount: cart.itemCount || cart.items?.length || 0,
+  }), []);
+
+  const openCartDetails = useCallback((cart) => {
+    setSelectedCartId(cart._id);
+    setIsCartModalOpen(true);
+  }, []);
+
+  const closeCartDetails = useCallback(() => {
+    setIsCartModalOpen(false);
+    setSelectedCartId(null);
+  }, []);
 
   // Queries
   const allCarts = useGetAllCartsQuery({ page, limit: 10 });
@@ -37,6 +64,66 @@ const CartsTab = () => {
       error = allCarts.error;
       pagination = allCarts.data?.pagination || { total: 0, page: 1, totalPages: 1 };
   }
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      const ids = data.map((c) => c.user?._id).filter(Boolean);
+      setSelectedUserIds(ids);
+      setSelectedUserMeta((prev) => {
+        const next = { ...prev };
+        data.forEach((c) => {
+          if (c.user?._id) next[c.user._id] = snapshotFromCart(c);
+        });
+        return next;
+      });
+    } else {
+      setSelectedUserIds([]);
+      setSelectedUserMeta({});
+    }
+  };
+
+  const handleSelectCart = (cart) => {
+    const id = cart.user?._id;
+    if (!id) return;
+    setSelectedUserIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+    setSelectedUserMeta((prev) => {
+      const next = { ...prev };
+      if (next[id]) delete next[id];
+      else next[id] = snapshotFromCart(cart);
+      return next;
+    });
+  };
+
+  const buildRecipientsFromSelection = useCallback(() => {
+    return selectedUserIds.map((id) => {
+      if (selectedUserMeta[id]) return selectedUserMeta[id];
+      const fromPage = data.find((c) => c.user?._id === id);
+      if (fromPage) return snapshotFromCart(fromPage);
+      return { _id: id, name: 'Customer', email: '—', cartItemsCount: 0 };
+    });
+  }, [selectedUserIds, selectedUserMeta, data, snapshotFromCart]);
+
+  const openCartReminderModal = useCallback((recipientList) => {
+    if (!recipientList?.length) return;
+    setCartReminderRecipients(recipientList);
+    setCartReminderOpen(true);
+  }, []);
+
+  const closeCartReminderModal = useCallback(() => {
+    setCartReminderOpen(false);
+    setCartReminderRecipients([]);
+  }, []);
+
+  const handleBulkCartEmail = () => {
+    if (!selectedUserIds.length) return;
+    openCartReminderModal(buildRecipientsFromSelection());
+  };
+
+  const selectableIds = data.map((c) => c.user?._id).filter(Boolean);
+  const allSelected =
+    selectableIds.length > 0 && selectableIds.every((id) => selectedUserIds.includes(id));
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -145,6 +232,12 @@ const CartsTab = () => {
         </div>
       )}
 
+      {selectedUserIds.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 flex justify-end">
+          <BulkActionsMenu count={selectedUserIds.length} onCartEmail={handleBulkCartEmail} />
+        </div>
+      )}
+
       {/* Stats Summary */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-gradient-to-r from-purple-500 to-purple-600 rounded-2xl p-4 text-white">
@@ -170,9 +263,25 @@ const CartsTab = () => {
       {/* Mobile Card View */}
       <div className="block lg:hidden space-y-4">
         {data.map((cart) => (
-          <div key={cart._id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-            <div className="flex justify-between items-start">
-              <div>
+          <div
+            key={cart._id}
+            role="button"
+            tabIndex={0}
+            onClick={() => openCartDetails(cart)}
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') openCartDetails(cart); }}
+            className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 cursor-pointer hover:border-purple-200 hover:shadow-md transition-all"
+          >
+            <div className="flex justify-between items-start gap-3">
+              {cart.user?._id && (
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 w-4 h-4 mt-1 flex-shrink-0"
+                  checked={selectedUserIds.includes(cart.user._id)}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={() => handleSelectCart(cart)}
+                />
+              )}
+              <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900">{cart.user?.name || 'Guest User'}</p>
                 <p className="text-sm text-gray-500">{cart.user?.email}</p>
               </div>
@@ -186,8 +295,8 @@ const CartsTab = () => {
                 <p className="font-medium">{cart.itemCount || cart.items?.length || 0}</p>
               </div>
               <div className="bg-gray-50 p-2 rounded-lg">
-                <p className="text-xs text-gray-500">Last Updated</p>
-                <p className="font-medium text-xs">{new Date(cart.updatedAt).toLocaleDateString()}</p>
+                <p className="text-xs text-gray-500 mb-1">Last Updated</p>
+                <DateTimeCell iso={cart.updatedAt} />
               </div>
             </div>
             {activeSubTab === 'abandoned' && cart.hoursSinceUpdate && (
@@ -204,6 +313,14 @@ const CartsTab = () => {
         <table className="w-full min-w-[800px]">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
+              <th className="px-6 py-4 w-10">
+                <input
+                  type="checkbox"
+                  className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 w-4 h-4"
+                  onChange={handleSelectAll}
+                  checked={allSelected}
+                />
+              </th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
               <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase">Total Amount</th>
@@ -213,18 +330,42 @@ const CartsTab = () => {
           </thead>
           <tbody className="divide-y divide-gray-200">
             {data.map((cart) => (
-              <tr key={cart._id} className="hover:bg-gray-50">
+              <tr
+                key={cart._id}
+                onClick={() => openCartDetails(cart)}
+                className="hover:bg-purple-50/50 cursor-pointer transition-colors"
+              >
+                <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                  {cart.user?._id ? (
+                    <input
+                      type="checkbox"
+                      className="rounded border-gray-300 text-purple-600 focus:ring-purple-500 w-4 h-4"
+                      checked={selectedUserIds.includes(cart.user._id)}
+                      onChange={() => handleSelectCart(cart)}
+                    />
+                  ) : null}
+                </td>
                 <td className="px-6 py-4">
                   <div>
                     <p className="font-medium text-gray-900">{cart.user?.name || 'Guest User'}</p>
                     <p className="text-sm text-gray-500">{cart.user?.email}</p>
                   </div>
                 </td>
-                <td className="px-6 py-4 text-sm">{cart.itemCount || cart.items?.length || 0}</td>
+                <td className="px-6 py-4">
+                  <span className="inline-flex items-center gap-1.5 text-sm font-medium text-purple-600">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    {cart.itemCount || cart.items?.length || 0}
+                  </span>
+                </td>
                 <td className="px-6 py-4">
                   <span className="font-semibold text-purple-600">{formatCurrency(cart.totalAmount)}</span>
                 </td>
-                <td className="px-6 py-4 text-sm text-gray-500">{new Date(cart.updatedAt).toLocaleDateString()}</td>
+                <td className="px-6 py-4">
+                  <DateTimeCell iso={cart.updatedAt} />
+                </td>
                 {activeSubTab === 'abandoned' && (
                   <td className="px-6 py-4">
                     <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs">
@@ -265,6 +406,18 @@ const CartsTab = () => {
           </div>
         </div>
       )}
+
+      <CartDetailsModal
+        isOpen={isCartModalOpen}
+        onClose={closeCartDetails}
+        cartId={selectedCartId}
+      />
+
+      <CartReminderEmailModal
+        isOpen={cartReminderOpen}
+        onClose={closeCartReminderModal}
+        recipients={cartReminderRecipients}
+      />
 
       {/* Empty State */}
       {data.length === 0 && !isLoading && (

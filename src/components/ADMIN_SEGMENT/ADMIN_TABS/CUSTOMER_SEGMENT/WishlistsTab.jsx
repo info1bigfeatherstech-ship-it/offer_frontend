@@ -1,14 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { 
   useGetAllWishlistsQuery, 
   useGetStaleWishlistsQuery, 
   useGetPopularWishlistProductsQuery 
 } from '../../ADMIN_REDUX_MANAGEMENT/userAnalyticsApi';
+import CartReminderEmailModal from './CartReminderEmailModal';
+import BulkActionsMenu from './BulkActionsMenu';
+import { DateTimeCell } from './adminDateTime';
 
 const WishlistsTab = () => {
   const [activeSubTab, setActiveSubTab] = useState('all'); // all, stale, popular
   const [page, setPage] = useState(1);
   const [days, setDays] = useState(7);
+  const [selectedUserIds, setSelectedUserIds] = useState([]);
+  const [selectedUserMeta, setSelectedUserMeta] = useState({});
+  const [cartReminderOpen, setCartReminderOpen] = useState(false);
+  const [cartReminderRecipients, setCartReminderRecipients] = useState([]);
+
+  const snapshotFromWishlist = useCallback((wishlist) => ({
+    _id: wishlist.user?._id,
+    name: wishlist.user?.name || 'Customer',
+    email: wishlist.user?.email || '—',
+    cartItemsCount: 0,
+  }), []);
 
   const allWishlists = useGetAllWishlistsQuery({ page, limit: 10 });
   const staleWishlists = useGetStaleWishlistsQuery({ page, limit: 10, days }, { skip: activeSubTab !== 'stale' });
@@ -35,6 +49,66 @@ const WishlistsTab = () => {
       error = allWishlists.error;
       pagination = allWishlists.data?.pagination || { total: 0, page: 1, totalPages: 1 };
   }
+
+  const handleSelectAll = (e) => {
+    if (e.target.checked) {
+      const ids = data.map((w) => w.user?._id).filter(Boolean);
+      setSelectedUserIds(ids);
+      setSelectedUserMeta((prev) => {
+        const next = { ...prev };
+        data.forEach((w) => {
+          if (w.user?._id) next[w.user._id] = snapshotFromWishlist(w);
+        });
+        return next;
+      });
+    } else {
+      setSelectedUserIds([]);
+      setSelectedUserMeta({});
+    }
+  };
+
+  const handleSelectWishlist = (wishlist) => {
+    const id = wishlist.user?._id;
+    if (!id) return;
+    setSelectedUserIds((prev) =>
+      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]
+    );
+    setSelectedUserMeta((prev) => {
+      const next = { ...prev };
+      if (next[id]) delete next[id];
+      else next[id] = snapshotFromWishlist(wishlist);
+      return next;
+    });
+  };
+
+  const buildRecipientsFromSelection = useCallback(() => {
+    return selectedUserIds.map((id) => {
+      if (selectedUserMeta[id]) return selectedUserMeta[id];
+      const fromPage = data.find((w) => w.user?._id === id);
+      if (fromPage) return snapshotFromWishlist(fromPage);
+      return { _id: id, name: 'Customer', email: '—', cartItemsCount: 0 };
+    });
+  }, [selectedUserIds, selectedUserMeta, data, snapshotFromWishlist]);
+
+  const openCartReminderModal = useCallback((recipientList) => {
+    if (!recipientList?.length) return;
+    setCartReminderRecipients(recipientList);
+    setCartReminderOpen(true);
+  }, []);
+
+  const closeCartReminderModal = useCallback(() => {
+    setCartReminderOpen(false);
+    setCartReminderRecipients([]);
+  }, []);
+
+  const handleBulkCartEmail = () => {
+    if (!selectedUserIds.length) return;
+    openCartReminderModal(buildRecipientsFromSelection());
+  };
+
+  const selectableIds = data.map((w) => w.user?._id).filter(Boolean);
+  const allSelected =
+    selectableIds.length > 0 && selectableIds.every((id) => selectedUserIds.includes(id));
 
   const formatCurrency = (amount) => {
     return new Intl.NumberFormat('en-IN', {
@@ -120,6 +194,12 @@ const WishlistsTab = () => {
         </div>
       )}
 
+      {activeSubTab !== 'popular' && selectedUserIds.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 flex justify-end">
+          <BulkActionsMenu count={selectedUserIds.length} onCartEmail={handleBulkCartEmail} />
+        </div>
+      )}
+
       {/* Stats Summary for All/Stale */}
       {activeSubTab !== 'popular' && (
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -174,8 +254,16 @@ const WishlistsTab = () => {
         <div className="block lg:hidden space-y-4">
           {data.map((wishlist) => (
             <div key={wishlist._id} className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-              <div className="flex justify-between items-start">
-                <div>
+              <div className="flex justify-between items-start gap-3">
+                {wishlist.user?._id && (
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300 text-pink-600 focus:ring-pink-500 w-4 h-4 mt-1 flex-shrink-0"
+                    checked={selectedUserIds.includes(wishlist.user._id)}
+                    onChange={() => handleSelectWishlist(wishlist)}
+                  />
+                )}
+                <div className="flex-1 min-w-0">
                   <p className="font-semibold text-gray-900">{wishlist.user?.name || 'Guest User'}</p>
                   <p className="text-sm text-gray-500">{wishlist.user?.email}</p>
                 </div>
@@ -198,6 +286,10 @@ const WishlistsTab = () => {
                   )}
                 </div>
               </div>
+              <div className="mt-3">
+                <p className="text-xs text-gray-500 mb-1">Created</p>
+                <DateTimeCell iso={wishlist.createdAt} />
+              </div>
               {activeSubTab === 'stale' && wishlist.daysSinceOldestItem && (
                 <div className="mt-3 text-xs text-orange-600 bg-orange-50 p-2 rounded-lg">
                   Oldest item added {wishlist.daysSinceOldestItem} days ago
@@ -214,6 +306,14 @@ const WishlistsTab = () => {
           <table className="w-full min-w-[800px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="px-6 py-4 w-10">
+                  <input
+                    type="checkbox"
+                    className="rounded border-gray-300 text-pink-600 focus:ring-pink-500 w-4 h-4"
+                    onChange={handleSelectAll}
+                    checked={allSelected}
+                  />
+                </th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase">Customer</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase">Items</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase">Products</th>
@@ -224,6 +324,16 @@ const WishlistsTab = () => {
             <tbody className="divide-y divide-gray-200">
               {data.map((wishlist) => (
                 <tr key={wishlist._id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4">
+                    {wishlist.user?._id ? (
+                      <input
+                        type="checkbox"
+                        className="rounded border-gray-300 text-pink-600 focus:ring-pink-500 w-4 h-4"
+                        checked={selectedUserIds.includes(wishlist.user._id)}
+                        onChange={() => handleSelectWishlist(wishlist)}
+                      />
+                    ) : null}
+                  </td>
                   <td className="px-6 py-4">
                     <div>
                       <p className="font-medium text-gray-900">{wishlist.user?.name || 'Guest User'}</p>
@@ -245,7 +355,9 @@ const WishlistsTab = () => {
                       )}
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-500">{new Date(wishlist.createdAt).toLocaleDateString()}</td>
+                  <td className="px-6 py-4">
+                    <DateTimeCell iso={wishlist.createdAt} />
+                  </td>
                   {activeSubTab === 'stale' && (
                     <td className="px-6 py-4">
                       <span className="px-2 py-1 bg-orange-100 text-orange-700 rounded-full text-xs">
@@ -287,6 +399,12 @@ const WishlistsTab = () => {
           </div>
         </div>
       )}
+
+      <CartReminderEmailModal
+        isOpen={cartReminderOpen}
+        onClose={closeCartReminderModal}
+        recipients={cartReminderRecipients}
+      />
 
       {/* Empty State */}
       {data.length === 0 && !isLoading && (
