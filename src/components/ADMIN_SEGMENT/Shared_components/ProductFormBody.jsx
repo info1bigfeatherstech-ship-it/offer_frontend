@@ -1,7 +1,6 @@
 // Shared_components/ProductFormBody.jsx
 
 import React, { useState } from "react";
-
 const TAX_RATE_OPTIONS = [
   { value: 0, label: "0% (Nil Rated)" },
   { value: 5, label: "5% (GST)" },
@@ -131,7 +130,6 @@ const ProductFormBody = ({
     });
   };
 
-  // NEW: Update main variant channel visibility (ecomm)
   const updateMainVariantChannelVisibility = (field, value) => {
     setFormData((p) => {
       const v = [...(p.variants || [])];
@@ -406,6 +404,7 @@ const ProductFormBody = ({
                   </div>
                 )}
               </div>
+
             </div>
             <p className="text-xs text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg p-2">
               💡 Images for main variant are managed in the <strong>Product Gallery</strong> panel →. All changes here are saved when you click <strong>Save Changes</strong>.
@@ -496,14 +495,18 @@ const ProductFormBody = ({
                   </div>
                 )}
               </div>
+
             </div>
           </div>
         )}
 
-        {/* Shipping - unchanged */}
+        {/* Shipping — primary variant (variants[0]) uses product-level fields only */}
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="p-4 border-b border-gray-100 bg-gray-50">
             <h3 className="font-semibold text-gray-900">Shipping Details</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Main variant shipping — also the fallback for extra variants without their own weight/dimensions
+            </p>
           </div>
           <div className="p-4 space-y-4">
             <div>

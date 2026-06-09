@@ -31,6 +31,8 @@ import { USER_ACCESS_TOKEN_KEY } from "./SERVICES/axiosInstance";
 // ── These two are fine at app-level — they power Navbar badges ───────────────
 import useWishlistInit from "./components/HOOKS/useWishlistInit";
 import useCartInit from "./components/HOOKS/useCartInit";
+import usePushNotifications from "./components/HOOKS/usePushNotifications";
+import PushNotificationPrompt from "./components/Common/PushNotificationPrompt";
 import UserTab from "./components/ADMIN_SEGMENT/ADMIN_TABS/USER/UserTab";
 import Checkout from "./User_Side_Web_Interface/CHECKOUT/Checkout";
 import ContactUs from "./components/Common/Contact";
@@ -57,6 +59,7 @@ const AppContent = () => {
     const [searchQuery, setSearchQuery]   = useState("");
     const [isMenuOpen,  setIsMenuOpen]    = useState(false);
     const [isAuthOpen,  setIsAuthOpen]    = useState(false);
+    const [pushPromptVisible, setPushPromptVisible] = useState(false);
 
     // ── isAdminRoute now also covers /admin/login and /admin/unauthorized ─────
     const isAdminRoute = location.pathname.startsWith('/babapanel') ||
@@ -72,6 +75,15 @@ const AppContent = () => {
     // In App.jsx — also skip wishlist/cart on admin routes
         useWishlistInit(!isAdminRoute);  // pass enabled flag
         useCartInit(!isAdminRoute);
+    const { canPrompt: canShowPushPrompt } = usePushNotifications(isLoggedIn && !isAdminRoute);
+
+    useEffect(() => {
+        if (isLoggedIn && !isAdminRoute && canShowPushPrompt) {
+            setPushPromptVisible(true);
+        } else {
+            setPushPromptVisible(false);
+        }
+    }, [isLoggedIn, isAdminRoute, canShowPushPrompt]);
 
     // ── On app load: restore user session silently if token exists ────────────
     // This populates auth.user — UserDashboard sidebar reads from here directly
@@ -243,6 +255,13 @@ const AppContent = () => {
                     isOpen={isAuthOpen}
                     onClose={() => setIsAuthOpen(false)}
                     onLoginSuccess={handleLoginSuccess}
+                />
+            )}
+
+            {!isAdminRoute && (
+                <PushNotificationPrompt
+                    visible={pushPromptVisible}
+                    onDismiss={() => setPushPromptVisible(false)}
                 />
             )}
             {/* <SideVideo /> */}

@@ -18,6 +18,7 @@ import {
   isVariantWholesaleEligible,
   getWholesaleVisibility,
 } from "../ADMIN_REDUX_MANAGEMENT/adminEditProductSlice";
+import { shippingFormFromVariant } from "../../../utils/variantCatalogForm";
 
 const formatIndianRupee = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -55,6 +56,9 @@ const normaliseVariants = (variants = []) =>
     wholesale: v.wholesale || false,
     minimumOrderQuantity: v.minimumOrderQuantity || 1,
     channelVisibility: v.channelVisibility || { ecomm: "active", wholesale: "draft" },
+    title: v.title || "",
+    description: v.description || "",
+    shipping: v.shipping || undefined,
   }));
 
 const toFormData = (product) => {
@@ -113,6 +117,7 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
   };
 
   const openEditVariant = (index) => {
+    if (index === 0) return;
     const v = formData.variants[index];
     if (!v) return;
     setVariantForm({
@@ -134,6 +139,9 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
       wholesale: v.wholesale || false,
       minimumOrderQuantity: v.minimumOrderQuantity || 1,
       channelVisibility: v.channelVisibility || { ecomm: "active", wholesale: "draft" },
+      title: v.title || "",
+      description: v.description || "",
+      shipping: shippingFormFromVariant(v, formData.shipping, formData),
     });
     setEditingVariantIndex(index);
     setVariantSaveError(null);
@@ -167,7 +175,7 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
     if (editingVariantIndex !== null) {
       const existingProductCode = formData.variants[editingVariantIndex].productCode;
       try {
-        const result = await dispatch(updateVariantByBarcode({
+        const variantUpdatePayload = {
           slug: product.slug,
           barcode: existingProductCode,
           price: pricePayload,
@@ -178,7 +186,13 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
           wholesale: variantToSave.wholesale,
           minimumOrderQuantity: variantToSave.minimumOrderQuantity,
           channelVisibility: channelVisibilityPayload,
-        })).unwrap();
+        };
+        if (editingVariantIndex > 0) {
+          variantUpdatePayload.variantTitle = variantToSave.title;
+          variantUpdatePayload.variantDescription = variantToSave.description;
+          variantUpdatePayload.variantShipping = variantToSave.shipping;
+        }
+        const result = await dispatch(updateVariantByBarcode(variantUpdatePayload)).unwrap();
         if (result?.product?.variants)
           setFormData((prev) => ({ ...prev, variants: normaliseVariants(result.product.variants) }));
         closeVariantModal();

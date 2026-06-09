@@ -1,6 +1,8 @@
 // Shared_components/VariantModal.jsx
 
 import React, { useState } from 'react';
+import VariantCatalogFieldsSection from './VariantCatalogFieldsSection';
+import { emptyVariantShippingForm } from '../../../utils/variantCatalogForm';
 
 export const defaultVariant = {
   attributes: [{ key: '', value: '' }],
@@ -12,6 +14,9 @@ export const defaultVariant = {
   wholesale: false,
   minimumOrderQuantity: 1,
   channelVisibility: { ecomm: 'active', wholesale: 'draft' },
+  title: '',
+  description: '',
+  shipping: emptyVariantShippingForm(),
 };
 
 const VariantModal = ({
@@ -285,6 +290,15 @@ const VariantModal = ({
               </div>
             )}
           </div>
+
+          <VariantCatalogFieldsSection
+            title={variantForm.title ?? ''}
+            description={variantForm.description ?? ''}
+            shipping={variantForm.shipping ?? emptyVariantShippingForm()}
+            onTitleChange={(value) => setVariantForm((prev) => ({ ...prev, title: value }))}
+            onDescriptionChange={(value) => setVariantForm((prev) => ({ ...prev, description: value }))}
+            onShippingChange={(shipping) => setVariantForm((prev) => ({ ...prev, shipping }))}
+          />
 
           {/* Inventory */}
           <div>

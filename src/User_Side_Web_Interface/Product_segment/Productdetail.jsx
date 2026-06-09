@@ -34,6 +34,11 @@ import { fetchCategories } from "../../components/ADMIN_SEGMENT/ADMIN_REDUX_MANA
 import axiosInstance from "../../SERVICES/axiosInstance";
 import { getProductRatingDisplay, getFallbackDistribution } from "../../utils/productRatingDisplay";
 import StarRatingInput from "./StarRatingInput";
+import {
+  resolveVariantTitle,
+  resolveVariantDescription,
+  resolveVariantShipping,
+} from "../../utils/variantCatalogForm";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 const Skeleton = () => (
@@ -797,20 +802,72 @@ const ProductUI = ({ openAuthModal }) => {
     [listedVariants]
   );
 
+  const useFlatVariantPicker = useMemo(() => {
+    if (attrKeys.length <= 1) return attrKeys.length === 1;
+    return listedVariants.every((v) => (v.attributes?.length ?? 0) <= 1);
+  }, [attrKeys, listedVariants]);
+
+  const variantSelectOptions = useMemo(() => {
+    if (!listedVariants.length) return [];
+
+    if (attrKeys.length === 1) {
+      const key = attrKeys[0];
+      return getAllValues(key).map((val) => ({
+        id: `${key}:${val}`,
+        label: val,
+        attrs: { [key]: val },
+        variant: listedVariants.find((v) =>
+          v.attributes?.some((a) => a.key === key && a.value === val)
+        ),
+      }));
+    }
+
+    if (useFlatVariantPicker) {
+      return listedVariants
+        .filter((v) => (v.attributes?.length ?? 0) > 0)
+        .map((v) => ({
+          id: String(v._id ?? v.productCode ?? ""),
+          label:
+            v.attributes?.map((a) => a.value).filter(Boolean).join(" · ") ||
+            resolveVariantTitle(v, product),
+          attrs: Object.fromEntries(
+            (v.attributes || []).map((a) => [a.key, a.value])
+          ),
+          variant: v,
+        }));
+    }
+
+    return [];
+  }, [listedVariants, attrKeys, getAllValues, useFlatVariantPicker, product]);
+
   const selectedVariant = useMemo(() => {
     if (!listedVariants.length) return null;
 
-    // Agar koi bhi attr selected nahi (sab null), return first variant
-    const hasAnySelection = Object.values(selectedAttrs).some((v) => v != null);
-    if (!hasAnySelection) return listedVariants[0];
+    const activeEntries = Object.entries(selectedAttrs).filter(([, val]) => val != null);
+    if (!activeEntries.length) return listedVariants[0];
 
-    let best = listedVariants[0], bestScore = -1;
+    const exact = listedVariants.find((v) => {
+      const attrs = v.attributes || [];
+      if (!attrs.length) return false;
+      return (
+        activeEntries.every(([k, val]) =>
+          attrs.some((a) => a.key === k && a.value === val)
+        ) &&
+        attrs.length === activeEntries.length
+      );
+    });
+    if (exact) return exact;
+
+    let best = listedVariants[0];
+    let bestScore = -1;
     listedVariants.forEach((v) => {
-      const score = Object.entries(selectedAttrs).filter(([k, val]) =>
-        val != null &&
+      const score = activeEntries.filter(([k, val]) =>
         v.attributes?.some((a) => a.key === k && a.value === val)
       ).length;
-      if (score > bestScore) { bestScore = score; best = v; }
+      if (score > bestScore) {
+        bestScore = score;
+        best = v;
+      }
     });
     return best;
   }, [listedVariants, selectedAttrs]);
@@ -826,10 +883,24 @@ const ProductUI = ({ openAuthModal }) => {
   useEffect(() => { setActiveThumb(0); }, [selectedVariant?._id]);
 
   const handleAttrSelect = (key, value) => {
-    setSelectedAttrs((prev) => ({
-      ...prev,
-      [key]: prev[key] === value ? null : value, // toggle back to null
-    }));
+    const matched = listedVariants.find((v) =>
+      v.attributes?.some((a) => a.key === key && a.value === value)
+    );
+    if (matched) {
+      const next = {};
+      matched.attributes?.forEach((a) => {
+        next[a.key] = a.value;
+      });
+      setSelectedAttrs(next);
+    } else {
+      setSelectedAttrs((prev) => ({ ...prev, [key]: value }));
+    }
+    setActiveThumb(0);
+  };
+
+  const handleVariantOptionSelect = (option) => {
+    if (!option?.variant) return;
+    setSelectedAttrs(option.attrs || {});
     setActiveThumb(0);
   };
 
@@ -943,8 +1014,12 @@ const ProductUI = ({ openAuthModal }) => {
       .slice(0, 3);
   }, [publicCoupons]);
 
-  const title = product?.title || product?.name || "Product";
-  const desc = product?.description ?? "";
+  const title = resolveVariantTitle(selectedVariant, product);
+  const desc = resolveVariantDescription(selectedVariant, product);
+  const displayShipping = useMemo(
+    () => resolveVariantShipping(selectedVariant, product),
+    [selectedVariant, product]
+  );
   const ratingDisplay = useMemo(
     () => getProductRatingDisplay(product, reviewSummary),
     [product, reviewSummary]
@@ -1648,6 +1723,7 @@ const ProductUI = ({ openAuthModal }) => {
                         by <span className="text-orange-500 font-semibold">{brand}</span>
                       </span>
                     )}
+   
                     {/* PRODUCT CODE */}
                     {productCode && (
                       <span className="text-[15px] text-gray-700 font-mon">
@@ -1738,7 +1814,7 @@ const ProductUI = ({ openAuthModal }) => {
                     <div className="w-full h-px bg-gray-200"></div>
 
                     {/* ── Wishlist + Share bar ── */}
-                    <div className="flex flex-col gap-3 mt-2">
+                    <div className="flex flex-col gap-3 ">
 
                       {/* OUT OF STOCK */}
                       {!inStock && (
@@ -1747,6 +1823,75 @@ const ProductUI = ({ openAuthModal }) => {
                         </div>
                       )}
 
+<div className="h-px bg-gray-100" />
+
+{/* Variant picker — flat buttons (Pink / Value etc.) or multi-attribute matrix */}
+{(useFlatVariantPicker ? variantSelectOptions.length > 0 : attrKeys.length > 0) && (
+  <div className="" ref={variantRef}>
+    {useFlatVariantPicker ? (
+      <div className="flex flex-wrap gap-2.5">
+        {variantSelectOptions.map((opt) => {
+          const active =
+            selectedVariant?._id != null &&
+            opt.variant?._id != null &&
+            String(selectedVariant._id) === String(opt.variant._id);
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => handleVariantOptionSelect(opt)}
+              className={`px-5 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base rounded-xl cursor-pointer border-2 font-semibold transition-all duration-150 min-w-[4.5rem] ${
+                active
+                  ? "border-gray-900 bg-gray-900 text-white shadow-sm"
+                  : "border-gray-200 text-gray-700 hover:border-gray-900 hover:text-gray-900 bg-white"
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    ) : (
+      <div className="space-y-4">
+        {attrKeys.map((key) => (
+          <div key={key}>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+              {key}
+              {selectedAttrs[key] ? (
+                <span className="ml-2 normal-case font-semibold text-gray-800 tracking-normal">
+                  : {selectedAttrs[key]}
+                </span>
+              ) : null}
+            </p>
+            <div className="flex flex-wrap gap-2.5">
+              {getAllValues(key).map((val) => {
+                const avail = isAvailable(key, val);
+                const active = selectedAttrs[key] === val;
+                return (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => avail && handleAttrSelect(key, val)}
+                    disabled={!avail}
+                    className={`px-5 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base rounded-xl cursor-pointer border-2 font-semibold transition-all duration-150 min-w-[4.5rem] ${
+                      active
+                        ? "border-gray-900 bg-gray-900 text-white shadow-sm"
+                        : avail
+                          ? "border-gray-200 text-gray-700 hover:border-gray-900 hover:text-gray-900 bg-white"
+                          : "border-gray-100 text-gray-300 cursor-not-allowed line-through bg-gray-50"
+                    }`}
+                  >
+                    {val}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
                       {/* IN STOCK */}
                       {inStock && (
                         <>
@@ -1936,46 +2081,7 @@ const ProductUI = ({ openAuthModal }) => {
                     </p>
                   )}
 
-                  <div className="h-px bg-gray-100" />
-
-                  {/* Variant Attributes */}
-                  {attrKeys.length > 0 && (
-                    <div className="space-y-4" ref={variantRef}>
-                      {attrKeys.map((key) => (
-                        <div key={key}>
-                          <p className="text-xs font-bold cursor-pointer text-gray-400 uppercase tracking-widest mb-2">
-                            {key}
-                            {selectedAttrs[key] && (
-                              <span className="ml-2 normal-case font-semibold text-gray-800 tracking-normal cursor-pointer">
-                                : {selectedAttrs[key]}
-                              </span>
-                            )}
-                          </p>
-                          <div className="flex flex-wrap gap-2">
-                            {getAllValues(key).map((val) => {
-                              const avail = isAvailable(key, val);
-                              const active = selectedAttrs[key] === val;
-                              return (
-                                <button
-                                  key={val}
-                                  onClick={() => avail && handleAttrSelect(key, val)}
-                                  disabled={!avail}
-                                  className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm rounded-xl cursor-pointer border-2 font-medium transition-all duration-150 ${active
-                                    ? "border-gray-900 bg-gray-900 text-white shadow-sm"
-                                    : avail
-                                      ? "border-gray-200 text-gray-700 hover:border-gray-900 hover:text-gray-900 bg-white"
-                                      : "border-gray-100 text-gray-300 cursor-not-allowed line-through bg-gray-50"
-                                    }`}
-                                >
-                                  {val}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+          
 
                   {/* Offers */}
                   <div className="h-px bg-gray-100" />
@@ -2056,11 +2162,13 @@ const ProductUI = ({ openAuthModal }) => {
                       <div className="border-t border-gray-100 divide-y divide-gray-100 cursor-pointer">
 
                         {/* About */}
-                        {product?.description?.trim() && (
+                        {(desc?.trim() || title) && (
                           <div className="px-5 sm:px-6 py-5">
                             <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-3">About this item</p>
-                            <p className="text-sm text-gray-600 font-bold leading-relaxed">{product.title}</p> <br />
-                            <p className="text-sm text-gray-600 leading-relaxed">{product.description}</p>
+                            <p className="text-sm text-gray-600 font-bold leading-relaxed">{title}</p> <br />
+                            {desc?.trim() && (
+                              <p className="text-sm text-gray-600 leading-relaxed">{desc}</p>
+                            )}
                           </div>
                         )}
 
@@ -2081,7 +2189,7 @@ const ProductUI = ({ openAuthModal }) => {
 
                         {/* Dimensions */}
                         {(() => {
-                          const s = product?.shipping;
+                          const s = displayShipping;
                           const d = s?.dimensions;
                           if (!s || (!s.weight && !d?.length && !d?.width && !d?.height)) return null;
 

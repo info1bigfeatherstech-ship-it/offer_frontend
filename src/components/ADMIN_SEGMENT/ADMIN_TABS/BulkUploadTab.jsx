@@ -386,6 +386,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                 <strong className="text-slate-700">Required columns:</strong>{' '}
                 name, title, category, basePrice, Product Code — everything else is optional.
                 Multi-variant products: repeat the product name on multiple rows, one row per variant.
+                Per-row title, description, weight, length, width, height apply to that variant (product row 1 sets product defaults).
               </div>
             </div>
           )}

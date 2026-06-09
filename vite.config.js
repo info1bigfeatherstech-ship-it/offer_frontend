@@ -10,10 +10,14 @@ export default defineConfig({
   },
   plugins: [react(),
      VitePWA({
+  strategies: 'injectManifest',
+  srcDir: 'src',
+  filename: 'sw.js',
   registerType: "autoUpdate",
 
   devOptions: {
     enabled: true,
+    type: 'module',
   },
 
   includeAssets: [
@@ -70,50 +74,8 @@ export default defineConfig({
     ],
   },
 
-      workbox: {
-        cleanupOutdatedCaches: true,
-
-        clientsClaim: true,
-
-        skipWaiting: true,
-
-        runtimeCaching: [
-          {
-            urlPattern: ({ request }) =>
-              request.destination === "image",
-
-            handler: "CacheFirst",
-
-            options: {
-              cacheName: "product-images",
-
-              expiration: {
-                maxEntries: 200,
-
-                maxAgeSeconds: 60 * 60 * 24 * 30,
-              },
-            },
-          },
-
-          {
-            urlPattern: ({ url }) =>
-              url.pathname.startsWith("/api/products"),
-
-            handler: "NetworkFirst",
-
-            options: {
-              cacheName: "products-api",
-
-              networkTimeoutSeconds: 5,
-
-              expiration: {
-                maxEntries: 50,
-
-                maxAgeSeconds: 60 * 5,
-              },
-            },
-          },
-        ],
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,ico,png,svg,webp,woff2}'],
       },
     }),
   ],

@@ -2,6 +2,7 @@
 
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "../../../SERVICES/axiosInstance";
+import { buildVariantCatalogApiPayload } from "../../../utils/variantCatalogForm";
 
 const toNum = (raw) => {
   if (raw === "" || raw === null || raw === undefined) return undefined;
@@ -102,8 +103,11 @@ export const updateVariantByBarcode = createAsyncThunk(
       images, 
       wholesale, 
       minimumOrderQuantity, 
-      channelVisibility 
-    }, 
+      channelVisibility,
+      variantTitle,
+      variantDescription,
+      shipping: variantShipping,
+    },
     { rejectWithValue }
   ) => {
     try {
@@ -140,6 +144,15 @@ export const updateVariantByBarcode = createAsyncThunk(
       if (channelVisibility !== undefined) {
         fd.append("channelVisibility", JSON.stringify(channelVisibility));
       }
+
+      const catalogPayload = buildVariantCatalogApiPayload({
+        title: variantTitle,
+        description: variantDescription,
+        shipping: variantShipping,
+      });
+      if (catalogPayload.title) fd.append("variantTitle", catalogPayload.title);
+      if (catalogPayload.description) fd.append("variantDescription", catalogPayload.description);
+      if (catalogPayload.shipping) fd.append("shipping", JSON.stringify(catalogPayload.shipping));
 
       // Images handling
       if (images !== undefined && images !== null) {
@@ -214,6 +227,15 @@ export const addVariantToProduct = createAsyncThunk(
       if (variantData.channelVisibility) {
         fd.append("channelVisibility", JSON.stringify(variantData.channelVisibility));
       }
+
+      const catalogPayload = buildVariantCatalogApiPayload({
+        title: variantData.title,
+        description: variantData.description,
+        shipping: variantData.shipping,
+      });
+      if (catalogPayload.title) fd.append("title", catalogPayload.title);
+      if (catalogPayload.description) fd.append("description", catalogPayload.description);
+      if (catalogPayload.shipping) fd.append("shipping", JSON.stringify(catalogPayload.shipping));
 
       if (variantData.images?.length) {
         variantData.images.forEach((img) => {

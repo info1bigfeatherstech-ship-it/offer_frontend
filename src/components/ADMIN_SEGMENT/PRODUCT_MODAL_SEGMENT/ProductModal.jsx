@@ -4,6 +4,7 @@ import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import ProductFormBody from "../Shared_components/ProductFormBody";
 import VariantModal, { defaultVariant } from "../Shared_components/VariantModal";
+import { shippingFormFromVariant } from "../../../utils/variantCatalogForm";
 import CategoryModal from "../Shared_components/CategoryModal";
 import BrandModal from "../Shared_components/BrandModal";
 import AttributeModal from "../Shared_components/AttributeModal";
@@ -124,6 +125,9 @@ const ProductModal = ({ onClose, brands, setBrands }) => {
       wholesaleSale: v.wholesaleSale || "",
       minimumOrderQuantity: v.minimumOrderQuantity || 1,
       channelVisibility: v.channelVisibility || { ecomm: "active", wholesale: "draft" },
+      title: v.title || "",
+      description: v.description || "",
+      shipping: shippingFormFromVariant(v, formData.shipping, formData),
     });
     setEditingVariantIndex(index);
     setShowVariantModal(true);

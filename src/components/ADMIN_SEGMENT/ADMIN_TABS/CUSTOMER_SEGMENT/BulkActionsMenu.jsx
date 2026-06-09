@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 
-const BulkActionsMenu = ({ count, onCartEmail, align = 'right' }) => {
+const BulkActionsMenu = ({ count, onCartEmail, onCartPush, align = 'right' }) => {
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -46,6 +46,17 @@ const BulkActionsMenu = ({ count, onCartEmail, align = 'right' }) => {
           >
             <span aria-hidden>✉️</span>
             Send cart reminder (Email)
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              onCartPush?.();
+            }}
+            className="w-full text-left px-4 py-2.5 text-sm text-gray-800 hover:bg-violet-50 flex items-center gap-2"
+          >
+            <span aria-hidden>🔔</span>
+            Send cart reminder (Notification)
           </button>
           <button
             type="button"
