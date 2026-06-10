@@ -883,6 +883,11 @@ const ProductUI = ({ openAuthModal }) => {
   useEffect(() => { setActiveThumb(0); }, [selectedVariant?._id]);
 
   const handleAttrSelect = (key, value) => {
+    if (selectedAttrs[key] === value) {
+      setSelectedAttrs({});
+      setActiveThumb(0);
+      return;
+    }
     const matched = listedVariants.find((v) =>
       v.attributes?.some((a) => a.key === key && a.value === value)
     );
@@ -900,6 +905,18 @@ const ProductUI = ({ openAuthModal }) => {
 
   const handleVariantOptionSelect = (option) => {
     if (!option?.variant) return;
+    console.log("selectedVariant._id:", selectedVariant?._id);
+  console.log("option.variant._id:", option.variant?._id);
+  console.log("match:", String(selectedVariant?._id) === String(option.variant?._id));
+    if (
+      selectedVariant?._id != null &&
+      option.variant?._id != null &&
+      String(selectedVariant._id) === String(option.variant._id)
+    ) {
+      setSelectedAttrs({});
+      setActiveThumb(0);
+      return;
+    }
     setSelectedAttrs(option.attrs || {});
     setActiveThumb(0);
   };
@@ -1831,10 +1848,12 @@ const ProductUI = ({ openAuthModal }) => {
     {useFlatVariantPicker ? (
       <div className="flex flex-wrap gap-2.5">
         {variantSelectOptions.map((opt) => {
-          const active =
-            selectedVariant?._id != null &&
-            opt.variant?._id != null &&
-            String(selectedVariant._id) === String(opt.variant._id);
+         const isNoneSelected = Object.keys(selectedAttrs).length === 0;
+         const active =
+           !isNoneSelected &&
+           selectedVariant?._id != null &&
+           opt.variant?._id != null &&
+           String(selectedVariant._id) === String(opt.variant._id);
           return (
             <button
               key={opt.id}
