@@ -1747,6 +1747,78 @@ const ProductUI = ({ openAuthModal }) => {
                         {productCode}
                       </span>
                     )}
+<div className="h-px bg-gray-100" />
+
+{/* Variant picker — flat buttons (Pink / Value etc.) or multi-attribute matrix */}
+{(useFlatVariantPicker ? variantSelectOptions.length > 0 : attrKeys.length > 0) && (
+  <div className="" ref={variantRef}>
+    {useFlatVariantPicker ? (
+      <div className="flex flex-wrap gap-2.5">
+        {variantSelectOptions.map((opt) => {
+         const isNoneSelected = Object.keys(selectedAttrs).length === 0;
+         const active =
+           !isNoneSelected &&
+           selectedVariant?._id != null &&
+           opt.variant?._id != null &&
+           String(selectedVariant._id) === String(opt.variant._id);
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              onClick={() => handleVariantOptionSelect(opt)}
+              className={`px-5 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base rounded-xl cursor-pointer border-2 font-semibold transition-all duration-150 min-w-[4.5rem] ${
+                active
+                  ? "border-gray-900 bg-gray-900 text-white shadow-sm"
+                  : "border-gray-200 text-gray-700 hover:border-gray-900 hover:text-gray-900 bg-white"
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    ) : (
+      <div className="space-y-4">
+        {attrKeys.map((key) => (
+          <div key={key}>
+            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
+              {key}
+              {selectedAttrs[key] ? (
+                <span className="ml-2 normal-case font-semibold text-gray-800 tracking-normal">
+                  : {selectedAttrs[key]}
+                </span>
+              ) : null}
+            </p>
+            <div className="flex flex-wrap gap-2.5">
+              {getAllValues(key).map((val) => {
+                const avail = isAvailable(key, val);
+                const active = selectedAttrs[key] === val;
+                return (
+                  <button
+                    key={val}
+                    type="button"
+                    onClick={() => avail && handleAttrSelect(key, val)}
+                    disabled={!avail}
+                    className={`px-5 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base rounded-xl cursor-pointer border-2 font-semibold transition-all duration-150 min-w-[4.5rem] ${
+                      active
+                        ? "border-gray-900 bg-gray-900 text-white shadow-sm"
+                        : avail
+                          ? "border-gray-200 text-gray-700 hover:border-gray-900 hover:text-gray-900 bg-white"
+                          : "border-gray-100 text-gray-300 cursor-not-allowed line-through bg-gray-50"
+                    }`}
+                  >
+                    {val}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+    )}
+  </div>
+)}
+
                     <div className="flex items-center w-fit px-1 py-2 rounded-lg gap-2 bg-gray-100">
                       <div className="flex text-sm items-center gap-2">
                         {Number(displayAvg).toFixed(1)}{" "}
@@ -1840,77 +1912,7 @@ const ProductUI = ({ openAuthModal }) => {
                         </div>
                       )}
 
-<div className="h-px bg-gray-100" />
 
-{/* Variant picker — flat buttons (Pink / Value etc.) or multi-attribute matrix */}
-{(useFlatVariantPicker ? variantSelectOptions.length > 0 : attrKeys.length > 0) && (
-  <div className="" ref={variantRef}>
-    {useFlatVariantPicker ? (
-      <div className="flex flex-wrap gap-2.5">
-        {variantSelectOptions.map((opt) => {
-         const isNoneSelected = Object.keys(selectedAttrs).length === 0;
-         const active =
-           !isNoneSelected &&
-           selectedVariant?._id != null &&
-           opt.variant?._id != null &&
-           String(selectedVariant._id) === String(opt.variant._id);
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => handleVariantOptionSelect(opt)}
-              className={`px-5 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base rounded-xl cursor-pointer border-2 font-semibold transition-all duration-150 min-w-[4.5rem] ${
-                active
-                  ? "border-gray-900 bg-gray-900 text-white shadow-sm"
-                  : "border-gray-200 text-gray-700 hover:border-gray-900 hover:text-gray-900 bg-white"
-              }`}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
-      </div>
-    ) : (
-      <div className="space-y-4">
-        {attrKeys.map((key) => (
-          <div key={key}>
-            <p className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">
-              {key}
-              {selectedAttrs[key] ? (
-                <span className="ml-2 normal-case font-semibold text-gray-800 tracking-normal">
-                  : {selectedAttrs[key]}
-                </span>
-              ) : null}
-            </p>
-            <div className="flex flex-wrap gap-2.5">
-              {getAllValues(key).map((val) => {
-                const avail = isAvailable(key, val);
-                const active = selectedAttrs[key] === val;
-                return (
-                  <button
-                    key={val}
-                    type="button"
-                    onClick={() => avail && handleAttrSelect(key, val)}
-                    disabled={!avail}
-                    className={`px-5 sm:px-6 py-2.5 sm:py-3 text-sm sm:text-base rounded-xl cursor-pointer border-2 font-semibold transition-all duration-150 min-w-[4.5rem] ${
-                      active
-                        ? "border-gray-900 bg-gray-900 text-white shadow-sm"
-                        : avail
-                          ? "border-gray-200 text-gray-700 hover:border-gray-900 hover:text-gray-900 bg-white"
-                          : "border-gray-100 text-gray-300 cursor-not-allowed line-through bg-gray-50"
-                    }`}
-                  >
-                    {val}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-)}
                       {/* IN STOCK */}
                       {inStock && (
                         <>
