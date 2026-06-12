@@ -3,7 +3,7 @@ import axiosInstance, { AUTH_CONTEXT_ADMIN } from '../../../SERVICES/axiosInstan
 
 // Custom axios base query for RTK Query
 const axiosBaseQuery = ({ baseUrl } = { baseUrl: '' }) => 
-  async ({ url, method, data, params, headers }) => {
+  async ({ url, method, data, params, headers, timeout }) => {
     try {
       const result = await axiosInstance({
         url: baseUrl + url,
@@ -12,6 +12,7 @@ const axiosBaseQuery = ({ baseUrl } = { baseUrl: '' }) =>
         params,
         headers: { ...headers },
         authContext: AUTH_CONTEXT_ADMIN,
+        ...(timeout != null ? { timeout } : {}),
       });
       return { data: result.data };
     } catch (axiosError) {
@@ -70,6 +71,7 @@ export const userAnalyticsApi = createApi({
         url: '/admin/analytics/users/bulk-cart-reminder-email',
         method: 'POST',
         data: { userIds },
+        timeout: 180_000,
       }),
     }),
 
@@ -78,6 +80,7 @@ export const userAnalyticsApi = createApi({
         url: '/admin/analytics/users/bulk-cart-reminder-push',
         method: 'POST',
         data: { userIds },
+        timeout: 60_000,
       }),
     }),
 
