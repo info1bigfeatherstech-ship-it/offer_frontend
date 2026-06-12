@@ -38,6 +38,7 @@ import {
   resolveVariantTitle,
   resolveVariantDescription,
   resolveVariantShipping,
+  isPrimaryVariant,
 } from "../../utils/variantCatalogForm";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
@@ -802,10 +803,7 @@ const ProductUI = ({ openAuthModal }) => {
     [listedVariants]
   );
 
-  const useFlatVariantPicker = useMemo(() => {
-    if (attrKeys.length <= 1) return attrKeys.length === 1;
-    return listedVariants.every((v) => (v.attributes?.length ?? 0) <= 1);
-  }, [attrKeys, listedVariants]);
+  const useFlatVariantPicker = true;
 
   const variantSelectOptions = useMemo(() => {
     if (!listedVariants.length) return [];
@@ -824,21 +822,28 @@ const ProductUI = ({ openAuthModal }) => {
 
     if (useFlatVariantPicker) {
       return listedVariants
-        .filter((v) => (v.attributes?.length ?? 0) > 0)
-        .map((v) => ({
-          id: String(v._id ?? v.productCode ?? ""),
-          label:
-            v.attributes?.map((a) => a.value).filter(Boolean).join(" · ") ||
-            resolveVariantTitle(v, product),
-          attrs: Object.fromEntries(
-            (v.attributes || []).map((a) => [a.key, a.value])
-          ),
-          variant: v,
-        }));
+        .map((v) => {
+          const label =
+            v.attributes?.length > 0
+              ? v.attributes[0].value
+              : product?.attributes?.[0]?.value;
+          if (!label) return null;
+          return {
+            id: String(v._id ?? v.productCode ?? ""),
+            label,
+            attrs: Object.fromEntries(
+              (v.attributes || []).map((a) => [a.key, a.value])
+            ),
+            variant: v,
+          };
+        })
+        .filter(Boolean);
     }
 
     return [];
   }, [listedVariants, attrKeys, getAllValues, useFlatVariantPicker, product]);
+
+  console.log("variantSelectOptions:", variantSelectOptions);
 
   const selectedVariant = useMemo(() => {
     if (!listedVariants.length) return null;
@@ -883,11 +888,7 @@ const ProductUI = ({ openAuthModal }) => {
   useEffect(() => { setActiveThumb(0); }, [selectedVariant?._id]);
 
   const handleAttrSelect = (key, value) => {
-    if (selectedAttrs[key] === value) {
-      setSelectedAttrs({});
-      setActiveThumb(0);
-      return;
-    }
+    if (selectedAttrs[key] === value) return;
     const matched = listedVariants.find((v) =>
       v.attributes?.some((a) => a.key === key && a.value === value)
     );
@@ -913,8 +914,6 @@ const ProductUI = ({ openAuthModal }) => {
       option.variant?._id != null &&
       String(selectedVariant._id) === String(option.variant._id)
     ) {
-      setSelectedAttrs({});
-      setActiveThumb(0);
       return;
     }
     setSelectedAttrs(option.attrs || {});
@@ -1037,6 +1036,12 @@ const ProductUI = ({ openAuthModal }) => {
     () => resolveVariantShipping(selectedVariant, product),
     [selectedVariant, product]
   );
+  const displayAttributes = useMemo(() => {
+    if (isPrimaryVariant(selectedVariant, product)) {
+      return Array.isArray(product?.attributes) ? product.attributes : [];
+    }
+    return Array.isArray(selectedVariant?.attributes) ? selectedVariant.attributes : [];
+  }, [selectedVariant, product]);
   const ratingDisplay = useMemo(
     () => getProductRatingDisplay(product, reviewSummary),
     [product, reviewSummary]
@@ -1747,20 +1752,19 @@ const ProductUI = ({ openAuthModal }) => {
                         {productCode}
                       </span>
                     )}
-<div className="h-px bg-gray-100" />
+{(useFlatVariantPicker ? variantSelectOptions.length > 0 : attrKeys.length > 0) && (
+  <>
+    <div className="h-px bg-gray-100" />
 
 {/* Variant picker — flat buttons (Pink / Value etc.) or multi-attribute matrix */}
-{(useFlatVariantPicker ? variantSelectOptions.length > 0 : attrKeys.length > 0) && (
   <div className="" ref={variantRef}>
     {useFlatVariantPicker ? (
       <div className="flex flex-wrap gap-2.5">
         {variantSelectOptions.map((opt) => {
-         const isNoneSelected = Object.keys(selectedAttrs).length === 0;
-         const active =
-           !isNoneSelected &&
-           selectedVariant?._id != null &&
-           opt.variant?._id != null &&
-           String(selectedVariant._id) === String(opt.variant._id);
+          const active =
+            selectedVariant?._id != null &&
+            opt.variant?._id != null &&
+            String(selectedVariant._id) === String(opt.variant._id);
           return (
             <button
               key={opt.id}
@@ -1817,6 +1821,7 @@ const ProductUI = ({ openAuthModal }) => {
       </div>
     )}
   </div>
+  </>
 )}
 
                     <div className="flex items-center w-fit px-1 py-2 rounded-lg gap-2 bg-gray-100">
@@ -2194,11 +2199,11 @@ const ProductUI = ({ openAuthModal }) => {
                         )}
 
                         {/* Highlights */}
-                        {Array.isArray(product?.attributes) && product.attributes.some(a => a?.key && a?.value) && (
+                        {displayAttributes.some(a => a?.key && a?.value) && (
                           <div className="px-5 sm:px-6 py-5">
                             <p className="text-[10px] uppercase tracking-widest text-gray-400 font-medium mb-4">Key highlights</p>
                             <div className="flex flex-col gap-3">
-                              {product.attributes.filter(a => a?.key && a?.value).map((attr, i) => (
+                              {displayAttributes.filter(a => a?.key && a?.value).map((attr, i) => (
                                 <div key={`${attr.key}-${i}`} className="flex items-start gap-3 text-sm">
                                   <span className="text-gray-400 min-w-[120px] flex-shrink-0">{attr.key}</span>
                                   <span className="text-gray-900 font-medium">{attr.value}</span>
