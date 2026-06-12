@@ -127,17 +127,17 @@ const AppContent = () => {
         };
     }, [dispatch]);
 
-    // ── Show auth popup once per session (not on admin routes) ───────────────
-    useEffect(() => {
-        const hasVisited = sessionStorage.getItem("hasVisitedBABA");
-        if (!hasVisited && !isLoggedIn && !isAdminRoute) {
-            const timer = setTimeout(() => {
-                setIsAuthOpen(true);
-                sessionStorage.setItem("hasVisitedBABA", "true");
-            }, 2000);
-            return () => clearTimeout(timer);
-        }
-    }, [isLoggedIn, isAdminRoute]);
+    // ── Show auth popup once per session (not on admin routes) ───────────────  // remove comment to show auth popup
+    // useEffect(() => {
+    //     const hasVisited = sessionStorage.getItem("hasVisitedBABA");
+    //     if (!hasVisited && !isLoggedIn && !isAdminRoute) {
+    //         const timer = setTimeout(() => {
+    //             setIsAuthOpen(true);
+    //             sessionStorage.setItem("hasVisitedBABA", "true");
+    //         }, 2000);
+    //         return () => clearTimeout(timer);
+    //     }
+    // }, [isLoggedIn, isAdminRoute]);
 
     const handleLoginSuccess = () => setIsAuthOpen(false);
     const handleLogout       = () => dispatch(logoutUser());
