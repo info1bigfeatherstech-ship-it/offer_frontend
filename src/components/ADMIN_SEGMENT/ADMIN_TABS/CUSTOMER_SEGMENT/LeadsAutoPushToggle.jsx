@@ -5,6 +5,15 @@ import {
   useUpdateLeadsPushSettingsMutation,
 } from '../../ADMIN_REDUX_MANAGEMENT/userAnalyticsApi';
 
+function formatIstHourLabel(hour) {
+  const h = Math.floor(Number(hour));
+  if (!Number.isFinite(h) || h < 0 || h > 23) return '6:00 PM IST';
+  if (h === 0) return '12:00 AM IST';
+  if (h === 12) return '12:00 PM IST';
+  if (h < 12) return `${h}:00 AM IST`;
+  return `${h - 12}:00 PM IST`;
+}
+
 const LeadsAutoPushToggle = () => {
   const { data, isLoading, isFetching } = useGetLeadsPushSettingsQuery();
   const [updateSettings, { isLoading: isSaving }] = useUpdateLeadsPushSettingsMutation();
@@ -12,7 +21,8 @@ const LeadsAutoPushToggle = () => {
 
   const settings = data?.data;
   const pushConfigured = settings?.pushConfigured !== false;
-  const hourIst = settings?.autoPushHourIst ?? 11;
+  const hourIst = settings?.autoPushHourIst ?? 18;
+  const hourLabel = formatIstHourLabel(hourIst);
   const busy = isLoading || isSaving || isFetching;
 
   useEffect(() => {
@@ -33,7 +43,7 @@ const LeadsAutoPushToggle = () => {
       await updateSettings({ autoPushEnabled: next }).unwrap();
       toast.success(
         next
-          ? `Auto cart push enabled (daily ~${hourIst}:00 IST)`
+          ? `Auto cart push enabled (daily ~${hourLabel})`
           : 'Auto cart push disabled'
       );
     } catch (err) {
@@ -51,14 +61,14 @@ const LeadsAutoPushToggle = () => {
       } ${!pushConfigured ? 'opacity-60' : ''}`}
       title={
         pushConfigured
-          ? `Daily auto push at ~${hourIst}:00 IST for cart users who allowed notifications`
+          ? `Daily auto push at ~${hourLabel} for cart users who allowed notifications`
           : 'Configure VAPID keys on server to enable push'
       }
     >
       <div className="min-w-0">
         <p className="text-xs font-semibold text-gray-800 whitespace-nowrap">Auto push</p>
         <p className="text-[10px] text-gray-500 whitespace-nowrap hidden sm:block">
-          {enabled ? `On · ~${hourIst}:00 IST` : 'Off'}
+          {enabled ? `On · ~${hourLabel}` : 'Off'}
         </p>
       </div>
       <button
