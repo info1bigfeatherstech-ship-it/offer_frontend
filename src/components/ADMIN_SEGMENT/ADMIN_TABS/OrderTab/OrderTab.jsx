@@ -56,7 +56,8 @@ function formatInr(amount) {
   return new Intl.NumberFormat("en-IN", {
     style: "currency",
     currency: "INR",
-    maximumFractionDigits: 0,
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   }).format(n);
 }
 
@@ -872,13 +873,15 @@ const OrderTab = () => {
                 }`}
               >
                 {f.label}
-                <span
-                  className={`px-1.5 py-0.5 rounded-md text-[10px] ${
-                    ui.activeTabLabel === f.label ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"
-                  }`}
-                >
-                  {summaryFetching && !summary ? "…" : f.count}
-                </span>
+                {f.label !== "Cancelled" && (
+                  <span
+                    className={`px-1.5 py-0.5 rounded-md text-[10px] ${
+                      ui.activeTabLabel === f.label ? "bg-blue-600 text-white" : "bg-slate-100 text-slate-500"
+                    }`}
+                  >
+                    {summaryFetching && !summary ? "…" : f.count}
+                  </span>
+                )}
               </button>
             ))}
           </div>

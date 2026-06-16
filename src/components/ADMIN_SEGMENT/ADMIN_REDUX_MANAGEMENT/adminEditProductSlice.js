@@ -75,7 +75,9 @@ export const updateProduct = createAsyncThunk(
 
       if (pd.soldInfo) fd.append("soldInfo", JSON.stringify(pd.soldInfo));
       if (pd.fomo) fd.append("fomo", JSON.stringify(pd.fomo));
-      if (pd.attributes?.length) fd.append("attributes", JSON.stringify(pd.attributes));
+      // if (pd.attributes?.length) fd.append("attributes", JSON.stringify(pd.attributes));
+      // always send, even empty array — otherwise deleting the last attribute never persists
+      fd.append("attributes", JSON.stringify(pd.attributes || []));
 
       const res = await axiosInstance.put(`/admin/products/${slug}`, fd, {
         headers: { "Content-Type": "multipart/form-data" },

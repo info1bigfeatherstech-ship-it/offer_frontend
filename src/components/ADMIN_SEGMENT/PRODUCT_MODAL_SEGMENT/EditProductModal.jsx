@@ -76,7 +76,8 @@ const toFormData = (product) => {
     soldInfo: product.soldInfo || { enabled: false, count: 0 },
     fomo: product.fomo || { enabled: false, type: "viewing_now", viewingNow: 0, productLeft: 0, customMessage: "" },
     images: (product.images || []).map((img, i) => ({ ...img, id: img._id || img.publicId || img.url || `main-img-${i}`, isMain: img.isMain || i === 0 })),
-    attributes: product.attributes || [],
+    // attributes: product.attributes || [],
+    attributes: (product.attributes || []).map((a, i) => ({ ...a, id: a.id ?? a._id ?? `attr-${i}` })),
     variants: normaliseVariants(product.variants || []),
     isFeatured: product.isFeatured || false,
     status: product.status || "draft",
@@ -104,7 +105,7 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
   const [showAttributeModal, setShowAttributeModal] = useState(false);
   const [showCustomMessageModal, setShowCustomMessageModal] = useState(false);
   const [showVariantModal, setShowVariantModal] = useState(false);
-
+  const [editingAttribute, setEditingAttribute] = useState(null); // null = add mode, object = edit mode
   useEffect(() => { setFormData(toFormData(product)); }, [product._id]);
   useEffect(() => { if (updateSuccess) { dispatch(resetUpdateSuccess()); onClose(); } }, [updateSuccess, dispatch, onClose]);
   useEffect(() => { if (!showVariantModal) { setVariantSaveError(null); dispatch(resetVariantError()); } }, [showVariantModal, dispatch]);
@@ -265,7 +266,17 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
       });
   };
 
-  const handleAddAttribute = (a) => setFormData((p) => ({ ...p, attributes: [...p.attributes, { ...a, id: Date.now() }] }));
+  const openAddAttributeModal = () => { setEditingAttribute(null); setShowAttributeModal(true); };
+  const openEditAttributeModal = (attr) => { setEditingAttribute(attr); setShowAttributeModal(true); };
+  const closeAttributeModal = () => { setShowAttributeModal(false); setEditingAttribute(null); };
+
+  const handleAttributeSave = (a) =>
+    setFormData((p) => ({
+      ...p,
+      attributes: editingAttribute
+        ? p.attributes.map((x) => (x.id === editingAttribute.id ? { ...x, key: a.key, value: a.value } : x))
+        : [...p.attributes, { ...a, id: Date.now() }],
+    }));
   const removeAttribute = (id) => setFormData((p) => ({ ...p, attributes: p.attributes.filter((a) => a.id !== id) }));
   const handleCustomMessageSave = (msg) => setFormData((p) => ({ ...p, fomo: { ...p.fomo, customMessage: msg } }));
 
@@ -384,7 +395,9 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
             brands={brands}
             onOpenCategoryModal={() => setShowCategoryModal(true)}
             onOpenBrandModal={() => setShowBrandModal(true)}
-            onOpenAttributeModal={() => setShowAttributeModal(true)}
+            // onOpenAttributeModal={() => setShowAttributeModal(true)}
+            onOpenAttributeModal={openAddAttributeModal}
+            onEditAttribute={openEditAttributeModal}
             onOpenCustomMessage={() => setShowCustomMessageModal(true)}
             onOpenAddVariant={openAddVariant}
             onOpenEditVariant={openEditVariant}
@@ -408,7 +421,8 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
 
       {showCategoryModal && (<CategoryModal onSelect={(catId) => setFormData((p) => ({ ...p, category: catId }))} onClose={() => setShowCategoryModal(false)} />)}
       {showBrandModal && (<BrandModal brands={brands} setBrands={setBrands} onSelect={(brand) => setFormData((p) => ({ ...p, brand }))} onClose={() => setShowBrandModal(false)} />)}
-      {showAttributeModal && (<AttributeModal onAdd={handleAddAttribute} onClose={() => setShowAttributeModal(false)} />)}
+      {/* {showAttributeModal && (<AttributeModal onAdd={handleAddAttribute} onClose={() => setShowAttributeModal(false)} />)} */}
+      {showAttributeModal && (<AttributeModal initialValue={editingAttribute} onAdd={handleAttributeSave} onClose={closeAttributeModal} />)}
       {showCustomMessageModal && (<CustomMessageModal currentMessage={formData.fomo.customMessage} onSave={handleCustomMessageSave} onClose={() => setShowCustomMessageModal(false)} />)}
       {showVariantModal && (
         <VariantModal
