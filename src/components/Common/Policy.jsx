@@ -319,7 +319,6 @@ export default function PolicyPage() {
   return (
     <div className="min-h-screen bg-white font-sans page-transition" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700;900&display=swap');
         * { box-sizing: border-box; }
         html { scroll-behavior: auto; }
         

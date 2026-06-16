@@ -264,7 +264,7 @@ const AppContent = () => {
                     onDismiss={() => setPushPromptVisible(false)}
                 />
             )}
-            {/* <SideVideo /> */}
+           
             {/* <WhatsAppFloat /> */}
         </div>
     );
