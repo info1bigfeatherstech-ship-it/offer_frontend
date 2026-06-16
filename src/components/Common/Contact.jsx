@@ -151,7 +151,6 @@ export default function ContactUs() {
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;1,9..40,300&display=swap');
         .contact-root { font-family: 'DM Sans', sans-serif; }
         .font-display { font-family: 'Syne', sans-serif; }
         @keyframes slideUp {

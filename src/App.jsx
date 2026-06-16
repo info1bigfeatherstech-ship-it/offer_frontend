@@ -9,6 +9,7 @@ import Footer from "./components/Common/Footer";
 import WhatsAppFloat from "./components/WHATSAPP_FLOAT/WhatsAppFloat";
 import LogRegister from "./components/USER_LOGIN_SEGMENT/LogRegister";
 
+
 import Homepage from "./components/Webside_Pages/Homepage";
 import CustomerCare from "./components/Webside_Pages/CustomerCare";
 import CatProducts from "./User_Side_Web_Interface/Product_segment/CatPro_segment/CatProducts";
@@ -264,7 +265,7 @@ const AppContent = () => {
                     onDismiss={() => setPushPromptVisible(false)}
                 />
             )}
-            {/* <SideVideo /> */}
+           
             {/* <WhatsAppFloat /> */}
         </div>
     );

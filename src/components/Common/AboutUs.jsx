@@ -154,7 +154,6 @@ export default function AboutUs() {
   return (
     <div className="min-h-screen bg-white overflow-hidden font-sans page-transition-about" style={{ fontFamily: "'DM Sans', sans-serif" }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;700;900&display=swap');
         * { box-sizing: border-box; }
         .page-transition-about {
           animation: aboutPageFadeIn 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards;
