@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense, lazy } from "react";
 import { BrowserRouter as Router, Routes, Route, useLocation, Navigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import ToastConfig from "./components/Common/ToastConfig";
@@ -14,9 +14,10 @@ import Homepage from "./components/Webside_Pages/Homepage";
 import CustomerCare from "./components/Webside_Pages/CustomerCare";
 import CatProducts from "./User_Side_Web_Interface/Product_segment/CatPro_segment/CatProducts";
 import ProductDetail from "./User_Side_Web_Interface/Product_segment/Productdetail";
-import UserDashboard from "./User_Side_Web_Interface/User_Dash_Segment/UserDashboard";
-import AdminDashboard from "./components/ADMIN_SEGMENT/Admin_dashboard";
 import ShopByPrice from "./User_Side_Web_Interface/ShopByPriceSegment/ShopByPrice";
+
+const UserDashboard = lazy(() => import("./User_Side_Web_Interface/User_Dash_Segment/UserDashboard"));
+const AdminDashboard = lazy(() => import("./components/ADMIN_SEGMENT/Admin_dashboard"));
 
 // ── New admin auth imports ────────────────────────────────────────────────────
 import AdminLogin        from "./components/ADMIN_SEGMENT/ADMIN_LOGIN_SEGMENT/AdminLogin";
@@ -164,7 +165,13 @@ const AppContent = () => {
 
             {!isAdminRoute && <WhatsAppFloat />}
 
-            <Routes>
+            <Suspense fallback={
+                <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-gray-500">
+                    <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
+                    <p className="text-sm font-medium">Loading panel...</p>
+                </div>
+            }>
+                <Routes>
                 {/* ── Public routes ──────────────────────────────────────── */}
                 <Route path="/"                element={<Homepage onOpenAuth={openAuthModal} />} />
                 <Route path="/customer-care"   element={<CustomerCare onOpenAuth={openAuthModal} />} />
@@ -248,6 +255,7 @@ const AppContent = () => {
                 {/* ── 404 fallback ───────────────────────────────────────── */}
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
+            </Suspense>
 
             {!isAdminRoute && <Footer />}
 

@@ -35,11 +35,11 @@ import 'swiper/css/pagination';
 
 
 const slides = [
-  { id: 1, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto/v1780920784/offerwalebaba-1_tkhraz.jpg', alt: 'Offer 1' },
-  { id: 2, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto/v1780920808/offerwalebaba-5_wrhktc.jpg', alt: 'Offer 2' },
-  { id: 3, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto/v1780920808/offerwalebaba-3_h3txig.jpg', alt: 'Offer 3' },
-  { id: 4, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto/v1780920808/offerwalebaba-2_wdtxth.jpg', alt: 'Offer 4' },
-  { id: 5, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto/v1780920808/offerwalebaba-4_jvsqnp.jpg', alt: 'Offer 5' },
+  { id: 1, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_1000/v1780920784/offerwalebaba-1_tkhraz.jpg', alt: 'Offer 1' },
+  { id: 2, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_1000/v1780920808/offerwalebaba-5_wrhktc.jpg', alt: 'Offer 2' },
+  { id: 3, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_1000/v1780920808/offerwalebaba-3_h3txig.jpg', alt: 'Offer 3' },
+  { id: 4, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_1000/v1780920808/offerwalebaba-2_wdtxth.jpg', alt: 'Offer 4' },
+  { id: 5, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_1000/v1780920808/offerwalebaba-4_jvsqnp.jpg', alt: 'Offer 5' },
 ];
 /* ─── Responsive breakpoints ───────────────────────────────── */
 const breakpoints = {
@@ -134,7 +134,8 @@ const HeroSlider = () => {
                   src={slide.image}
                   alt={slide.alt}
                   className="hs-img"
-                  loading="lazy"
+                  loading={slide.id <= 3 ? "eager" : "lazy"}
+                  fetchPriority={slide.id === 1 ? "high" : undefined}
                   draggable={false}
                 />
                 <div className="hs-overlay" aria-hidden="true" />
