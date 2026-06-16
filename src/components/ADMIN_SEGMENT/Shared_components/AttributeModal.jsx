@@ -1,20 +1,24 @@
 import React, { useState } from 'react';
 
-const AttributeModal = ({ onAdd, onClose }) => {
-  const [newAttribute, setNewAttribute] = useState({ key: '', value: '' });
+const AttributeModal = ({ onAdd, onClose, initialValue = null }) => {
+  const isEditMode = !!initialValue;
+  const [newAttribute, setNewAttribute] = useState({
+    key: initialValue?.key || '',
+    value: initialValue?.value || '',
+  });
 
   const handleAdd = () => {
     if (newAttribute.key && newAttribute.value) {
-      onAdd({ ...newAttribute, id: Date.now() });
+      onAdd(isEditMode ? { ...newAttribute, id: initialValue.id } : { ...newAttribute, id: Date.now() });
       setNewAttribute({ key: '', value: '' });
       onClose();
     }
   };
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[60]">
       <div className="bg-white rounded-2xl max-w-md w-full p-6">
-        <h3 className="text-xl font-bold text-gray-900 mb-4">Add Attribute</h3>
+        {/* <h3 className="text-xl font-bold text-gray-900 mb-4">Add Attribute</h3> */}
+        <h3 className="text-xl font-bold text-gray-900 mb-4">{isEditMode ? 'Edit Attribute' : 'Add Attribute'}</h3>
         <div className="space-y-4">
           <input
             type="text"
@@ -43,7 +47,7 @@ const AttributeModal = ({ onAdd, onClose }) => {
             onClick={handleAdd}
             className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
           >
-            Add
+            {isEditMode ? 'Save' : 'Add'}
           </button>
         </div>
       </div>
