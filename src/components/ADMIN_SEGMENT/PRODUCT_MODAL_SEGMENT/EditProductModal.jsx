@@ -41,6 +41,7 @@ const normaliseVariants = (variants = []) =>
       wholesaleBase: v.price?.wholesaleBase ?? "",
       wholesaleSale: v.price?.wholesaleSale ?? ""
     },
+    attributes: v.attributes || [],
     images: (v.images || [])
       .slice()
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
@@ -271,13 +272,23 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
   const closeAttributeModal = () => { setShowAttributeModal(false); setEditingAttribute(null); };
 
   const handleAttributeSave = (a) =>
-    setFormData((p) => ({
-      ...p,
-      attributes: editingAttribute
-        ? p.attributes.map((x) => (x.id === editingAttribute.id ? { ...x, key: a.key, value: a.value } : x))
-        : [...p.attributes, { ...a, id: Date.now() }],
-    }));
-  const removeAttribute = (id) => setFormData((p) => ({ ...p, attributes: p.attributes.filter((a) => a.id !== id) }));
+    setFormData((p) => {
+      const v = [...(p.variants || [])];
+      if (!v[0]) return p;
+      const current = v[0].attributes || [];
+      const next = editingAttribute
+        ? current.map((x) => (x.id === editingAttribute.id ? { ...x, key: a.key, value: a.value } : x))
+        : [...current, { ...a, id: Date.now() }];
+      v[0] = { ...v[0], attributes: next };
+      return { ...p, variants: v };
+    });
+  const removeAttribute = (id) =>
+    setFormData((p) => {
+      const v = [...(p.variants || [])];
+      if (!v[0]) return p;
+      v[0] = { ...v[0], attributes: (v[0].attributes || []).filter((a) => a.id !== id) };
+      return { ...p, variants: v };
+    });
   const handleCustomMessageSave = (msg) => setFormData((p) => ({ ...p, fomo: { ...p.fomo, customMessage: msg } }));
 
   const handleSubmit = async (e) => {
@@ -327,6 +338,7 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
           wholesale: mainVariant.wholesale,
           minimumOrderQuantity: mainVariant.minimumOrderQuantity,
           channelVisibility: channelVisibilityPayload,
+          attributes: mainVariant.attributes,
         })).unwrap();
         
         if (result?.product?.variants) {

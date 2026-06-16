@@ -1037,10 +1037,13 @@ const ProductUI = ({ openAuthModal }) => {
     [selectedVariant, product]
   );
   const displayAttributes = useMemo(() => {
-    if (isPrimaryVariant(selectedVariant, product)) {
-      return Array.isArray(product?.attributes) ? product.attributes : [];
-    }
-    return Array.isArray(selectedVariant?.attributes) ? selectedVariant.attributes : [];
+    // Variant-level attributes are the source of truth — bulk upload and admin edits
+    // write attributes onto every variant, including index 0. There is no real
+    // "product-level only" attribute set in practice anymore.
+    const variantAttrs = Array.isArray(selectedVariant?.attributes) ? selectedVariant.attributes : [];
+    if (variantAttrs.length > 0) return variantAttrs;
+    // Fallback only for legacy data that still has attributes parked at product level.
+    return Array.isArray(product?.attributes) ? product.attributes : [];
   }, [selectedVariant, product]);
   const ratingDisplay = useMemo(
     () => getProductRatingDisplay(product, reviewSummary),

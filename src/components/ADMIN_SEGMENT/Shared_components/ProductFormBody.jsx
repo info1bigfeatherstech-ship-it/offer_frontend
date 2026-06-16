@@ -151,6 +151,7 @@ const ProductFormBody = ({
   const primaryVariant = isEditMode ? (formData.variants?.[0] ?? null) : null;
   const extraVariants = isEditMode ? (formData.variants?.slice(1) ?? []) : (formData.variants ?? []);
   const extraOffset = isEditMode ? 1 : 0;
+  const displayedAttributes = isEditMode ? (primaryVariant?.attributes || []) : (formData.attributes || []);
 
   const primaryBase = formData.price?.base ?? "";
   const primarySale = formData.price?.sale ?? "";
@@ -558,11 +559,11 @@ const ProductFormBody = ({
             <button type="button" onClick={onOpenAttributeModal} className="px-3 py-1.5 bg-blue-500 text-white text-sm rounded-lg hover:bg-blue-600 whitespace-nowrap">+ Add</button>
           </div>
           <div className="p-4">
-            {!formData.attributes?.length ? (
+          {!displayedAttributes.length ? (
               <p className="text-center text-gray-400 py-4 text-sm">No attributes added yet</p>
             ) : (
               <div className="flex flex-wrap gap-2">
-              {formData.attributes.map((attr) => (
+                {displayedAttributes.map((attr) => (
                   <div key={attr.id} className="inline-flex items-center gap-2 bg-gray-50 px-3 py-1.5 rounded-lg group hover:bg-gray-100 transition-colors">
                     <span className="text-sm whitespace-nowrap"><span className="font-medium text-gray-700">{attr.key}:</span> <span className="text-gray-600">{attr.value}</span></span>
                     <button type="button" onClick={() => onEditAttribute(attr)} className="text-gray-400 hover:text-blue-500 transition-colors">
