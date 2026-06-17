@@ -924,7 +924,7 @@ export default function AdminOrderDetailView({
     ops?.primaryActionLabel || FULFILLMENT_PRIMARY_ACTION_LABELS[primaryActionKey] || "Open";
   const currentAwb = String(ship.awbCode || ship.trackingNumber || '').trim();
   const artifactAwb = String(ship.fulfillmentArtifactAwb || '').trim();
-  const artifactsAreStale = Boolean(currentAwb && (ship.manifestUrl || ship.labelUrl) && artifactAwb && artifactAwb !== currentAwb);
+  const artifactsAreStale = Boolean(currentAwb && (ship.manifestUrl || ship.labelUrl) && artifactAwb !== currentAwb);
   const hasManifest = Boolean(ship.manifestUrl) && !artifactsAreStale;
   const hasLabel = Boolean(ship.labelUrl) && !artifactsAreStale;
   const step1Done = hasCarrierAwb;
