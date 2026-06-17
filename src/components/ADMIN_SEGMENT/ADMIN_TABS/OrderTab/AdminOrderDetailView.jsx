@@ -922,7 +922,11 @@ export default function AdminOrderDetailView({
   const primaryActionKey = ops?.primaryAction || "openDetail";
   const primaryActionLabel =
     ops?.primaryActionLabel || FULFILLMENT_PRIMARY_ACTION_LABELS[primaryActionKey] || "Open";
-  const hasManifest = Boolean(ship.manifestUrl);
+  const currentAwb = String(ship.awbCode || ship.trackingNumber || '').trim();
+  const artifactAwb = String(ship.fulfillmentArtifactAwb || '').trim();
+  const artifactsAreStale = Boolean(currentAwb && (ship.manifestUrl || ship.labelUrl) && artifactAwb && artifactAwb !== currentAwb);
+  const hasManifest = Boolean(ship.manifestUrl) && !artifactsAreStale;
+  const hasLabel = Boolean(ship.labelUrl) && !artifactsAreStale;
   const step1Done = hasCarrierAwb;
   const step2Done = pickupAlreadyScheduled;
   const step3Done = hasManifest;
@@ -1887,7 +1891,7 @@ export default function AdminOrderDetailView({
                 {fulfillmentFocusStep === 3 && !step3Done ? (
                   <p className="text-xs font-semibold text-indigo-900 mb-2">{ops.nextStepMessage || primaryActionLabel}</p>
                 ) : null}
-                {ship.labelUrl && !hasManifest ? (
+                {hasLabel && !hasManifest ? (
                   <p className="text-[10px] font-semibold text-emerald-700 mb-2">
                     Label already downloaded on Shiprocket — manifest is still required next.
                   </p>
@@ -1983,7 +1987,7 @@ export default function AdminOrderDetailView({
                   </button>
                   ) : null}
                 </div>
-                {ship.manifestUrl ? (
+                {hasManifest ? (
                   <p className="text-[11px] text-emerald-700 mt-2">Manifest URL saved on this order.</p>
                 ) : null}
                 <FulfillmentStatusBanner msg={actionMsg?.surface === "manifest" ? actionMsg : null} />
@@ -1992,7 +1996,7 @@ export default function AdminOrderDetailView({
               <FulfillmentStepCard
                 step={4}
                 focusStep={fulfillmentFocusStep}
-                done={Boolean(ship.labelUrl) && step3Done}
+                done={hasLabel && step3Done}
                 title="Step 4 · Shipping label"
                 id="admin-shipping-label-step"
               >
@@ -2000,7 +2004,7 @@ export default function AdminOrderDetailView({
                   Courier AWB label from Shiprocket (parcel sticker). Not your GST tax invoice — use Invoice above for
                   tax invoice.
                 </p>
-                {ship.labelUrl && !step3Done ? (
+                {hasLabel && !step3Done ? (
                   <p className="text-[10px] font-semibold text-emerald-700 mb-2">
                     Label downloaded on Shiprocket — available after manifest step if needed again.
                   </p>
