@@ -15,6 +15,7 @@ import google from "../.././assets/google.png"
 const Footer = () => {
   const currentYear = new Date().getFullYear();
   const [isOpen, setisOpen] = useState(false)
+  const [loadMap, setLoadMap] = useState(false);
 
   const dispatch = useDispatch();
   const allCategories = useSelector(selectHierarchicalCategories);
@@ -272,16 +273,33 @@ const Footer = () => {
 
           {/* Support & Location Section */}
           <div className="lg:col-span-5 space-y-8">
-            <div className="relative aspect-video rounded-[2rem] overflow-hidden border border-white/10 group">
-              <iframe
-                title="location"
-                src="https://www.google.com/maps?q=19.2092622,73.1663272&z=16&output=embed"
-                className="w-full h-full border-0 grayscale invert opacity-40 
-                   group-hover:opacity-100 group-hover:grayscale-0 
-                   transition-all duration-1000"
-                loading="lazy"
-                referrerPolicy="no-referrer-when-downgrade"
-              />
+            <div className="relative aspect-video rounded-[2rem] overflow-hidden border border-white/10 group bg-[#0d0d20]">
+              {!loadMap ? (
+                <div 
+                  className="absolute inset-0 w-full h-full flex flex-col items-center justify-center bg-[#0e0e1f] hover:bg-[#12122b] transition-colors duration-300 gap-3 cursor-pointer select-none"
+                  onClick={() => setLoadMap(true)}
+                >
+                  <div className="w-12 h-12 rounded-full bg-orange-500/10 flex items-center justify-center text-orange-500 border border-orange-500/20 group-hover:scale-110 group-hover:bg-orange-500/20 transition-all duration-300">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-map-pin"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                  </div>
+                  <div className="space-y-1 z-10 px-4 text-center">
+                    <p className="text-white font-bold text-sm">Sambhaji Chowk, Ulhasnagar</p>
+                    <p className="text-gray-400 text-xs max-w-[280px] mx-auto">Click to activate interactive map view</p>
+                  </div>
+                  <button className="mt-2 px-4 py-1.5 bg-orange-500 hover:bg-orange-600 text-black font-bold rounded-full text-xs shadow-md transition-colors duration-300">
+                    Load Map
+                  </button>
+                </div>
+              ) : (
+                <iframe
+                  title="location"
+                  src="https://www.google.com/maps?q=19.2092622,73.1663272&z=16&output=embed"
+                  className="w-full h-full border-0 grayscale invert opacity-40 
+                     group-hover:opacity-100 group-hover:grayscale-0 
+                     transition-all duration-1000"
+                  referrerPolicy="no-referrer-when-downgrade"
+                />
+              )}
             </div>
 
             {/* Layout: md 2-col; lg–1502px stack Support → Hours → Location (full width); 1503+ 2-col + hours row */}

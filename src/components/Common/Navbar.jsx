@@ -26,10 +26,10 @@ import MobileBottomNav from './Mobilebottomnav';
 // Sub-Components
 // ─────────────────────────────────────────────────────────────────────────────
 
-const navLogoVideo = 'https://res.cloudinary.com/dnm8cfawi/video/upload/v1749996338/Video2_nnoxmg.mp4';
-const arrivals = 'https://res.cloudinary.com/dnm8cfawi/image/upload/Product_5_ofatmo.gif';
-const SaleIcon = 'https://res.cloudinary.com/dnm8cfawi/image/upload/Shopping_bag_wsaywj.gif';
-const deal = 'https://res.cloudinary.com/dnm8cfawi/image/upload/Discount_fldhac.gif'
+const navLogoVideo = 'https://res.cloudinary.com/dnm8cfawi/video/upload/f_auto,q_auto,w_200/v1749996338/Video2_nnoxmg.mp4';
+const arrivals = 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_80/Product_5_ofatmo.gif';
+const SaleIcon = 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_80/Shopping_bag_wsaywj.gif';
+const deal = 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_80/Discount_fldhac.gif'
 
 const ActionIcon = memo(({ item, onClick, isLoggedIn }) => (
   <div
