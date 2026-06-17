@@ -18,6 +18,8 @@ import ShopByPrice from "./User_Side_Web_Interface/ShopByPriceSegment/ShopByPric
 
 const UserDashboard = lazy(() => import("./User_Side_Web_Interface/User_Dash_Segment/UserDashboard"));
 const AdminDashboard = lazy(() => import("./components/ADMIN_SEGMENT/Admin_dashboard"));
+const UserTab = lazy(() => import("./components/ADMIN_SEGMENT/ADMIN_TABS/USER/UserTab"));
+const InfluencerFormPage = lazy(() => import("./components/ADMIN_SEGMENT/Influencer/Influencer"));
 
 // ── New admin auth imports ────────────────────────────────────────────────────
 import AdminLogin        from "./components/ADMIN_SEGMENT/ADMIN_LOGIN_SEGMENT/AdminLogin";
@@ -35,13 +37,11 @@ import useWishlistInit from "./components/HOOKS/useWishlistInit";
 import useCartInit from "./components/HOOKS/useCartInit";
 import usePushNotifications from "./components/HOOKS/usePushNotifications";
 import PushNotificationPrompt from "./components/Common/PushNotificationPrompt";
-import UserTab from "./components/ADMIN_SEGMENT/ADMIN_TABS/USER/UserTab";
 import Checkout from "./User_Side_Web_Interface/CHECKOUT/Checkout";
 import ContactUs from "./components/Common/Contact";
 import TagProducts from "./User_Side_Web_Interface/User_Dash_Segment/UserSubPages/TagProducts";
 import AboutUs from "./components/Common/AboutUs";
 import Policy from "./components/Common/Policy";
-import InfluencerFormPage from "./components/ADMIN_SEGMENT/Influencer/Influencer";
 import ScrollRestoration from "./components/ScrollRestoration";
 
 // ─────────────────────────────────────────────────────────────────────────────
