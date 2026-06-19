@@ -10,12 +10,14 @@ import {
   setDatePreset,
   commitCustomRange,
   ORDER_TAB_LABEL_TO_BUCKET,
+  DEFAULT_ORDER_TAB_LABEL,
   selectAdminOrdersListQueryArgs,
   selectAdminOrdersSummaryQueryArgs,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersSlice";
 import {
   useGetAdminOrdersSummaryQuery,
   useGetAdminOrdersListQuery,
+  useAdminAutoSyncOrderStatusesMutation,
   useGetAdminOrderDetailQuery,
   useGetAdminOrderTrackingQuery,
   useAdminBulkApprovalCancelMutation,
@@ -41,7 +43,7 @@ import axiosInstance from "../../../../SERVICES/axiosInstance";
 import { useSearchParams } from "react-router-dom";
 
 const TAB_ORDER = [
-  "All",
+  // "All" — intentionally hidden; summary cards still exclude cancelled via backend totals.
   "Pending",
   "Confirmed",
   "Processing",
@@ -183,6 +185,55 @@ const OrderTab = () => {
     error: listError,
     isError: listIsError,
   } = useGetAdminOrdersListQuery(listArgs);
+
+  const [autoSyncOrderStatuses] = useAdminAutoSyncOrderStatusesMutation();
+  const autoSyncBusyRef = useRef(false);
+
+  /** Silent background sync: Shiprocket → DB for stale orders in the active date range. */
+  useEffect(() => {
+    let cancelled = false;
+    let initialTimer;
+    let intervalId;
+
+    const runAutoSync = async () => {
+      if (cancelled || autoSyncBusyRef.current || document.hidden) return;
+      autoSyncBusyRef.current = true;
+      try {
+        let complete = false;
+        let guard = 0;
+        while (!cancelled && !complete && guard < 20) {
+          guard += 1;
+          const result = await autoSyncOrderStatuses(summaryArgs).unwrap();
+          complete = Boolean(result?.data?.summary?.complete);
+          const remaining = result?.data?.summary?.remainingStale ?? 0;
+          const timedOut = Boolean(result?.data?.summary?.timedOut);
+          if (complete || remaining <= 0 || !timedOut) break;
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+      } catch {
+        /* background sync — no user-facing error */
+      } finally {
+        autoSyncBusyRef.current = false;
+      }
+    };
+
+    initialTimer = setTimeout(runAutoSync, 4000);
+    intervalId = setInterval(runAutoSync, 90_000);
+
+    const onVisibility = () => {
+      if (!document.hidden && !cancelled) {
+        runAutoSync();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(initialTimer);
+      clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [summaryArgs, autoSyncOrderStatuses]);
 
   const {
     data: detailRes,
@@ -359,6 +410,13 @@ const OrderTab = () => {
     setSelectedOrderId(null);
   }, [activeTab]);
 
+  /** Legacy "All" tab removed from UI — normalize any stale Redux state once. */
+  useEffect(() => {
+    if (ui.activeTabLabel === "All") {
+      dispatch(setActiveTabLabel(DEFAULT_ORDER_TAB_LABEL));
+    }
+  }, [ui.activeTabLabel, dispatch]);
+
   /** Draft dates for Custom range — committed via Apply only */
   const [draftDateFrom, setDraftDateFrom] = useState("");
   const [draftDateTo, setDraftDateTo] = useState("");
@@ -399,8 +457,7 @@ const OrderTab = () => {
     const c = summary?.countsByBucket || {};
     return TAB_ORDER.map((label) => {
       const key = ORDER_TAB_LABEL_TO_BUCKET[label];
-      const count = key === "all" ? c.all ?? 0 : c[key] ?? 0;
-      return { label, count };
+      return { label, count: c[key] ?? 0 };
     });
   }, [summary]);
 
@@ -894,7 +951,7 @@ const OrderTab = () => {
               onKeyDown={(e) => {
                 if (e.key === "Enter") dispatch(commitSearch());
               }}
-              className="w-full lg:w-64 pl-4 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none"
+              className="w-full lg:w-90 pl-4 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none"
             />
             <button
               type="button"

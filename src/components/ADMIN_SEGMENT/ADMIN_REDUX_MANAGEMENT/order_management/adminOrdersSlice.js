@@ -14,7 +14,7 @@ export const ORDER_TAB_LABEL_TO_BUCKET = Object.freeze({
 });
 
 /** @type {keyof typeof ORDER_TAB_LABEL_TO_BUCKET} */
-export const DEFAULT_ORDER_TAB_LABEL = 'All';
+export const DEFAULT_ORDER_TAB_LABEL = 'Pending';
 
 /** Order statuses where GST invoice + Shiprocket fulfilment UI are allowed (after admin confirm). */
 const POST_CONFIRM_ORDER_STATUSES = [
@@ -91,8 +91,9 @@ const adminOrdersUiSlice = createSlice({
   initialState,
   reducers: {
     setActiveTabLabel: (state, { payload }) => {
-      if (payload && ORDER_TAB_LABEL_TO_BUCKET[payload] != null) {
-        state.activeTabLabel = payload;
+      const label = payload === 'All' ? DEFAULT_ORDER_TAB_LABEL : payload;
+      if (label && ORDER_TAB_LABEL_TO_BUCKET[label] != null) {
+        state.activeTabLabel = label;
         state.page = 1;
       }
     },
@@ -182,15 +183,21 @@ const selectAdminOrdersUi = (state) => state.adminOrdersUi;
  * Build RTK Query args for list endpoint from Redux state (memoized — stable ref when UI slice unchanged).
  */
 export const selectAdminOrdersListQueryArgs = createSelector([selectAdminOrdersUi], (ui) => {
-  const bucket = ORDER_TAB_LABEL_TO_BUCKET[ui.activeTabLabel] || 'all';
+  const search = String(ui.search || '').trim();
+  const tabLabel =
+    ui.activeTabLabel === 'All' || !ORDER_TAB_LABEL_TO_BUCKET[ui.activeTabLabel]
+      ? DEFAULT_ORDER_TAB_LABEL
+      : ui.activeTabLabel;
+  const bucket = ORDER_TAB_LABEL_TO_BUCKET[tabLabel];
   const dateArgs = buildDateQueryArgs(ui);
   return {
     page: ui.page,
     limit: ui.limit,
     sortBy: ui.sortBy,
     sortOrder: ui.sortOrder,
-    bucket,
-    search: ui.search,
+    /** When search is active, bucket is omitted so the API searches all statuses globally. */
+    ...(search ? {} : { bucket }),
+    search,
     ...dateArgs,
   };
 });
