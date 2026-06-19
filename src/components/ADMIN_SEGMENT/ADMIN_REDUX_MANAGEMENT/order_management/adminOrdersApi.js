@@ -71,6 +71,39 @@ export const adminOrdersApi = createApi({
     }),
 
     /**
+     * Background auto-sync: Shiprocket → DB for stale orders in the selected date range.
+     * POST /api/admin/orders/auto-sync-statuses
+     */
+    adminAutoSyncOrderStatuses: builder.mutation({
+      query: (arg = {}) => {
+        const params = {};
+        if (arg.from) params.from = arg.from;
+        if (arg.to) params.to = arg.to;
+        if (arg.rangePreset) params.rangePreset = arg.rangePreset;
+        if (arg.presetDays != null && arg.presetDays !== '' && !arg.from && !arg.to && !arg.rangePreset) {
+          params.presetDays = arg.presetDays;
+        }
+        if (arg.preset === '30d') params.preset = '30d';
+        if (arg.staleMinutes != null) params.staleMinutes = arg.staleMinutes;
+        if (arg.maxRunMs != null) params.maxRunMs = arg.maxRunMs;
+        return {
+          url: '/admin/orders/auto-sync-statuses',
+          method: 'POST',
+          params,
+        };
+      },
+      invalidatesTags: (result, error) => {
+        if (error) return [];
+        const synced = result?.data?.summary?.synced ?? 0;
+        if (synced <= 0) return [];
+        return [
+          { type: 'AdminOrdersList', id: 'PARTIAL' },
+          { type: 'AdminOrdersSummary', id: 'SUMMARY' },
+        ];
+      },
+    }),
+
+    /**
      * Paginated list with filters.
      * GET /api/admin/orders
      */
@@ -415,6 +448,7 @@ export const adminOrdersApi = createApi({
 export const {
   useGetAdminOrdersSummaryQuery,
   useGetAdminOrdersListQuery,
+  useAdminAutoSyncOrderStatusesMutation,
   useGetAdminOrderDetailQuery,
   useLazyGetAdminOrderDetailQuery,
   useGetAdminOrderTrackingQuery,
