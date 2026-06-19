@@ -1,6 +1,7 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
+import { createPortal } from "react-dom";
 import {
   fetchUserOrders,
   fetchOrderById,
@@ -9,6 +10,8 @@ import {
   clearOrderErrors,
   clearActiveOrder,
   initiatePendingOrderPayment,
+  sendReturnChatMessage,
+  fetchReturnChat,
   selectOrders,
   selectActiveOrder,
   selectTracking,
@@ -29,6 +32,7 @@ import {
   Package, Truck, CheckCircle, ChevronRight, RefreshCw,
   XCircle, Clock, AlertCircle, ArrowLeft, MapPin,
   Loader2, ShoppingBag, CreditCard,
+  MessageSquare, Send, X,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { formatInr as fmt } from "../../../utils/formatInr";
@@ -290,6 +294,42 @@ const OrderDetail = ({ orderId, onBack }) => {
   const [returnProofVideo, setReturnProofVideo] = useState(null);
   const [returnProofImages, setReturnProofImages] = useState([]);
 
+  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [chatMessage, setChatMessage] = useState("");
+  const chatEndRef = useRef(null);
+
+  // Polling for return support chat
+  useEffect(() => {
+    let interval;
+    if (isChatOpen && orderId) {
+      dispatch(fetchReturnChat(orderId));
+      interval = setInterval(() => {
+        dispatch(fetchReturnChat(orderId));
+      }, 4000);
+    }
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isChatOpen, orderId, dispatch]);
+
+  // Auto-scroll chat to bottom
+  useEffect(() => {
+    if (isChatOpen && chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [order?.returnInfo?.chat, isChatOpen]);
+
+  const handleSendChatMessage = async (e) => {
+    e.preventDefault();
+    if (!chatMessage.trim()) return;
+    try {
+      await dispatch(sendReturnChatMessage({ orderId, message: chatMessage })).unwrap();
+      setChatMessage("");
+    } catch (err) {
+      toast.error(err.message || "Failed to send message");
+    }
+  };
+
   useEffect(() => {
     dispatch(fetchOrderById(orderId));
     return () => {
@@ -398,7 +438,7 @@ const OrderDetail = ({ orderId, onBack }) => {
   }
 
   const returnStatus = String(order?.returnInfo?.status || "").toLowerCase();
-  const RETURN_WINDOW_DAYS = 2;
+  const RETURN_WINDOW_DAYS = order?.returnInfo?.windowDays ?? 2;
   const deliveredAtRaw = order?.shipmentInfo?.deliveredAt || null;
   const deliveredAt = deliveredAtRaw ? new Date(deliveredAtRaw) : null;
   const deliveredAtValid = Boolean(deliveredAt && !Number.isNaN(deliveredAt.getTime()));
@@ -416,7 +456,7 @@ const OrderDetail = ({ orderId, onBack }) => {
     String(order.orderStatus || "").toLowerCase() === "delivered" &&
     deliveredAtValid &&
     !returnWindowExpired &&
-    (!returnStatus || ["rejected", "closed"].includes(returnStatus));
+    !returnStatus;
 
   const showProductReturnCard = isProductReturn || canRaiseReturn;
 
@@ -946,7 +986,7 @@ const OrderDetail = ({ orderId, onBack }) => {
           "
         >
           Returns are available only for damaged or wrong item deliveries.
-          Please provide one video and at least one image.
+          Please provide one unboxing video and at least one image.
         </p>
 
         {!showReturnForm ? (
@@ -1012,7 +1052,7 @@ const OrderDetail = ({ orderId, onBack }) => {
 
             <div>
               <p className="text-[11px] font-bold text-gray-500 uppercase mb-1">
-                Proof Video
+                Submit Unboxing Video
               </p>
 
               <input
@@ -1084,7 +1124,7 @@ const OrderDetail = ({ orderId, onBack }) => {
 
                   if (!returnProofVideo) {
                     toast.error(
-                      "Please upload a proof video.",
+                      "Please upload an unboxing video.",
                       { theme: "dark" }
                     );
                     return;
@@ -1147,13 +1187,41 @@ const OrderDetail = ({ orderId, onBack }) => {
         )}
       </div>
     ) : (
-      <p className="mt-3 text-xs text-gray-500 font-medium">
-        {returnStatus && isProductReturn
-          ? `Return status: ${productReturnStatusLabel(returnStatus)}`
-          : returnWindowExpired
-            ? "Return window expired. You can no longer raise a return request."
-            : "Return request is available within 2 days of delivery."}
-      </p>
+      <div className="mt-3 space-y-2">
+        <p className="text-xs text-gray-500 font-medium">
+          {returnStatus && isProductReturn
+            ? `Return status: ${productReturnStatusLabel(returnStatus)}`
+            : returnWindowExpired
+              ? "Return window expired. You can no longer raise a return request."
+              : "Return request is available within 2 days of delivery."}
+        </p>
+
+        {order?.returnInfo?.decisionReason && (
+          <div className={`border rounded-xl p-3 text-xs font-medium ${
+            returnStatus === "rejected"
+              ? "bg-red-50 border-red-100 text-red-700"
+              : "bg-emerald-50 border-emerald-100 text-emerald-700"
+          }`}>
+            <span className={`font-bold block uppercase tracking-wider text-[10px] mb-1 ${
+              returnStatus === "rejected" ? "text-red-500" : "text-emerald-600"
+            }`}>
+              {returnStatus === "rejected" ? "Reason for Rejection:" : "Decision Note:"}
+            </span>
+            {order.returnInfo.decisionReason}
+          </div>
+        )}
+
+        {order?.returnInfo?.requestedAt && (
+          <button
+            type="button"
+            onClick={() => setIsChatOpen(true)}
+            className="flex items-center gap-2 mt-2 px-4 py-2 border border-slate-200 text-xs font-black uppercase tracking-wider rounded-xl bg-white hover:bg-slate-50 transition-colors shadow-sm cursor-pointer text-slate-700"
+          >
+            <MessageSquare size={14} className="text-slate-500" />
+            Chat with Support
+          </button>
+        )}
+      </div>
     )}
   </div>
 )}
@@ -1258,6 +1326,140 @@ const OrderDetail = ({ orderId, onBack }) => {
           }}
         />
       )}
+
+    {/* RETURN SUPPORT CHAT DRAWER */}
+    {isChatOpen && createPortal(
+      <>
+        <style>{`
+          @keyframes slideInRight {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+          }
+          .animate-slideInRight {
+            animation: slideInRight 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+          }
+        `}</style>
+
+        {/* Backdrop */}
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-xs z-[9998] transition-opacity"
+          onClick={() => setIsChatOpen(false)}
+        />
+
+        {/* Chat Drawer */}
+        <div className="fixed inset-y-0 right-0 z-[9999] w-full sm:w-[450px] bg-white shadow-2xl flex flex-col animate-slideInRight">
+          {/* Header */}
+          <div className="p-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
+            <div>
+              <h3 className="text-sm font-black text-slate-900 uppercase tracking-wider">
+                Support Chat
+              </h3>
+              <p className="text-[10px] text-slate-500 font-mono mt-0.5">
+                Order: {order?.orderId}
+              </p>
+            </div>
+            <button
+              onClick={() => setIsChatOpen(false)}
+              className="p-1.5 rounded-full hover:bg-slate-200 transition-colors text-slate-500 hover:text-slate-800 cursor-pointer"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Messages Feed */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
+            {order?.returnInfo?.requestedAt && (() => {
+              const reqAt = new Date(order.returnInfo.requestedAt);
+              const windowDays = order?.returnInfo?.windowDays ?? 2;
+              const deadline = new Date(reqAt.getTime() + windowDays * 24 * 60 * 60 * 1000);
+              const remainingMs = deadline.getTime() - Date.now();
+              const isExpired = remainingMs <= 0;
+              
+              if (isExpired) {
+                return (
+                  <div className="bg-red-50 border border-red-100 rounded-lg p-2.5 text-center text-[11px] text-red-700 font-medium">
+                    This support chat session is closed (expired after {windowDays} days).
+                  </div>
+                );
+              }
+
+              const hoursLeft = Math.ceil(remainingMs / (1000 * 60 * 60));
+              return (
+                <div className="bg-amber-50 border border-amber-100 rounded-lg p-2.5 text-center text-[11px] text-amber-800 font-medium">
+                  Support chat is active. Window closes in {hoursLeft} hours.
+                </div>
+              );
+            })()}
+
+            {(!order?.returnInfo?.chat || order.returnInfo.chat.length === 0) ? (
+              <div className="h-full flex flex-col items-center justify-center text-slate-400 py-10">
+                <MessageSquare size={32} className="stroke-1 mb-2" />
+                <p className="text-xs font-medium">No messages yet. Send a message to start the conversation.</p>
+              </div>
+            ) : (
+              order.returnInfo.chat.map((msg, idx) => {
+                const isMe = msg.sender === "user";
+                return (
+                  <div
+                    key={idx}
+                    className={`flex flex-col ${isMe ? "items-end" : "items-start"}`}
+                  >
+                    <div
+                      className={`max-w-[80%] rounded-[20px] px-3.5 py-2 text-xs leading-relaxed ${
+                        isMe
+                          ? "bg-black text-white rounded-br-none"
+                          : "bg-white text-slate-800 border border-slate-100 rounded-bl-none shadow-xs"
+                      }`}
+                    >
+                      {msg.message}
+                    </div>
+                    <span className="text-[9px] text-slate-400 mt-1 px-1">
+                      {msg.createdAt ? new Date(msg.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ""}
+                    </span>
+                  </div>
+                );
+              })
+            )}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Footer Input */}
+          {(() => {
+            const reqAt = order?.returnInfo?.requestedAt ? new Date(order.returnInfo.requestedAt) : null;
+            const windowDays = order?.returnInfo?.windowDays ?? 2;
+            const isExpired = reqAt ? (Date.now() > reqAt.getTime() + windowDays * 24 * 60 * 60 * 1000) : true;
+
+            if (isExpired) {
+              return (
+                <div className="p-4 border-t border-slate-100 bg-slate-100 text-center text-xs font-semibold text-slate-500">
+                  Chat disabled (support window expired)
+                </div>
+              );
+            }
+
+            return (
+              <form onSubmit={handleSendChatMessage} className="p-3 border-t border-slate-100 flex gap-2 items-center bg-white">
+                <input
+                  type="text"
+                  value={chatMessage}
+                  onChange={(e) => setChatMessage(e.target.value)}
+                  placeholder="Type a message..."
+                  className="flex-1 border border-slate-200 rounded-xl px-3 py-2.5 text-xs focus:outline-hidden focus:border-slate-400"
+                />
+                <button
+                  type="submit"
+                  disabled={!chatMessage.trim() || loading.chat}
+                  className="p-2.5 rounded-xl bg-black text-white hover:bg-slate-800 disabled:opacity-50 transition-colors cursor-pointer"
+                >
+                  <Send size={14} />
+                </button>
+              </form>
+            );
+          })()}
+        </div>
+      </>,
+      document.body
+    )}
   </div>
 );
 };

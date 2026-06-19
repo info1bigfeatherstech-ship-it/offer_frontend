@@ -133,6 +133,45 @@ export const createReturnRequest = createAsyncThunk(
   }
 );
 
+/** POST /api/orders/items/:orderId/return-chat */
+export const sendReturnChatMessage = createAsyncThunk(
+  "orders/sendReturnChatMessage",
+  async ({ orderId, message }, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.post(
+        `/orders/items/${encodeURIComponent(String(orderId))}/return-chat`,
+        { message }
+      );
+      if (!res.data.success) throw new Error(res.data.message || "Failed to send message");
+      return { orderId, chat: res.data.chat };
+    } catch (err) {
+      return rejectWithValue({
+        message: err.response?.data?.message || err.message || "Failed to send message",
+        status: err.response?.status,
+      });
+    }
+  }
+);
+
+/** GET /api/orders/items/:orderId/return-chat */
+export const fetchReturnChat = createAsyncThunk(
+  "orders/fetchReturnChat",
+  async (orderId, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.get(
+        `/orders/items/${encodeURIComponent(String(orderId))}/return-chat`
+      );
+      if (!res.data.success) throw new Error(res.data.message || "Failed to fetch chat");
+      return { orderId, chat: res.data.chat };
+    } catch (err) {
+      return rejectWithValue({
+        message: err.response?.data?.message || err.message || "Failed to fetch chat",
+        status: err.response?.status,
+      });
+    }
+  }
+);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Initial State
 // ─────────────────────────────────────────────────────────────────────────────
@@ -148,6 +187,7 @@ const initialState = {
     cancel: false,
     initiatePayment: false,
     returnRequest: false,
+    chat: false,
   },
   error: {
     fetch: null,
@@ -156,6 +196,7 @@ const initialState = {
     cancel: null,
     initiatePayment: null,
     returnRequest: null,
+    chat: null,
   },
 };
 
@@ -277,6 +318,37 @@ const orderSlice = createSlice({
       .addCase(createReturnRequest.rejected, (state, action) => {
         state.loading.returnRequest = false;
         state.error.returnRequest = action.payload || { message: "Could not submit return request" };
+      })
+
+      // ── sendReturnChatMessage ─────────────────────────────────────────────
+      .addCase(sendReturnChatMessage.pending, (state) => {
+        state.loading.chat = true;
+        state.error.chat = null;
+      })
+      .addCase(sendReturnChatMessage.fulfilled, (state, action) => {
+        state.loading.chat = false;
+        if (state.activeOrder && state.activeOrder.orderId === action.payload.orderId) {
+          if (!state.activeOrder.returnInfo) state.activeOrder.returnInfo = {};
+          state.activeOrder.returnInfo.chat = action.payload.chat;
+        }
+      })
+      .addCase(sendReturnChatMessage.rejected, (state, action) => {
+        state.loading.chat = false;
+        state.error.chat = action.payload || { message: "Failed to send message" };
+      })
+
+      // ── fetchReturnChat ───────────────────────────────────────────────────
+      .addCase(fetchReturnChat.pending, (state) => {
+        // quiet fetch
+      })
+      .addCase(fetchReturnChat.fulfilled, (state, action) => {
+        if (state.activeOrder && state.activeOrder.orderId === action.payload.orderId) {
+          if (!state.activeOrder.returnInfo) state.activeOrder.returnInfo = {};
+          state.activeOrder.returnInfo.chat = action.payload.chat;
+        }
+      })
+      .addCase(fetchReturnChat.rejected, (state) => {
+        // quiet error
       });
   },
 });

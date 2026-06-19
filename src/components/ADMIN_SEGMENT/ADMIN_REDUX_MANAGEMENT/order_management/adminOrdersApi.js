@@ -224,6 +224,27 @@ export const adminOrdersApi = createApi({
       ],
     }),
 
+    getAdminReturnChat: builder.query({
+      query: (orderId) => ({
+        url: `/orders/admin/returns/requests/${encodeURIComponent(String(orderId))}/chat`,
+        method: 'GET',
+      }),
+      providesTags: (result, error, orderId) => [{ type: 'AdminOrderTracking', id: `RETURN_CHAT_${orderId}` }],
+    }),
+
+    sendAdminReturnChatMessage: builder.mutation({
+      query: ({ orderId, message }) => ({
+        url: `/orders/admin/returns/requests/${encodeURIComponent(String(orderId))}/chat`,
+        method: 'POST',
+        data: { message },
+      }),
+      invalidatesTags: (result, error, arg) => [
+        { type: 'AdminOrderTracking', id: `RETURN_CHAT_${arg.orderId}` },
+        { type: 'AdminOrderTracking', id: `RETURN_${arg.orderId}` },
+        { type: 'AdminOrdersList', id: arg.orderId },
+      ],
+    }),
+
     adminFulfillmentEnsureShipment: builder.mutation({
       query: (orderId) => ({
         url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/ensure-shipment`,
@@ -457,6 +478,8 @@ export const {
   useDecideAdminReturnRequestMutation,
   useInitiateAdminReturnRefundMutation,
   useAdminReturnReversePickupRetryMutation,
+  useGetAdminReturnChatQuery,
+  useSendAdminReturnChatMessageMutation,
   useAdminFulfillmentEnsureShipmentMutation,
   useAdminFulfillmentAssignShipMutation,
   useGetAdminPickupCalendarQuery,
