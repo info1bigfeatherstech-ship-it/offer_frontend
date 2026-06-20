@@ -73,6 +73,14 @@ export default function ReturnsRefundsTab() {
 
   const rows = data?.data || [];
   const selected = detail.data?.order || null;
+  const adminUnreadCount = isChatOpen
+    ? 0
+    : selected?.returnInfo?.chat?.filter(
+        (msg) =>
+          msg.sender === "user" &&
+          (!selected.returnInfo.adminLastRead ||
+            new Date(msg.createdAt) > new Date(selected.returnInfo.adminLastRead))
+      ).length || 0;
   const proofs = Array.isArray(selected?.returnInfo?.proofs) ? selected.returnInfo.proofs : [];
   const canApprove = String(selected?.returnInfo?.status || "").toLowerCase() === "requested";
   const canRefund = ["refund_pending", "received", "qc_passed"].includes(
@@ -164,14 +172,24 @@ export default function ReturnsRefundsTab() {
                 </div>
                 <div className="flex items-center gap-2">
                   {selected?.returnInfo?.requestedAt && (
-                    <button
-                      type="button"
-                      onClick={() => setIsChatOpen(true)}
-                      className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-xs font-semibold rounded-lg bg-white hover:bg-slate-50 transition-colors shadow-xs cursor-pointer text-slate-700"
-                    >
-                      {/* Using HTML bubble character as simple clean fallback if icons not loaded, but styling is extremely clean */}
-                      💬 Chat with Customer
-                    </button>
+                    <div className="relative inline-block">
+                      <button
+                        type="button"
+                        onClick={() => setIsChatOpen(true)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-xs font-semibold rounded-lg bg-white hover:bg-slate-50 transition-colors shadow-xs cursor-pointer text-slate-700"
+                      >
+                        {/* Using HTML bubble character as simple clean fallback if icons not loaded, but styling is extremely clean */}
+                        💬 Chat with Customer
+                      </button>
+                      {adminUnreadCount > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4">
+                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                          <span className="animate-bounce relative inline-flex rounded-full h-4 w-4 bg-red-500 text-[9px] font-bold text-white items-center justify-center">
+                            {adminUnreadCount}
+                          </span>
+                        </span>
+                      )}
+                    </div>
                   )}
                   <span className="text-xs px-2 py-1.5 rounded bg-slate-100 text-slate-700 font-semibold">
                     Payment: {selected.paymentStatus || "—"}

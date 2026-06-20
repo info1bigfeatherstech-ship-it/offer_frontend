@@ -460,6 +460,15 @@ const OrderDetail = ({ orderId, onBack }) => {
 
   const showProductReturnCard = isProductReturn || canRaiseReturn;
 
+  const unreadCount = isChatOpen
+    ? 0
+    : order?.returnInfo?.chat?.filter(
+        (msg) =>
+          msg.sender === "admin" &&
+          (!order.returnInfo.userLastRead ||
+            new Date(msg.createdAt) > new Date(order.returnInfo.userLastRead))
+      ).length || 0;
+
   return (
   <div className="max-w-5xl mx-auto space-y-4 sm:space-y-6 animate-fadeIn">
 
@@ -1212,14 +1221,24 @@ const OrderDetail = ({ orderId, onBack }) => {
         )}
 
         {order?.returnInfo?.requestedAt && (
-          <button
-            type="button"
-            onClick={() => setIsChatOpen(true)}
-            className="flex items-center gap-2 mt-2 px-4 py-2 border border-slate-200 text-xs font-black uppercase tracking-wider rounded-xl bg-white hover:bg-slate-50 transition-colors shadow-sm cursor-pointer text-slate-700"
-          >
-            <MessageSquare size={14} className="text-slate-500" />
-            Chat with Support
-          </button>
+          <div className="relative inline-block mt-2">
+            <button
+              type="button"
+              onClick={() => setIsChatOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 border border-slate-200 text-xs font-black uppercase tracking-wider rounded-xl bg-white hover:bg-slate-50 transition-colors shadow-sm cursor-pointer text-slate-700"
+            >
+              <MessageSquare size={14} className="text-slate-500" />
+              Chat with Support
+            </button>
+            {unreadCount > 0 && (
+              <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                <span className="animate-bounce relative inline-flex rounded-full h-4 w-4 bg-red-500 text-[9px] font-bold text-white items-center justify-center">
+                  {unreadCount}
+                </span>
+              </span>
+            )}
+          </div>
         )}
       </div>
     )}

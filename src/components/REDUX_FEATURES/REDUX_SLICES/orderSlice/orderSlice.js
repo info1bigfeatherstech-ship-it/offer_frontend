@@ -143,7 +143,12 @@ export const sendReturnChatMessage = createAsyncThunk(
         { message }
       );
       if (!res.data.success) throw new Error(res.data.message || "Failed to send message");
-      return { orderId, chat: res.data.chat };
+      return {
+        orderId,
+        chat: res.data.chat,
+        userLastRead: res.data.userLastRead,
+        adminLastRead: res.data.adminLastRead
+      };
     } catch (err) {
       return rejectWithValue({
         message: err.response?.data?.message || err.message || "Failed to send message",
@@ -162,7 +167,12 @@ export const fetchReturnChat = createAsyncThunk(
         `/orders/items/${encodeURIComponent(String(orderId))}/return-chat`
       );
       if (!res.data.success) throw new Error(res.data.message || "Failed to fetch chat");
-      return { orderId, chat: res.data.chat };
+      return {
+        orderId,
+        chat: res.data.chat,
+        userLastRead: res.data.userLastRead,
+        adminLastRead: res.data.adminLastRead
+      };
     } catch (err) {
       return rejectWithValue({
         message: err.response?.data?.message || err.message || "Failed to fetch chat",
@@ -330,6 +340,8 @@ const orderSlice = createSlice({
         if (state.activeOrder && state.activeOrder.orderId === action.payload.orderId) {
           if (!state.activeOrder.returnInfo) state.activeOrder.returnInfo = {};
           state.activeOrder.returnInfo.chat = action.payload.chat;
+          state.activeOrder.returnInfo.userLastRead = action.payload.userLastRead;
+          state.activeOrder.returnInfo.adminLastRead = action.payload.adminLastRead;
         }
       })
       .addCase(sendReturnChatMessage.rejected, (state, action) => {
@@ -345,6 +357,8 @@ const orderSlice = createSlice({
         if (state.activeOrder && state.activeOrder.orderId === action.payload.orderId) {
           if (!state.activeOrder.returnInfo) state.activeOrder.returnInfo = {};
           state.activeOrder.returnInfo.chat = action.payload.chat;
+          state.activeOrder.returnInfo.userLastRead = action.payload.userLastRead;
+          state.activeOrder.returnInfo.adminLastRead = action.payload.adminLastRead;
         }
       })
       .addCase(fetchReturnChat.rejected, (state) => {
