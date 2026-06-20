@@ -230,6 +230,26 @@ export const adminOrdersApi = createApi({
         method: 'GET',
       }),
       providesTags: (result, error, orderId) => [{ type: 'AdminOrderTracking', id: `RETURN_CHAT_${orderId}` }],
+      async onQueryStarted(orderId, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(
+            adminOrdersApi.util.updateQueryData(
+              'getAdminReturnRequestDetail',
+              orderId,
+              (draft) => {
+                if (draft?.order?.returnInfo) {
+                  draft.order.returnInfo.adminLastRead = data.adminLastRead;
+                  draft.order.returnInfo.userLastRead = data.userLastRead;
+                  draft.order.returnInfo.chat = data.chat;
+                }
+              }
+            )
+          );
+        } catch (err) {
+          // ignore
+        }
+      }
     }),
 
     sendAdminReturnChatMessage: builder.mutation({
