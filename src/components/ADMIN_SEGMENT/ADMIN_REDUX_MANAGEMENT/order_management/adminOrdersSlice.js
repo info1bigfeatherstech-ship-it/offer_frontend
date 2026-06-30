@@ -10,6 +10,7 @@ export const ORDER_TAB_LABEL_TO_BUCKET = Object.freeze({
   Processing: 'ready_to_pick',
   'In transit': 'in_transit',
   Delivered: 'completed',
+  RTO: 'rto',
   Cancelled: 'others',
 });
 
@@ -40,6 +41,7 @@ export const BUCKET_KEY_TO_TAB_LABEL = Object.freeze({
   ready_to_pick: 'Processing',
   in_transit: 'In transit',
   completed: 'Delivered',
+  rto: 'RTO',
   others: 'Cancelled',
 });
 

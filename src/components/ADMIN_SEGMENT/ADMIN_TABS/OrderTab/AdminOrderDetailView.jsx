@@ -145,7 +145,18 @@ const PAYMENT_STATUS_LABELS = {
   partially_refunded: "Partially refunded",
 };
 
-function labelOrderStatus(raw) {
+function isShiprocketRtoStatus(orderStatus, providerStatus) {
+  const st = String(orderStatus || "").toLowerCase();
+  const ps = String(providerStatus || "").trim();
+  if (st === "rto") return true;
+  return /\brto\b/i.test(ps) || /return to origin/i.test(ps);
+}
+
+function labelOrderStatus(raw, providerStatus) {
+  if (isShiprocketRtoStatus(raw, providerStatus)) {
+    const ps = String(providerStatus || "").trim();
+    return ps || "RTO";
+  }
   const k = String(raw || "").trim();
   if (ORDER_STATUS_LABELS[k]) return ORDER_STATUS_LABELS[k];
   return k ? k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "—";
@@ -157,8 +168,11 @@ function labelPaymentStatus(raw) {
   return k ? k.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "—";
 }
 
-function statusBadgeClass(orderStatus) {
+function statusBadgeClass(orderStatus, providerStatus) {
   const s = String(orderStatus || "").toLowerCase();
+  if (isShiprocketRtoStatus(s, providerStatus)) {
+    return "bg-orange-50 text-orange-800 border-orange-200";
+  }
   if (["delivered", "confirmed"].includes(s)) return "bg-emerald-50 text-emerald-700 border-emerald-200";
   if (["shipped", "out_for_delivery", "processing"].includes(s)) return "bg-blue-50 text-blue-700 border-blue-200";
   if (["pending", "return_requested"].includes(s)) return "bg-amber-50 text-amber-800 border-amber-200";
@@ -396,11 +410,16 @@ export default function AdminOrderDetailView({
     bulkCancelState.isLoading;
 
   const orderSt = String(order?.orderStatus || "").toLowerCase();
+  const shiprocketProviderStatus = order?.shipmentInfo?.providerStatus || "";
+  const isRtoOrder = isShiprocketRtoStatus(orderSt, shiprocketProviderStatus);
   const isPendingOrder = orderSt === "pending";
   const showInvoiceAndLogistics = isPostConfirmOrderStatus(orderSt);
-  const fulfillmentActionsBlocked = orderSt === "cancelled" || orderSt === "payment_failed";
+  const fulfillmentActionsBlocked =
+    orderSt === "cancelled" || orderSt === "payment_failed" || isRtoOrder;
   const fulfillmentBlockMessage = fulfillmentActionsBlocked
-    ? orderSt === "cancelled"
+    ? isRtoOrder
+      ? `Shiprocket reports: ${String(shiprocketProviderStatus || "RTO").trim()}. Forward shipment actions are not available during return-to-origin.`
+      : orderSt === "cancelled"
       ? "This order was cancelled. Ship now, pickup scheduling, shipping labels, and other Shiprocket shipment actions are not available."
       : "The customer did not complete payment. Shiprocket fulfilment actions are not available."
     : null;
@@ -987,11 +1006,11 @@ export default function AdminOrderDetailView({
           </div>
           <div className="flex flex-wrap gap-2 items-center">
             <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${statusBadgeClass(order.orderStatus)}`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${statusBadgeClass(order.orderStatus, order.shipmentInfo?.providerStatus)}`}
               title="Order status (orderStatus)"
             >
               <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Order</span>
-              {labelOrderStatus(order.orderStatus)}
+              {labelOrderStatus(order.orderStatus, order.shipmentInfo?.providerStatus)}
             </span>
             <span
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${paymentBadgeClass(order.paymentStatus)}`}

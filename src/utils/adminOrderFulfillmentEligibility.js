@@ -63,6 +63,13 @@ export function canAdminBulkSchedulePickupOrderRow(row) {
   return (st === "confirmed" || st === "processing") && row.hasAwb && !row.pickupScheduled;
 }
 
+function isRowRtoBlocked(row) {
+  const st = String(row?.orderStatus || "").toLowerCase();
+  if (st === "rto") return true;
+  const ps = String(row?.providerStatus || row?.shipmentInfo?.providerStatus || "");
+  return /\brto\b/i.test(ps) || /return to origin/i.test(ps);
+}
+
 /**
  * Bulk manifest ZIP download.
  * @param {{ orderStatus?: string, hasAwb?: boolean, hasShipmentId?: boolean, actionCapabilities?: Record<string, boolean> } | null | undefined} row
@@ -70,7 +77,7 @@ export function canAdminBulkSchedulePickupOrderRow(row) {
 export function canAdminBulkDownloadManifestOrderRow(row) {
   if (!row) return false;
   const st = String(row.orderStatus || "").toLowerCase();
-  if (st === "cancelled" || st === "payment_failed") return false;
+  if (st === "cancelled" || st === "payment_failed" || isRowRtoBlocked(row)) return false;
   const fromCaps = rowActionEnabled(row, "downloadManifest");
   if (fromCaps != null) return fromCaps;
   return Boolean(row.hasShipmentId && row.hasAwb);
@@ -83,7 +90,7 @@ export function canAdminBulkDownloadManifestOrderRow(row) {
 export function canAdminBulkDownloadLabelOrderRow(row) {
   if (!row) return false;
   const st = String(row.orderStatus || "").toLowerCase();
-  if (st === "cancelled" || st === "payment_failed") return false;
+  if (st === "cancelled" || st === "payment_failed" || isRowRtoBlocked(row)) return false;
   const fromCaps = rowActionEnabled(row, "downloadLabel");
   if (fromCaps != null) return fromCaps;
   return Boolean(row.hasShipmentId && row.hasAwb);
@@ -96,7 +103,7 @@ export function canAdminBulkDownloadLabelOrderRow(row) {
 export function canAdminBulkSyncShiprocketOrderRow(row) {
   if (!row) return false;
   const st = String(row.orderStatus || "").toLowerCase();
-  if (st === "cancelled" || st === "payment_failed") return false;
+  if (st === "cancelled" || st === "payment_failed" || isRowRtoBlocked(row)) return false;
   const fromCaps = rowActionEnabled(row, "syncShiprocket");
   if (fromCaps === true) return true;
   return Boolean(row.hasShiprocketOrderId || row.hasShipmentId || row.hasAwb);
