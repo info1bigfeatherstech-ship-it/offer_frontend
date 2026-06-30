@@ -49,6 +49,7 @@ const TAB_ORDER = [
   "Processing",
   "In transit",
   "Delivered",
+  "RTO",
   "Cancelled",
 ];
 
