@@ -6,40 +6,44 @@ const policiesData = [
   {
     "slug": "return-refund",
     "title": "Return & Refund",
-    "subtitle": "Shop with confidence at OfferWaaleBaba. If you receive a damaged or wrong item, here's how we make it right.",
+    "subtitle": "Shop with confidence at OfferWaleBaba. If you receive a damaged or wrong item, here's how we make it right.",
     "tag": "Customer Care",
     "": "",
     "sections": [
       {
         "heading": "Eligible Return Reasons",
-        "content": "Returns are accepted only for the following reasons:\n• Damaged item received\n• Wrong item delivered\n\nReturns for other reasons (including change of mind) are not covered under this policy unless explicitly approved by OfferWaaleBaba."
+        "content": "Returns are accepted only for the following reasons:\n• Damaged item received\n• Wrong item delivered\n\nReturns for other reasons (including change of mind) are not covered under this policy unless explicitly approved by OfferWaleBaba."
       },
       {
         "heading": "Return Request Window & Mandatory Proofs",
-        "content": "Return requests must be raised within 2 days from the date of delivery. Requests raised after this period may be rejected.\n\nTo process a return, the customer must submit all required evidence:\n• 1 video proof (mandatory)\n• 1 to 3 image proofs (mandatory)\n• A brief message describing the issue\n\nIf sufficient proof is not provided, the request may be rejected."
+        "content": "Return requests must be raised within 24 hours from the date and time of delivery. Requests raised after this period may be rejected.\n\nTo process a return, the customer must submit all required evidence:\n• 1 video proof (mandatory)\n• 1 to 3 image proofs (mandatory)\n• A brief message describing the issue\n\nIf sufficient proof is not provided, the request may be rejected."
       },
       {
         "heading": "Review Process & Reverse Pickup",
-        "content": "Every return request is reviewed by our support/admin team. After review, the request will be either approved or rejected (with a rejection reason). OfferWaaleBaba reserves the right to request additional information before a final decision.\n\nOnce approved, a reverse pickup is initiated through our logistics partner (Shiprocket and its courier network). Customer must ensure the product is packed securely and ready for pickup. Pickup timelines depend on courier serviceability and local operations."
+        "content": "Every return request is reviewed by our support/admin team. After review, the request will be either approved or rejected (with a rejection reason). OfferWaleBaba reserves the right to request additional information before a final decision.\n\nOnce approved, a reverse pickup is initiated through our logistics partner (Shiprocket and its courier network). Customer must ensure the product is packed securely and ready for pickup. Pickup timelines depend on courier serviceability and local operations."
       },
       {
         "heading": "Refund Eligibility & Processing",
-        "content": "A return is considered completed only when the item is received back at our warehouse and verified. If the returned item does not match the approved return condition/reason, OfferWaaleBaba may partially or fully deny refund.\n\n• For Online-Paid Orders: Refund is processed via original payment gateway/method (Razorpay-supported flow). Once initiated, credit timeline depends on the customer's bank/payment provider (typically 5–10 business days).\n\n• For COD Orders: Refunds are not auto-processed through payment gateway. Refund for COD orders, where applicable, is handled via separate support-assisted method (e.g., bank transfer/UPI after verification)."
+        "content": "A return is considered completed only when the item is received back at our warehouse and verified. If the returned item does not match the approved return condition/reason, OfferWaleBaba may partially or fully deny refund.\n\n• For Online-Paid Orders: Refund is processed via original payment gateway/method (Razorpay-supported flow). Once initiated, credit timeline depends on the customer's bank/payment provider (typically 5–10 business days).\n\n• For COD Orders: Refunds are not auto-processed through payment gateway. Refund for COD orders, where applicable, is handled via separate support-assisted method (e.g., bank transfer/UPI after verification)."
+      },
+      {
+        "heading": "RTO / Failed Delivery (Non-Delivery)",
+        "content": "If an order cannot be delivered and is returned to our warehouse (RTO — Return to Origin), it is treated differently from a customer return request.\n\nRTO may occur in cases including but not limited to:\n• Customer unavailable at delivery address\n• Customer refused to accept the shipment at delivery\n• Incorrect or incomplete delivery address\n• Multiple failed delivery attempts by the courier partner\n\nImportant: RTO is not the same as a return request for damaged or wrong items. RTO applies when delivery itself could not be completed.\n\nRefund Rules for RTO Orders:\n\n• Partial Prepaid + COD Balance Orders:\nIf the order was placed with a partial online payment and the remaining amount as Cash on Delivery (COD), and the order is marked RTO (including customer refusal at delivery), no refund will be issued against the online part-payment. The collected advance may be used to recover forward shipping, RTO handling, and related operational costs.\n\n• 100% Online Prepaid Orders:\nRefund may be processed only after the product is received back at our warehouse and verified. The refund amount will be calculated after deducting applicable charges, including:\n• Original forward shipping charges\n• Return to Origin (RTO) / reverse logistics charges\n• Applicable platform/payment handling fees\n\nIf deductions exceed or equal the refundable amount, no refund will be issued. Any remaining eligible amount will be refunded via the original online payment method (Razorpay-supported flow). Credit timeline depends on the customer's bank/payment provider (typically 5–10 business days).\n\n• Full COD Orders (no online amount collected):\nNo online refund is applicable, as no online payment was collected for the order.\n\nFor RTO-related assistance, contact support with your Order ID."
       },
       {
         "heading": "Non-Returnable / Rejection Conditions",
-        "content": "Return request may be rejected in cases including but not limited to:\n• Incorrect or insufficient proof\n• Request outside allowed return window\n• Product tampered/misused after delivery\n• Reason not covered under eligible return reasons\n• Item not matching the originally delivered product\n\nFor approved damaged/wrong-item cases, reverse pickup is arranged by OfferWaaleBaba. Any exceptional charges (if applicable) will be communicated at the time of resolution."
+        "content": "Return request may be rejected in cases including but not limited to:\n• Incorrect or insufficient proof\n• Request outside allowed return window (24 hours from delivery)\n• Product tampered/misused after delivery\n• Reason not covered under eligible return reasons\n• Item not matching the originally delivered product\n\nFor approved damaged/wrong-item cases, reverse pickup is arranged by OfferWaleBaba. Any exceptional charges (if applicable) will be communicated at the time of resolution.\n\nFailed delivery / RTO cases are not processed under the customer return flow and are handled as per the RTO / Failed Delivery section above."
       },
       {
-        "heading": "Cancellation vs Return & Policy Updates",
-        "content": "Cancellation applies before dispatch (as per order status and eligibility). Return applies after successful delivery and follows this policy.\n\nOfferWaaleBaba may update this policy from time to time to reflect operational, or platform changes. Updated versions will be posted on the website with revised date.\n\nFor return/refund assistance, contact us with your Order ID:\nEmail: support.offerwalebaba@gmail.com\n"
+        "heading": "Cancellation vs Return vs RTO & Policy Updates",
+        "content": "Cancellation applies before dispatch (as per order status and eligibility).\n\nReturn applies after successful delivery for eligible damaged/wrong-item cases and follows this policy.\n\nRTO / failed delivery applies when the order could not be delivered and is returned to our warehouse. RTO refund rules are defined separately in this policy and are not treated as order cancellation or product return.\n\nOfferWaleBaba may update this policy from time to time to reflect operational or platform changes. Updated versions will be posted on the website with revised date.\n\nFor return/refund assistance, contact us with your Order ID:\nEmail: support.offerwalebaba@gmail.com\n"
       }
     ]
   },
   {
     "slug": "order-cancellation",
     "title": "Order Cancellation",
-    "subtitle": "Plans change — we understand. Here's everything you need to know about cancelling an order on OfferWaaleBaba.",
+    "subtitle": "Plans change — we understand. Here's everything you need to know about cancelling an order on OfferWaleBaba.",
     "tag": "Orders",
     "updated": "",
     "sections": [
@@ -57,7 +61,7 @@ const policiesData = [
       },
       {
         "heading": "4) Auto-Cancellation Scenarios",
-        "content": "OfferWaaleBaba may auto-cancel orders in cases such as:\n• Payment not completed within allowed hold time\n• Payment authorization failure\n• Inventory unavailability\n• Address/serviceability failure\n• Compliance/risk checks failure\n• Technical or operational issues\n\nCustomer will be notified on registered contact details."
+        "content": "OfferWaleBaba may auto-cancel orders in cases such as:\n• Payment not completed within allowed hold time\n• Payment authorization failure\n• Inventory unavailability\n• Address/serviceability failure\n• Compliance/risk checks failure\n• Technical or operational issues\n\nCustomer will be notified on registered contact details."
       },
       {
         "heading": "5) Refund Rules After Cancellation",
@@ -77,7 +81,7 @@ const policiesData = [
       },
       {
         "heading": "9) Bulk/Fraud/Abuse Protection",
-        "content": "OfferWaaleBaba reserves the right to:\n• Limit or block cancellations from accounts showing suspicious patterns\n• Cancel risky orders proactively\n• Restrict COD/partial payment options for repeated non-serious ordering behavior"
+        "content": "OfferWaleBaba reserves the right to:\n• Limit or block cancellations from accounts showing suspicious patterns\n• Cancel risky orders proactively\n• Restrict COD/partial payment options for repeated non-serious ordering behavior"
       },
       {
         "heading": "10) Important Clarification",
@@ -89,14 +93,14 @@ const policiesData = [
       },
       {
         "heading": "12) Policy Changes",
-        "content": "OfferWaaleBaba may update this policy at any time for operational reasons."
+        "content": "OfferWaleBaba may update this policy at any time for operational reasons."
       }
     ]
   },
   {
     "slug": "terms-conditions",
     "title": "Terms & Conditions",
-    "subtitle": "By using OfferWaaleBaba, you agree to these terms. Please read them carefully before making a purchase.",
+    "subtitle": "By using OfferWaleBaba, you agree to these terms. Please read them carefully before making a purchase.",
     "tag": "terms",
     "updated": "",
     "sections": [
@@ -114,7 +118,7 @@ const policiesData = [
       },
       {
         "heading": "4) Payment Methods",
-        "content": "OfferWaaleBaba may support: Full online payment\n• Full COD\n•  Partial online advance + COD balance at delivery (where enabled)\n\nAdditional terms:\n• Partial payment percentages and eligibility may be configured by admin/business rules.\n• For hybrid/partial payment orders, remaining amount is collected as COD through delivery workflow.\n• Payment failures may lead to cancellation or pending state as per system rules."
+        "content": "OfferWaleBaba may support: Full online payment\n• Full COD\n•  Partial online advance + COD balance at delivery (where enabled)\n\nAdditional terms:\n• Partial payment percentages and eligibility may be configured by admin/business rules.\n• For hybrid/partial payment orders, remaining amount is collected as COD through delivery workflow.\n• Payment failures may lead to cancellation or pending state as per system rules."
       },
       {
         "heading": "5) Shipping and Delivery",
@@ -134,7 +138,7 @@ const policiesData = [
       },
       {
         "heading": "9) Intellectual Property",
-        "content": "All content on OfferWaaleBaba (logo, text, design, images, software, branding) is owned/licensed by us and protected by applicable IP laws. Unauthorized reproduction or commercial use is prohibited."
+        "content": "All content on OfferWaleBaba (logo, text, design, images, software, branding) is owned/licensed by us and protected by applicable IP laws. Unauthorized reproduction or commercial use is prohibited."
       },
       
      
@@ -170,7 +174,7 @@ const policiesData = [
       },
       {
         "heading": "Data Security",
-        "content": "We implement industry-standard SSL encryption and secure payment gateways to protect your data during transmission and storage. All payment transactions are processed through certified third-party gateways.\n\nOfferWaaleBaba does not store your credit or debit card details on our servers. Our systems are regularly audited and tested to ensure your information remains protected against unauthorized access."
+        "content": "We implement industry-standard SSL encryption and secure payment gateways to protect your data during transmission and storage. All payment transactions are processed through certified third-party gateways.\n\nOfferWaleBaba does not store your credit or debit card details on our servers. Our systems are regularly audited and tested to ensure your information remains protected against unauthorized access."
       },
       {
         "heading": "Cookies & Tracking",
@@ -189,7 +193,7 @@ const policiesData = [
   {
     "slug": "shipping-policy",
     "title": "Shipping Policy",
-    "subtitle": "Fast, reliable delivery across India. Here's what to expect after you place your order on OfferWaaleBaba.",
+    "subtitle": "Fast, reliable delivery across India. Here's what to expect after you place your order on OfferWaleBaba.",
     "tag": "Delivery",
     "updated": "May 8, 2026",
     "sections": [
@@ -207,7 +211,7 @@ const policiesData = [
       },
       {
         "heading": "4) Payment Modes and Shipping Impact",
-        "content": "OfferWaaleBaba may support:\n• Full COD\n• Full Online Payment\n• Partial Online Advance + Remaining COD\n\nFor partial-payment orders:\nAdvance amount is collected online at checkout.\nRemaining balance is collected as COD at delivery, as configured under current business policy."
+        "content": "OfferWaleBaba may support:\n• Full COD\n• Full Online Payment\n• Partial Online Advance + Remaining COD\n\nFor partial-payment orders:\nAdvance amount is collected online at checkout.\nRemaining balance is collected as COD at delivery, as configured under current business policy."
       },
       {
         "heading": "5) Shipment Creation and Dispatch Workflow",
@@ -223,7 +227,7 @@ const policiesData = [
       },
       {
         "heading": "8) Delays",
-        "content": "Estimated delivery timelines are not guaranteed. Delays may occur due to:\n• High order volume\n• Remote location constraints\n• Weather/natural events\n• Transport disruptions/strikes\n• Regulatory restrictions\n• Courier operational constraints\n\nOfferWaaleBaba is not liable for delays caused by third-party courier/network factors beyond reasonable control."
+        "content": "Estimated delivery timelines are not guaranteed. Delays may occur due to:\n• High order volume\n• Remote location constraints\n• Weather/natural events\n• Transport disruptions/strikes\n• Regulatory restrictions\n• Courier operational constraints\n\nOfferWaleBaba is not liable for delays caused by third-party courier/network factors beyond reasonable control."
       },
       {
         "heading": "9) Address and Contact Accuracy",
@@ -235,7 +239,7 @@ const policiesData = [
       },
       {
         "heading": "11) Shipment Exceptions",
-        "content": "In case of shipment exceptions (lost/damaged in transit, operational mismatch), OfferWaaleBaba will investigate with logistics partners before final resolution. Resolution timeline may vary based on courier response cycle."
+        "content": "In case of shipment exceptions (lost/damaged in transit, operational mismatch), OfferWaleBaba will investigate with logistics partners before final resolution. Resolution timeline may vary based on courier response cycle."
       },
       {
         "heading": "12) Damaged/Wrong Item on Delivery",
@@ -243,7 +247,7 @@ const policiesData = [
       },
       {
         "heading": "13) Policy Updates",
-        "content": "OfferWaaleBaba reserves the right to update this Shipping Policy from time to time. Revised policy becomes effective upon posting with updated date."
+        "content": "OfferWaleBaba reserves the right to update this Shipping Policy from time to time. Revised policy becomes effective upon posting with updated date."
       },
       {
         "heading": "14) Contact Us",
@@ -255,6 +259,168 @@ const policiesData = [
 
 function getPolicyBySlug(slug) {
   return policiesData.find((p) => p.slug === slug) || null;
+}
+
+const POLICY_PARA_CLASS =
+  "text-[#2a2010]/75 leading-[1.88] text-base sm:text-[1.02rem] font-light";
+const POLICY_SUBHEADING_CLASS =
+  "font-semibold text-zinc-800 leading-[1.88] text-base sm:text-[1.02rem]";
+
+function formatInlineImportant(text) {
+  if (text.startsWith("Important:")) {
+    return (
+      <>
+        <strong className="font-semibold text-zinc-800">Important:</strong>
+        {text.slice("Important:".length)}
+      </>
+    );
+  }
+  return text;
+}
+
+function isStandaloneSubheading(line, nextLine) {
+  const t = line.trim();
+  if (!t || t.startsWith("•")) return false;
+  if (!t.endsWith(":")) return false;
+  if (t.startsWith("Important:")) return false;
+  if (nextLine && nextLine.trim().startsWith("•")) return true;
+  if (/^(Refund Rules for RTO Orders|For return\/refund assistance)/.test(t)) return true;
+  if (t.length < 80 && !/\.\s/.test(t.slice(0, -1))) return true;
+  return false;
+}
+
+function renderBulletLabel(raw) {
+  const colonIdx = raw.indexOf(":");
+  const endsWithColon = colonIdx > 0 && colonIdx === raw.length - 1;
+  const inlineLabel = colonIdx > 0 && colonIdx < raw.length - 1;
+
+  if (endsWithColon) {
+    return <span className="font-semibold text-zinc-800">{raw}</span>;
+  }
+  if (inlineLabel) {
+    return (
+      <>
+        <span className="font-semibold text-zinc-800">{raw.slice(0, colonIdx + 1)}</span>
+        {raw.slice(colonIdx + 1)}
+      </>
+    );
+  }
+  return raw;
+}
+
+function parseBulletSection(lines, startIdx) {
+  const items = [];
+  let i = startIdx;
+
+  while (i < lines.length && lines[i].startsWith("•")) {
+    const raw = lines[i].replace(/^•\s*/, "");
+    i++;
+
+    const bodyParagraphs = [];
+    while (i < lines.length && !lines[i].startsWith("•")) {
+      bodyParagraphs.push(lines[i]);
+      i++;
+    }
+
+    let nestedBullets = null;
+    if (i < lines.length && lines[i].startsWith("•")) {
+      const lastBody = bodyParagraphs[bodyParagraphs.length - 1] || "";
+      const isNested = raw.endsWith(":") || lastBody.endsWith(":");
+
+      if (isNested) {
+        nestedBullets = [];
+        while (i < lines.length && lines[i].startsWith("•")) {
+          nestedBullets.push(lines[i].replace(/^•\s*/, ""));
+          i++;
+        }
+      }
+    }
+
+    items.push({ raw, bodyParagraphs, nestedBullets });
+  }
+
+  const node = (
+    <ul
+      key={`bullets-${startIdx}`}
+      className="list-disc pl-5 sm:pl-6 space-y-3 marker:text-[#C8973A]"
+    >
+      {items.map((item, idx) => (
+        <li key={idx} className={POLICY_PARA_CLASS}>
+          {renderBulletLabel(item.raw)}
+          {item.bodyParagraphs.map((para, pi) => (
+            <p key={pi} className={pi === 0 ? "mt-1.5" : "mt-2"}>
+              {formatInlineImportant(para)}
+            </p>
+          ))}
+          {item.nestedBullets?.length > 0 && (
+            <ul className="list-disc pl-5 mt-2 space-y-1.5 marker:text-[#C8973A]">
+              {item.nestedBullets.map((nb, ni) => (
+                <li key={ni}>{nb}</li>
+              ))}
+            </ul>
+          )}
+        </li>
+      ))}
+    </ul>
+  );
+
+  return { node, consumed: i - startIdx };
+}
+
+function PolicyContentBlock({ block, blockIndex }) {
+  const lines = block.split("\n").map((l) => l.trim()).filter(Boolean);
+  const elements = [];
+  let i = 0;
+
+  while (i < lines.length) {
+    const line = lines[i];
+    const next = lines[i + 1];
+
+    if (line.startsWith("•")) {
+      const { node, consumed } = parseBulletSection(lines, i);
+      elements.push(node);
+      i += consumed;
+      continue;
+    }
+
+    if (isStandaloneSubheading(line, next)) {
+      elements.push(
+        <p key={`${blockIndex}-${i}`} className={POLICY_SUBHEADING_CLASS}>
+          {line}
+        </p>
+      );
+      i++;
+      continue;
+    }
+
+    elements.push(
+      <p key={`${blockIndex}-${i}`} className={POLICY_PARA_CLASS}>
+        {formatInlineImportant(line)}
+      </p>
+    );
+    i++;
+  }
+
+  return (
+    <div
+      className="space-y-3 animate-para-fade-up"
+      style={{ animationDelay: `${0.1 + blockIndex * 0.08}s` }}
+    >
+      {elements}
+    </div>
+  );
+}
+
+function PolicyContent({ content }) {
+  const blocks = content.split("\n\n").filter((b) => b.trim());
+
+  return (
+    <div className="space-y-5">
+      {blocks.map((block, bi) => (
+        <PolicyContentBlock key={bi} block={block} blockIndex={bi} />
+      ))}
+    </div>
+  );
 }
 
 // ─── SECTION COMPONENT ────────────────────────────────────────────────────────
@@ -277,17 +443,7 @@ function PolicySection({ section, index, isActive, onVisible }) {
           {section.heading}
         </h2>
         <div className="h-[2px] w-12 bg-[#C8973A] mb-8 rounded-full animate-gold-rule" />
-        <div className="space-y-5">
-          {section.content.split("\n\n").map((para, i) => (
-            <p
-              key={i}
-              className="text-[#2a2010]/75 leading-[1.88] text-base sm:text-[1.02rem] font-light animate-para-fade-up"
-              style={{ animationDelay: `${0.1 + i * 0.08}s` }}
-            >
-              {para}
-            </p>
-          ))}
-        </div>
+        <PolicyContent content={section.content} />
       </div>
     </div>
   );
