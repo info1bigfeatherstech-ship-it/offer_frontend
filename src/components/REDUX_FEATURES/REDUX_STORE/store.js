@@ -10,7 +10,7 @@ import { userAnalyticsApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/use
 import adminAuthReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminAuthSlice";
 import { adminAuthApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminAuthApi";
 import { seoAnalyticsApi, seoUiReducer } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminSeoAnalytics";
-import adminOrdersUiReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersSlice";
+import adminOrdersUiReducer, { adminRtoUiReducer } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersSlice";
 import { adminOrdersApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 import staffReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/staffSlice";
 import { wholesalerApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/wholesalerApi/wholesalerApi";
@@ -50,6 +50,7 @@ const store = configureStore({
     [seoAnalyticsApi.reducerPath]: seoAnalyticsApi.reducer,
     seoUi: seoUiReducer,
     adminOrdersUi: adminOrdersUiReducer,
+    adminRtoUi: adminRtoUiReducer,
         productTags: productTagsReducer, // ← yeh hona chahiye
     [adminOrdersApi.reducerPath]: adminOrdersApi.reducer,
     [wholesalerApi.reducerPath]: wholesalerApi.reducer,
