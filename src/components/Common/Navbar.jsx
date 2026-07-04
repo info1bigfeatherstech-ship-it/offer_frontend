@@ -9,7 +9,7 @@ import { fetchAllCategories, selectHierarchicalCategories } from "../REDUX_FEATU
 import { selectDisplayCartCount } from '../REDUX_FEATURES/REDUX_SLICES/userCartSlice';
 import CartSidebar from './CartSidebar';
 import {
-  Search, User, Heart, ShoppingCart, Menu, X, Phone, Mail, Clock,
+  Search, User, Heart, ShoppingCart, Menu, X, Phone, Mail, Clock, Bell,
   ChevronRight, Home, Flame, Package, Tag, Ticket, HeadphonesIcon,
   Smartphone, ChefHat, Shirt, Dumbbell, Plane, Book, Baby, Car, Box, Gift,
   MapPin, LogOut, UserCircle, Settings, Sparkles, TrendingUp, Star, Zap
@@ -21,6 +21,9 @@ import WishlistSidebar from './WishlistSidebar';
 import { selectDefaultAddress, fetchAddresses } from '../REDUX_FEATURES/REDUX_SLICES/Useraddressslice';
 import SearchModal from './Search_Modal/SearchModal';
 import MobileBottomNav from './Mobilebottomnav';
+import NotificationBellIcon from './NotificationBellIcon';
+import NotificationsModal from './NotificationsModal';
+import { useGetUnreadNotificationCountQuery } from '../REDUX_FEATURES/REDUX_SLICES/notificationsApi';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-Components
@@ -51,13 +54,18 @@ const ActionIcon = memo(({ item, onClick, isLoggedIn }) => (
 ));
 
 // ── User Account Dropdown ─────────────────────────────────────────────────────
-const UserAccountDropdown = ({ user, onLogout, onClose, dropdownRef }) => {
+const UserAccountDropdown = ({ user, onLogout, onClose, dropdownRef, onOpenNotifications, unreadCount = 0 }) => {
   const navigate = useNavigate();
 
   const menuItems = [
-    { icon: <UserCircle size={16} />, label: 'My Profile',  path: '/account/userprofile' },
-    { icon: <Heart size={16} />,       label: 'My Wishlist', path: '/account/userwishlist' },
-    { icon: <ShoppingCart size={16} />,label: 'My Orders',   path: '/account/userorders' },
+    { icon: <UserCircle size={16} />, label: 'My Profile', path: '/account/userprofile' },
+    { icon: <Heart size={16} />, label: 'My Wishlist', path: '/account/userwishlist' },
+    { icon: <ShoppingCart size={16} />, label: 'My Orders', path: '/account/userorders' },
+    {
+      icon: <Bell size={16} />,
+      label: unreadCount > 0 ? `Notifications (${unreadCount > 9 ? '9+' : unreadCount})` : 'Notifications',
+      action: 'notifications'
+    }
   ];
 
   return (
@@ -74,7 +82,15 @@ const UserAccountDropdown = ({ user, onLogout, onClose, dropdownRef }) => {
         {menuItems.map((item, index) => (
           <button
             key={index}
-            onClick={() => { navigate(item.path); onClose(); }}
+            onClick={() => {
+              if (item.action === 'notifications') {
+                onOpenNotifications?.();
+                onClose();
+              } else {
+                navigate(item.path);
+                onClose();
+              }
+            }}
             className="w-full px-4 py-3 flex items-center gap-3 hover:bg-orange-50 transition-colors text-left group"
           >
             <span className="text-gray-500 group-hover:text-[#F7A221] transition-colors">{item.icon}</span>
@@ -289,6 +305,18 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
   const displayCount = isLoggedIn ? wishlistCount : guestItems.length;
   const [isSearchModalOpen, setIsSearchModalOpen] = useState(false);
   const [showSearchTooltip, setShowSearchTooltip] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+
+  const { data: unreadCount = 0 } = useGetUnreadNotificationCountQuery(undefined, {
+    skip: !isLoggedIn,
+    refetchOnMountOrArgChange: true,
+    refetchOnFocus: false,
+    refetchOnReconnect: false
+  });
+
+  const openNotifications = useCallback(() => setNotificationsOpen(true), []);
+  const closeNotifications = useCallback(() => setNotificationsOpen(false), []);
+  const hasUnreadNotifications = isLoggedIn && unreadCount > 0;
 
   // ── Dynamic categories from Redux ──────────────────────────────────────────
   const allCategories = useSelector(selectHierarchicalCategories);
@@ -524,16 +552,28 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                   <span className="text-[9px] sm:text-[10px] md:text-[11px] font-bold mt-0.5 uppercase tracking-tighter text-gray-600 group-hover:text-[#F7A221]">Cart</span>
                 </div>
 
-                {/* Menu */}
-                <button
-                  onClick={() => setIsMenuOpen(true)}
-                  className="flex flex-col items-center cursor-pointer group bg-transparent border-0 p-0"
-                >
-                  <div className="p-1 md:p-1.5 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
-                    <Menu size={20} className="w-5 h-5 sm:w-[22px] sm:h-[22px] md:w-6 md:h-6 text-gray-700 group-hover:text-[#F7A221] transition-colors" />
-                  </div>
-                  <span className="text-[9px] sm:text-[10px] md:text-[11px] font-bold mt-0.5 uppercase tracking-tighter text-gray-600 group-hover:text-[#F7A221]">Menu</span>
-                </button>
+                {/* Menu ↔ Notification bell swap (logged-in + unread) */}
+                {hasUnreadNotifications ? (
+                  <NotificationBellIcon
+                    count={unreadCount}
+                    onClick={openNotifications}
+                    variant="header"
+                    shaking
+                    className="shrink-0"
+                  />
+                ) : (
+                  <button
+                    onClick={() => setIsMenuOpen(true)}
+                    className="flex flex-col items-center cursor-pointer group bg-transparent border-0 p-0"
+                    type="button"
+                    aria-label="Open menu"
+                  >
+                    <div className="p-1 md:p-1.5 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
+                      <Menu size={20} className="w-5 h-5 sm:w-[22px] sm:h-[22px] md:w-6 md:h-6 text-gray-700 group-hover:text-[#F7A221] transition-colors" />
+                    </div>
+                    <span className="text-[9px] sm:text-[10px] md:text-[11px] font-bold mt-0.5 uppercase tracking-tighter text-gray-600 group-hover:text-[#F7A221]">Menu</span>
+                  </button>
+                )}
 
                 {/* Account dropdown — mobile */}
                 {isLoggedIn && isAccountDropdownOpen && (
@@ -542,6 +582,8 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                     onLogout={handleLogout}
                     onClose={() => setIsAccountDropdownOpen(false)}
                     dropdownRef={accountDropdownMobileRef}
+                    onOpenNotifications={openNotifications}
+                    unreadCount={unreadCount}
                   />
                 )}
               </div>
@@ -610,6 +652,15 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
 
             {/* Action icons */}
             <div className="flex items-center lg:gap-3 xl:gap-5 2xl:gap-8 relative z-[500]">
+              {hasUnreadNotifications && (
+                <NotificationBellIcon
+                  count={unreadCount}
+                  onClick={openNotifications}
+                  variant="header"
+                  shaking
+                  className="shrink-0 hidden lg:flex"
+                />
+              )}
               {actionIcons.map((item, idx) => (
                 <div key={idx} ref={idx === 0 ? accountTriggerDesktopRef : undefined}>
                   <ActionIcon item={item} onClick={item.onClick} isLoggedIn={isLoggedIn} />
@@ -621,6 +672,8 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                   onLogout={handleLogout}
                   onClose={() => setIsAccountDropdownOpen(false)}
                   dropdownRef={accountDropdownDesktopRef}
+                  onOpenNotifications={openNotifications}
+                  unreadCount={unreadCount}
                 />
               )}
             </div>
@@ -751,6 +804,19 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                   </div>
                 )}
 
+                {/* Notifications — opens shared modal (above Quick Links) */}
+                {isLoggedIn && (
+                  <NotificationBellIcon
+                    variant="drawerRow"
+                    count={unreadCount}
+                    shaking={unreadCount > 0}
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      openNotifications();
+                    }}
+                  />
+                )}
+
                 {/* Quick links */}
                 <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mb-2">✨ Quick Links</p>
 
@@ -832,6 +898,8 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
           </div>
         </div>
       )}
+
+      <NotificationsModal open={notificationsOpen} onClose={closeNotifications} />
 
       {/* ── Cart Sidebar ─────────────────────────────────────────────────────── */}
       <CartSidebar

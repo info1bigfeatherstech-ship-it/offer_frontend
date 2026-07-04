@@ -34,10 +34,20 @@ const RTO_SECTIONS = [
   { id: "analytics", label: "RTO Analytics" },
 ];
 
-function fmtInr(n) {
+function fmtInr(n, { decimals = 0 } = {}) {
   const v = Number(n);
   if (!Number.isFinite(v)) return "—";
-  return new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(v);
+  return new Intl.NumberFormat("en-IN", {
+    style: "currency",
+    currency: "INR",
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(v);
+}
+
+/** Detailed amounts in refund breakdown (paise-level fees). */
+function fmtInrDetail(n) {
+  return fmtInr(n, { decimals: 2 });
 }
 
 function fmtDate(v) {
@@ -96,13 +106,157 @@ function isNoRefundPayment(row) {
   return k === "partial_paid" || k === "cod";
 }
 
+/** Build refund deduction lines from API `refundCalculation` / saved `rtoDeductions`. */
+function buildRefundBreakdown(row) {
+  if (!row || isNoRefundPayment(row)) return null;
+
+  const calc = row.refundCalculation || {};
+  const saved = row.rtoDeductions || {};
+  const useSaved = saved.platformFee != null && row.rtoRefundAmount != null;
+  const ded = useSaved ? saved : calc.deductions || saved;
+
+  const cartValue =
+    Number(ded.cartValue ?? calc.cartValue ?? row.subtotalInr) || 0;
+  const forwardShipping =
+    Number(ded.forwardShipping ?? row.deliveryChargesInr) || 0;
+  const orderTotal =
+    Number(ded.orderTotal ?? calc.orderTotal) ||
+    round2(cartValue + forwardShipping);
+  const rtoShipping = Number(ded.rtoShipping) || 0;
+  const platformFeePercent = Number(ded.platformFeePercent) || 0;
+  const platformFee = Number(ded.platformFee) || 0;
+  const totalDeductions =
+    Number(calc.totalDeductions) || round2(forwardShipping + rtoShipping + platformFee);
+  const netRefund =
+    row.rtoRefundAmount != null
+      ? Number(row.rtoRefundAmount)
+      : Number(calc.maxRefundableInr ?? calc.netRefund) || 0;
+
+  return {
+    cartValue,
+    orderTotal,
+    forwardShipping,
+    rtoShipping,
+    platformFee,
+    platformFeePercent,
+    totalDeductions,
+    netRefund,
+    eligible: Boolean(calc.eligible),
+    processed: row.rtoRefundAmount != null,
+  };
+}
+
+function round2(n) {
+  return Math.round((Number(n) || 0) * 100) / 100;
+}
+
+function RefundBreakdownPanel({ breakdown, variant = "compact" }) {
+  if (!breakdown) return null;
+
+  const isModal = variant === "modal";
+  const wrap = isModal
+    ? "rounded-lg border border-slate-200 bg-white p-3 space-y-1.5 text-xs"
+    : "mt-2 rounded-lg border border-slate-100 bg-slate-50/90 p-2 space-y-0.5 text-[10px] leading-snug";
+  const labelClass = isModal ? "text-slate-500" : "text-slate-500";
+  const valueClass = isModal ? "text-slate-800 font-medium tabular-nums" : "text-slate-700 font-semibold tabular-nums";
+  const minusClass = "text-red-600/90";
+
+  const Line = ({ label, value, negative, bold, accent }) => (
+    <div className={`flex justify-between gap-2 ${bold ? "font-bold pt-1 border-t border-slate-200 mt-1" : ""}`}>
+      <span className={labelClass}>{label}</span>
+      <span className={`${valueClass} ${negative ? minusClass : ""} ${accent ? "text-emerald-700" : ""}`}>
+        {negative ? "− " : ""}
+        {fmtInrDetail(value)}
+      </span>
+    </div>
+  );
+
+  return (
+    <div className={wrap}>
+      {isModal && (
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Refund breakdown</p>
+      )}
+      <Line label="Cart value" value={breakdown.cartValue} />
+      <Line label="Forward shipping" value={breakdown.forwardShipping} negative />
+      <div className="flex justify-between gap-2 border-t border-dashed border-slate-200 pt-0.5">
+        <span className={labelClass}>Order total (cart + shipping)</span>
+        <span className={valueClass}>{fmtInrDetail(breakdown.orderTotal)}</span>
+      </div>
+      <Line label="RTO return shipping" value={breakdown.rtoShipping} negative />
+      <Line
+        label={`Platform fee${breakdown.platformFeePercent ? ` (${breakdown.platformFeePercent}%)` : ""}`}
+        value={breakdown.platformFee}
+        negative
+      />
+      <Line label="Total deductions" value={breakdown.totalDeductions} negative bold />
+      <Line
+        label={breakdown.processed ? "Refunded to customer" : "Net refund"}
+        value={breakdown.netRefund}
+        bold
+        accent={breakdown.netRefund > 0}
+      />
+      {!breakdown.eligible && !breakdown.processed && breakdown.netRefund <= 0 && (
+        <p className="text-[10px] text-amber-800 pt-1">Not eligible for Razorpay refund</p>
+      )}
+    </div>
+  );
+}
+
+function AmountCell({ row, breakdown: breakdownProp, expanded, onToggle }) {
+  const breakdown = breakdownProp ?? buildRefundBreakdown(row);
+  const canShowBreakdown = Boolean(breakdown);
+
+  return (
+    <td className="p-3 align-top min-w-[200px]">
+      <div className="font-bold">{fmtInr(row.amountInr)}</div>
+      {row.paymentType && (
+        <span
+          className={`inline-flex mt-1 px-1.5 py-0.5 rounded border text-[10px] font-bold ${paymentTypeBadgeClass(row.paymentType.key)}`}
+          title={row.paymentType.detail}
+        >
+          {row.paymentType.label}
+        </span>
+      )}
+      {row.paymentType?.key === "partial_paid" && (
+        <div className="text-[10px] text-amber-800 mt-0.5">
+          Paid {fmtInr(row.amountPaidInr)} of {fmtInr(row.amountInr)}
+        </div>
+      )}
+      {isNoRefundPayment(row) && (
+        <div className="text-[10px] text-slate-500 mt-0.5">No refund — close case when done</div>
+      )}
+      {canShowBreakdown && (
+        <>
+          {breakdown.netRefund > 0 && (
+            <div className="text-[10px] text-emerald-700 font-semibold mt-1">
+              {breakdown.processed ? "Refunded" : "Net refund"}: {fmtInrDetail(breakdown.netRefund)}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={onToggle}
+            className="mt-1 text-[10px] font-semibold text-indigo-700 hover:text-indigo-900 underline-offset-2 hover:underline"
+          >
+            {expanded ? "Hide breakdown ▲" : "View breakdown ▼"}
+          </button>
+          {expanded && <RefundBreakdownPanel breakdown={breakdown} variant="compact" />}
+        </>
+      )}
+      {row.refundBlockedReason && !row.canRefund && row.paymentType?.key === "full_paid" && (
+        <div className="text-[10px] text-slate-500 mt-0.5 max-w-[200px] leading-tight">{row.refundBlockedReason}</div>
+      )}
+    </td>
+  );
+}
+
 function RtoActionModal({ modal, note, onNoteChange, onClose, onConfirm, loading }) {
   if (!modal) return null;
 
   const row = modal.row;
   const isPartial = modal.type === "close" || (row && isNoRefundPayment(row));
   const shipReason = row?.shiprocketReason || row?.rtoReason || "—";
-  const netRefund = row?.refundCalculation?.netRefund;
+  const breakdown = row ? buildRefundBreakdown(row) : null;
+  const netRefund = breakdown?.netRefund ?? row?.refundCalculation?.netRefund;
 
   let title = "Confirm action";
   let description = "";
@@ -113,7 +267,7 @@ function RtoActionModal({ modal, note, onNoteChange, onClose, onConfirm, loading
     title = "Process Razorpay refund";
     description =
       "This will initiate a real Razorpay refund to the customer. Use only when delivery/logistics was at fault — not for customer refusal.";
-    confirmLabel = loading ? "Processing…" : `Refund ${netRefund > 0 ? fmtInr(netRefund) : ""}`.trim();
+    confirmLabel = loading ? "Processing…" : `Refund ${netRefund > 0 ? fmtInrDetail(netRefund) : ""}`.trim();
     confirmClass = BTN_REFUND;
   } else if (modal.type === "close" || isPartial) {
     title = "Close RTO case";
@@ -142,7 +296,7 @@ function RtoActionModal({ modal, note, onNoteChange, onClose, onConfirm, loading
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40" onClick={onClose}>
       <div
-        className="bg-white rounded-xl border border-slate-200 shadow-xl w-full max-w-md p-5 space-y-4"
+        className="bg-white rounded-xl border border-slate-200 shadow-xl w-full max-w-lg p-5 space-y-4"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
@@ -168,6 +322,9 @@ function RtoActionModal({ modal, note, onNoteChange, onClose, onConfirm, loading
               </p>
             )}
           </div>
+        )}
+        {modal.type === "refund" && breakdown && (
+          <RefundBreakdownPanel breakdown={breakdown} variant="modal" />
         )}
         {(modal.type === "reject" || modal.type === "close" || modal.type === "bulk-reject") && (
           <div>
@@ -222,6 +379,16 @@ export default function RtoTab() {
   const [actionErr, setActionErr] = useState(null);
   const [modal, setModal] = useState(null);
   const [modalNote, setModalNote] = useState("");
+  const [expandedBreakdown, setExpandedBreakdown] = useState(() => new Set());
+
+  const toggleBreakdown = useCallback((orderId) => {
+    setExpandedBreakdown((prev) => {
+      const next = new Set(prev);
+      if (next.has(orderId)) next.delete(orderId);
+      else next.add(orderId);
+      return next;
+    });
+  }, []);
 
   const showList = !["reports", "analytics", "redispatch", "cod_restricted"].includes(rtoUi.activeSection);
 
@@ -621,8 +788,10 @@ export default function RtoTab() {
                           </td>
                         </tr>
                       )}
-                      {orders.map((row) => (
-                        <tr key={row.orderId} className="hover:bg-slate-50/80">
+                      {orders.map((row) => {
+                        const rowBreakdown = buildRefundBreakdown(row);
+                        return (
+                          <tr key={row.orderId} className="hover:bg-slate-50/80">
                           <td className="p-3">
                             <input
                               type="checkbox"
@@ -636,34 +805,12 @@ export default function RtoTab() {
                             <div className="font-semibold text-slate-800">{row.customerName}</div>
                             <div className="text-slate-500">{row.contactPhone || "—"}</div>
                           </td>
-                          <td className="p-3">
-                            <div className="font-bold">{fmtInr(row.amountInr)}</div>
-                            {row.paymentType && (
-                              <span
-                                className={`inline-flex mt-1 px-1.5 py-0.5 rounded border text-[10px] font-bold ${paymentTypeBadgeClass(row.paymentType.key)}`}
-                                title={row.paymentType.detail}
-                              >
-                                {row.paymentType.label}
-                              </span>
-                            )}
-                            {row.paymentType?.key === "partial_paid" && (
-                              <div className="text-[10px] text-amber-800 mt-0.5">
-                                Paid {fmtInr(row.amountPaidInr)} of {fmtInr(row.amountInr)}
-                              </div>
-                            )}
-                            {row.canRefund && row.refundCalculation?.netRefund > 0 && (
-                              <div className="text-[10px] text-emerald-700 mt-0.5">
-                                Refund: {fmtInr(row.refundCalculation.netRefund)}
-                              </div>
-                            )}
-                            {row.refundBlockedReason && !row.canRefund && (
-                              <div className="text-[10px] text-slate-500 mt-0.5 max-w-[140px] leading-tight">
-                                {isNoRefundPayment(row)
-                                  ? "No refund — close case when done"
-                                  : row.refundBlockedReason}
-                              </div>
-                            )}
-                          </td>
+                          <AmountCell
+                            row={row}
+                            breakdown={rowBreakdown}
+                            expanded={expandedBreakdown.has(row.orderId)}
+                            onToggle={() => toggleBreakdown(row.orderId)}
+                          />
                           <td className="p-3">
                             <span
                               className={`inline-flex px-2 py-0.5 rounded-full border text-[10px] font-bold uppercase ${statusBadgeClass(row.rtoStatus)}`}
@@ -696,7 +843,7 @@ export default function RtoTab() {
                             )}
                           </td>
                           <td className="p-3 text-slate-600">{fmtDate(row.returnedAt)}</td>
-                          <td className="p-3">
+                          <td className="p-3 align-top">
                             {row.refundTrackStatus && (
                               <span
                                 className={`inline-flex px-2 py-0.5 rounded-full border text-[10px] font-bold capitalize ${refundTrackBadge(row.refundTrackStatus)}`}
@@ -705,7 +852,13 @@ export default function RtoTab() {
                               </span>
                             )}
                             {!row.refundTrackStatus && row.rtoRefundAmount != null && (
-                              <span className="text-emerald-700 font-semibold">{fmtInr(row.rtoRefundAmount)}</span>
+                              <span className="text-emerald-700 font-semibold">{fmtInrDetail(row.rtoRefundAmount)}</span>
+                            )}
+                            {rowBreakdown?.processed && (
+                              <div className="text-[9px] text-slate-500 mt-1 leading-tight">
+                                Fee {fmtInrDetail(rowBreakdown.platformFee)} · RTO{" "}
+                                {fmtInrDetail(rowBreakdown.rtoShipping)}
+                              </div>
                             )}
                           </td>
                           <td className="p-3">
@@ -753,8 +906,9 @@ export default function RtoTab() {
                               )}
                             </div>
                           </td>
-                        </tr>
-                      ))}
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>
