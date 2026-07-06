@@ -7,11 +7,14 @@ export const ORDER_TAB_LABEL_TO_BUCKET = Object.freeze({
   All: 'all',
   Pending: 'new',
   Confirmed: 'bill_sent',
+  'Ready to Ship': 'ready_to_ship',
+  'Pickup Exception': 'pickup_exception',
   Processing: 'ready_to_pick',
   'In transit': 'in_transit',
   Delivered: 'completed',
   RTO: 'rto',
   Cancelled: 'others',
+  'Pickup Exception': 'pickup_exception',
 });
 
 /** @type {keyof typeof ORDER_TAB_LABEL_TO_BUCKET} */
@@ -38,6 +41,8 @@ export const BUCKET_KEY_TO_TAB_LABEL = Object.freeze({
   all: 'All',
   new: 'Pending',
   bill_sent: 'Confirmed',
+  ready_to_ship: 'Ready to Ship',
+  pickup_exception: 'Pickup Exception',
   ready_to_pick: 'Processing',
   in_transit: 'In transit',
   completed: 'Delivered',
