@@ -721,7 +721,19 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
                     value={form.houseNumber} onChange={handleChange}
                     required placeholder="42B, Tower 5"
                   />
-                  
+                  <Field
+                    label="Floor (optional)" name="floor"
+                    value={form.floor || ""} onChange={handleChange}
+                    placeholder="e.g. 4th Floor"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <Field
+                    label="Building (optional)" name="building"
+                    value={form.building || ""} onChange={handleChange}
+                    placeholder="e.g. Sunrise Apartments"
+                  />
                   {/* Area Dropdown with + Add Custom Modal */}
                   <AreaDropdown
                     value={form.area}
@@ -730,19 +742,6 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
                     required
                     onAddCustom={handleAddCustomArea}
                     savedCustomAreas={savedCustomAreas}
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <Field
-                    label="Building" name="building"
-                    value={form.building || ""} onChange={handleChange}
-                    required placeholder="e.g. Sunrise Apartments"
-                  />
-                  <Field
-                    label="Floor" name="floor"
-                    value={form.floor || ""} onChange={handleChange}
-                    required placeholder="e.g. 4th Floor"
                   />
                 </div>
 
