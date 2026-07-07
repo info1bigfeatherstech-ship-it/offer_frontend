@@ -46,11 +46,13 @@ const TAB_ORDER = [
   // "All" — intentionally hidden; summary cards still exclude cancelled via backend totals.
   "Pending",
   "Confirmed",
+  "Ready to Ship",
   "Processing",
   "In transit",
   "Delivered",
   "RTO",
   "Cancelled",
+  "Pickup Exception",
 ];
 
 function formatInr(amount) {
@@ -177,6 +179,7 @@ const OrderTab = () => {
     isFetching: summaryFetching,
     error: summaryError,
     isError: summaryIsError,
+    refetch: refetchSummary,
   } = useGetAdminOrdersSummaryQuery(summaryArgs);
 
   const {
@@ -185,6 +188,7 @@ const OrderTab = () => {
     isFetching: listFetching,
     error: listError,
     isError: listIsError,
+    refetch: refetchList,
   } = useGetAdminOrdersListQuery(listArgs);
 
   const [autoSyncOrderStatuses] = useAdminAutoSyncOrderStatusesMutation();
@@ -1385,6 +1389,8 @@ const OrderTab = () => {
                             type: "ok",
                             text: "Action completed. List will refresh automatically.",
                           });
+                          refetchList?.();
+                          refetchSummary?.();
                         }
                       }}
                     />
@@ -1499,6 +1505,8 @@ const OrderTab = () => {
                         type: "ok",
                         text: "Action completed. List will refresh automatically.",
                       });
+                      refetchList?.();
+                      refetchSummary?.();
                     }
                   }}
                 />

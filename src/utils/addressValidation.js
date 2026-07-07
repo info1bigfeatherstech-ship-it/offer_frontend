@@ -42,6 +42,12 @@ export function validateAddressFormStep2(form) {
   if (!trim(form.houseNumber)) {
     return { ok: false, message: "House/Flat number is required." };
   }
+  if (trim(form.building) && trim(form.building).length > 150) {
+    return { ok: false, message: "Building name must be at most 150 characters." };
+  }
+  if (trim(form.floor) && trim(form.floor).length > 80) {
+    return { ok: false, message: "Floor details must be at most 80 characters." };
+  }
   if (!trim(form.area)) {
     return { ok: false, message: "Area/Locality is required." };
   }

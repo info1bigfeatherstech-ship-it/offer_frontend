@@ -836,9 +836,12 @@ const OrderDetail = ({ orderId, onBack }) => {
         >
           {[
             order.addressSnapshot.houseNumber,
+            order.addressSnapshot.building,
+            order.addressSnapshot.floor,
             order.addressSnapshot.area,
             order.addressSnapshot.landmark,
             order.addressSnapshot.addressLine1,
+            order.addressSnapshot.addressLine2,
           ]
             .filter(Boolean)
             .join(", ")}

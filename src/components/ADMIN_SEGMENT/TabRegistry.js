@@ -8,6 +8,7 @@ import { REVIEW_TAB_REGISTRY } from "./ADMIN_TABS/CUSTOMER_REVIEW/reviewTabRegis
 
 const OrderTab = lazy(() => import("./ADMIN_TABS/OrderTab/OrderTab"));
 const ReturnsRefundsTab = lazy(() => import("./ADMIN_TABS/OrderTab/ReturnsRefundsTab"));
+const RtoTab = lazy(() => import("./ADMIN_TABS/RtoTab/RtoTab"));
 const ProductsTab = lazy(() => import("./ADMIN_TABS/ProductsTab"));
 const AnalyticsTab = lazy(() => import("./ADMIN_TABS/AnalyticsTab"));
 const outOfStockTab = lazy(() => import("./ADMIN_TABS/OutOfStockTab/OutOfStockTab"));
@@ -40,6 +41,13 @@ export const TAB_REGISTRY = [
     label: "Returns & Refunds",
     icon: "M4 4h16v4H4zM6 10h12v10H6zM9 14h6M9 18h4",
     component: ReturnsRefundsTab,
+    badge: null,
+  },
+  {
+    id: "rto",
+    label: "RTO",
+    icon: "M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5",
+    component: RtoTab,
     badge: null,
   },
   {

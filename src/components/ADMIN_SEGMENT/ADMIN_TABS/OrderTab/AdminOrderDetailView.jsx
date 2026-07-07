@@ -2341,7 +2341,7 @@ export default function AdminOrderDetailView({
                 <div className="sm:col-span-2">
                   <p className="text-[10px] uppercase text-slate-400 font-semibold mb-1">Delivery address</p>
                   <p className="text-slate-700 leading-relaxed">
-                    {[addr.addressLine1, addr.addressLine2, addr.area, addr.city, addr.state, addr.postalCode, addr.country]
+                    {[addr.houseNumber, addr.building, addr.floor, addr.addressLine1, addr.addressLine2, addr.area, addr.landmark, addr.city, addr.state, addr.postalCode, addr.country]
                       .filter(Boolean)
                       .join(", ")}
                   </p>

@@ -141,7 +141,7 @@ const AddressSelector = ({ onAddAddress }) => {
                   {addr.phone}
                 </p>
                 <p className="text-xs text-gray-600 font-medium mt-1.5 leading-relaxed">
-                  {[addr.houseNumber, addr.area, addr.landmark, addr.addressLine1]
+                  {[addr.houseNumber, addr.building, addr.floor, addr.area, addr.landmark, addr.addressLine1]
                     .filter(Boolean)
                     .join(", ")}
                   {"\n"}

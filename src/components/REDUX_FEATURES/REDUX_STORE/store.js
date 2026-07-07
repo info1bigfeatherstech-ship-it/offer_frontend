@@ -10,7 +10,7 @@ import { userAnalyticsApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/use
 import adminAuthReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminAuthSlice";
 import { adminAuthApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminAuthApi";
 import { seoAnalyticsApi, seoUiReducer } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminSeoAnalytics";
-import adminOrdersUiReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersSlice";
+import adminOrdersUiReducer, { adminRtoUiReducer } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersSlice";
 import { adminOrdersApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 import staffReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/staffSlice";
 import { wholesalerApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/wholesalerApi/wholesalerApi";
@@ -25,6 +25,7 @@ import userWishlistReducer from '../REDUX_SLICES/userWishlistSlice';
 import userCartReducer from '../REDUX_SLICES/userCartSlice';
 import userAddressReducer from '../REDUX_SLICES/Useraddressslice';
 import { searchApi } from '../REDUX_SLICES/searchApi';
+import { notificationsApi } from '../REDUX_SLICES/notificationsApi';
 import checkoutReducer from '../REDUX_SLICES/checkoutSlice/checkoutSlice';
 import orderReducer from '../REDUX_SLICES/orderSlice/orderSlice';
 import productTagsReducer from "../REDUX_SLICES/productTagsSlice"
@@ -50,6 +51,7 @@ const store = configureStore({
     [seoAnalyticsApi.reducerPath]: seoAnalyticsApi.reducer,
     seoUi: seoUiReducer,
     adminOrdersUi: adminOrdersUiReducer,
+    adminRtoUi: adminRtoUiReducer,
         productTags: productTagsReducer, // ← yeh hona chahiye
     [adminOrdersApi.reducerPath]: adminOrdersApi.reducer,
     [wholesalerApi.reducerPath]: wholesalerApi.reducer,
@@ -65,6 +67,7 @@ const store = configureStore({
     checkout: checkoutReducer,
     orders: orderReducer,
     [searchApi.reducerPath]: searchApi.reducer,
+    [notificationsApi.reducerPath]: notificationsApi.reducer,
 
   },
   middleware: (getDefaultMiddleware) =>
@@ -76,6 +79,7 @@ const store = configureStore({
       adminOrdersApi.middleware,
       wholesalerApi.middleware,
       couponApi.middleware,
+      notificationsApi.middleware,
     ),
   devTools: import.meta.env.MODE !== "production", // Redux DevTools only in dev
 });
