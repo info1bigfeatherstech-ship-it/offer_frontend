@@ -144,8 +144,9 @@ const RelatedCard = ({ product, index = 0 }) => {
 
   const getCategoryName = (productCategory) => {
     if (!productCategory) return "Uncategorized";
-    const found = categories.find((cat) => cat._id === productCategory || cat.name === productCategory);
-    return found ? found.name : "Uncategorized";
+    const found = categories?.find((cat) => cat._id === productCategory || cat.name === productCategory);
+    if (found) return found.name;
+    return /^[0-9a-fA-F]{24}$/.test(productCategory) ? "Uncategorized" : productCategory;
   };
 
   // ── Derived ───────────────────────────────────────────────────────────────
@@ -589,6 +590,10 @@ const ProductUI = ({ openAuthModal }) => {
       .catch(() => { });
     return () => { dispatch(clearCurrentProduct()); dispatch(clearRelatedProducts()); };
   }, [slug, dispatch]);
+
+  useEffect(() => {
+    dispatch(fetchCategories()).unwrap().catch(() => {});
+  }, [dispatch]);
 
   useEffect(() => {
     const close = () => setShareOpen(false);

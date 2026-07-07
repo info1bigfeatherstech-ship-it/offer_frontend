@@ -34,7 +34,7 @@ const ADDRESS_TYPE_ICON = {
 };
 
 const EMPTY_FORM = {
-  fullName: "", phone: "", houseNumber: "", area: "",
+  fullName: "", phone: "", houseNumber: "", building: "", floor: "", area: "",
   landmark: "", addressLine1: "", addressLine2: "",
   city: "", state: "", postalCode: "", country: "India",
   addressType: "home", isDefault: false,
@@ -239,6 +239,8 @@ const AddressCard = ({ address, isDefault, onEdit, onDelete, onSetDefault, isDel
     address.fullName,
     address.phone,
     address.houseNumber,
+    address.building,
+    address.floor,
     address.area,
     address.landmark,
     address.addressLine1,
@@ -731,6 +733,19 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
                   />
                 </div>
 
+                <div className="grid grid-cols-2 gap-4">
+                  <Field
+                    label="Building" name="building"
+                    value={form.building || ""} onChange={handleChange}
+                    required placeholder="e.g. Sunrise Apartments"
+                  />
+                  <Field
+                    label="Floor" name="floor"
+                    value={form.floor || ""} onChange={handleChange}
+                    required placeholder="e.g. 4th Floor"
+                  />
+                </div>
+
                 <Field
                   label="Landmark" name="landmark"
                   value={form.landmark} onChange={handleChange}
@@ -745,7 +760,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
                   onChange={handleChange}
                   required
                   maxLength={ADDRESS_LINE_MAX_LEN}
-                  placeholder="Street, building, road"
+                  placeholder="Street, road"
                 />
                 <p className="text-[10px] font-bold text-gray-400 -mt-3 ml-1">
                   Couriers need a full street line (at least {ADDRESS_LINE1_MIN_LEN} characters).
@@ -757,7 +772,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
                   value={form.addressLine2}
                   onChange={handleChange}
                   maxLength={ADDRESS_LINE_MAX_LEN}
-                  placeholder="Floor, wing, apartment details"
+                  placeholder="wing, apartment details"
                 />
 
                 <div className="grid grid-cols-2 gap-4">
@@ -836,7 +851,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
                   <p className="text-[10px] font-black uppercase tracking-widest text-amber-500 mb-3">Delivery Summary</p>
                   <p className="text-sm font-black text-gray-900">{form.fullName}</p>
                   <p className="text-xs text-gray-500 font-medium">
-                    {[form.houseNumber, form.area, form.landmark, form.addressLine1, form.addressLine2]
+                    {[form.houseNumber, form.building, form.floor, form.area, form.landmark, form.addressLine1, form.addressLine2]
                       .filter(Boolean).join(", ")}
                   </p>
                   <p className="text-xs font-bold text-gray-700">
