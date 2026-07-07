@@ -403,6 +403,58 @@ const ProductsTab = ({ onSwitchTab }) => {
   const [selectedSlugs, setSelectedSlugs] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
   const [bulkActionType, setBulkActionType] = useState(null);
+  const [exportLoading, setExportLoading] = useState(false);
+
+  const handleExportProducts = useCallback(async () => {
+    if (exportLoading) return;
+    setExportLoading(true);
+    try {
+      const res = await axiosInstance.get('/admin/products/export-csv', {
+        responseType: 'blob',
+        timeout: 120000, // 2 min timeout — large stores may have many products
+      });
+
+      // Guard: server might return JSON error even with blob responseType
+      const contentType = String(res.headers['content-type'] || '');
+      if (contentType.includes('application/json')) {
+        const text = await res.data.text();
+        let msg = 'Export failed';
+        try { msg = JSON.parse(text)?.message || msg; } catch {}
+        toast.error(msg);
+        return;
+      }
+
+      const blob = res.data;
+      if (!(blob instanceof Blob) || blob.size === 0) {
+        toast.error('Export returned an empty file. Please try again.');
+        return;
+      }
+
+      const today = new Date().toISOString().slice(0, 10);
+      const filename = `products_export_${today}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+      toast.success('Products exported successfully!');
+    } catch (err) {
+      const msg =
+        err?.response?.data instanceof Blob
+          ? 'Export failed — server error'
+          : err?.response?.data?.message || err?.message || 'Export failed';
+      toast.error(msg);
+    } finally {
+      setExportLoading(false);
+    }
+  }, [exportLoading]);
 
   const [dateFilter, setDateFilter] = useState({
     preset: null,
@@ -982,6 +1034,28 @@ const ProductsTab = ({ onSwitchTab }) => {
               </svg>
               <span>Add Product</span>
             </button>
+
+            <button
+              id="export-products-csv-btn"
+              onClick={handleExportProducts}
+              disabled={exportLoading}
+              className="px-5 cursor-pointer py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-medium rounded-xl hover:from-emerald-600 hover:to-teal-700 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+              title="Export all products (active + inactive) to CSV"
+            >
+              {exportLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  <span>Exporting…</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  <span>Export Excel</span>
+                </>
+              )}
+            </button>
           </div>
         )}
       </div>
@@ -999,7 +1073,7 @@ const ProductsTab = ({ onSwitchTab }) => {
               </div>
             </div>
           )}
-          <table className="w-full min-w-[850px]"> {/* RESPONSIVE FIX */}
+          <table className="w-full min-w-[850px]">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="px-2 py-3 w-10"> {/* RESPONSIVE FIX */}

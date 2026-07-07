@@ -271,11 +271,51 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
     prevStep.current = step;
   }, [step, result]);
 
+  const [templateDownloading, setTemplateDownloading] = useState(false);
+
+  const handleDownloadTemplate = async () => {
+    if (templateDownloading) return;
+    setTemplateDownloading(true);
+    const toastId = toast.loading('Generating template...');
+    try {
+      const response = await axiosInstance.get('/admin/products/bulk-upload-template', {
+        responseType: 'blob'
+      });
+      const blob = new Blob([response.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const downloadUrl = URL.createObjectURL(blob);
+      
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = 'bulk_upload_template.xlsx';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(downloadUrl);
+
+      toast.update(toastId, {
+        render: 'Template downloaded successfully!',
+        type: 'success',
+        isLoading: false,
+        autoClose: 3000
+      });
+    } catch (error) {
+      console.error('Template download failed:', error);
+      toast.update(toastId, {
+        render: 'Failed to download template. Please try again.',
+        type: 'error',
+        isLoading: false,
+        autoClose: 3000
+      });
+    } finally {
+      setTemplateDownloading(false);
+    }
+  };
+
   const handleClose        = () => { dispatch(resetBulkUpload()); setResultTab('all'); onClose(); };
   const handlePreview      = () => { if (csvFile)            dispatch(previewCSV(csvFile)); };
   const handleModeAImport  = () => { if (csvFile)            dispatch(importWithUrls(csvFile)); };
   const handleZipImport    = () => { if (csvFile && zipFile) dispatch(importWithZip({ csvFile, zipFile })); };
- const handleDownloadReport = (url) => downloadWithAuth(url);
+  const handleDownloadReport = (url) => downloadWithAuth(url);
 
   if (!isOpen) return null;
 
@@ -356,6 +396,32 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
           {/* ══ MODE SELECTION ═══════════════════════════════════ */}
           {step === 'mode' && (
             <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 bg-indigo-50 border border-indigo-100 rounded-xl">
+                <div className="space-y-0.5">
+                  <h4 className="text-sm font-semibold text-indigo-900">Need a template with dynamic dropdown values?</h4>
+                  <p className="text-xs text-indigo-700">
+                    Get a pre-formatted Excel template with dropdown lists for categories, status, gstRate, isFragile, and more.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadTemplate}
+                  disabled={templateDownloading}
+                  className="flex-shrink-0 flex items-center justify-center gap-1.5 px-4 py-2.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {templateDownloading ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Downloading Template...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>📥 Download Excel Template</span>
+                    </>
+                  )}
+                </button>
+              </div>
+
               <p className="text-sm text-slate-600 font-medium">How are you providing product images?</p>
               <div className="grid  grid-cols-1 sm:grid-cols-2 gap-4">
                 <button onClick={() => dispatch(setImageMode('url'))}
