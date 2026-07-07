@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from "react";
+import React, { useMemo, useState, useCallback, useEffect, useRef } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
   useGetAdminRtoOrdersQuery,
@@ -28,6 +28,7 @@ const RTO_SECTIONS = [
   { id: "refund_pending", label: "Refund Pending" },
   { id: "refund_processed", label: "Refund Processed" },
   { id: "refund_rejected", label: "Refund Rejected" },
+  { id: "closed", label: "Closed RTOs" },
   { id: "redispatch", label: "Re-dispatch Requests", placeholder: true },
   { id: "cod_restricted", label: "COD Restricted Customers", placeholder: true },
   { id: "reports", label: "RTO Reports" },
@@ -61,6 +62,7 @@ function statusBadgeClass(st) {
   const s = String(st || "").toLowerCase();
   if (s === "refunded") return "bg-emerald-50 text-emerald-800 border-emerald-200";
   if (s === "refund_rejected") return "bg-red-50 text-red-800 border-red-200";
+  if (s === "closed") return "bg-slate-100 text-slate-700 border-slate-200";
   if (s === "resolved") return "bg-slate-100 text-slate-700 border-slate-200";
   if (s === "refund_failed") return "bg-red-50 text-red-700 border-red-200";
   return "bg-amber-50 text-amber-800 border-amber-200";
@@ -100,6 +102,8 @@ const BTN_DENY =
   "px-3 py-1.5 rounded-lg border border-slate-300 bg-slate-100 text-slate-700 text-xs font-semibold hover:bg-slate-200 disabled:opacity-50 min-w-[72px]";
 const BTN_CLOSE =
   "px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 text-xs font-semibold hover:bg-slate-50 disabled:opacity-50 min-w-[80px]";
+const BTN_ACTION_MENU =
+  "inline-flex items-center justify-between gap-2 min-w-[112px] px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold shadow-sm hover:bg-slate-50 disabled:opacity-50";
 
 function isNoRefundPayment(row) {
   const k = String(row?.paymentType?.key || "").toLowerCase();
@@ -249,11 +253,139 @@ function AmountCell({ row, breakdown: breakdownProp, expanded, onToggle }) {
   );
 }
 
+function buildRowActionItems(row) {
+  const items = [];
+
+  if (row.canRefund) {
+    items.push({
+      key: "refund",
+      label: row.rtoStatus === "refund_failed" ? "Retry refund" : "Refund",
+      tone: "primary",
+    });
+  }
+
+  if (row.canReject) {
+    items.push({
+      key: "reject",
+      label: "Deny refund",
+      tone: "danger",
+    });
+  }
+
+  if (row.canClose) {
+    items.push({
+      key: "close",
+      label: "Close case",
+      tone: "neutral",
+    });
+  }
+
+  return items;
+}
+
+function finalStatusLabel(row) {
+  if (row.rtoStatus === "refunded") return "Refunded";
+  if (row.rtoStatus === "refund_rejected") return "Refund rejected";
+  if (row.rtoStatus === "closed") return "Closed";
+  if (row.rtoStatus === "refund_failed") return "Refund failed";
+  return "No actions";
+}
+
+function RowActionMenu({ row, busy, onAction }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  const items = buildRowActionItems(row);
+  const hasActions = items.length > 0;
+  const statusLabel = finalStatusLabel(row);
+
+  useEffect(() => {
+    if (!open) return undefined;
+
+    const handlePointerDown = (event) => {
+      if (!wrapRef.current?.contains(event.target)) {
+        setOpen(false);
+      }
+    };
+
+    const handleEscape = (event) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handlePointerDown);
+    document.addEventListener("keydown", handleEscape);
+    return () => {
+      document.removeEventListener("mousedown", handlePointerDown);
+      document.removeEventListener("keydown", handleEscape);
+    };
+  }, [open]);
+
+  const handleSelect = (actionKey) => {
+    setOpen(false);
+    onAction(actionKey, row);
+  };
+
+  if (!hasActions) {
+    return (
+      <span
+        className={`inline-flex min-w-[112px] items-center justify-center rounded-lg border px-3 py-2 text-xs font-semibold ${statusBadgeClass(row.rtoStatus)}`}
+      >
+        {statusLabel}
+      </span>
+    );
+  }
+
+  return (
+    <div ref={wrapRef} className="relative inline-flex">
+      <button
+        type="button"
+        className={BTN_ACTION_MENU}
+        disabled={busy}
+        onClick={() => setOpen((prev) => !prev)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        <span>Actions</span>
+        <span className={`transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
+      </button>
+
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 top-full z-30 mt-2 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
+        >
+          <div className="p-1.5">
+            {items.map((item) => (
+              <button
+                key={item.key}
+                type="button"
+                role="menuitem"
+                disabled={busy}
+                onClick={() => handleSelect(item.key)}
+                className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${
+                  item.tone === "danger"
+                    ? "text-red-700 hover:bg-red-50"
+                    : item.tone === "primary"
+                      ? "text-slate-800 hover:bg-slate-50"
+                      : "text-slate-700 hover:bg-slate-50"
+                }`}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function RtoActionModal({ modal, note, onNoteChange, onClose, onConfirm, loading }) {
   if (!modal) return null;
 
   const row = modal.row;
-  const isPartial = modal.type === "close" || (row && isNoRefundPayment(row));
+  const isPartial = row && isNoRefundPayment(row);
   const shipReason = row?.shiprocketReason || row?.rtoReason || "—";
   const breakdown = row ? buildRefundBreakdown(row) : null;
   const netRefund = breakdown?.netRefund ?? row?.refundCalculation?.netRefund;
@@ -269,10 +401,10 @@ function RtoActionModal({ modal, note, onNoteChange, onClose, onConfirm, loading
       "This will initiate a real Razorpay refund to the customer. Use only when delivery/logistics was at fault — not for customer refusal.";
     confirmLabel = loading ? "Processing…" : `Refund ${netRefund > 0 ? fmtInrDetail(netRefund) : ""}`.trim();
     confirmClass = BTN_REFUND;
-  } else if (modal.type === "close" || isPartial) {
+  } else if (modal.type === "close") {
     title = "Close RTO case";
     description =
-      "This order is not eligible for any refund (partial / COD payment). No Razorpay action will run — this only closes the RTO in admin records.";
+      "This closes the RTO in admin records without triggering a Razorpay refund. Use only when no further refund action is required.";
     confirmLabel = loading ? "Closing…" : "Close case";
     confirmClass = BTN_CLOSE;
   } else if (modal.type === "reject") {
@@ -335,7 +467,11 @@ function RtoActionModal({ modal, note, onNoteChange, onClose, onConfirm, loading
               rows={2}
               className="mt-1 w-full border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-800 resize-none focus:outline-none focus:ring-2 focus:ring-slate-300"
               placeholder={
-                isPartial ? "e.g. Partial payment — case closed, no refund" : "e.g. Customer refused — no refund"
+                modal.type === "close"
+                  ? "e.g. Case closed after review"
+                  : isPartial
+                    ? "e.g. Partial payment — case closed, no refund"
+                    : "e.g. Customer refused — no refund"
               }
             />
           </div>
@@ -391,6 +527,7 @@ export default function RtoTab() {
   }, []);
 
   const showList = !["reports", "analytics", "redispatch", "cod_restricted"].includes(rtoUi.activeSection);
+  const showListSummary = showList && rtoUi.activeSection !== "dashboard";
 
   const { data: listData, isLoading, isFetching, error, refetch } = useGetAdminRtoOrdersQuery(listArgs, {
     skip: !showList,
@@ -433,16 +570,41 @@ export default function RtoTab() {
   const openRejectModal = (row) => {
     setActionErr(null);
     setActionMsg(null);
-    const isPartial = isNoRefundPayment(row);
     setModalNote(
-      isPartial
-        ? "Partial payment — case closed, no Razorpay refund"
-        : row.rtoReasonCategory === "customer"
-          ? "Customer fault — no refund per policy"
-          : ""
+      row.rtoReasonCategory === "customer"
+        ? "Customer fault — no refund per policy"
+        : ""
     );
-    setModal({ type: isPartial ? "close" : "reject", row });
+    setModal({ type: "reject", row });
   };
+
+  const openCloseModal = (row) => {
+    setActionErr(null);
+    setActionMsg(null);
+    setModalNote(
+      isNoRefundPayment(row)
+        ? "Partial payment / COD — case closed, no Razorpay refund"
+        : "Case closed after admin review"
+    );
+    setModal({ type: "close", row });
+  };
+
+  const handleRowAction = useCallback(
+    (actionKey, row) => {
+      if (actionKey === "refund") {
+        openRefundModal(row);
+        return;
+      }
+      if (actionKey === "reject") {
+        openRejectModal(row);
+        return;
+      }
+      if (actionKey === "close") {
+        openCloseModal(row);
+      }
+    },
+    []
+  );
 
   const closeModal = () => {
     if (refundState.isLoading || rejectState.isLoading || bulkState.isLoading) return;
@@ -461,6 +623,7 @@ export default function RtoTab() {
       } else if (modal.type === "reject" || modal.type === "close") {
         const res = await rejectOrder({
           orderId: modal.row.orderId,
+          action: modal.type === "close" ? "close" : "reject",
           note: modalNote.trim() || undefined,
         }).unwrap();
         setActionMsg(
@@ -473,7 +636,7 @@ export default function RtoTab() {
       } else if (modal.type === "bulk-reject") {
         const res = await bulkAction({
           orderIds: selected,
-          action: "reject",
+          action: modal.action || "close",
           note: modalNote.trim() || undefined,
         }).unwrap();
         setActionMsg(res.message || "Bulk close done");
@@ -489,9 +652,10 @@ export default function RtoTab() {
     if (!selected.length) return;
     setActionErr(null);
     setActionMsg(null);
-    setModalNote(action === "reject" ? "Closed — no refund" : "");
+    setModalNote(action === "close" ? "Closed — no refund" : "");
     setModal({
       type: action === "refund" ? "bulk-refund" : "bulk-reject",
+      action,
       count: selected.length,
     });
   };
@@ -636,7 +800,7 @@ export default function RtoTab() {
                <SummaryCard label="Total RTO" value={kpis.totalRto ?? kpis.total ?? 0} tone="blue" />
                 <SummaryCard label="Pending" value={kpis.pending ?? 0} tone="amber" />
                 <SummaryCard label="Refunded" value={kpis.refunded ?? 0} tone="emerald" />
-                <SummaryCard label="Resolved" value={kpis.resolved ?? 0} />
+                <SummaryCard label="Closed" value={kpis.closed ?? kpis.resolved ?? 0} />
               </div>
 
               {rtoUi.activeSection === "analytics" && (
@@ -692,12 +856,14 @@ export default function RtoTab() {
           {/* Orders table */}
           {showList && (
             <>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {showListSummary && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <SummaryCard label="Total RTO" value={summary.total ?? 0} tone="blue" />
                 <SummaryCard label="Pending" value={summary.pending ?? 0} tone="amber" />
                 <SummaryCard label="Refunded" value={summary.refunded ?? 0} tone="emerald" />
-                <SummaryCard label="Resolved" value={summary.resolved ?? 0} />
-              </div>
+                <SummaryCard label="Closed" value={summary.closed ?? summary.resolved ?? 0} />
+                </div>
+              )}
 
               <div className="bg-white border border-slate-200 rounded-xl p-3 flex flex-wrap items-center gap-2">
                 <select
@@ -710,11 +876,12 @@ export default function RtoTab() {
                   <option value="refunded">Refunded</option>
                   <option value="refund_failed">Refund failed</option>
                   <option value="refund_rejected">Refund rejected</option>
+                  <option value="closed">Closed</option>
                   <option value="resolved">Resolved (legacy)</option>
                 </select>
                 <input
                   type="search"
-                  placeholder="Search order ID / phone…"
+                  placeholder="Search order ID / phone / name / Shiprocket ID…"
                   value={rtoUi.searchInput}
                   onChange={(e) => dispatch(setRtoSearchInput(e.target.value))}
                   onKeyDown={(e) => e.key === "Enter" && dispatch(commitRtoSearch())}
@@ -747,15 +914,15 @@ export default function RtoTab() {
                 <button
                   type="button"
                   disabled={!selected.length || bulkState.isLoading}
-                  onClick={() => handleBulk("reject")}
+                  onClick={() => handleBulk("close")}
                   className="px-3 py-2 rounded-lg border border-slate-300 bg-slate-100 text-slate-700 text-xs font-semibold disabled:opacity-40 hover:bg-slate-200"
                 >
                   Bulk Close
                 </button>
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
-                <div className="overflow-x-auto">
+              <div className="bg-white border border-slate-200 rounded-xl overflow-visible">
+                <div className="overflow-x-auto overflow-y-visible rounded-xl">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="bg-slate-50 border-b border-slate-200 text-left text-[10px] uppercase tracking-widest text-slate-500">
@@ -831,8 +998,11 @@ export default function RtoTab() {
                             </div>
                           </td>
                           <td className="p-3">
-                            <div className="text-[11px] text-slate-800 font-medium leading-snug max-w-[180px]" title={row.shiprocketReason}>
-                              {row.shiprocketReason || row.rtoReason || "—"}
+                            <div
+                              className="text-[11px] text-slate-800 font-medium leading-snug max-w-[180px]"
+                              title={row.rtoReason || row.shiprocketReason || "—"}
+                            >
+                              {row.rtoReason || row.shiprocketReason || "—"}
                             </div>
                             {row.rtoReasonCategory && row.rtoReasonCategory !== "unknown" && (
                               <span
@@ -862,49 +1032,11 @@ export default function RtoTab() {
                             )}
                           </td>
                           <td className="p-3">
-                            <div className="flex flex-wrap gap-2">
-                              {row.canRefund && (
-                                <button
-                                  type="button"
-                                  disabled={refundState.isLoading}
-                                  onClick={() => openRefundModal(row)}
-                                  className={BTN_REFUND}
-                                  title="Razorpay refund — full paid only"
-                                >
-                                  Refund
-                                </button>
-                              )}
-                              {row.canReject && (
-                                <button
-                                  type="button"
-                                  disabled={rejectState.isLoading}
-                                  onClick={() => openRejectModal(row)}
-                                  className={isNoRefundPayment(row) ? BTN_CLOSE : BTN_DENY}
-                                  title={
-                                    isNoRefundPayment(row)
-                                      ? "Close case — no Razorpay refund"
-                                      : "Deny refund — no money returned"
-                                  }
-                                >
-                                  {isNoRefundPayment(row) ? "Close case" : "Deny refund"}
-                                </button>
-                              )}
-                              {row.rtoStatus === "refunded" && (
-                                <span className="text-xs text-slate-600 font-semibold py-1.5">Refunded</span>
-                              )}
-                              {row.rtoStatus === "refund_rejected" && (
-                                <span className="text-xs text-slate-500 font-semibold py-1.5">Closed</span>
-                              )}
-                              {row.rtoStatus === "refund_failed" && row.canRefund && (
-                                <button
-                                  type="button"
-                                  onClick={() => openRefundModal(row)}
-                                  className={BTN_REFUND}
-                                >
-                                  Retry refund
-                                </button>
-                              )}
-                            </div>
+                            <RowActionMenu
+                              row={row}
+                              busy={refundState.isLoading || rejectState.isLoading}
+                              onAction={handleRowAction}
+                            />
                           </td>
                           </tr>
                         );

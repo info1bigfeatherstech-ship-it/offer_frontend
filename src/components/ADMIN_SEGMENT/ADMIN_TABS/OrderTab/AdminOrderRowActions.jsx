@@ -136,13 +136,25 @@ async function executeAction(key, ctx) {
   const id = ctx.orderId;
   switch (key) {
     case "accept":
-      await ctx.bulkConfirm({ orderIds: [id] }).unwrap();
+      {
+        const data = await ctx.bulkConfirm({ orderIds: [id] }).unwrap();
+        const row = Array.isArray(data?.results) ? data.results.find((r) => r.orderId === id) : null;
+        if (row && row.success === false) {
+          throw new Error(row.message || "Confirm failed.");
+        }
+      }
       return;
     case "reject":
       if (!window.confirm("Reject this pending order? Stock will be restored.")) {
         throw new Error("Cancelled");
       }
-      await ctx.bulkCancel({ orderIds: [id] }).unwrap();
+      {
+        const data = await ctx.bulkCancel({ orderIds: [id] }).unwrap();
+        const row = Array.isArray(data?.results) ? data.results.find((r) => r.orderId === id) : null;
+        if (row && row.success === false) {
+          throw new Error(row.message || "Cancel failed.");
+        }
+      }
       return;
     case "shipNow": {
       const ensureResult = await ctx.ensureShipment(id).unwrap();
