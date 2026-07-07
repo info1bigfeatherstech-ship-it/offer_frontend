@@ -722,7 +722,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
                     required placeholder="42B, Tower 5"
                   />
                   <Field
-                    label="Floor (optional)" name="floor"
+                    label="Floor No." name="floor"
                     value={form.floor || ""} onChange={handleChange}
                     placeholder="e.g. 4th Floor"
                   />
@@ -730,7 +730,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <Field
-                    label="Building (optional)" name="building"
+                    label="Building No." name="building"
                     value={form.building || ""} onChange={handleChange}
                     placeholder="e.g. Sunrise Apartments"
                   />
@@ -759,7 +759,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
                   onChange={handleChange}
                   required
                   maxLength={ADDRESS_LINE_MAX_LEN}
-                  placeholder="Street, road"
+                  placeholder="Street And Road Details"
                 />
                 <p className="text-[10px] font-bold text-gray-400 -mt-3 ml-1">
                   Couriers need a full street line (at least {ADDRESS_LINE1_MIN_LEN} characters).
@@ -771,7 +771,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
                   value={form.addressLine2}
                   onChange={handleChange}
                   maxLength={ADDRESS_LINE_MAX_LEN}
-                  placeholder="wing, apartment details"
+                  placeholder="Wing And Apartment Details"
                 />
 
                 <div className="grid grid-cols-2 gap-4">
