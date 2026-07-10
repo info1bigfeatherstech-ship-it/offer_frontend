@@ -22,135 +22,37 @@ import {
   getDisplayRange
 } from "../../ADMIN_REDUX_MANAGEMENT/adminSeoAnalytics";
 
-// Import mock data
-import mockSeoData from "./seoAnalyticsMockData.json";
-
-// Flag to use mock data instead of API (set to false to use real API)
-const USE_MOCK_DATA = true;
 const COLORS = ["#4f46e5", "#94a3b8", "#cbd5e1", "#818cf8", "#a5b4fc"];
 
-// Mock API hooks that return mock data instead of fetching from API
-const useMockGetSeoOverviewQuery = () => {
-  const [data, setData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-// Add this after your imports and before the component
-  React.useEffect(() => {
-    // Simulate API delay
-    const timer = setTimeout(() => {
-      setData(mockSeoData.overview);
-      setIsLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  return { data, isLoading, error };
-};
-
-const useMockGetSeoTrafficQuery = (dateRange) => {
-  const [data, setData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      // Filter data based on dateRange if needed
-      let filteredData = [...mockSeoData.traffic.data];
-      
-      if (dateRange === '7d') {
-        filteredData = filteredData.slice(-7);
-      } else if (dateRange === '30d') {
-        filteredData = filteredData.slice(-30);
-      }
-      
-      setData({ data: filteredData });
-      setIsLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [dateRange]);
-
-  return { data, isLoading, error };
-};
-
-const useMockGetSeoDevicesQuery = () => {
-  const [data, setData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setData(mockSeoData.devices);
-      setIsLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  return { data, isLoading, error };
-};
-
-const useMockGetSeoLocationsQuery = () => {
-  const [data, setData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setData(mockSeoData.locations);
-      setIsLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  return { data, isLoading, error };
-};
-
-const useMockGetSeoSourcesQuery = () => {
-  const [data, setData] = useState(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  React.useEffect(() => {
-    const timer = setTimeout(() => {
-      setData(mockSeoData.sources);
-      setIsLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, []);
-
-  return { data, isLoading, error };
+const getErrorMessage = (...errors) => {
+  for (const err of errors) {
+    if (!err) continue;
+    const msg = err?.data?.message || err?.error || err?.message;
+    if (msg) return String(msg);
+  }
+  return "Please refresh the page or try again later";
 };
 
 const SEOAnalytics = () => {
   const dispatch = useDispatch();
   
-  // Choose which hooks to use based on USE_MOCK_DATA flag
-  const useOverviewQuery = USE_MOCK_DATA ? useMockGetSeoOverviewQuery : useGetSeoOverviewQuery;
-  const useTrafficQuery = USE_MOCK_DATA ? useMockGetSeoTrafficQuery : useGetSeoTrafficQuery;
-  const useDevicesQuery = USE_MOCK_DATA ? useMockGetSeoDevicesQuery : useGetSeoDevicesQuery;
-  const useLocationsQuery = USE_MOCK_DATA ? useMockGetSeoLocationsQuery : useGetSeoLocationsQuery;
-  const useSourcesQuery = USE_MOCK_DATA ? useMockGetSeoSourcesQuery : useGetSeoSourcesQuery;
-  
-  // SAFE SELECTOR with fallback to prevent undefined error
   const seoUiState = useSelector((state) => state.seoUi) || {};
   const { dateRange = '7d', isLocationsDrawerOpen = false, chartMetric = 'activeUsers' } = seoUiState;
   
   const [timeView, setTimeView] = useState(getDisplayRange(dateRange));
 
-  // Fetch all data using selected hooks
-  const { data: overviewData, isLoading: overviewLoading, error: overviewError } = useOverviewQuery();
-  const { data: trafficData, isLoading: trafficLoading, error: trafficError } = useTrafficQuery(dateRange);
-  const { data: devicesData, isLoading: devicesLoading, error: devicesError } = useDevicesQuery();
-  const { data: locationsData, isLoading: locationsLoading, error: locationsError } = useLocationsQuery();
-  const { data: sourcesData, isLoading: sourcesLoading } = useSourcesQuery();
+  const { data: overviewData, isLoading: overviewLoading, error: overviewError } = useGetSeoOverviewQuery();
+  const { data: trafficData, isLoading: trafficLoading, error: trafficError } = useGetSeoTrafficQuery(dateRange);
+  const { data: devicesData, isLoading: devicesLoading, error: devicesError } = useGetSeoDevicesQuery();
+  const { data: locationsData, isLoading: locationsLoading, error: locationsError } = useGetSeoLocationsQuery();
+  const { data: sourcesData, isLoading: sourcesLoading, error: sourcesError } = useGetSeoSourcesQuery();
 
-  // Handle time view change
   const handleTimeViewChange = (view) => {
     setTimeView(view);
     const rangeParam = getRangeParam(view);
     dispatch(setDateRange(rangeParam));
   };
 
-  // Transform traffic data for chart
   const chartData = useMemo(() => {
     if (!trafficData?.data) return [];
     return trafficData.data.map(item => ({
@@ -161,7 +63,6 @@ const SEOAnalytics = () => {
     }));
   }, [trafficData]);
 
-  // Transform device data for pie chart
   const deviceChartData = useMemo(() => {
     if (!devicesData?.data) return [];
     return [
@@ -171,7 +72,6 @@ const SEOAnalytics = () => {
     ].filter(d => d.value > 0);
   }, [devicesData]);
 
-  // Calculate percentages for device chart
   const totalSessions = useMemo(() => {
     return deviceChartData.reduce((sum, d) => sum + d.value, 0);
   }, [deviceChartData]);
@@ -181,26 +81,23 @@ const SEOAnalytics = () => {
     percentage: totalSessions > 0 ? ((d.value / totalSessions) * 100).toFixed(2) : 0
   }));
 
-  // Transform location data
   const locationList = useMemo(() => {
     if (!locationsData?.data) return [];
     return locationsData.data.slice(0, 5);
   }, [locationsData]);
 
-  // Transform sources data for display
   const sourceList = useMemo(() => {
     if (!sourcesData?.data) return [];
     return sourcesData.data.slice(0, 5);
   }, [sourcesData]);
 
-  // Calculate metrics
   const metrics = useMemo(() => {
     if (!overviewData?.data) {
       return [
-        { label: "Total Visitors", val: "0", trend: "+0%", positive: true },
-        { label: "Avg. Session", val: "0m 0s", trend: "0%", positive: true },
-        { label: "New Users", val: "0", trend: "+0%", positive: true },
-        { label: "Bounce Rate", val: "0%", trend: "0%", positive: false },
+        { label: "Total Visitors", val: "0", trend: null, positive: true },
+        { label: "Avg. Session", val: "0m 0s", trend: null, positive: true },
+        { label: "New Users", val: "0", trend: null, positive: true },
+        { label: "Bounce Rate", val: "0%", trend: null, positive: false },
       ];
     }
 
@@ -209,36 +106,35 @@ const SEOAnalytics = () => {
       { 
         label: "Total Visitors", 
         val: formatNumber(data.totalUsers || 0), 
-        trend: USE_MOCK_DATA ? "+12.5%" : "+12.5%", 
+        trend: null,
         positive: true,
         raw: data.totalUsers || 0
       },
       { 
         label: "Avg. Session", 
         val: formatDuration(data.averageSessionDuration || 0), 
-        trend: USE_MOCK_DATA ? "-2.1%" : "-2.1%", 
+        trend: null,
         positive: false,
         raw: data.averageSessionDuration || 0
       },
       { 
         label: "New Users", 
         val: formatNumber(data.newUsers || 0), 
-        trend: USE_MOCK_DATA ? "+18.2%" : "+18.2%", 
+        trend: null,
         positive: true,
         raw: data.newUsers || 0
       },
       { 
         label: "Bounce Rate", 
         val: formatBounceRate(data.bounceRate || 0), 
-        trend: USE_MOCK_DATA ? "+4.4%" : "+4.4%", 
+        trend: null,
         positive: false,
         raw: data.bounceRate || 0
       },
     ];
   }, [overviewData]);
 
-  // Loading state
-  if (overviewLoading || trafficLoading || devicesLoading || locationsLoading) {
+  if (overviewLoading || trafficLoading || devicesLoading || locationsLoading || sourcesLoading) {
     return (
       <div className="max-w-[1400px] mx-auto p-4 flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -249,13 +145,14 @@ const SEOAnalytics = () => {
     );
   }
 
-  // Error state
-  if (overviewError || trafficError || devicesError || locationsError) {
+  if (overviewError || trafficError || devicesError || locationsError || sourcesError) {
     return (
       <div className="max-w-[1400px] mx-auto p-4">
         <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
           <p className="text-red-600 font-medium">Error loading analytics data</p>
-          <p className="text-red-400 text-sm mt-2">Please refresh the page or try again later</p>
+          <p className="text-red-400 text-sm mt-2">
+            {getErrorMessage(overviewError, trafficError, devicesError, locationsError, sourcesError)}
+          </p>
         </div>
       </div>
     );
@@ -270,11 +167,6 @@ const SEOAnalytics = () => {
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">SEO Overview</h1>
           <p className="text-sm text-slate-500">Track your organic performance and user distribution.</p>
         </div>
-        {USE_MOCK_DATA && (
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-3 py-1">
-            <span className="text-xs text-yellow-700 font-medium">Mock Data Mode</span>
-          </div>
-        )}
       </div>
 
       {/* 2. TOP METRICS GRID */}
@@ -284,10 +176,12 @@ const SEOAnalytics = () => {
             <p className="text-xs font-medium text-slate-500 mb-1">{m.label}</p>
             <div className="flex items-baseline gap-2">
               <h3 className="text-2xl font-semibold">{m.val}</h3>
-              <span className={`flex items-center text-xs font-medium ${m.positive ? 'text-emerald-600' : 'text-rose-600'}`}>
-                {m.positive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                {m.trend}
-              </span>
+              {m.trend && (
+                <span className={`flex items-center text-xs font-medium ${m.positive ? 'text-emerald-600' : 'text-rose-600'}`}>
+                  {m.positive ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+                  {m.trend}
+                </span>
+              )}
             </div>
           </div>
         ))}
@@ -311,7 +205,6 @@ const SEOAnalytics = () => {
                 </button>
               ))}
             </div>
-            {/* Chart Metric Selector */}
             <div className="flex bg-slate-50 p-1 rounded-lg border border-slate-200">
               {['activeUsers', 'sessions', 'newUsers'].map((metric) => (
                 <button
@@ -379,7 +272,6 @@ const SEOAnalytics = () => {
       {/* 4. GEO & DEVICE GRID */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         
-        {/* Top Locations Card */}
         <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
           <div className="flex items-center justify-between mb-6">
             <h3 className="text-sm font-semibold flex items-center gap-2">
@@ -411,7 +303,6 @@ const SEOAnalytics = () => {
           </div>
         </div>
 
-        {/* Device Distribution Card */}
         <div className="bg-white border border-slate-200 rounded-xl p-6 shadow-sm">
           <h3 className="text-sm font-semibold flex items-center gap-2 mb-8">
             <Smartphone size={16} className="text-slate-400" /> Device Distribution
@@ -437,7 +328,9 @@ const SEOAnalytics = () => {
                 </ResponsiveContainer>
                 <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
                   <span className="text-2xl font-semibold">{deviceChartWithPercentage[0]?.percentage || 0}%</span>
-                  <span className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Mobile</span>
+                  <span className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">
+                    {deviceChartWithPercentage[0]?.name || '—'}
+                  </span>
                 </div>
               </div>
               <div className="flex-1 space-y-3 w-full">
@@ -487,7 +380,7 @@ const SEOAnalytics = () => {
         )}
       </div>
 
-      {/* 6. SIDEBAR DRAWER (FULL LOCATIONS LIST) - FIXED VERSION */}
+      {/* 6. SIDEBAR DRAWER (FULL LOCATIONS LIST) */}
       {isLocationsDrawerOpen && (
         <>
           <div className="fixed inset-0 bg-slate-900/20 backdrop-blur-[2px] z-[998]" onClick={() => dispatch(toggleLocationsDrawer(false))} />

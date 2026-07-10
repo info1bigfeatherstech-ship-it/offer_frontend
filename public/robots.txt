@@ -1,0 +1,11 @@
+User-agent: *
+Allow: /
+
+User-agent: *
+Disallow: /babapanel
+Disallow: /babadash
+Disallow: /admin/
+Disallow: /no-access
+Disallow: /account/
+
+Sitemap: https://www.offerwalebaba.com/sitemap.xml

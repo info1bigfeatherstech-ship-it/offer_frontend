@@ -46,7 +46,7 @@ export const seoAnalyticsApi = createApi({
     // Get overview metrics
     getSeoOverview: builder.query({
       query: () => ({
-        url: '/analytics/overview',
+        url: '/admin/seo-analytics/overview',
         method: 'GET',
       }),
       providesTags: ['SeoOverview'],
@@ -55,7 +55,7 @@ export const seoAnalyticsApi = createApi({
     // Get traffic data (date-wise)
     getSeoTraffic: builder.query({
       query: (range = '7d') => ({
-        url: '/analytics/traffic',
+        url: '/admin/seo-analytics/traffic',
         method: 'GET',
         params: { range },
       }),
@@ -65,7 +65,7 @@ export const seoAnalyticsApi = createApi({
     // Get device distribution
     getSeoDevices: builder.query({
       query: () => ({
-        url: '/analytics/devices',
+        url: '/admin/seo-analytics/devices',
         method: 'GET',
       }),
       providesTags: ['SeoDevices'],
@@ -74,7 +74,7 @@ export const seoAnalyticsApi = createApi({
     // Get traffic sources
     getSeoSources: builder.query({
       query: () => ({
-        url: '/analytics/sources',
+        url: '/admin/seo-analytics/sources',
         method: 'GET',
       }),
       providesTags: ['SeoSources'],
@@ -83,7 +83,7 @@ export const seoAnalyticsApi = createApi({
     // Get location data (top cities)
     getSeoLocations: builder.query({
       query: () => ({
-        url: '/analytics/locations',
+        url: '/admin/seo-analytics/locations',
         method: 'GET',
       }),
       providesTags: ['SeoLocations'],
