@@ -4,7 +4,7 @@ import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell,
 } from "recharts";
-import { Globe, Smartphone, MousePointer2, ArrowUpRight, ArrowDownRight, X, Loader2 } from "lucide-react";
+import { Globe, Smartphone, MousePointer2, ArrowUpRight, ArrowDownRight, X, Loader2, RefreshCw } from "lucide-react";
 import { 
   useGetSeoOverviewQuery, 
   useGetSeoTrafficQuery, 
@@ -41,11 +41,54 @@ const SEOAnalytics = () => {
   
   const [timeView, setTimeView] = useState(getDisplayRange(dateRange));
 
-  const { data: overviewData, isLoading: overviewLoading, error: overviewError } = useGetSeoOverviewQuery();
-  const { data: trafficData, isLoading: trafficLoading, error: trafficError } = useGetSeoTrafficQuery(dateRange);
-  const { data: devicesData, isLoading: devicesLoading, error: devicesError } = useGetSeoDevicesQuery();
-  const { data: locationsData, isLoading: locationsLoading, error: locationsError } = useGetSeoLocationsQuery();
-  const { data: sourcesData, isLoading: sourcesLoading, error: sourcesError } = useGetSeoSourcesQuery();
+  const {
+    data: overviewData,
+    isLoading: overviewLoading,
+    isFetching: overviewFetching,
+    error: overviewError,
+    refetch: refetchOverview,
+  } = useGetSeoOverviewQuery();
+  const {
+    data: trafficData,
+    isLoading: trafficLoading,
+    isFetching: trafficFetching,
+    error: trafficError,
+    refetch: refetchTraffic,
+  } = useGetSeoTrafficQuery(dateRange);
+  const {
+    data: devicesData,
+    isLoading: devicesLoading,
+    isFetching: devicesFetching,
+    error: devicesError,
+    refetch: refetchDevices,
+  } = useGetSeoDevicesQuery();
+  const {
+    data: locationsData,
+    isLoading: locationsLoading,
+    isFetching: locationsFetching,
+    error: locationsError,
+    refetch: refetchLocations,
+  } = useGetSeoLocationsQuery();
+  const {
+    data: sourcesData,
+    isLoading: sourcesLoading,
+    isFetching: sourcesFetching,
+    error: sourcesError,
+    refetch: refetchSources,
+  } = useGetSeoSourcesQuery();
+
+  const isInitialLoading =
+    overviewLoading || trafficLoading || devicesLoading || locationsLoading || sourcesLoading;
+  const isRefreshing =
+    overviewFetching || trafficFetching || devicesFetching || locationsFetching || sourcesFetching;
+
+  const handleRefresh = () => {
+    refetchOverview();
+    refetchTraffic();
+    refetchDevices();
+    refetchLocations();
+    refetchSources();
+  };
 
   const handleTimeViewChange = (view) => {
     setTimeView(view);
@@ -134,7 +177,7 @@ const SEOAnalytics = () => {
     ];
   }, [overviewData]);
 
-  if (overviewLoading || trafficLoading || devicesLoading || locationsLoading || sourcesLoading) {
+  if (isInitialLoading) {
     return (
       <div className="max-w-[1400px] mx-auto p-4 flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -153,6 +196,15 @@ const SEOAnalytics = () => {
           <p className="text-red-400 text-sm mt-2">
             {getErrorMessage(overviewError, trafficError, devicesError, locationsError, sourcesError)}
           </p>
+          <button
+            type="button"
+            onClick={handleRefresh}
+            disabled={isRefreshing}
+            className="mt-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 disabled:opacity-60 rounded-lg transition-colors"
+          >
+            <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
+            {isRefreshing ? "Refreshing..." : "Retry"}
+          </button>
         </div>
       </div>
     );
@@ -162,11 +214,21 @@ const SEOAnalytics = () => {
     <div className="max-w-[1400px] mx-auto p-4 space-y-8 font-sans text-slate-900">
       
       {/* 1. HEADER SECTION */}
-      <div className="flex justify-between items-end">
+      <div className="flex justify-between items-end gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-slate-900">SEO Overview</h1>
           <p className="text-sm text-slate-500">Track your organic performance and user distribution.</p>
         </div>
+        <button
+          type="button"
+          onClick={handleRefresh}
+          disabled={isRefreshing}
+          className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 hover:bg-slate-50 disabled:opacity-60 rounded-lg shadow-sm transition-colors shrink-0"
+          title="Refresh analytics"
+        >
+          <RefreshCw size={14} className={isRefreshing ? "animate-spin" : ""} />
+          {isRefreshing ? "Refreshing..." : "Refresh"}
+        </button>
       </div>
 
       {/* 2. TOP METRICS GRID */}
