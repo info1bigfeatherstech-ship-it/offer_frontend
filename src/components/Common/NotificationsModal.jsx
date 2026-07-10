@@ -62,10 +62,12 @@ function typeBadgeClass(type) {
   return 'bg-amber-50 text-amber-900 border-amber-200';
 }
 
-const NotificationsModal = memo(({ open, onClose }) => {
+const NotificationsModal = memo(({ open, onClose, isLoggedIn = false }) => {
   const navigate = useNavigate();
+  const canFetch = Boolean(isLoggedIn);
 
   const { data: unreadCount = 0, isFetching: countLoading } = useGetUnreadNotificationCountQuery(undefined, {
+    skip: !canFetch,
     refetchOnMountOrArgChange: true,
     refetchOnFocus: false,
     refetchOnReconnect: false
@@ -80,10 +82,9 @@ const NotificationsModal = memo(({ open, onClose }) => {
   const hasUnread = unreadCount > 0;
 
   useEffect(() => {
-    if (open) {
-      fetchNotifications({ page: 1, limit: 25 });
-    }
-  }, [open, fetchNotifications]);
+    if (!open || !canFetch) return;
+    fetchNotifications({ page: 1, limit: 25 });
+  }, [open, canFetch, fetchNotifications]);
 
   useEffect(() => {
     if (!open) return undefined;
