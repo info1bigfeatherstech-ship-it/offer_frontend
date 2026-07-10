@@ -318,6 +318,10 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
   const closeNotifications = useCallback(() => setNotificationsOpen(false), []);
   const hasUnreadNotifications = isLoggedIn && unreadCount > 0;
 
+  useEffect(() => {
+    if (!isLoggedIn) setNotificationsOpen(false);
+  }, [isLoggedIn]);
+
   // ── Dynamic categories from Redux ──────────────────────────────────────────
   const allCategories = useSelector(selectHierarchicalCategories);
 
@@ -899,7 +903,13 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
         </div>
       )}
 
-      <NotificationsModal open={notificationsOpen} onClose={closeNotifications} />
+      {isLoggedIn && (
+        <NotificationsModal
+          open={notificationsOpen}
+          onClose={closeNotifications}
+          isLoggedIn={isLoggedIn}
+        />
+      )}
 
       {/* ── Cart Sidebar ─────────────────────────────────────────────────────── */}
       <CartSidebar
