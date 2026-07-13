@@ -43,6 +43,7 @@ import TagProducts from "./User_Side_Web_Interface/User_Dash_Segment/UserSubPage
 import AboutUs from "./components/Common/AboutUs";
 import Policy from "./components/Common/Policy";
 import ScrollRestoration from "./components/ScrollRestoration";
+import GoogleAnalyticsTracker from "./components/GoogleAnalyticsTracker";
 
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -283,6 +284,7 @@ const App = () => {
     return (
         <Router>
                <ToastConfig />  {/* Clean! */}
+            <GoogleAnalyticsTracker />
             <AppContent />
         </Router>
     );
