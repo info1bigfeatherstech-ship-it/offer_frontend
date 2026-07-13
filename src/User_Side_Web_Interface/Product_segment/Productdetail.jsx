@@ -34,6 +34,7 @@ import { fetchCategories } from "../../components/ADMIN_SEGMENT/ADMIN_REDUX_MANA
 import axiosInstance from "../../SERVICES/axiosInstance";
 import { getProductRatingDisplay, getFallbackDistribution } from "../../utils/productRatingDisplay";
 import StarRatingInput from "./StarRatingInput";
+import OutOfStockInquiryForm from "./OutOfStockInquiryForm";
 import {
   resolveVariantTitle,
   resolveVariantDescription,
@@ -1021,10 +1022,15 @@ const ProductUI = ({ openAuthModal }) => {
   const discPct = selectedVariant?.discountPercentage
     ?? (hasDisc ? Math.round(((basePrice - salePrice) / basePrice) * 100) : null);
 
-  const stock = selectedVariant?.inventory?.quantity ?? null;
-  const inStock = product?.inStock ?? (stock == null || stock > 0);
-  const lowStock = stock != null && stock > 0 && stock <= (selectedVariant?.inventory?.lowStockThreshold ?? 5);
-  const maxStock = selectedVariant?.inventory?.quantity ?? 9999;
+  const inv = selectedVariant?.inventory || {};
+  const trackInventory = inv.trackInventory !== false;
+  const stock = Number(inv.quantity ?? 0);
+  // Buy Now / OOS must follow the *selected* variant — not product-level inStock
+  // (product.inStock is true if ANY variant has stock).
+  const inStock = trackInventory ? stock > 0 : true;
+  const lowStock =
+    trackInventory && stock > 0 && stock <= (inv.lowStockThreshold ?? 5);
+  const maxStock = trackInventory ? Math.max(0, stock) : 9999;
   const currentQty = cartItem?.quantity ?? 0;
   const isAtMaxStock = currentQty >= maxStock;
   const isProcessing = localLoading.add || localLoading.update || localLoading.remove;
@@ -1918,11 +1924,13 @@ const ProductUI = ({ openAuthModal }) => {
                     {/* ── Wishlist + Share bar ── */}
                     <div className="flex flex-col gap-3 ">
 
-                      {/* OUT OF STOCK */}
+                      {/* OUT OF STOCK — notify inquiry */}
                       {!inStock && (
-                        <div className="w-full py-3 rounded-xl text-sm font-semibold bg-gray-100 text-gray-400 text-center">
-                          Out of Stock
-                        </div>
+                        <OutOfStockInquiryForm
+                          productId={product?._id}
+                          variantId={selectedVariant?._id}
+                          disabled={!product?._id || !selectedVariant?._id}
+                        />
                       )}
 
 

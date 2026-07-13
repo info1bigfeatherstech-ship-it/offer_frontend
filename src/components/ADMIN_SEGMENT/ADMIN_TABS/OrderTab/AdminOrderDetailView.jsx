@@ -16,6 +16,7 @@ import {
 import { isPostConfirmOrderStatus } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersSlice";
 import { shouldShowOnlinePaymentHoldCountdown } from "../../../../utils/paymentHoldDisplay";
 import AdminPendingOrderEditPanel from "./AdminPendingOrderEditPanel";
+import AdminPendingAddressPanel from "./AdminPendingAddressPanel";
 
 /** @deprecated Prefer shipmentOps.opsState — kept for legacy sync heuristics only. */
 function isPickupBookedOnOrder(ship, opsState) {
@@ -2324,42 +2325,16 @@ export default function AdminOrderDetailView({
               </div>
             </div>
 
-            {/* Address */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-6">
-              <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 pb-3 mb-4">
-                Address & contact
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-[10px] uppercase text-slate-400 font-semibold mb-1">Name</p>
-                  <p className="text-slate-900">{addr.fullName || "—"}</p>
-                </div>
-                <div>
-                  <p className="text-[10px] uppercase text-slate-400 font-semibold mb-1">Phone</p>
-                  <p className="text-slate-900">{addr.phone || order?.customer?.phone || "—"}</p>
-                </div>
-                {order?.customer?.email && (
-                  <div className="sm:col-span-2">
-                    <p className="text-[10px] uppercase text-slate-400 font-semibold mb-1">Email</p>
-                    <p className="text-blue-600 font-medium">{order.customer.email}</p>
-                  </div>
-                )}
-                {addr.landmark && (
-                  <div className="sm:col-span-2">
-                    <p className="text-[10px] uppercase text-slate-400 font-semibold mb-1">Landmark</p>
-                    <p className="text-slate-700">{addr.landmark}</p>
-                  </div>
-                )}
-                <div className="sm:col-span-2">
-                  <p className="text-[10px] uppercase text-slate-400 font-semibold mb-1">Delivery address</p>
-                  <p className="text-slate-700 leading-relaxed">
-                    {[addr.houseNumber, addr.building, addr.floor, addr.addressLine1, addr.addressLine2, addr.area, addr.landmark, addr.city, addr.state, addr.postalCode, addr.country]
-                      .filter(Boolean)
-                      .join(", ")}
-                  </p>
-                </div>
-              </div>
-            </div>
+            {/* Address — single card (score + contact + edit) */}
+            <AdminPendingAddressPanel
+              order={order}
+              orderId={orderId}
+              disabled={fulfillmentBusy}
+              onApplied={async () => {
+                setActionMsg({ type: "ok", text: "Delivery address updated on this order." });
+                await refreshOrder();
+              }}
+            />
           </div>
 
           {/* Right column */}

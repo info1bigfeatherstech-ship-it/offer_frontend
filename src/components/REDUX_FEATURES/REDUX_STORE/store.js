@@ -7,6 +7,7 @@ import adminEditProductReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/
 import categoriesReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/categoriesSlice";
 import adminBulkUploadReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/bulkUploadSlice";
 import { userAnalyticsApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/userAnalyticsApi";
+import { outOfStockInquiryApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/outOfStockInquiryApi";
 import adminAuthReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminAuthSlice";
 import { adminAuthApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminAuthApi";
 import { seoAnalyticsApi, seoUiReducer } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminSeoAnalytics";
@@ -48,6 +49,7 @@ const store = configureStore({
     [couponApi.reducerPath]: couponApi.reducer,
     [adminAuthApi.reducerPath]: adminAuthApi.reducer,
     [userAnalyticsApi.reducerPath]: userAnalyticsApi.reducer,
+    [outOfStockInquiryApi.reducerPath]: outOfStockInquiryApi.reducer,
     [seoAnalyticsApi.reducerPath]: seoAnalyticsApi.reducer,
     seoUi: seoUiReducer,
     adminOrdersUi: adminOrdersUiReducer,
@@ -74,6 +76,7 @@ const store = configureStore({
     getDefaultMiddleware().concat(
       searchApi.middleware,
       userAnalyticsApi.middleware,
+      outOfStockInquiryApi.middleware,
       adminAuthApi.middleware,
       seoAnalyticsApi.middleware,
       adminOrdersApi.middleware,

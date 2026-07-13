@@ -1,116 +1,235 @@
-    import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
+import { useGetOutOfStockInquiriesQuery } from '../../ADMIN_REDUX_MANAGEMENT/outOfStockInquiryApi';
 
-const INQUIRY_DATA = [
-  { id: 1, productImg: "https://via.placeholder.com/40", productName: "Mini Portable Money Counter Machin...", customerName: "Usman Memon", email: "usman.s.memon@gmail.com", status: "Inquiry Received", date: "10/04/26" },
-  { id: 2, productImg: "https://via.placeholder.com/40", productName: "1 Pair Acupressure Reflexology Sock...", customerName: "cyber.teleorder@gmail.com", email: "cyber.teleorder@gmail.com", status: "Inquiry Received", date: "10/04/26" },
-  { id: 3, productImg: "https://via.placeholder.com/40", productName: "Heavy Duty steel rope Length 5 Meter", customerName: "mandeepmr2550@gmail.com", email: "mandeepmr2550@gmail.com", status: "Inquiry Received", date: "10/04/26" },
-  { id: 4, productImg: "https://via.placeholder.com/40", productName: "Pikstudio Perfume 50ml – Long-Lasti...", customerName: "rahultiwari34053@gmail.com", email: "rahultiwari34053@gmail.com", status: "Inquiry Received", date: "9/04/26" },
-  { id: 5, productImg: "https://via.placeholder.com/40", productName: "Drain Pipe Cleaner Wire Spring – Unc...", customerName: "Vaijnath Kute", email: "vkute275@gmail.com", status: "Inquiry Received", date: "9/04/26" },
-  { id: 6, productImg: "https://via.placeholder.com/40", productName: "i-FlashDevice HD 2TB USB 3.2 Flash ...", customerName: "ashish.shah1969@gmail.com", email: "ashish.shah1969@gmail.com", status: "Inquiry Received", date: "9/04/26" },
-];
+function fmtDate(v) {
+  if (!v) return '—';
+  const d = new Date(v);
+  if (Number.isNaN(d.getTime())) return '—';
+  return new Intl.DateTimeFormat('en-IN', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(d);
+}
 
 const OutOfStockTab = () => {
-  const [currentPage, setCurrentPage] = useState(1);
+  const [page, setPage] = useState(1);
+  const [searchInput, setSearchInput] = useState('');
+  const [search, setSearch] = useState('');
+  const [days, setDays] = useState(30);
+  const limit = 20;
+
+  const queryArgs = useMemo(
+    () => ({ page, limit, search, days }),
+    [page, limit, search, days]
+  );
+
+  const { data, isLoading, isFetching, isError, error, refetch } =
+    useGetOutOfStockInquiriesQuery(queryArgs);
+
+  const rows = data?.data || [];
+  const pagination = data?.pagination || { total: 0, page: 1, totalPages: 0 };
+  const totalPages = Math.max(1, Number(pagination.totalPages) || 1);
+
+  const applySearch = (e) => {
+    e?.preventDefault?.();
+    setPage(1);
+    setSearch(searchInput.trim());
+  };
+
+  const pageButtons = useMemo(() => {
+    const maxButtons = 5;
+    const start = Math.max(1, Math.min(page - 2, totalPages - maxButtons + 1));
+    const end = Math.min(totalPages, start + maxButtons - 1);
+    const list = [];
+    for (let i = Math.max(1, start); i <= end; i += 1) list.push(i);
+    return list;
+  }, [page, totalPages]);
 
   return (
-    <div className="bg-[#F8FAFC] min-h-screen p-6 font-sans">
-      {/* Header Section */}
-      <div className="max-w-[1600px] mx-auto mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <button className="p-2 hover:bg-slate-200 rounded-full transition-colors">
-            <svg className="w-5 h-5 text-slate-900" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-            </svg>
-          </button>
-          <h1 className="text-xl font- text-slate-900 tracking-tight">Out of Stock Query</h1>
+    <div className="p-4 space-y-6 bg-[#F8FAFC] min-h-screen">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex flex-col gap-1 min-w-0">
+          <h1 className="text-2xl font-black text-slate-900 tracking-tight">
+            Out of Stock Query
+          </h1>
+          <p className="text-xs text-slate-500">
+            Customers who asked to be notified when a product is back in stock.
+          </p>
         </div>
-        <button className="flex items-center gap-2 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg shadow-sm hover:bg-slate-50">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-          Settings
+        <button
+          type="button"
+          onClick={() => refetch()}
+          disabled={isFetching}
+          className="flex items-center gap-2 px-4 py-2 text-xs text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-all shadow-sm disabled:opacity-50"
+        >
+          {isFetching ? 'Refreshing…' : 'Refresh'}
         </button>
       </div>
 
-      {/* Filter Bar */}
-      <div className="max-w-[1600px] mx-auto bg-white border border-slate-200 rounded-xl shadow-sm mb-4 p-3 flex flex-wrap items-center justify-between gap-4">
-        <div className="relative flex-1 min-w-[300px]">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
-          <input 
-            type="text" 
-            placeholder="Search customer email, product name" 
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none focus:ring-2 focus:ring-blue-100 transition-all"
+      <form
+        onSubmit={applySearch}
+        className="bg-white border border-slate-200 rounded-xl shadow-sm p-3 flex flex-wrap items-center gap-3"
+      >
+        <div className="relative flex-1 min-w-[220px]">
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
+          </svg>
+          <input
+            type="text"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            placeholder="Search email, phone, product name…"
+            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none"
           />
         </div>
-        <div className="flex items-center gap-3">
-          <select className="bg-white border border-slate-200 text-xs font-bold px-4 py-2 rounded-lg shadow-sm outline-none cursor-pointer">
-            <option>Last 15 Days</option>
-            <option>Last 30 Days</option>
-          </select>
-          <select className="bg-white border border-slate-200 text-xs font-bold px-4 py-2 rounded-lg shadow-sm outline-none cursor-pointer">
-            <option>All Inquiries</option>
-            <option>Pending</option>
-            <option>Responded</option>
-          </select>
-        </div>
-      </div>
+        <select
+          value={days}
+          onChange={(e) => {
+            setDays(Number(e.target.value) || 30);
+            setPage(1);
+          }}
+          className="bg-white border border-slate-200 text-xs px-3 py-2 rounded-lg shadow-sm outline-none"
+        >
+          <option value={15}>Last 15 Days</option>
+          <option value={30}>Last 30 Days</option>
+          <option value={90}>Last 90 Days</option>
+        </select>
+        <button
+          type="submit"
+          className="px-4 py-2 text-xs font-semibold text-white bg-slate-800 rounded-lg hover:bg-slate-900"
+        >
+          Apply
+        </button>
+      </form>
 
-      {/* Data Table */}
-      <div className="max-w-[1600px] mx-auto bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-[#F8FAFC] border-b border-slate-200 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
-            <tr>
-              <th className="px-6 py-4">Product Info</th>
-              <th className="px-6 py-4">Customer Info</th>
-              <th className="px-6 py-4 text-center">Inquiry Status</th>
-              <th className="px-6 py-4 text-right">Status Date ↓</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-slate-100">
-            {INQUIRY_DATA.map((item) => (
-              <tr key={item.id} className="hover:bg-slate-50/50 transition-colors group">
-                <td className="px-6 py-5">
-                  <div className="flex items-center gap-4">
-                    <img src={item.productImg} alt="" className="w-10 h-10 rounded-md border border-slate-200 object-cover" />
-                    <span className="text-xs font- text-slate-800 group-hover:text-blue-600 transition-colors">{item.productName}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-5">
-                  <div className="flex flex-col">
-                    <span className="text-xs font- text-slate-800">{item.customerName}</span>
-                    <span className="text-[11px] font-medium text-blue-500 mt-0.5">{item.email}</span>
-                  </div>
-                </td>
-                <td className="px-6 py-5 text-center">
-                  <span className="bg-slate-100 text-slate-500 px-3 py-1 rounded-md text-[10px] font- tracking-tight border border-slate-200">
-                    {item.status}
-                  </span>
-                </td>
-                <td className="px-6 py-5 text-right">
-                  <span className="text-xs font- text-slate-900">{item.date}</span>
-                </td>
+      <div className="relative bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
+        {isFetching && !isLoading ? (
+          <div
+            className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-white/70 backdrop-blur-[1px]"
+            aria-busy="true"
+            aria-live="polite"
+          >
+            <div className="flex items-center gap-3 rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+              <span className="text-sm font-medium text-gray-600">Updating results…</span>
+            </div>
+          </div>
+        ) : null}
+
+        {isLoading ? (
+          <div className="p-10 text-center text-sm text-slate-500">Loading inquiries…</div>
+        ) : isError ? (
+          <div className="p-10 text-center text-sm text-red-600">
+            {error?.data?.message || 'Could not load inquiries.'}
+          </div>
+        ) : rows.length === 0 ? (
+          <div className="p-10 text-center text-sm text-slate-500">
+            No out-of-stock inquiries in this range.
+          </div>
+        ) : (
+          <table className="w-full min-w-[640px]">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                  Product
+                </th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                  Customer
+                </th>
+                <th className="px-4 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">
+                  Date
+                </th>
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody className="divide-y divide-gray-200">
+              {rows.map((item) => (
+                <tr key={item.id} className="hover:bg-slate-50/60 transition-colors">
+                  <td className="px-4 py-4">
+                    <div className="flex items-center gap-3 min-w-0">
+                      {item.productImage ? (
+                        <img
+                          src={item.productImage}
+                          alt=""
+                          className="w-10 h-10 rounded-lg border border-gray-200 object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="w-10 h-10 rounded-lg border border-gray-200 bg-gray-100 shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-900 truncate">
+                          {item.productName || 'Product'}
+                        </p>
+                        {item.variantSku ? (
+                          <p className="text-xs text-slate-500 mt-0.5">SKU: {item.variantSku}</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-4 py-4">
+                    <div className="flex flex-col gap-0.5 min-w-0">
+                      {item.email ? (
+                        <span className="text-sm text-slate-800 break-all">{item.email}</span>
+                      ) : null}
+                      {item.phone ? (
+                        <span className="text-sm text-slate-700">{item.phone}</span>
+                      ) : null}
+                      {!item.email && !item.phone ? (
+                        <span className="text-sm text-slate-400">—</span>
+                      ) : null}
+                    </div>
+                  </td>
+                  <td className="px-4 py-4 text-right whitespace-nowrap">
+                    <span className="text-sm text-slate-700">{fmtDate(item.createdAt)}</span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
 
-        {/* Pagination */}
-        <div className="p-4 border-t border-slate-100 flex items-center justify-center gap-2 bg-[#F8FAFC]/50">
-          <button className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-200 text-slate-400">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" /></svg>
+        <div className="p-4 border-t border-gray-100 flex flex-wrap items-center justify-center gap-2 bg-[#F8FAFC]/50">
+          <button
+            type="button"
+            disabled={page <= 1}
+            onClick={() => setPage((p) => Math.max(1, p - 1))}
+            className="px-3 py-1.5 text-xs text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40"
+          >
+            Prev
           </button>
-          {[1, 2, 3, 4, 5].map(page => (
-            <button 
-              key={page}
-              onClick={() => setCurrentPage(page)}
-              className={`w-8 h-8 rounded-md text-xs font-bold transition-all ${currentPage === page ? 'bg-white border border-slate-200 shadow-sm text-blue-600' : 'text-slate-500 hover:text-slate-800'}`}
+          {pageButtons.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => setPage(p)}
+              className={`w-8 h-8 rounded-lg text-xs font-semibold transition-all ${
+                page === p
+                  ? 'bg-slate-900 text-white'
+                  : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+              }`}
             >
-              {page}
+              {p}
             </button>
           ))}
-          <span className="text-slate-300 px-1">...</span>
-          <button className="w-8 h-8 rounded-md text-xs font-bold text-slate-500 hover:text-slate-800 transition-all">28</button>
-          <button className="p-1.5 hover:bg-white rounded border border-transparent hover:border-slate-200 text-slate-400">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
+          <button
+            type="button"
+            disabled={page >= totalPages}
+            onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+            className="px-3 py-1.5 text-xs text-slate-600 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-40"
+          >
+            Next
           </button>
+          <span className="text-xs text-slate-400 ml-2">{pagination.total || 0} total</span>
         </div>
       </div>
     </div>
