@@ -15,6 +15,7 @@ import {
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 import { isPostConfirmOrderStatus } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersSlice";
 import { shouldShowOnlinePaymentHoldCountdown } from "../../../../utils/paymentHoldDisplay";
+import AdminPendingOrderEditPanel from "./AdminPendingOrderEditPanel";
 
 /** @deprecated Prefer shipmentOps.opsState — kept for legacy sync heuristics only. */
 function isPickupBookedOnOrder(ship, opsState) {
@@ -1227,6 +1228,16 @@ export default function AdminOrderDetailView({
         ) : null}
 
         {isPendingOrder && (
+          <div className="space-y-3">
+            <AdminPendingOrderEditPanel
+              order={order}
+              orderId={orderId}
+              disabled={fulfillmentBusy}
+              onApplied={async () => {
+                setActionMsg({ type: "ok", text: "Pending order items updated." });
+                await refreshOrder();
+              }}
+            />
           <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 shadow-sm space-y-3">
             <div>
               <p className="text-[11px] font-black uppercase tracking-widest text-amber-900">
@@ -1234,7 +1245,7 @@ export default function AdminOrderDetailView({
               </p>
               <p className="text-xs text-amber-950/90 mt-1 leading-relaxed">
                 Only admin can approve or reject pending orders. Confirm unlocks GST invoice and Shiprocket steps.
-                Cancel restores stock and closes the order.
+                Cancel restores stock and closes the order. Edit out-of-stock items above before confirming.
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -1303,6 +1314,7 @@ export default function AdminOrderDetailView({
                 {bulkCancelState.isLoading ? "Cancelling…" : "Cancel order"}
               </button>
             </div>
+          </div>
           </div>
         )}
 

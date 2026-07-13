@@ -8,7 +8,6 @@ export const ORDER_TAB_LABEL_TO_BUCKET = Object.freeze({
   Pending: 'new',
   Confirmed: 'bill_sent',
   'Ready to Ship': 'ready_to_ship',
-  'Pickup Exception': 'pickup_exception',
   Processing: 'ready_to_pick',
   'In transit': 'in_transit',
   Delivered: 'completed',

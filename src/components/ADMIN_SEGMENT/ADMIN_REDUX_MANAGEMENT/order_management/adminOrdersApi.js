@@ -381,6 +381,39 @@ export const adminOrdersApi = createApi({
       },
     }),
 
+    /**
+     * Preview pending-order item remove / qty reduce (no persist).
+     * POST /api/orders/admin/items/:orderId/edit-pending/preview
+     */
+    adminPreviewPendingOrderEdit: builder.mutation({
+      query: ({ orderId, itemUpdates }) => ({
+        url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/edit-pending/preview`,
+        method: 'POST',
+        data: { itemUpdates },
+      }),
+    }),
+
+    /**
+     * Apply pending-order item remove / qty reduce (reprice + refund/COD settle).
+     * POST /api/orders/admin/items/:orderId/edit-pending
+     */
+    adminApplyPendingOrderEdit: builder.mutation({
+      query: ({ orderId, itemUpdates }) => ({
+        url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/edit-pending`,
+        method: 'POST',
+        data: { itemUpdates },
+      }),
+      invalidatesTags: (result, error, arg) => {
+        if (error) return [];
+        return [
+          { type: 'AdminOrdersList', id: 'PARTIAL' },
+          { type: 'AdminOrdersSummary', id: 'SUMMARY' },
+          { type: 'AdminOrdersList', id: arg.orderId },
+          { type: 'AdminOrderTracking', id: arg.orderId },
+        ];
+      },
+    }),
+
     adminBulkFulfillmentShipNow: builder.mutation({
       query: (arg = {}) => ({
         url: '/orders/admin/items/bulk-fulfillment/ship-now',
@@ -618,6 +651,8 @@ export const {
   useAdminFulfillmentRetryPickupMutation,
   useAdminBulkApprovalConfirmMutation,
   useAdminBulkApprovalCancelMutation,
+  useAdminPreviewPendingOrderEditMutation,
+  useAdminApplyPendingOrderEditMutation,
   useAdminBulkFulfillmentShipNowMutation,
   useAdminBulkFulfillmentSchedulePickupMutation,
   useAdminBulkFulfillmentSyncShiprocketMutation,

@@ -451,6 +451,20 @@ const OrderDetail = ({ orderId, onBack }) => {
   const isCancelRefund = isCancellationRefundOrder(order);
   const isProductReturn = isProductReturnOrder(order);
 
+  const orderStatusLower = String(order.orderStatus || "").toLowerCase();
+  const paymentStatusLower = String(order.paymentStatus || "").toLowerCase();
+  const refundedTotalInr = Array.isArray(order.refundHistory)
+    ? order.refundHistory.reduce((s, r) => s + (Number(r.amountInr) || 0), 0)
+    : Number(order.returnInfo?.refundAmount) || 0;
+  const activeItems = Array.isArray(order.items) ? order.items : [];
+  const removedArchive = Array.isArray(order.removedItemsArchive) ? order.removedItemsArchive : [];
+  // When order was cancelled because items were unavailable, active lines are historical.
+  const showItemsAsCancelled =
+    orderStatusLower === "cancelled" &&
+    (Boolean(order.paymentInfo?.itemsUnavailableCancel) ||
+      order.paymentInfo?.cancellationReason === "admin_amended_empty" ||
+      activeItems.some((it) => it.unavailable || it.lineStatus === "cancelled_unavailable"));
+
   const canRaiseReturn =
     !isCancelRefund &&
     String(order.orderStatus || "").toLowerCase() === "delivered" &&
@@ -526,6 +540,29 @@ const OrderDetail = ({ orderId, onBack }) => {
         </div>
       </div>
 
+      {Array.isArray(order.customerFacingNotes) && order.customerFacingNotes.length > 0 && (
+        <div className="mb-5 space-y-2">
+          {order.customerFacingNotes.map((note, idx) => (
+            <div
+              key={note._id || idx}
+              className="rounded-2xl border border-indigo-100 bg-indigo-50/70 px-4 py-3"
+            >
+              <p className="text-[10px] font-black uppercase tracking-widest text-indigo-800">
+                Order update
+              </p>
+              <p className="mt-1 text-sm text-slate-800 leading-relaxed">
+                {note.message}
+              </p>
+              {note.createdAt && (
+                <p className="mt-1 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  {fmtDate(note.createdAt)}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* TOTALS */}
       <div
         className="
@@ -582,6 +619,21 @@ const OrderDetail = ({ orderId, onBack }) => {
           </div>
         ))}
       </div>
+
+      {(paymentStatusLower === "refunded" ||
+        paymentStatusLower === "partially_refunded" ||
+        refundedTotalInr > 0.005) && (
+        <div className="mt-4 rounded-2xl border border-emerald-100 bg-emerald-50/80 px-4 py-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-emerald-800">
+            Refund
+          </p>
+          <p className="mt-1 text-sm font-semibold text-emerald-950">
+            {paymentStatusLower === "refunded"
+              ? `Refund of ${fmt(refundedTotalInr || order.totalAmount)} has been processed for this order.`
+              : `A refund of ${fmt(refundedTotalInr)} has been processed.`}
+          </p>
+        </div>
+      )}
 
       {/* PAYMENT REQUIRED */}
       {String(order?.paymentInfo?.method || "").toLowerCase() === "online" &&
@@ -694,13 +746,13 @@ const OrderDetail = ({ orderId, onBack }) => {
           mb-4
         "
       >
-        Items ({order.items?.length})
+        Items ({activeItems.length + removedArchive.length})
       </h3>
 
       <div className="space-y-4">
 
-        {order.items?.map((item, i) => {
-          const image = item.productId?.images?.[0]?.url || null;
+        {activeItems.map((item, i) => {
+          const image = item.productId?.images?.[0]?.url || item.thumbnailUrl || null;
 
           const name =
             item.productId?.name ||
@@ -711,19 +763,28 @@ const OrderDetail = ({ orderId, onBack }) => {
             item.priceSnapshot?.sale ??
             item.priceSnapshot?.base;
 
+          const lineTotal =
+            item.lineTotal != null
+              ? Number(item.lineTotal)
+              : Number(price || 0) * Number(item.quantity || 0);
+
           const weightRow = weightByVariantId.get(String(item.variantId ?? ""));
           const lineDimsLabel = weightRow ? formatPackageDims(weightRow) : null;
+          const isUnavailable =
+            showItemsAsCancelled ||
+            item.unavailable ||
+            item.lineStatus === "cancelled_unavailable";
 
           return (
             <div
-              key={i}
-              className="
+              key={`active-${i}`}
+              className={`
                 flex items-start sm:items-center
                 gap-3 sm:gap-4
-              "
+                ${isUnavailable ? "opacity-80" : ""}
+              `}
             >
 
-              {/* IMAGE */}
               <div
                 className="
                   w-12 h-12 sm:w-14 sm:h-14
@@ -737,7 +798,7 @@ const OrderDetail = ({ orderId, onBack }) => {
                   <img
                     src={image}
                     alt={name}
-                    className="w-full h-full object-cover"
+                    className={`w-full h-full object-cover ${isUnavailable ? "grayscale" : ""}`}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
@@ -746,20 +807,25 @@ const OrderDetail = ({ orderId, onBack }) => {
                 )}
               </div>
 
-              {/* INFO */}
               <div className="flex-1 min-w-0">
-
-                <p
-                  className="
-                    text-xs sm:text-sm
-                    font-black
-                    text-gray-900
-                    break-words
-                    leading-snug
-                  "
-                >
-                  {name}
-                </p>
+                <div className="flex flex-wrap items-center gap-2">
+                  <p
+                    className={`
+                      text-xs sm:text-sm
+                      font-black
+                      break-words
+                      leading-snug
+                      ${isUnavailable ? "text-gray-500 line-through" : "text-gray-900"}
+                    `}
+                  >
+                    {name}
+                  </p>
+                  {isUnavailable && (
+                    <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-50 text-red-700 border border-red-100">
+                      Unavailable
+                    </span>
+                  )}
+                </div>
 
                 <p
                   className="
@@ -769,7 +835,7 @@ const OrderDetail = ({ orderId, onBack }) => {
                     font-medium
                   "
                 >
-                  Qty: {item.quantity} × {fmt(price)}
+                  Qty: {item.quantity}{price != null ? ` × ${fmt(price)}` : ""}
                 </p>
                 {weightRow && (
                   <p className="mt-1 text-[10px] sm:text-[11px] text-gray-400 font-medium">
@@ -784,21 +850,69 @@ const OrderDetail = ({ orderId, onBack }) => {
                 )}
               </div>
 
-              {/* PRICE */}
               <p
-                className="
+                className={`
                   text-xs sm:text-sm
                   font-black
-                  text-gray-900
                   shrink-0
                   text-right
-                "
+                  ${isUnavailable ? "text-gray-400 line-through" : "text-gray-900"}
+                `}
               >
-                {fmt(price * item.quantity)}
+                {fmt(lineTotal)}
               </p>
             </div>
           );
         })}
+
+        {removedArchive.map((item, i) => {
+          const name = item.productName || "Product";
+          const price =
+            item.priceSnapshot?.sale ??
+            item.priceSnapshot?.base;
+          const lineTotal =
+            item.lineTotal != null
+              ? Number(item.lineTotal)
+              : Number(item.priceSnapshot?.total) ||
+                Number(price || 0) * Number(item.quantity || 0);
+          const badge =
+            item.reason === "qty_reduced" ? "Qty reduced" : "Removed — unavailable";
+
+          return (
+            <div
+              key={`removed-${i}`}
+              className="flex items-start sm:items-center gap-3 sm:gap-4 opacity-80"
+            >
+              <div className="w-12 h-12 sm:w-14 sm:h-14 bg-gray-100 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center">
+                <Package size={18} className="text-gray-300" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs sm:text-sm font-black text-gray-500 line-through break-words leading-snug">
+                    {name}
+                  </p>
+                  <span className="text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-100">
+                    {badge}
+                  </span>
+                </div>
+                <p className="mt-1 text-[11px] sm:text-xs text-gray-400 font-medium">
+                  Qty: {item.quantity}
+                  {price != null ? ` × ${fmt(price)}` : ""}
+                  {item.sku ? ` · SKU ${item.sku}` : ""}
+                </p>
+              </div>
+              <p className="text-xs sm:text-sm font-black text-gray-400 line-through shrink-0 text-right">
+                {fmt(lineTotal)}
+              </p>
+            </div>
+          );
+        })}
+
+        {activeItems.length === 0 && removedArchive.length === 0 && (
+          <p className="text-sm text-gray-400 font-medium">
+            No item details available for this order.
+          </p>
+        )}
       </div>
     </div>
 
@@ -876,6 +990,7 @@ const OrderDetail = ({ orderId, onBack }) => {
     )}
 
     {/* TRACK ORDER */}
+    {orderStatusLower !== "cancelled" && orderStatusLower !== "payment_failed" && (
     <div className="bg-white rounded-[24px] sm:rounded-[32px] p-4 sm:p-6">
 
       <button
@@ -951,6 +1066,7 @@ const OrderDetail = ({ orderId, onBack }) => {
         </div>
       )}
     </div>
+    )}
     {/* RETURN REQUEST */}
 {showProductReturnCard && (
   <div className="bg-white rounded-[24px] sm:rounded-[32px] p-4 sm:p-6">
