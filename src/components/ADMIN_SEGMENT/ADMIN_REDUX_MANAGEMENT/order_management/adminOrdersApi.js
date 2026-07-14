@@ -49,8 +49,8 @@ export const adminOrdersApi = createApi({
   keepUnusedDataFor: 30,
   endpoints: (builder) => ({
     /**
-     * Dashboard cards + tab counts (date range).
-     * GET /api/admin/orders/summary
+     * Dashboard cards + tab counts (always all-time — ignore table filters).
+     * GET /api/admin/orders/summary?rangePreset=all
      */
     getAdminOrdersSummary: builder.query({
       query: (arg = {}) => {

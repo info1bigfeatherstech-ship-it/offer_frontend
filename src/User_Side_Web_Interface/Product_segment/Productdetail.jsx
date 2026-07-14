@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useParams, useNavigate, useLocation, Link, useNavigationType } from "react-router-dom";
+import { useParams, useNavigate, useLocation, Link, useNavigationType, useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { IoLogoWhatsapp, IoLogoFacebook, IoLogoInstagram } from "react-icons/io5";
 import { ChevronDown, ClipboardCopy, FileText, Globe, Receipt } from "lucide-react";
@@ -32,9 +32,13 @@ import Breadcrumb from "./Breadcrumb/Breadcrumb";
 import CatProducts from "./CatPro_segment/CatProducts";
 import { fetchCategories } from "../../components/ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/categoriesSlice";
 import axiosInstance from "../../SERVICES/axiosInstance";
-import { getProductRatingDisplay, getFallbackDistribution } from "../../utils/productRatingDisplay";
-import StarRatingInput from "./StarRatingInput";
+import { getProductRatingDisplay } from "../../utils/productRatingDisplay";
 import OutOfStockInquiryForm from "./OutOfStockInquiryForm";
+import {
+  ProductReviewsProvider,
+  ProductReviewCompose,
+  ProductPublishedReviews,
+} from "./ProductReviewsSection";
 import {
   resolveVariantTitle,
   resolveVariantDescription,
@@ -505,6 +509,7 @@ const ProductUI = ({ openAuthModal }) => {
   const navigationType = useNavigationType();
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [shareOpen, setShareOpen] = useState(false);
   const location = useLocation();
   const [activeThumb, setActiveThumb] = useState(0);
@@ -520,15 +525,8 @@ const ProductUI = ({ openAuthModal }) => {
   const [couponsLoading, setCouponsLoading] = useState(false);
   const [copiedCouponCode, setCopiedCouponCode] = useState("");
   const [reviewSummary, setReviewSummary] = useState(null);
-  const [reviewsList, setReviewsList] = useState([]); 
-  const [reviewsLoading, setReviewsLoading] = useState(false);
-  const [myReview, setMyReview] = useState(null);
-  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: "" });
-  const [reviewSubmitting, setReviewSubmitting] = useState(false);
-  /** When true, optional comment textarea is shown (rating + submit are always visible). */
-  const [showReviewComment, setShowReviewComment] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(3);
-  const [filterStar, setFilterStar] = useState(null);
+  const reviewOrderIdFromQuery = String(searchParams.get("orderId") || "").trim();
+  const wantsReviewFocus = searchParams.get("review") === "1";
   const containerRef = useRef(null);
   const lensRef = useRef(null);
   const zoomRef = useRef(null);
@@ -649,32 +647,18 @@ const ProductUI = ({ openAuthModal }) => {
     const productId = product?._id;
     if (!productId) {
       setReviewSummary(null);
-      setReviewsList([]);
-      setMyReview(null);
-      setShowReviewComment(false);
       return undefined;
     }
-    setShowReviewComment(false);
     let cancelled = false;
     (async () => {
-      setReviewsLoading(true);
       try {
-        const pid = String(productId);
-        const [sumRes, listRes] = await Promise.all([
-          axiosInstance.get(`/product-reviews/public/${pid}/summary`),
-          axiosInstance.get(`/product-reviews/public/${pid}`, { params: { limit: 50 } }),
-        ]);
-        if (cancelled) return;
-        setReviewSummary(sumRes.data?.summary ?? null);
-        setReviewsList(Array.isArray(listRes.data?.reviews) ? listRes.data.reviews : []);
+        const res = await axiosInstance.get(
+          `/product-reviews/public/${String(productId)}/summary`
+        );
+        if (!cancelled) setReviewSummary(res.data?.summary ?? null);
       } catch (err) {
-        logError("loadProductReviews", err);
-        if (!cancelled) {
-          setReviewSummary(null);
-          setReviewsList([]);
-        }
-      } finally {
-        if (!cancelled) setReviewsLoading(false);
+        logError("loadReviewSummary", err);
+        if (!cancelled) setReviewSummary(null);
       }
     })();
     return () => {
@@ -683,36 +667,14 @@ const ProductUI = ({ openAuthModal }) => {
   }, [product?._id]);
 
   useEffect(() => {
-    const productId = product?._id;
-    if (!productId || !isLoggedIn) {
-      if (!isLoggedIn) {
-        setMyReview(null);
-        setShowReviewComment(false);
-      }
-      return undefined;
-    }
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await axiosInstance.get(`/product-reviews/mine/${String(productId)}`);
-        if (!cancelled) {
-          const r = res.data?.review;
-          setMyReview(r || null);
-          if (r) {
-            setReviewForm({ rating: r.rating, comment: r.comment || "" });
-          } else {
-            setReviewForm({ rating: 5, comment: "" });
-          }
-        }
-      } catch (err) {
-        logError("loadMyReview", err);
-        if (!cancelled) setMyReview(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [product?._id, isLoggedIn]);
+    if (!wantsReviewFocus) return undefined;
+    const t = window.setTimeout(() => {
+      const next = new URLSearchParams(searchParams);
+      next.delete("review");
+      setSearchParams(next, { replace: true });
+    }, 400);
+    return () => window.clearTimeout(t);
+  }, [wantsReviewFocus, searchParams, setSearchParams]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1148,49 +1110,6 @@ const ProductUI = ({ openAuthModal }) => {
     if (type === "instagram") { navigator?.clipboard?.writeText(url); alert("Link copied!"); }
   };
 
-  const submitProductReview = async (e) => {
-    e.preventDefault();
-    if (!product?._id || !isLoggedIn) {
-      toast.info("Please log in to write a review");
-      return;
-    }
-    setReviewSubmitting(true);
-    try {
-      const body = {
-        productId: String(product._id),
-        rating: Number(reviewForm.rating),
-        comment: String(reviewForm.comment || "").trim(),
-      };
-      if (myReview?._id) {
-        await axiosInstance.put(`/product-reviews/${myReview._id}`, body);
-        toast.success("Review updated");
-      } else {
-        await axiosInstance.post("/product-reviews", body);
-        toast.success("Thanks! Your review will appear after moderation.");
-      }
-      const pid = String(product._id);
-      const [sumRes, listRes, mineRes] = await Promise.all([
-        axiosInstance.get(`/product-reviews/public/${pid}/summary`),
-        axiosInstance.get(`/product-reviews/public/${pid}`, { params: { limit: 50 } }),
-        axiosInstance.get(`/product-reviews/mine/${pid}`),
-      ]);
-      setReviewSummary(sumRes.data?.summary ?? null);
-      setReviewsList(Array.isArray(listRes.data?.reviews) ? listRes.data.reviews : []);
-      const r = mineRes.data?.review;
-      setMyReview(r || null);
-      if (r) setReviewForm({ rating: r.rating, comment: r.comment || "" });
-      setShowReviewComment(false);
-    } catch (err) {
-      const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Could not save review";
-      toast.error(msg);
-    } finally {
-      setReviewSubmitting(false);
-    }
-  };
-
   // ── guards ─────────────────────────────────────────────────────────────────
   if (isLoading) return <div className="bg-gray-50 min-h-screen"><Skeleton /></div>;
   if (fetchError) return (
@@ -1207,7 +1126,13 @@ const ProductUI = ({ openAuthModal }) => {
 
   // ── RENDER ─────────────────────────────────────────────────────────────────
   return (
-    <>
+    <ProductReviewsProvider
+      product={product}
+      isLoggedIn={isLoggedIn}
+      openAuthModal={openAuthModal}
+      reviewOrderIdFromQuery={reviewOrderIdFromQuery}
+      wantsReviewFocus={wantsReviewFocus}
+    >
       <Breadcrumb product={product} />
       <div className="min-h-screen bg-gray-50">
         <div className="max-w-6xl mx-auto px-3 sm:px-4 py sm:py-8 sm:space-y-z">
@@ -1321,7 +1246,7 @@ const ProductUI = ({ openAuthModal }) => {
           <div className="bg-gray-50 rounded-2xl sm:rounded-3xl overflow-hidden ">
             <div className="flex flex-col lg:grid lg:grid-cols-2">
 
-              {/* ── LEFT: gallery + reviews = one grid cell on lg (avoids 2-row + row-span-2 height glitches); max-lg:contents keeps mobile order gallery → product → reviews ── */}
+              {/* ── LEFT: gallery + write-review under images ── */}
               <div className="max-lg:contents lg:flex lg:flex-col lg:gap-6 lg:min-w-0 lg:border-r lg:border-gray-100 lg:pr-4">
                 <div className="order-1 lg:order-none flex flex-col w-full gap-4 lg:gap-6 min-w-0">
                   <div className="flex flex-row gap-6 min-w-0">
@@ -1459,275 +1384,8 @@ const ProductUI = ({ openAuthModal }) => {
                 </div>{/* end image row */}
                 </div>{/* end gallery stack */}
 
-              <div className="order-3 lg:order-none w-full mt-4 lg:mt-0">
-                {/* Reviews: directly under gallery on desktop; after product info on mobile */}
-                {/* START REVIEWS SECTION */}
-                {(() => {
-                  const totalReviews = reviewsList.length;
-                  const starCounts = ratingIsPlaceholder
-                    ? getFallbackDistribution(product).map(({ star, pct }) => ({
-                      star,
-                      count: 0,
-                      pct,
-                    }))
-                    : [5, 4, 3, 2, 1].map((star) => {
-                      const count = reviewsList.filter((r) => Math.round(r.rating) === star).length;
-                      const pct = totalReviews > 0 ? Math.round((count / totalReviews) * 100) : 0;
-                      return { star, count, pct };
-                    });
-                  const filteredReviews = filterStar
-                    ? reviewsList.filter((r) => Math.round(r.rating) === filterStar)
-                    : reviewsList;
-                  const visibleReviews = filteredReviews.slice(0, visibleCount);
-
-                  return (
-                    <div className="border border-zinc-100 rounded-2xl overflow-hidden bg-white flex flex-col min-h-0 w-full">
-                      {/* ── SECTION 1: HEADER ── */}
-                      <div className="px-4 py-5 sm:px-6 sm:pt-6 sm:pb-4 flex-shrink-0 border-b border-zinc-100/90">
-                        <p className="text-lg font-bold text-gray-900 mb-3">Customer reviews</p>
-
-                        {reviewsLoading ? (
-                          <p className="text-sm text-gray-500 py-2">Loading reviews…</p>
-                        ) : (
-                          <>
-                            {/* Average + stars + count */}
-                            <div className="flex flex-wrap items-center gap-2 mb-4">
-                              <span className="text-3xl font-bold text-gray-900">
-                                {Number(displayAvg).toFixed(1)}
-                              </span>
-                              <div className="flex items-center gap-0.5">
-                                {[1, 2, 3, 4, 5].map((s) => (
-                                  <Star
-                                    key={s}
-                                    size={18}
-                                    className={s <= Math.round(Number(displayAvg))
-                                      ? "text-amber-400 fill-amber-400"
-                                      : "text-gray-200 fill-gray-200"}
-                                  />
-                                ))}
-                              </div>
-                              <span className="text-sm text-gray-500">
-                                {ratingIsPlaceholder
-                                  ? `${displayCount} ratings`
-                                  : `${displayCount} published ${displayCount === 1 ? "review" : "reviews"}`}
-                              </span>
-                            </div>
-
-                            {/* Star distribution bars */}
-                            <div className="space-y-1.5 mb-4">
-                              {starCounts.map(({ star, pct }) => {
-                                const isActive = filterStar === star;
-                                return (
-                                  <button
-                                    key={star}
-                                    type="button"
-                                    onClick={() => {
-                                      setFilterStar(filterStar === star ? null : star);
-                                      setVisibleCount(3);
-                                    }}
-                                    className={`w-full flex items-center gap-2 sm:gap-3 px-2 py-1 rounded-lg transition-colors text-sm cursor-pointer ${isActive ? "bg-amber-50" : "hover:bg-gray-50"
-                                      }`}
-                                  >
-                                    <span className="w-12 sm:w-14 text-left text-xs sm:text-sm text-gray-600 font-medium flex-shrink-0">
-                                      {star} star
-                                    </span>
-                                    <div className="flex-1 h-2.5 sm:h-3 bg-gray-100 rounded-full overflow-hidden">
-                                      <div
-                                        className={`h-full rounded-full transition-all duration-500 ${isActive ? "bg-amber-500" : "bg-amber-400"
-                                          }`}
-                                        style={{ width: `${pct}%` }}
-                                      />
-                                    </div>
-                                    <span className="w-10 text-right text-xs text-gray-500 flex-shrink-0">
-                                      {pct}%
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                            </div>
-
-                            {/* Clear filter button */}
-                            {filterStar !== null && (
-                              <button
-                                type="button"
-                                onClick={() => { setFilterStar(null); setVisibleCount(3); }}
-                                className="text-xs font-semibold text-amber-600 hover:text-amber-700 hover:underline mb-3 cursor-pointer"
-                              >
-                                × Clear filter
-                              </button>
-                            )}
-
-                            {/* Login prompt for logged-out users */}
-                            {!isLoggedIn && (
-                              <p className="text-sm text-gray-500 mt-2">
-                                <button
-                                  type="button"
-                                  onClick={openAuthModal}
-                                  className="text-orange-600 font-bold hover:underline"
-                                >
-                                  Log in
-                                </button>{" "}
-                                to leave a review
-                              </p>
-                            )}
-                          </>
-                        )}
-                      </div>
-
-                      {/* ── SECTION 2: YOUR REVIEW BOX (logged in only) ── */}
-                      {isLoggedIn && !reviewsLoading && (
-                        <div className="px-4 sm:px-6 pt-4">
-                          <form
-                            onSubmit={submitProductReview}
-                            className="rounded-xl border border-gray-200 bg-gray-50/80 p-3 sm:p-4 space-y-3"
-                          >
-                            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                              {myReview?._id ? "Your review" : "Rate this product"}
-                            </p>
-
-                            <StarRatingInput
-                              value={reviewForm.rating}
-                              onChange={(n) => setReviewForm((f) => ({ ...f, rating: n }))}
-                              disabled={reviewSubmitting}
-                              size={30}
-                            />
-
-                            {!showReviewComment ? (
-                              <button
-                                type="button"
-                                onClick={() => setShowReviewComment(true)}
-                                className="text-sm font-bold text-orange-600 hover:text-orange-700 hover:underline cursor-pointer"
-                              >
-                                Write a comment{" "}
-                                <span className="font-normal text-gray-500">(optional)</span>
-                              </button>
-                            ) : (
-                              <div className="space-y-2">
-                                <label className="block text-xs font-medium text-gray-500 mb-1">
-                                  Comment (optional)
-                                </label>
-                                <textarea
-                                  value={reviewForm.comment}
-                                  onChange={(e) =>
-                                    setReviewForm((f) => ({ ...f, comment: e.target.value }))
-                                  }
-                                  rows={3}
-                                  maxLength={2000}
-                                  placeholder="Share your thoughts about this product…"
-                                  className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300 transition"
-                                />
-                                <button
-                                  type="button"
-                                  disabled={reviewSubmitting}
-                                  onClick={() => setShowReviewComment(false)}
-                                  className="text-xs font-medium text-gray-500 hover:text-gray-800 cursor-pointer"
-                                >
-                                  Hide comment
-                                </button>
-                              </div>
-                            )}
-
-                            <button
-                              type="submit"
-                              disabled={reviewSubmitting || reviewForm.rating === 0}
-                              className={`text-sm font-semibold px-5 py-2 rounded-lg transition cursor-pointer ${reviewForm.rating === 0
-                                ? "bg-zinc-900 text-white opacity-40 cursor-not-allowed"
-                                : "bg-zinc-900 text-white hover:bg-zinc-800"
-                                } disabled:opacity-40`}
-                            >
-                              {reviewSubmitting ? (
-                                <span className="flex items-center gap-2">
-                                  <Loader2 size={14} className="animate-spin" />
-                                  Saving…
-                                </span>
-                              ) : myReview?._id ? "Update review" : "Submit review"}
-                            </button>
-                          </form>
-                        </div>
-                      )}
-
-                      {/* ── SECTION 3: PUBLISHED REVIEWS LIST (only when at least one exists) ── */}
-                      {!reviewsLoading && reviewsList.length > 0 && (
-                      <div
-                        className="flex-1 min-h-0 overflow-y-auto px-4 sm:px-6 py-4 overscroll-y-contain [scrollbar-gutter:stable]"
-                        aria-label="Published reviews list"
-                      >
-                        {filteredReviews.length === 0 && filterStar !== null ? (
-                          <p className="text-sm text-gray-500">No reviews with {filterStar} stars.</p>
-                        ) : (
-                          <>
-                            <ul className="space-y-3 sm:space-y-4 pb-2">
-                              {visibleReviews.map((r) => (
-                                <li
-                                  key={r._id}
-                                  className="border border-gray-100 rounded-xl p-3 sm:p-4 bg-white"
-                                >
-                                  <div className="flex items-start gap-3">
-                                    {/* Avatar */}
-                                    <div className="w-9 h-9 rounded-full bg-zinc-100 flex items-center justify-center flex-shrink-0">
-                                      <span className="text-sm font-semibold text-zinc-700 uppercase">
-                                        {(typeof r.author === "string" && r.author.length > 0)
-                                          ? r.author.charAt(0)
-                                          : "?"}
-                                      </span>
-                                    </div>
-
-                                    <div className="flex-1 min-w-0">
-                                      {/* Author + Date */}
-                                      <div className="flex items-center justify-between gap-2 mb-0.5">
-                                        <span className="text-sm font-semibold text-gray-900 truncate">
-                                          {r.author}
-                                        </span>
-                                        <span className="text-xs text-gray-400 flex-shrink-0">
-                                          {r.createdAt
-                                            ? new Date(r.createdAt).toLocaleDateString()
-                                            : ""}
-                                        </span>
-                                      </div>
-
-                                      {/* Stars */}
-                                      <div className="flex items-center gap-0.5 mb-1.5">
-                                        {Array.from({ length: Math.round(r.rating) }).map((_, i) => (
-                                          <Star key={i} size={13} className="text-amber-400 fill-amber-400" />
-                                        ))}
-                                      </div>
-
-                                      {/* Comment — only when present */}
-                                      {r.comment?.trim() ? (
-                                        <p className="text-sm text-gray-600 leading-relaxed">{r.comment.trim()}</p>
-                                      ) : null}
-                                    </div>
-                                  </div>
-                                </li>
-                              ))}
-                            </ul>
-
-                            {/* Load more */}
-                            {visibleCount < filteredReviews.length && (
-                              <div className="flex flex-col items-center gap-2 pt-3">
-                                <button
-                                  type="button"
-                                  onClick={() => setVisibleCount((prev) => prev + 3)}
-                                  className="border border-zinc-200 rounded-xl px-6 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50 hover:border-zinc-300 transition cursor-pointer"
-                                >
-                                  Load more reviews
-                                </button>
-                                <p className="text-xs text-gray-400 text-center">
-                                  Showing {Math.min(visibleCount, filteredReviews.length)} of{" "}
-                                  {filteredReviews.length} reviews
-                                </p>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                      )}
-                    </div>
-                  );
-                })()}
-                {/* END REVIEWS SECTION */}
-              </div>{/* end reviews wrapper */}
-              </div>{/* end merge: gallery + reviews (lg) / contents (mobile) */}
+                <ProductReviewCompose />
+              </div>{/* end left: gallery + write review */}
 
               <div className="order-2 lg:order-none lg:col-start-2 lg:self-start flex flex-col min-w-0">
                 {/* ── RIGHT: Info panel ── */}
@@ -2325,9 +1983,11 @@ const ProductUI = ({ openAuthModal }) => {
             </div>
           )}
 
+          <ProductPublishedReviews />
+
         </div>
       </div>
-    </>
+    </ProductReviewsProvider>
   );
 };
 

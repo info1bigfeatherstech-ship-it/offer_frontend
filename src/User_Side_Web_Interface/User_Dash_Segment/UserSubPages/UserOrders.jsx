@@ -32,10 +32,12 @@ import {
   Package, Truck, CheckCircle, ChevronRight, RefreshCw,
   XCircle, Clock, AlertCircle, ArrowLeft, MapPin,
   Loader2, ShoppingBag, CreditCard,
-  MessageSquare, Send, X,
+  MessageSquare, Send, X, Star, Trash2,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { formatInr as fmt } from "../../../utils/formatInr";
+import axiosInstance from "../../../SERVICES/axiosInstance";
+import OrderItemReviewModal from "./OrderItemReviewModal";
 import {
   isCancellationRefundOrder,
   isProductReturnOrder,
@@ -297,6 +299,10 @@ const OrderDetail = ({ orderId, onBack }) => {
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [chatMessage, setChatMessage] = useState("");
   const chatEndRef = useRef(null);
+  /** productId → { canReview, alreadyReviewed, productSlug } from review eligibility API */
+  const [orderReviewItems, setOrderReviewItems] = useState({});
+  const [orderReviewEligible, setOrderReviewEligible] = useState(false);
+  const [reviewModal, setReviewModal] = useState(null);
 
   // Polling for return support chat
   useEffect(() => {
@@ -338,8 +344,66 @@ const OrderDetail = ({ orderId, onBack }) => {
       setRazorpayBundle(null);
       setShowRazorpay(false);
       setRazorpayClientError(null);
+      setOrderReviewItems({});
+      setOrderReviewEligible(false);
+      setReviewModal(null);
     };
   }, [orderId, dispatch]);
+
+  useEffect(() => {
+    if (!order?.orderId || String(order.orderId) !== String(orderId)) return;
+    const status = String(order.orderStatus || "").toLowerCase();
+    if (status !== "delivered" && status !== "return_requested") {
+      setOrderReviewItems({});
+      setOrderReviewEligible(false);
+      return undefined;
+    }
+
+    let cancelled = false;
+    const loadReviewItems = async () => {
+      try {
+        const res = await axiosInstance.get(
+          `/product-reviews/order/${order.orderId}/items`
+        );
+        if (cancelled) return;
+        setOrderReviewEligible(Boolean(res.data?.eligible));
+        const map = {};
+        for (const row of Array.isArray(res.data?.items) ? res.data.items : []) {
+          if (!row?.productId) continue;
+          map[String(row.productId)] = row;
+        }
+        setOrderReviewItems(map);
+      } catch {
+        if (!cancelled) {
+          setOrderReviewItems({});
+          setOrderReviewEligible(false);
+        }
+      }
+    };
+    loadReviewItems();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [order?.orderId, order?.orderStatus, orderId]);
+
+  const refreshOrderReviewItems = useCallback(async () => {
+    if (!order?.orderId) return;
+    try {
+      const res = await axiosInstance.get(
+        `/product-reviews/order/${order.orderId}/items`
+      );
+      setOrderReviewEligible(Boolean(res.data?.eligible));
+      const map = {};
+      for (const row of Array.isArray(res.data?.items) ? res.data.items : []) {
+        if (!row?.productId) continue;
+        map[String(row.productId)] = row;
+      }
+      setOrderReviewItems(map);
+    } catch {
+      /* keep previous map */
+    }
+  }, [order?.orderId]);
 
   const handleTrack = () => {
     if (!tracking) dispatch(trackOrder(orderId));
@@ -752,7 +816,14 @@ const OrderDetail = ({ orderId, onBack }) => {
       <div className="space-y-4">
 
         {activeItems.map((item, i) => {
-          const image = item.productId?.images?.[0]?.url || item.thumbnailUrl || null;
+          const image =
+            item.productId?.images?.[0]?.url ||
+            item.productId?.variants?.find(
+              (v) => String(v._id) === String(item.variantId)
+            )?.images?.[0]?.url ||
+            item.productId?.variants?.[0]?.images?.[0]?.url ||
+            item.thumbnailUrl ||
+            null;
 
           const name =
             item.productId?.name ||
@@ -775,16 +846,42 @@ const OrderDetail = ({ orderId, onBack }) => {
             item.unavailable ||
             item.lineStatus === "cancelled_unavailable";
 
+          const productIdStr = item.productId?._id
+            ? String(item.productId._id)
+            : item.productId
+              ? String(item.productId)
+              : null;
+          const reviewMeta = productIdStr ? orderReviewItems[productIdStr] : null;
+          const showWriteReview =
+            !isUnavailable &&
+            orderReviewEligible &&
+            Boolean(reviewMeta?.canReview) &&
+            Boolean(productIdStr);
+          const showReviewed =
+            !isUnavailable &&
+            Boolean(reviewMeta?.alreadyReviewed) &&
+            Boolean(productIdStr);
+
+          const openReviewModal = (mode) => {
+            setReviewModal({
+              mode,
+              productId: productIdStr,
+              productName: name,
+              productImage: image,
+              variantId: item.variantId ? String(item.variantId) : null,
+              reviewId: reviewMeta?.reviewId || null,
+            });
+          };
+
           return (
             <div
               key={`active-${i}`}
               className={`
-                flex items-start sm:items-center
-                gap-3 sm:gap-4
+                flex flex-col gap-3
                 ${isUnavailable ? "opacity-80" : ""}
               `}
             >
-
+              <div className="flex items-start sm:items-center gap-3 sm:gap-4">
               <div
                 className="
                   w-12 h-12 sm:w-14 sm:h-14
@@ -861,6 +958,93 @@ const OrderDetail = ({ orderId, onBack }) => {
               >
                 {fmt(lineTotal)}
               </p>
+              </div>
+
+              {showWriteReview && (
+                <div className="flex items-center gap-3 pl-0 sm:pl-[4.25rem]">
+                  <button
+                    type="button"
+                    onClick={() => openReviewModal("create")}
+                    className="
+                      group inline-flex items-center gap-2
+                      h-9 pl-2.5 pr-3.5
+                      rounded-full
+                      bg-zinc-900 text-white
+                      text-[11px] font-semibold tracking-wide
+                      shadow-sm
+                      hover:bg-[#F7A221] hover:text-zinc-900
+                      transition-colors cursor-pointer
+                    "
+                  >
+                    <span className="flex items-center justify-center w-6 h-6 rounded-full bg-white/10 group-hover:bg-black/10">
+                      <Star size={12} className="fill-[#F7A221] text-[#F7A221] group-hover:fill-zinc-900 group-hover:text-zinc-900" />
+                    </span>
+                    Write a review
+                  </button>
+                  <span className="hidden sm:inline text-[11px] text-gray-400 font-medium">
+                    Help others with your experience
+                  </span>
+                </div>
+              )}
+              {showReviewed && (
+                <div className="flex flex-wrap items-center gap-2 pl-0 sm:pl-[4.25rem]">
+                  <button
+                    type="button"
+                    onClick={() => openReviewModal("edit")}
+                    className="
+                      inline-flex items-center gap-2
+                      h-9 px-3.5
+                      rounded-full
+                      border border-emerald-200 bg-emerald-50
+                      text-emerald-800
+                      text-[11px] font-semibold tracking-wide
+                      hover:bg-emerald-100 hover:border-emerald-300
+                      transition-colors cursor-pointer
+                    "
+                  >
+                    <CheckCircle size={14} className="text-emerald-600 shrink-0" />
+                    Edit your review
+                  </button>
+                  <button
+                    type="button"
+                    title="Delete review"
+                    aria-label="Delete review"
+                    onClick={async () => {
+                      const rid = reviewMeta?.reviewId;
+                      if (!rid) return;
+                      if (
+                        !window.confirm(
+                          "Delete your review for this product? Stars, comment, and photos will be removed."
+                        )
+                      ) {
+                        return;
+                      }
+                      try {
+                        await axiosInstance.delete(`/product-reviews/${rid}`);
+                        toast.success("Review deleted");
+                        await refreshOrderReviewItems();
+                      } catch (err) {
+                        toast.error(
+                          err?.response?.data?.message ||
+                            err?.message ||
+                            "Could not delete review"
+                        );
+                      }
+                    }}
+                    className="
+                      inline-flex items-center justify-center
+                      w-9 h-9
+                      rounded-full
+                      border border-rose-200 bg-rose-50
+                      text-rose-600
+                      hover:bg-rose-100 hover:border-rose-300
+                      transition-colors cursor-pointer
+                    "
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}
@@ -1598,6 +1782,19 @@ const OrderDetail = ({ orderId, onBack }) => {
       </>,
       document.body
     )}
+
+    <OrderItemReviewModal
+      open={Boolean(reviewModal)}
+      onClose={() => setReviewModal(null)}
+      orderId={order?.orderId}
+      productId={reviewModal?.productId}
+      productName={reviewModal?.productName}
+      productImage={reviewModal?.productImage}
+      variantId={reviewModal?.variantId}
+      mode={reviewModal?.mode || "create"}
+      existingReviewId={reviewModal?.reviewId || null}
+      onSuccess={refreshOrderReviewItems}
+    />
   </div>
 );
 };

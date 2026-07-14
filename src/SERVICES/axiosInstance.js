@@ -201,6 +201,10 @@ axiosInstance.interceptors.request.use(
     const authContext = getAuthContext(config);
     config.authContext = authContext;
 
+    if (typeof FormData !== "undefined" && config.data instanceof FormData) {
+      delete config.headers["Content-Type"];
+    }
+
     const storageKey = getTokenStorageKey(authContext);
     const token =
       localStorage.getItem(storageKey) || localStorage.getItem("accessToken");

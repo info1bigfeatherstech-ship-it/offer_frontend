@@ -208,12 +208,18 @@ export const selectAdminOrdersListQueryArgs = createSelector([selectAdminOrdersU
   };
 });
 
-/**
- * Build summary query args (same range as list).
- */
-export const selectAdminOrdersSummaryQueryArgs = createSelector([selectAdminOrdersUi], (ui) =>
+/** Date-range args only — used by list + background auto-sync (not summary cards). */
+export const selectAdminOrdersDateQueryArgs = createSelector([selectAdminOrdersUi], (ui) =>
   buildDateQueryArgs(ui)
 );
+
+/**
+ * Summary cards + tab badge counts: always all-time (ignore date/search filters).
+ * Filters apply only to the orders table via list query args.
+ */
+export const ADMIN_ORDERS_SUMMARY_ALL_TIME_ARGS = Object.freeze({ rangePreset: 'all' });
+
+export const selectAdminOrdersSummaryQueryArgs = () => ADMIN_ORDERS_SUMMARY_ALL_TIME_ARGS;
 
 /** RTO tab UI state */
 const rtoInitialState = {
