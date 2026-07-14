@@ -13,7 +13,7 @@ import axiosInstance from "../../SERVICES/axiosInstance";
 import StarRatingInput from "./StarRatingInput";
 import {
   getProductRatingDisplay,
-  getFallbackDistribution,
+  getBlendedStarDistribution,
 } from "../../utils/productRatingDisplay";
 
 const MAX_REVIEW_IMAGES = 5;
@@ -381,19 +381,11 @@ export function ProductReviewsProvider({
   /** All published storefront reviews: admin-generated + customer (verified purchase). */
   const publishedReviews = useMemo(() => reviewsList, [reviewsList]);
 
-  const totalPublished = publishedReviews.length;
-  const starCounts = ratingDisplay.isPlaceholder
-    ? getFallbackDistribution(product).map(({ star, pct }) => ({
-        star,
-        count: 0,
-        pct,
-      }))
-    : [5, 4, 3, 2, 1].map((star) => {
-        const count = publishedReviews.filter((r) => Math.round(r.rating) === star).length;
-        const pct =
-          totalPublished > 0 ? Math.round((count / totalPublished) * 100) : 0;
-        return { star, count, pct };
-      });
+  /** Histogram = stable placeholder base + real published reviews (additive). */
+  const starCounts = useMemo(
+    () => getBlendedStarDistribution(product, publishedReviews),
+    [product, publishedReviews]
+  );
 
   const filteredPublishedReviews = filterStar
     ? publishedReviews.filter((r) => Math.round(r.rating) === filterStar)
@@ -401,6 +393,16 @@ export function ProductReviewsProvider({
   const visiblePublishedReviews = filteredPublishedReviews.slice(0, visibleCount);
   const canWriteOrUpdateReview = Boolean(
     myReview?._id || reviewEligibility?.canCreate
+  );
+
+  /**
+   * Photos only in purchase context (My Orders / order deep-link).
+   * Cold PDP reviews stay stars + comment only.
+   */
+  const canAttachImages = Boolean(String(reviewOrderIdFromQuery || "").trim());
+
+  const isVerifiedMyReview = Boolean(
+    myReview?.verifiedPurchase || myReview?.orderId
   );
 
   const existingKeptImages = useMemo(() => {
@@ -448,9 +450,11 @@ export function ProductReviewsProvider({
     const orderId =
       reviewOrderIdFromQuery || reviewEligibility?.qualifyingOrderId || "";
     if (orderId) fd.append("orderId", orderId);
-    newImageFiles.forEach((file) => fd.append("reviewImages", file));
-    if (removeExistingPublicIds.length) {
-      fd.append("removeImagePublicIds", JSON.stringify(removeExistingPublicIds));
+    if (canAttachImages) {
+      newImageFiles.forEach((file) => fd.append("reviewImages", file));
+      if (removeExistingPublicIds.length) {
+        fd.append("removeImagePublicIds", JSON.stringify(removeExistingPublicIds));
+      }
     }
     return fd;
   };
@@ -462,7 +466,11 @@ export function ProductReviewsProvider({
       return;
     }
     if (myReview?._id) {
-      toast.info("You’ve already reviewed this product. Manage it from My Orders.");
+      if (isVerifiedMyReview) {
+        toast.info("You’ve already reviewed this product. Manage it from My Orders.");
+      } else {
+        toast.info("You’ve already reviewed this product.");
+      }
       return;
     }
 
@@ -529,6 +537,8 @@ export function ProductReviewsProvider({
     myReview,
     reviewEligibility,
     canWriteOrUpdateReview,
+    canAttachImages,
+    isVerifiedMyReview,
     reviewForm,
     setReviewForm,
     reviewSubmitting,
@@ -577,11 +587,14 @@ export function ProductReviewCompose() {
     setFilterStar,
     setVisibleCount,
     myReview,
-    reviewEligibility,
+    canAttachImages,
+    isVerifiedMyReview,
     reviewForm,
     setReviewForm,
     reviewSubmitting,
     submitProductReview,
+    deleteMyReview,
+    deletingReviewId,
     newImagePreviews,
     remainingImageSlots,
     handlePickImages,
@@ -590,8 +603,7 @@ export function ProductReviewCompose() {
 
   if (!productId) return null;
 
-  const { average: displayAvg, count: displayCount, isPlaceholder: ratingIsPlaceholder } =
-    ratingDisplay;
+  const { average: displayAvg, count: displayCount } = ratingDisplay;
 
   return (
     <div
@@ -625,9 +637,7 @@ export function ProductReviewCompose() {
                   ))}
                 </div>
                 <span className="text-sm text-gray-500">
-                  {ratingIsPlaceholder
-                    ? `${displayCount} ratings`
-                    : `${displayCount} published ${displayCount === 1 ? "review" : "reviews"}`}
+                  {displayCount} {displayCount === 1 ? "rating" : "ratings"}
                 </span>
               </div>
 
@@ -687,12 +697,40 @@ export function ProductReviewCompose() {
         {isLoggedIn && !reviewsLoading && (
           <div className="px-4 sm:px-6 py-4">
             {myReview?._id ? (
-              <p className="text-sm text-gray-500 leading-relaxed">
-                You’ve already reviewed this product. See it in the reviews below —
-                you can edit or delete from{" "}
-                <span className="font-semibold text-gray-700">My Orders</span>
-                {myReview.isActive ? "" : " (pending moderation)"}.
-              </p>
+              <div className="rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-3 space-y-2">
+                {isVerifiedMyReview ? (
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    You’ve already reviewed this product
+                    {myReview.isActive
+                      ? ". See it in the reviews below."
+                      : " — pending moderation."}{" "}
+                    Edit or delete with photos from{" "}
+                    <span className="font-semibold text-gray-800">My Orders</span>.
+                  </p>
+                ) : (
+                  <p className="text-sm text-gray-600 leading-relaxed">
+                    You’ve already reviewed this product
+                    {myReview.isActive
+                      ? "."
+                      : "."}
+                  </p>
+                )}
+                {!isVerifiedMyReview && (
+                  <button
+                    type="button"
+                    disabled={deletingReviewId === String(myReview._id)}
+                    onClick={() => deleteMyReview(myReview)}
+                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-rose-600 hover:text-rose-700 disabled:opacity-50 cursor-pointer"
+                  >
+                    {deletingReviewId === String(myReview._id) ? (
+                      <Loader2 size={14} className="animate-spin" />
+                    ) : (
+                      <Trash2 size={14} />
+                    )}
+                    Delete my review
+                  </button>
+                )}
+              </div>
             ) : (
               <form
                 onSubmit={submitProductReview}
@@ -720,7 +758,7 @@ export function ProductReviewCompose() {
                   className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-amber-200 focus:border-amber-300 transition"
                 />
 
-                {newImagePreviews.length > 0 && (
+                {canAttachImages && newImagePreviews.length > 0 && (
                   <div className="flex flex-wrap gap-2">
                     {newImagePreviews.map((url, idx) => (
                       <div key={url} className="relative">
@@ -742,7 +780,7 @@ export function ProductReviewCompose() {
                   </div>
                 )}
 
-                {remainingImageSlots > 0 && (
+                {canAttachImages && remainingImageSlots > 0 && (
                   <>
                     <input
                       ref={fileInputRef}

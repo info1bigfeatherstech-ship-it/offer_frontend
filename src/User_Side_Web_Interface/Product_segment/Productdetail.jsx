@@ -1024,7 +1024,6 @@ const ProductUI = ({ openAuthModal }) => {
   );
   const displayAvg = ratingDisplay.average;
   const displayCount = ratingDisplay.count;
-  const ratingIsPlaceholder = ratingDisplay.isPlaceholder;
   const soldInfo = product?.soldInfo?.count ?? 0;
   const brand = product?.brand ?? null;
   const variant = selectedVariant || {};
