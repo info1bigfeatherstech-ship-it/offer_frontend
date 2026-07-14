@@ -58,6 +58,7 @@ function typeBadgeClass(type) {
   if (t === 'refund_initiated') return 'bg-indigo-50 text-indigo-800 border-indigo-200';
   if (t === 'rto_initiated') return 'bg-blue-50 text-blue-800 border-blue-200';
   if (t === 'order_amended') return 'bg-violet-50 text-violet-800 border-violet-200';
+  if (t === 'back_in_stock') return 'bg-emerald-50 text-emerald-800 border-emerald-200';
   if (t === 'refund_rejected') return 'bg-red-50 text-red-700 border-red-200';
   if (t === 'refund_failed') return 'bg-red-50 text-red-700 border-red-200';
   return 'bg-amber-50 text-amber-900 border-amber-200';
@@ -106,6 +107,12 @@ const NotificationsModal = memo(({ open, onClose, isLoggedIn = false }) => {
         }
       }
       onClose?.();
+      const type = String(item?.type || '').toLowerCase();
+      const productSlug = item?.metadata?.productSlug;
+      if (type === 'back_in_stock' && productSlug) {
+        navigate(`/products/${productSlug}`);
+        return;
+      }
       navigate('/account/userorders', { state: { highlightOrderId: item.orderId } });
     },
     [markRead, navigate, onClose]

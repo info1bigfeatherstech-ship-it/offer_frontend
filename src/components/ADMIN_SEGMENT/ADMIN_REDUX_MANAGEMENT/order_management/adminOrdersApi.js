@@ -49,8 +49,8 @@ export const adminOrdersApi = createApi({
   keepUnusedDataFor: 30,
   endpoints: (builder) => ({
     /**
-     * Dashboard cards + tab counts (date range).
-     * GET /api/admin/orders/summary
+     * Dashboard cards + tab counts (always all-time — ignore table filters).
+     * GET /api/admin/orders/summary?rangePreset=all
      */
     getAdminOrdersSummary: builder.query({
       query: (arg = {}) => {
@@ -414,6 +414,47 @@ export const adminOrdersApi = createApi({
       },
     }),
 
+    /**
+     * Address Valid/Junk score (local pre-ship + Shiprocket orders/show when available).
+     * GET /api/orders/admin/items/:orderId/address-intelligence
+     */
+    getAdminAddressIntelligence: builder.query({
+      query: ({ orderId, refresh } = {}) => ({
+        url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/address-intelligence`,
+        method: 'GET',
+        params: refresh ? { refresh: 1 } : undefined,
+      }),
+      providesTags: (result, error, arg) => [
+        { type: 'AdminOrdersList', id: `ADDR_${arg?.orderId || arg}` },
+      ],
+    }),
+
+    adminPreviewPendingAddressEdit: builder.mutation({
+      query: ({ orderId, addressPatch, alsoUpdateSavedAddress }) => ({
+        url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/edit-pending-address/preview`,
+        method: 'POST',
+        data: { addressPatch, alsoUpdateSavedAddress: Boolean(alsoUpdateSavedAddress) },
+      }),
+    }),
+
+    adminApplyPendingAddressEdit: builder.mutation({
+      query: ({ orderId, addressPatch, alsoUpdateSavedAddress }) => ({
+        url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/edit-pending-address`,
+        method: 'POST',
+        data: { addressPatch, alsoUpdateSavedAddress: Boolean(alsoUpdateSavedAddress) },
+      }),
+      invalidatesTags: (result, error, arg) => {
+        if (error) return [];
+        return [
+          { type: 'AdminOrdersList', id: 'PARTIAL' },
+          { type: 'AdminOrdersSummary', id: 'SUMMARY' },
+          { type: 'AdminOrdersList', id: arg.orderId },
+          { type: 'AdminOrdersList', id: `ADDR_${arg.orderId}` },
+          { type: 'AdminOrderTracking', id: arg.orderId },
+        ];
+      },
+    }),
+
     adminBulkFulfillmentShipNow: builder.mutation({
       query: (arg = {}) => ({
         url: '/orders/admin/items/bulk-fulfillment/ship-now',
@@ -548,6 +589,40 @@ export const adminOrdersApi = createApi({
       providesTags: [{ type: 'AdminRtoAnalytics', id: 'SUMMARY' }],
     }),
 
+    /**
+     * Background RTO sync: Shiprocket → DB for stale non-warehouse-delivered RTO orders.
+     * POST /api/admin/rto/auto-sync-statuses
+     */
+    adminAutoSyncRtoStatuses: builder.mutation({
+      query: (arg = {}) => {
+        const params = {};
+        if (arg.from) params.from = arg.from;
+        if (arg.to) params.to = arg.to;
+        if (arg.rangePreset) params.rangePreset = arg.rangePreset;
+        if (arg.presetDays != null && arg.presetDays !== '' && !arg.from && !arg.to && !arg.rangePreset) {
+          params.presetDays = arg.presetDays;
+        }
+        if (arg.preset === '30d') params.preset = '30d';
+        if (arg.staleMinutes != null) params.staleMinutes = arg.staleMinutes;
+        if (arg.maxRunMs != null) params.maxRunMs = arg.maxRunMs;
+        return {
+          url: '/admin/rto/auto-sync-statuses',
+          method: 'POST',
+          params,
+        };
+      },
+      invalidatesTags: (result, error) => {
+        if (error) return [];
+        const updated = result?.data?.summary?.updated ?? 0;
+        const synced = result?.data?.summary?.synced ?? 0;
+        if (updated <= 0 && synced <= 0) return [];
+        return [
+          { type: 'AdminRtoList', id: 'LIST' },
+          { type: 'AdminRtoAnalytics', id: 'SUMMARY' },
+        ];
+      },
+    }),
+
     exportAdminRtoReport: builder.query({
       query: (params = {}) => ({
         url: '/admin/rto/report',
@@ -653,12 +728,17 @@ export const {
   useAdminBulkApprovalCancelMutation,
   useAdminPreviewPendingOrderEditMutation,
   useAdminApplyPendingOrderEditMutation,
+  useGetAdminAddressIntelligenceQuery,
+  useLazyGetAdminAddressIntelligenceQuery,
+  useAdminPreviewPendingAddressEditMutation,
+  useAdminApplyPendingAddressEditMutation,
   useAdminBulkFulfillmentShipNowMutation,
   useAdminBulkFulfillmentSchedulePickupMutation,
   useAdminBulkFulfillmentSyncShiprocketMutation,
   useGetAdminRtoOrdersQuery,
   useGetAdminRtoAnalyticsQuery,
   useLazyExportAdminRtoReportQuery,
+  useAdminAutoSyncRtoStatusesMutation,
   useAdminRtoRefundMutation,
   useAdminRtoRejectMutation,
   useAdminRtoResolveMutation,

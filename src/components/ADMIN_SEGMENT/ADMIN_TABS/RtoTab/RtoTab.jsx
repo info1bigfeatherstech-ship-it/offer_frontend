@@ -4,6 +4,7 @@ import {
   useGetAdminRtoOrdersQuery,
   useGetAdminRtoAnalyticsQuery,
   useLazyExportAdminRtoReportQuery,
+  useAdminAutoSyncRtoStatusesMutation,
   useAdminRtoRefundMutation,
   useAdminRtoRejectMutation,
   useAdminRtoBulkActionMutation,
@@ -543,6 +544,69 @@ export default function RtoTab() {
   const [refundOrder, refundState] = useAdminRtoRefundMutation();
   const [rejectOrder, rejectState] = useAdminRtoRejectMutation();
   const [bulkAction, bulkState] = useAdminRtoBulkActionMutation();
+  const [autoSyncRtoStatuses] = useAdminAutoSyncRtoStatusesMutation();
+  const autoSyncBusyRef = useRef(false);
+
+  /** Silent background sync: Shiprocket → DB for stale RTO (not yet warehouse-delivered). */
+  useEffect(() => {
+    if (!showList) return undefined;
+
+    let cancelled = false;
+    let initialTimer;
+    let intervalId;
+
+    const syncArgs = {
+      from: listArgs.from,
+      to: listArgs.to,
+      rangePreset: listArgs.rangePreset,
+      presetDays: listArgs.presetDays,
+      staleMinutes: 15,
+    };
+
+    const runAutoSync = async () => {
+      if (cancelled || autoSyncBusyRef.current || document.hidden) return;
+      autoSyncBusyRef.current = true;
+      try {
+        let complete = false;
+        let guard = 0;
+        while (!cancelled && !complete && guard < 12) {
+          guard += 1;
+          const result = await autoSyncRtoStatuses(syncArgs).unwrap();
+          complete = Boolean(result?.data?.summary?.complete);
+          const remaining = result?.data?.summary?.remainingStale ?? 0;
+          const timedOut = Boolean(result?.data?.summary?.timedOut);
+          if (complete || remaining <= 0 || !timedOut) break;
+          await new Promise((r) => setTimeout(r, 2000));
+        }
+      } catch {
+        /* background sync — no user-facing error */
+      } finally {
+        autoSyncBusyRef.current = false;
+      }
+    };
+
+    initialTimer = setTimeout(runAutoSync, 3500);
+    intervalId = setInterval(runAutoSync, 90_000);
+
+    const onVisibility = () => {
+      if (!document.hidden && !cancelled) runAutoSync();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(initialTimer);
+      clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [
+    showList,
+    listArgs.from,
+    listArgs.to,
+    listArgs.rangePreset,
+    listArgs.presetDays,
+    autoSyncRtoStatuses,
+  ]);
 
   const orders = listData?.data?.orders || [];
   const pagination = listData?.data?.pagination || {};

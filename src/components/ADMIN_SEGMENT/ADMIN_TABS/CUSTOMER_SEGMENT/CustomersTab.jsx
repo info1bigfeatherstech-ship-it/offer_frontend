@@ -2,6 +2,7 @@
 import React, { useState, useCallback } from 'react';
 import { toast } from 'react-toastify';
 import { useGetAllUsersQuery } from '../../ADMIN_REDUX_MANAGEMENT/userAnalyticsApi';
+import axiosInstance, { AUTH_CONTEXT_ADMIN } from '../../../../SERVICES/axiosInstance';
 import CartDetailsModal from './CartDetailsModal';
 import CartReminderEmailModal from './CartReminderEmailModal';
 import CartReminderPushModal from './CartReminderPushModal';
@@ -24,6 +25,7 @@ const CustomersTab = () => {
   const [cartReminderRecipients, setCartReminderRecipients] = useState([]);
   const [cartPushOpen, setCartPushOpen] = useState(false);
   const [cartPushRecipients, setCartPushRecipients] = useState([]);
+  const [exportLoading, setExportLoading] = useState(false);
 
   const openCartDetails = useCallback((userId) => {
     setCartModalUserId(userId);
@@ -146,6 +148,61 @@ const CustomersTab = () => {
     openCartReminderModal([snapshotUser(user)]);
   };
 
+  const handleExportCustomers = useCallback(async () => {
+    if (exportLoading) return;
+    setExportLoading(true);
+    try {
+      const res = await axiosInstance.get('/admin/analytics/users/export', {
+        responseType: 'blob',
+        timeout: 120000,
+        authContext: AUTH_CONTEXT_ADMIN,
+      });
+
+      const contentType = String(res.headers['content-type'] || '');
+      if (contentType.includes('application/json')) {
+        const text = await res.data.text();
+        let msg = 'Export failed';
+        try {
+          msg = JSON.parse(text)?.message || msg;
+        } catch {
+          /* ignore */
+        }
+        toast.error(msg);
+        return;
+      }
+
+      const blob = res.data;
+      if (!(blob instanceof Blob) || blob.size === 0) {
+        toast.error('Export returned an empty file. Please try again.');
+        return;
+      }
+
+      const today = new Date().toISOString().slice(0, 10);
+      const filename = `customers_export_${today}.xlsx`;
+      const url = URL.createObjectURL(blob);
+      try {
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.rel = 'noopener';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+      toast.success('Customers exported successfully!');
+    } catch (err) {
+      const msg =
+        err?.response?.data instanceof Blob
+          ? 'Export failed — server error'
+          : err?.response?.data?.message || err?.message || 'Export failed';
+      toast.error(msg);
+    } finally {
+      setExportLoading(false);
+    }
+  }, [exportLoading]);
+
   if (isLoading) return <div className="p-20 text-center animate-pulse">Loading Customers...</div>;
 
   return (
@@ -165,7 +222,7 @@ const CustomersTab = () => {
             />
           </div>
           <LeadsAutoPushToggle />
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 flex-wrap">
             <select 
               className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
               onChange={(e) => setRoleFilter(e.target.value)}
@@ -174,6 +231,28 @@ const CustomersTab = () => {
               <option value="user">Customer</option>
               <option value="wholesaler">Wholesaler</option>
             </select>
+            <button
+              type="button"
+              id="export-customers-xlsx-btn"
+              onClick={handleExportCustomers}
+              disabled={exportLoading}
+              className="px-5 cursor-pointer py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-medium rounded-xl hover:from-emerald-600 hover:to-teal-700 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+              title="Export all customers to Excel"
+            >
+              {exportLoading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                  <span>Exporting…</span>
+                </>
+              ) : (
+                <>
+                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                  </svg>
+                  <span>Export Data</span>
+                </>
+              )}
+            </button>
             <BulkActionsMenu
               count={selectedUsers.length}
               onCartEmail={handleBulkCartEmail}

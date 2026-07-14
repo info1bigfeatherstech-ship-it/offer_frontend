@@ -13,6 +13,7 @@ import {
   DEFAULT_ORDER_TAB_LABEL,
   selectAdminOrdersListQueryArgs,
   selectAdminOrdersSummaryQueryArgs,
+  selectAdminOrdersDateQueryArgs,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersSlice";
 import {
   useGetAdminOrdersSummaryQuery,
@@ -150,6 +151,7 @@ const OrderTab = () => {
   const dispatch = useDispatch();
   const listArgs = useSelector(selectAdminOrdersListQueryArgs);
   const summaryArgs = useSelector(selectAdminOrdersSummaryQueryArgs);
+  const dateArgs = useSelector(selectAdminOrdersDateQueryArgs);
   const ui = useSelector((s) => s.adminOrdersUi);
 
   const [selectedOrderId, setSelectedOrderId] = useState(null);
@@ -208,7 +210,7 @@ const OrderTab = () => {
         let guard = 0;
         while (!cancelled && !complete && guard < 20) {
           guard += 1;
-          const result = await autoSyncOrderStatuses(summaryArgs).unwrap();
+          const result = await autoSyncOrderStatuses(dateArgs).unwrap();
           complete = Boolean(result?.data?.summary?.complete);
           const remaining = result?.data?.summary?.remainingStale ?? 0;
           const timedOut = Boolean(result?.data?.summary?.timedOut);
@@ -238,7 +240,7 @@ const OrderTab = () => {
       clearInterval(intervalId);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [summaryArgs, autoSyncOrderStatuses]);
+  }, [dateArgs, autoSyncOrderStatuses]);
 
   const {
     data: detailRes,
