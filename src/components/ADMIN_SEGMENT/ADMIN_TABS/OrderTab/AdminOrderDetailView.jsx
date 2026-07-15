@@ -412,12 +412,17 @@ export default function AdminOrderDetailView({
     bulkCancelState.isLoading;
 
   const orderSt = String(order?.orderStatus || "").toLowerCase();
+  const paySt = String(order?.paymentStatus || "").toLowerCase();
+  const moneyCaptured =
+    (paySt === "paid" || paySt === "partially_paid") && Number(order?.amountPaidInr || 0) > 0.01;
   const shiprocketProviderStatus = order?.shipmentInfo?.providerStatus || "";
   const isRtoOrder = isShiprocketRtoStatus(orderSt, shiprocketProviderStatus);
   const isPendingOrder = orderSt === "pending";
   const showInvoiceAndLogistics = isPostConfirmOrderStatus(orderSt);
-  const fulfillmentActionsBlocked =
-    orderSt === "cancelled" || orderSt === "payment_failed" || isRtoOrder;
+  // Never block fulfilment solely on payment_failed when Razorpay already captured money.
+  const unpaidTerminalStatus =
+    (orderSt === "cancelled" || orderSt === "payment_failed") && !moneyCaptured;
+  const fulfillmentActionsBlocked = unpaidTerminalStatus || isRtoOrder;
   const fulfillmentBlockMessage = fulfillmentActionsBlocked
     ? isRtoOrder
       ? `Shiprocket reports: ${String(shiprocketProviderStatus || "RTO").trim()}. Forward shipment actions are not available during return-to-origin.`

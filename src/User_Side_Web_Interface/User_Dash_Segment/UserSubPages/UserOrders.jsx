@@ -32,7 +32,7 @@ import {
   Package, Truck, CheckCircle, ChevronRight, RefreshCw,
   XCircle, Clock, AlertCircle, ArrowLeft, MapPin,
   Loader2, ShoppingBag, CreditCard,
-  MessageSquare, Send, X, Star, Trash2,
+  MessageSquare, Send, X, Star,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { formatInr as fmt } from "../../../utils/formatInr";
@@ -862,14 +862,12 @@ const OrderDetail = ({ orderId, onBack }) => {
             Boolean(reviewMeta?.alreadyReviewed) &&
             Boolean(productIdStr);
 
-          const openReviewModal = (mode) => {
+          const openReviewModal = () => {
             setReviewModal({
-              mode,
               productId: productIdStr,
               productName: name,
               productImage: image,
               variantId: item.variantId ? String(item.variantId) : null,
-              reviewId: reviewMeta?.reviewId || null,
             });
           };
 
@@ -964,7 +962,7 @@ const OrderDetail = ({ orderId, onBack }) => {
                 <div className="flex items-center gap-3 pl-0 sm:pl-[4.25rem]">
                   <button
                     type="button"
-                    onClick={() => openReviewModal("create")}
+                    onClick={() => openReviewModal()}
                     className="
                       group inline-flex items-center gap-2
                       h-9 pl-2.5 pr-3.5
@@ -987,10 +985,8 @@ const OrderDetail = ({ orderId, onBack }) => {
                 </div>
               )}
               {showReviewed && (
-                <div className="flex flex-wrap items-center gap-2 pl-0 sm:pl-[4.25rem]">
-                  <button
-                    type="button"
-                    onClick={() => openReviewModal("edit")}
+                <div className="flex items-center gap-2 pl-0 sm:pl-[4.25rem]">
+                  <span
                     className="
                       inline-flex items-center gap-2
                       h-9 px-3.5
@@ -998,51 +994,11 @@ const OrderDetail = ({ orderId, onBack }) => {
                       border border-emerald-200 bg-emerald-50
                       text-emerald-800
                       text-[11px] font-semibold tracking-wide
-                      hover:bg-emerald-100 hover:border-emerald-300
-                      transition-colors cursor-pointer
                     "
                   >
                     <CheckCircle size={14} className="text-emerald-600 shrink-0" />
-                    Edit your review
-                  </button>
-                  <button
-                    type="button"
-                    title="Delete review"
-                    aria-label="Delete review"
-                    onClick={async () => {
-                      const rid = reviewMeta?.reviewId;
-                      if (!rid) return;
-                      if (
-                        !window.confirm(
-                          "Delete your review for this product? Stars, comment, and photos will be removed."
-                        )
-                      ) {
-                        return;
-                      }
-                      try {
-                        await axiosInstance.delete(`/product-reviews/${rid}`);
-                        toast.success("Review deleted");
-                        await refreshOrderReviewItems();
-                      } catch (err) {
-                        toast.error(
-                          err?.response?.data?.message ||
-                            err?.message ||
-                            "Could not delete review"
-                        );
-                      }
-                    }}
-                    className="
-                      inline-flex items-center justify-center
-                      w-9 h-9
-                      rounded-full
-                      border border-rose-200 bg-rose-50
-                      text-rose-600
-                      hover:bg-rose-100 hover:border-rose-300
-                      transition-colors cursor-pointer
-                    "
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                    Review submitted
+                  </span>
                 </div>
               )}
             </div>
@@ -1791,8 +1747,6 @@ const OrderDetail = ({ orderId, onBack }) => {
       productName={reviewModal?.productName}
       productImage={reviewModal?.productImage}
       variantId={reviewModal?.variantId}
-      mode={reviewModal?.mode || "create"}
-      existingReviewId={reviewModal?.reviewId || null}
       onSuccess={refreshOrderReviewItems}
     />
   </div>

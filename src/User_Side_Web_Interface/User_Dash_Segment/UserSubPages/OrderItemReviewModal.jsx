@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Loader2, X, Camera, Image as ImageIcon, Trash2 } from "lucide-react";
+import { Loader2, X, Camera, Image as ImageIcon } from "lucide-react";
 import { toast } from "react-toastify";
 import axiosInstance from "../../../SERVICES/axiosInstance";
 import StarRatingInput from "../../Product_segment/StarRatingInput";
@@ -8,7 +8,7 @@ import StarRatingInput from "../../Product_segment/StarRatingInput";
 const MAX_REVIEW_IMAGES = 5;
 
 /**
- * In-order product review modal — write/edit review without leaving My Orders.
+ * In-order product review modal — write review without leaving My Orders.
  */
 export default function OrderItemReviewModal({
   open,
@@ -18,8 +18,6 @@ export default function OrderItemReviewModal({
   productName,
   productImage,
   variantId = null,
-  mode = "create", // create | edit
-  existingReviewId = null,
   onSuccess,
 }) {
   const galleryInputRef = useRef(null);
@@ -27,10 +25,6 @@ export default function OrderItemReviewModal({
   const [rating, setRating] = useState(5);
   const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
-  const [loadingMine, setLoadingMine] = useState(false);
-  const [reviewId, setReviewId] = useState(existingReviewId);
-  const [existingImages, setExistingImages] = useState([]);
-  const [removePublicIds, setRemovePublicIds] = useState([]);
   const [newFiles, setNewFiles] = useState([]);
   const [newPreviews, setNewPreviews] = useState([]);
   const [mediaMenuOpen, setMediaMenuOpen] = useState(false);
@@ -40,41 +34,12 @@ export default function OrderItemReviewModal({
 
     setRating(5);
     setComment("");
-    setRemovePublicIds([]);
     setNewFiles([]);
     setNewPreviews([]);
-    setReviewId(existingReviewId);
     setMediaMenuOpen(false);
 
-    if (mode !== "edit" || !productId) {
-      setExistingImages([]);
-      return undefined;
-    }
-
-    let cancelled = false;
-    (async () => {
-      setLoadingMine(true);
-      try {
-        const res = await axiosInstance.get(`/product-reviews/mine/${productId}`);
-        if (cancelled) return;
-        const r = res.data?.review;
-        if (r) {
-          setReviewId(r._id);
-          setRating(Number(r.rating) || 5);
-          setComment(r.comment || "");
-          setExistingImages(Array.isArray(r.images) ? r.images : []);
-        }
-      } catch {
-        /* keep defaults */
-      } finally {
-        if (!cancelled) setLoadingMine(false);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [open, mode, productId, existingReviewId]);
+    return undefined;
+  }, [open]);
 
   useEffect(() => {
     if (!open) return undefined;
@@ -100,12 +65,7 @@ export default function OrderItemReviewModal({
 
   if (!open) return null;
 
-  const keptExisting = existingImages.filter((img) => {
-    const key = img.publicId || img.url;
-    return key ? !removePublicIds.includes(key) : true;
-  });
-  const remainingSlots =
-    MAX_REVIEW_IMAGES - keptExisting.length - newFiles.length;
+  const remainingSlots = MAX_REVIEW_IMAGES - newFiles.length;
 
   const handlePickImages = (e) => {
     const picked = Array.from(e.target.files || []);
@@ -152,17 +112,9 @@ export default function OrderItemReviewModal({
       fd.append("orderId", String(orderId));
       if (variantId) fd.append("variantId", String(variantId));
       newFiles.forEach((file) => fd.append("reviewImages", file));
-      if (removePublicIds.length) {
-        fd.append("removeImagePublicIds", JSON.stringify(removePublicIds));
-      }
 
-      if (mode === "edit" && reviewId) {
-        await axiosInstance.put(`/product-reviews/${reviewId}`, fd);
-        toast.success("Review updated");
-      } else {
-        await axiosInstance.post("/product-reviews", fd);
-        toast.success("Thanks! Your review will appear after moderation.");
-      }
+      await axiosInstance.post("/product-reviews", fd);
+      toast.success("Thanks! Your review will appear after moderation.");
       onSuccess?.();
       onClose();
     } catch (err) {
@@ -187,13 +139,11 @@ export default function OrderItemReviewModal({
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
-        aria-label={mode === "edit" ? "Edit your review" : "Write a review"}
+        aria-label="Write a review"
       >
         <div className="sticky top-0 bg-white border-b border-gray-100 px-4 py-3 flex items-center justify-between rounded-t-3xl z-10">
           <div className="min-w-0">
-            <p className="text-sm font-black text-gray-900">
-              {mode === "edit" ? "Edit your review" : "Write a review"}
-            </p>
+            <p className="text-sm font-black text-gray-900">Write a review</p>
             <p className="text-[11px] text-gray-400 font-medium truncate">
               Order {orderId}
             </p>
@@ -228,231 +178,161 @@ export default function OrderItemReviewModal({
           </p>
         </div>
 
-        {loadingMine ? (
-          <div className="flex items-center justify-center gap-2 py-16 text-gray-400 text-sm">
-            <Loader2 size={18} className="animate-spin" />
-            Loading your review…
-          </div>
-        ) : (
-          <form onSubmit={handleSubmit} className="px-4 pb-6 pt-2 space-y-4">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">
-                Your rating
-              </p>
-              <StarRatingInput
-                value={rating}
-                onChange={setRating}
-                disabled={submitting}
-                size={34}
-              />
-            </div>
-
-            <div>
-              <label className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2 block">
-                Comment (optional)
-              </label>
-
-              {/* Chat-style composer: textarea + camera inside */}
-              <div className="relative rounded-2xl border border-gray-200 bg-gray-50 focus-within:bg-white focus-within:ring-2 focus-within:ring-amber-200 focus-within:border-amber-200 transition">
-                <textarea
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  rows={4}
-                  maxLength={2000}
-                  disabled={submitting}
-                  placeholder="How was the product? Share your experience…"
-                  className="w-full text-sm bg-transparent resize-none px-3 pt-3 pb-12 focus:outline-none"
-                />
-
-                <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-2">
-                  <div className="relative">
-                    <input
-                      ref={galleryInputRef}
-                      type="file"
-                      accept="image/jpeg,image/png,image/webp,image/jpg,image/*"
-                      multiple
-                      className="hidden"
-                      onChange={(e) => {
-                        handlePickImages(e);
-                        setMediaMenuOpen(false);
-                      }}
-                    />
-                    <input
-                      ref={cameraInputRef}
-                      type="file"
-                      accept="image/*"
-                      capture="environment"
-                      className="hidden"
-                      onChange={(e) => {
-                        handlePickImages(e);
-                        setMediaMenuOpen(false);
-                      }}
-                    />
-
-                    {remainingSlots > 0 ? (
-                      <>
-                        <button
-                          type="button"
-                          disabled={submitting}
-                          onClick={() => setMediaMenuOpen((v) => !v)}
-                          className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-zinc-900 hover:text-white hover:border-zinc-900 transition shadow-sm disabled:opacity-40"
-                          aria-label="Add photos"
-                          title="Add photos"
-                        >
-                          <Camera size={18} />
-                        </button>
-
-                        {mediaMenuOpen && (
-                          <div className="absolute bottom-11 left-0 z-20 w-48 rounded-2xl border border-gray-100 bg-white shadow-xl p-1.5">
-                            <button
-                              type="button"
-                              disabled={submitting}
-                              onClick={() => {
-                                setMediaMenuOpen(false);
-                                cameraInputRef.current?.click();
-                              }}
-                              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-gray-50 cursor-pointer"
-                            >
-                              <Camera size={16} className="text-zinc-700" />
-                              Take photo
-                            </button>
-                            <button
-                              type="button"
-                              disabled={submitting}
-                              onClick={() => {
-                                setMediaMenuOpen(false);
-                                galleryInputRef.current?.click();
-                              }}
-                              className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-gray-50 cursor-pointer"
-                            >
-                              <ImageIcon size={16} className="text-zinc-700" />
-                              From gallery
-                            </button>
-                          </div>
-                        )}
-                      </>
-                    ) : (
-                      <span className="text-[10px] font-medium text-gray-400 px-2">
-                        Max {MAX_REVIEW_IMAGES} photos
-                      </span>
-                    )}
-                  </div>
-
-                  <span className="text-[10px] text-gray-400 tabular-nums">
-                    {String(comment || "").length}/2000
-                    {remainingSlots > 0 && remainingSlots < MAX_REVIEW_IMAGES
-                      ? ` · ${remainingSlots} photo slots left`
-                      : ""}
-                  </span>
-                </div>
-              </div>
-
-              {(keptExisting.length > 0 || newPreviews.length > 0) && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {keptExisting.map((img) => (
-                    <div key={img.publicId || img.url} className="relative">
-                      <img
-                        src={img.url}
-                        alt=""
-                        className="w-14 h-14 object-cover rounded-xl border border-gray-200"
-                      />
-                      <button
-                        type="button"
-                        disabled={submitting}
-                        onClick={() =>
-                          setRemovePublicIds((prev) => [
-                            ...prev,
-                            img.publicId || img.url,
-                          ])
-                        }
-                        className="absolute -top-1.5 -right-1.5 bg-black text-white rounded-full p-0.5"
-                        aria-label="Remove photo"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  ))}
-                  {newPreviews.map((url, idx) => (
-                    <div key={url} className="relative">
-                      <img
-                        src={url}
-                        alt=""
-                        className="w-14 h-14 object-cover rounded-xl border border-gray-200"
-                      />
-                      <button
-                        type="button"
-                        disabled={submitting}
-                        onClick={() => removeNewAt(idx)}
-                        className="absolute -top-1.5 -right-1.5 bg-black text-white rounded-full p-0.5"
-                        aria-label="Remove new photo"
-                      >
-                        <X size={12} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <button
-                type="submit"
-                disabled={submitting || rating < 1}
-                className="flex-1 min-h-[48px] rounded-2xl bg-black text-white text-xs font-black uppercase tracking-widest hover:bg-[#F7A221] hover:text-black transition disabled:opacity-50 flex items-center justify-center gap-2"
-              >
-                {submitting ? (
-                  <>
-                    <Loader2 size={16} className="animate-spin" />
-                    Saving…
-                  </>
-                ) : mode === "edit" ? (
-                  "Update review"
-                ) : (
-                  "Submit review"
-                )}
-              </button>
-
-              {mode === "edit" && reviewId ? (
-                <button
-                  type="button"
-                  disabled={submitting}
-                  title="Delete review"
-                  aria-label="Delete review"
-                  onClick={async () => {
-                    if (
-                      !window.confirm(
-                        "Delete your review? Stars, comment, and photos will be removed."
-                      )
-                    ) {
-                      return;
-                    }
-                    setSubmitting(true);
-                    try {
-                      await axiosInstance.delete(`/product-reviews/${reviewId}`);
-                      toast.success("Review deleted");
-                      onSuccess?.();
-                      onClose();
-                    } catch (err) {
-                      toast.error(
-                        err?.response?.data?.message ||
-                          err?.message ||
-                          "Could not delete review"
-                      );
-                    } finally {
-                      setSubmitting(false);
-                    }
-                  }}
-                  className="shrink-0 inline-flex items-center justify-center w-12 h-12 rounded-2xl border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 transition disabled:opacity-50"
-                >
-                  <Trash2 size={18} />
-                </button>
-              ) : null}
-            </div>
-            <p className="text-[11px] text-center text-gray-400">
-              Reviews appear on the product page after moderation.
+        <form onSubmit={handleSubmit} className="px-4 pb-6 pt-2 space-y-4">
+          <div>
+            <p className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2">
+              Your rating
             </p>
-          </form>
-        )}
+            <StarRatingInput
+              value={rating}
+              onChange={setRating}
+              disabled={submitting}
+              size={34}
+            />
+          </div>
+
+          <div>
+            <label className="text-[11px] font-black uppercase tracking-widest text-gray-400 mb-2 block">
+              Comment (optional)
+            </label>
+
+            <div className="relative rounded-2xl border border-gray-200 bg-gray-50 focus-within:bg-white focus-within:ring-2 focus-within:ring-amber-200 focus-within:border-amber-200 transition">
+              <textarea
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                rows={4}
+                maxLength={2000}
+                disabled={submitting}
+                placeholder="How was the product? Share your experience…"
+                className="w-full text-sm bg-transparent resize-none px-3 pt-3 pb-12 focus:outline-none"
+              />
+
+              <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between gap-2">
+                <div className="relative">
+                  <input
+                    ref={galleryInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,image/jpg,image/*"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      handlePickImages(e);
+                      setMediaMenuOpen(false);
+                    }}
+                  />
+                  <input
+                    ref={cameraInputRef}
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    className="hidden"
+                    onChange={(e) => {
+                      handlePickImages(e);
+                      setMediaMenuOpen(false);
+                    }}
+                  />
+
+                  {remainingSlots > 0 ? (
+                    <>
+                      <button
+                        type="button"
+                        disabled={submitting}
+                        onClick={() => setMediaMenuOpen((v) => !v)}
+                        className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-white border border-gray-200 text-gray-700 hover:bg-zinc-900 hover:text-white hover:border-zinc-900 transition shadow-sm disabled:opacity-40"
+                        aria-label="Add photos"
+                        title="Add photos"
+                      >
+                        <Camera size={18} />
+                      </button>
+
+                      {mediaMenuOpen && (
+                        <div className="absolute bottom-11 left-0 z-20 w-48 rounded-2xl border border-gray-100 bg-white shadow-xl p-1.5">
+                          <button
+                            type="button"
+                            disabled={submitting}
+                            onClick={() => {
+                              setMediaMenuOpen(false);
+                              cameraInputRef.current?.click();
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-gray-50 cursor-pointer"
+                          >
+                            <Camera size={16} className="text-zinc-700" />
+                            Take photo
+                          </button>
+                          <button
+                            type="button"
+                            disabled={submitting}
+                            onClick={() => {
+                              setMediaMenuOpen(false);
+                              galleryInputRef.current?.click();
+                            }}
+                            className="w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl text-sm font-semibold text-gray-800 hover:bg-gray-50 cursor-pointer"
+                          >
+                            <ImageIcon size={16} className="text-zinc-700" />
+                            From gallery
+                          </button>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <span className="text-[10px] font-medium text-gray-400 px-2">
+                      Max {MAX_REVIEW_IMAGES} photos
+                    </span>
+                  )}
+                </div>
+
+                <span className="text-[10px] text-gray-400 tabular-nums">
+                  {String(comment || "").length}/2000
+                  {remainingSlots > 0 && remainingSlots < MAX_REVIEW_IMAGES
+                    ? ` · ${remainingSlots} photo slots left`
+                    : ""}
+                </span>
+              </div>
+            </div>
+
+            {newPreviews.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-2">
+                {newPreviews.map((url, idx) => (
+                  <div key={url} className="relative">
+                    <img
+                      src={url}
+                      alt=""
+                      className="w-14 h-14 object-cover rounded-xl border border-gray-200"
+                    />
+                    <button
+                      type="button"
+                      disabled={submitting}
+                      onClick={() => removeNewAt(idx)}
+                      className="absolute -top-1.5 -right-1.5 bg-black text-white rounded-full p-0.5"
+                      aria-label="Remove new photo"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            type="submit"
+            disabled={submitting || rating < 1}
+            className="w-full min-h-[48px] rounded-2xl bg-black text-white text-xs font-black uppercase tracking-widest hover:bg-[#F7A221] hover:text-black transition disabled:opacity-50 flex items-center justify-center gap-2"
+          >
+            {submitting ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Saving…
+              </>
+            ) : (
+              "Submit review"
+            )}
+          </button>
+          <p className="text-[11px] text-center text-gray-400">
+            Reviews appear on the product page after moderation. Reviews cannot be
+            edited or deleted after submission.
+          </p>
+        </form>
       </div>
     </div>,
     document.body

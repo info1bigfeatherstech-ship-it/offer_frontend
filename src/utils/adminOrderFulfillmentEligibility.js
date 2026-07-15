@@ -70,14 +70,24 @@ function isRowRtoBlocked(row) {
   return /\brto\b/i.test(ps) || /return to origin/i.test(ps);
 }
 
+function isRowMoneyCaptured(row) {
+  const pay = String(row?.paymentStatus || "").toLowerCase();
+  return (pay === "paid" || pay === "partially_paid") && Number(row?.amountPaidInr || 0) > 0.01;
+}
+
+function isRowUnpaidTerminalBlocked(row) {
+  const st = String(row?.orderStatus || "").toLowerCase();
+  if (st !== "cancelled" && st !== "payment_failed") return false;
+  return !isRowMoneyCaptured(row);
+}
+
 /**
  * Bulk manifest ZIP download.
  * @param {{ orderStatus?: string, hasAwb?: boolean, hasShipmentId?: boolean, actionCapabilities?: Record<string, boolean> } | null | undefined} row
  */
 export function canAdminBulkDownloadManifestOrderRow(row) {
   if (!row) return false;
-  const st = String(row.orderStatus || "").toLowerCase();
-  if (st === "cancelled" || st === "payment_failed" || isRowRtoBlocked(row)) return false;
+  if (isRowUnpaidTerminalBlocked(row) || isRowRtoBlocked(row)) return false;
   const fromCaps = rowActionEnabled(row, "downloadManifest");
   if (fromCaps != null) return fromCaps;
   return Boolean(row.hasShipmentId && row.hasAwb);
@@ -89,8 +99,7 @@ export function canAdminBulkDownloadManifestOrderRow(row) {
  */
 export function canAdminBulkDownloadLabelOrderRow(row) {
   if (!row) return false;
-  const st = String(row.orderStatus || "").toLowerCase();
-  if (st === "cancelled" || st === "payment_failed" || isRowRtoBlocked(row)) return false;
+  if (isRowUnpaidTerminalBlocked(row) || isRowRtoBlocked(row)) return false;
   const fromCaps = rowActionEnabled(row, "downloadLabel");
   if (fromCaps != null) return fromCaps;
   return Boolean(row.hasShipmentId && row.hasAwb);
@@ -102,8 +111,7 @@ export function canAdminBulkDownloadLabelOrderRow(row) {
  */
 export function canAdminBulkSyncShiprocketOrderRow(row) {
   if (!row) return false;
-  const st = String(row.orderStatus || "").toLowerCase();
-  if (st === "cancelled" || st === "payment_failed" || isRowRtoBlocked(row)) return false;
+  if (isRowUnpaidTerminalBlocked(row) || isRowRtoBlocked(row)) return false;
   const fromCaps = rowActionEnabled(row, "syncShiprocket");
   if (fromCaps === true) return true;
   return Boolean(row.hasShiprocketOrderId || row.hasShipmentId || row.hasAwb);
