@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Star, Loader2, X, ImagePlus, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
+import { Star, Loader2, X, ImagePlus, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "react-toastify";
 import axiosInstance from "../../SERVICES/axiosInstance";
 import StarRatingInput from "./StarRatingInput";
@@ -102,7 +102,7 @@ function ReviewImageLightbox({ images, startIndex, onClose }) {
   );
 }
 
-function ReviewCard({ review, onImageClick, isOwn = false, onDelete, deleting = false }) {
+function ReviewCard({ review, onImageClick, isOwn = false }) {
   const images = Array.isArray(review.images) ? review.images : [];
   const authorInitial =
     typeof review.author === "string" && review.author.length > 0
@@ -127,22 +127,6 @@ function ReviewCard({ review, onImageClick, isOwn = false, onDelete, deleting = 
                 Verified purchase
               </span>
             ) : null}
-            {isOwn && (
-              <button
-                type="button"
-                disabled={deleting}
-                onClick={() => onDelete?.(review)}
-                title="Delete review"
-                aria-label="Delete review"
-                className="ml-auto inline-flex items-center justify-center w-8 h-8 rounded-full text-rose-500 hover:bg-rose-50 hover:text-rose-700 disabled:opacity-50 cursor-pointer"
-              >
-                {deleting ? (
-                  <Loader2 size={14} className="animate-spin" />
-                ) : (
-                  <Trash2 size={15} />
-                )}
-              </button>
-            )}
           </div>
 
           <div className="flex flex-wrap items-center gap-2 mb-2">
@@ -239,7 +223,6 @@ export function ProductReviewsProvider({
   const [newImagePreviews, setNewImagePreviews] = useState([]);
   const [removeExistingPublicIds, setRemoveExistingPublicIds] = useState([]);
   const [lightbox, setLightbox] = useState(null);
-  const [deletingReviewId, setDeletingReviewId] = useState(null);
 
   const ratingDisplay = useMemo(
     () => getProductRatingDisplay(product, reviewSummary),
@@ -391,9 +374,7 @@ export function ProductReviewsProvider({
     ? publishedReviews.filter((r) => Math.round(r.rating) === filterStar)
     : publishedReviews;
   const visiblePublishedReviews = filteredPublishedReviews.slice(0, visibleCount);
-  const canWriteOrUpdateReview = Boolean(
-    myReview?._id || reviewEligibility?.canCreate
-  );
+  const canWriteReview = Boolean(!myReview?._id && reviewEligibility?.canCreate);
 
   /**
    * Photos only in purchase context (My Orders / order deep-link).
@@ -466,11 +447,7 @@ export function ProductReviewsProvider({
       return;
     }
     if (myReview?._id) {
-      if (isVerifiedMyReview) {
-        toast.info("You’ve already reviewed this product. Manage it from My Orders.");
-      } else {
-        toast.info("You’ve already reviewed this product.");
-      }
+      toast.info("You’ve already submitted a review for this product.");
       return;
     }
 
@@ -492,35 +469,6 @@ export function ProductReviewsProvider({
     }
   };
 
-  const deleteMyReview = useCallback(
-    async (reviewLike) => {
-      const id = reviewLike?._id || myReview?._id;
-      if (!id || !productId) return;
-      if (
-        !window.confirm(
-          "Delete your review? Stars, comment, and photos will be removed."
-        )
-      ) {
-        return;
-      }
-      setDeletingReviewId(String(id));
-      try {
-        await axiosInstance.delete(`/product-reviews/${id}`);
-        toast.success("Review deleted");
-        resetImageDraft();
-        await reloadReviews(productId);
-        await reloadMine(productId);
-      } catch (err) {
-        toast.error(
-          err?.response?.data?.message || err?.message || "Could not delete review"
-        );
-      } finally {
-        setDeletingReviewId(null);
-      }
-    },
-    [myReview?._id, productId, reloadMine, reloadReviews, resetImageDraft]
-  );
-
   const value = {
     product,
     productId,
@@ -536,15 +484,13 @@ export function ProductReviewsProvider({
     setVisibleCount,
     myReview,
     reviewEligibility,
-    canWriteOrUpdateReview,
+    canWriteReview,
     canAttachImages,
     isVerifiedMyReview,
     reviewForm,
     setReviewForm,
     reviewSubmitting,
     submitProductReview,
-    deleteMyReview,
-    deletingReviewId,
     existingKeptImages,
     newImagePreviews,
     remainingImageSlots,
@@ -593,8 +539,6 @@ export function ProductReviewCompose() {
     setReviewForm,
     reviewSubmitting,
     submitProductReview,
-    deleteMyReview,
-    deletingReviewId,
     newImagePreviews,
     remainingImageSlots,
     handlePickImages,
@@ -697,39 +641,14 @@ export function ProductReviewCompose() {
         {isLoggedIn && !reviewsLoading && (
           <div className="px-4 sm:px-6 py-4">
             {myReview?._id ? (
-              <div className="rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-3 space-y-2">
-                {isVerifiedMyReview ? (
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    You’ve already reviewed this product
-                    {myReview.isActive
-                      ? ". See it in the reviews below."
-                      : " — pending moderation."}{" "}
-                    Edit or delete with photos from{" "}
-                    <span className="font-semibold text-gray-800">My Orders</span>.
-                  </p>
-                ) : (
-                  <p className="text-sm text-gray-600 leading-relaxed">
-                    You’ve already reviewed this product
-                    {myReview.isActive
-                      ? "."
-                      : "."}
-                  </p>
-                )}
-                {!isVerifiedMyReview && (
-                  <button
-                    type="button"
-                    disabled={deletingReviewId === String(myReview._id)}
-                    onClick={() => deleteMyReview(myReview)}
-                    className="inline-flex items-center gap-1.5 text-sm font-semibold text-rose-600 hover:text-rose-700 disabled:opacity-50 cursor-pointer"
-                  >
-                    {deletingReviewId === String(myReview._id) ? (
-                      <Loader2 size={14} className="animate-spin" />
-                    ) : (
-                      <Trash2 size={14} />
-                    )}
-                    Delete my review
-                  </button>
-                )}
+              <div className="rounded-xl border border-gray-200 bg-gray-50/80 px-3 py-3">
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  You’ve already submitted a review for this product
+                  {myReview.isActive
+                    ? ". See it in the reviews below."
+                    : " — pending moderation."}{" "}
+                  Reviews cannot be edited or deleted after submission.
+                </p>
               </div>
             ) : (
               <form
@@ -845,8 +764,6 @@ export function ProductPublishedReviews() {
     visibleCount,
     setLightbox,
     myReview,
-    deleteMyReview,
-    deletingReviewId,
   } = useProductReviewsCtx();
 
   if (!productId) return null;
@@ -898,8 +815,6 @@ export function ProductPublishedReviews() {
                   key={r._id}
                   review={r}
                   isOwn={isOwn}
-                  deleting={deletingReviewId === String(r._id)}
-                  onDelete={deleteMyReview}
                   onImageClick={(images, idx) =>
                     setLightbox({ images, index: idx })
                   }
