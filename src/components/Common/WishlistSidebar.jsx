@@ -368,7 +368,7 @@ const WishlistSidebar = ({ isOpen, onClose, onOpenAuth }) => {
     <>
       {/* Backdrop */}
       <div
-        className={`fixed inset-0 bg-black/70 backdrop-blur-md z-[300] transition-opacity duration-500 ease-in-out ${
+        className={`fixed inset-0 bg-black/70 z-[300] transition-opacity duration-300 ease-in-out ${
           isOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         onClick={onClose}
