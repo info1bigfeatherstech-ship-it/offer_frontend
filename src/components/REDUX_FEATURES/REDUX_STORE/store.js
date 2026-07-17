@@ -73,7 +73,13 @@ const store = configureStore({
 
   },
   middleware: (getDefaultMiddleware) =>
-    getDefaultMiddleware().concat(
+    getDefaultMiddleware({
+      // Bulk upload thunks pass File/Blob via meta.arg; those must not live in
+      // Redux state, but RTK still inspects action meta — ignore only that path.
+      serializableCheck: {
+        ignoredActionPaths: ['meta.arg', 'meta.arg.csvFile', 'meta.arg.zipFile'],
+      },
+    }).concat(
       searchApi.middleware,
       userAnalyticsApi.middleware,
       outOfStockInquiryApi.middleware,
