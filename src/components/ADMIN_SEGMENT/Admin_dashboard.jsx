@@ -243,13 +243,7 @@ const AdminDashboard = () => {
                       </div>
 
                       <div className="flex items-center gap-2">
-                        {/* Badge */}
-                        {BADGE_MAP[tab.id] != null && BADGE_MAP[tab.id] > 0 && (
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${isActive ? "bg-blue-200 text-blue-700" : "bg-gray-200 text-gray-600"
-                            }`}>
-                            {BADGE_MAP[tab.id]}
-                          </span>
-                        )}
+                       
 
                         {/* Chevron — only for tabs with sub-items */}
                         {hasSubItems && (
