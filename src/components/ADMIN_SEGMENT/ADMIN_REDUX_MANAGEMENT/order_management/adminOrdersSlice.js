@@ -221,7 +221,7 @@ export const ADMIN_ORDERS_SUMMARY_ALL_TIME_ARGS = Object.freeze({ rangePreset: '
 
 export const selectAdminOrdersSummaryQueryArgs = () => ADMIN_ORDERS_SUMMARY_ALL_TIME_ARGS;
 
-/** RTO tab UI state */
+/** RTO tab UI state — lifetime by default (not Orders tab's last-30 window). */
 const rtoInitialState = {
   activeSection: 'dashboard',
   statusFilter: '',
@@ -229,7 +229,7 @@ const rtoInitialState = {
   searchInput: '',
   page: 1,
   limit: 20,
-  datePreset: 'last30',
+  datePreset: 'all',
   customDateFrom: '',
   customDateTo: '',
 };
@@ -266,7 +266,7 @@ const adminRtoUiSlice = createSlice({
       state.page = 1;
     },
     setRtoDatePreset: (state, { payload }) => {
-      state.datePreset = payload || 'last30';
+      state.datePreset = payload || 'all';
       state.page = 1;
       if (payload !== 'custom') {
         state.customDateFrom = '';
@@ -305,11 +305,13 @@ function buildRtoDateQueryArgs(ui) {
     const fromIso = localDateStrToStartIso(ui.customDateFrom);
     const toIso = localDateStrToEndIso(ui.customDateTo);
     if (fromIso && toIso) return { from: fromIso, to: toIso };
-    return { rangePreset: 'last30' };
+    // Incomplete custom inputs → keep lifetime list (never silently shrink to 30d).
+    return { rangePreset: 'all' };
   }
   if (ui.datePreset === 'today') return { rangePreset: 'today' };
   if (ui.datePreset === 'last7') return { rangePreset: 'last7' };
-  return { rangePreset: 'last30' };
+  if (ui.datePreset === 'last30') return { rangePreset: 'last30' };
+  return { rangePreset: 'all' };
 }
 
 export const selectAdminRtoListQueryArgs = createSelector([selectAdminRtoUi], (ui) => {

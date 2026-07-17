@@ -844,7 +844,7 @@ export default function RtoTab() {
             <div className="bg-white border border-slate-200 rounded-xl p-6 space-y-4">
               <h3 className="text-lg font-black text-slate-900">RTO Reports</h3>
               <p className="text-sm text-slate-500">
-                Export RTO orders as CSV for the selected date range (last 30 days by default).
+                Export RTO orders as CSV (all RTO orders by default; respects current search/section filters).
               </p>
               <button
                 type="button"
