@@ -240,14 +240,23 @@ function carrierFulfilmentPaymentReady(order, gateFromApi) {
   if (!order) return false;
   const method = String(order?.paymentInfo?.method || "").toLowerCase();
   if (method === "cod") return true;
-  if (String(order?.paymentStatus || "").toLowerCase() === "paid") return true;
+  const pay = String(order?.paymentStatus || "").toLowerCase();
+  // Keep in sync with backend orderFulfillmentPaymentGate: paid + shippable partial refunds.
+  if (pay === "paid") return true;
+  if (
+    pay === "partially_refunded" &&
+    Number(order?.totalAmount || 0) > 0.01 &&
+    Number(order?.amountPaidInr || 0) > 0.01
+  ) {
+    return true;
+  }
   const split = String(order?.paymentInfo?.splitMode || "").toLowerCase();
   const bc = String(order?.paymentInfo?.balanceCollectionMethod || "").toLowerCase();
   if (
     (method === "online" || method === "prepaid") &&
     split === "advance" &&
     bc === "cod" &&
-    String(order?.paymentStatus || "").toLowerCase() === "partially_paid" &&
+    pay === "partially_paid" &&
     Number(order?.amountPaidInr || 0) > 0.01
   ) {
     return true;
