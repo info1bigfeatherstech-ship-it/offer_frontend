@@ -3,7 +3,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { toast } from 'react-toastify';
 import {
   previewCSV, importWithUrls, importWithZip,
-  setImageMode, setCsvFile, setZipFile, goToStep, resetBulkUpload,
+  setImageMode, setCsvMeta, setZipMeta, goToStep, resetBulkUpload,
+  stabilizeUploadFile,
 } from '../ADMIN_REDUX_MANAGEMENT/bulkUploadSlice';
 import axiosInstance from "../../../SERVICES/axiosInstance"; 
 // ─── helpers ─────────────────────────────────────────────────
@@ -12,14 +13,22 @@ const fmt = (n) => Number(n || 0).toLocaleString();
 const downloadWithAuth = async (url) => {
   try {
     const toastId = toast.loading('Downloading error report...');
-    
-    const response = await axiosInstance.get(url, {
+
+    // Backend may return an absolute URL; axiosInstance already has /api base.
+    let requestPath = url;
+    if (typeof url === 'string') {
+      const marker = '/admin/products/download-error-report/';
+      const idx = url.indexOf(marker);
+      if (idx !== -1) requestPath = url.slice(idx);
+    }
+
+    const response = await axiosInstance.get(requestPath, {
       responseType: 'blob'
     });
     
     const blob = new Blob([response.data], { type: 'text/csv' });
     const downloadUrl = URL.createObjectURL(blob);
-    const filename = url.split('/').pop();
+    const filename = String(requestPath).split('/').pop() || `error-report-${Date.now()}.csv`;
     
     const link = document.createElement('a');
     link.href = downloadUrl;
@@ -72,18 +81,20 @@ function useSimulatedProgress(active, uploadPct) {
 // ─── Toast body rendered inside react-toastify ────────────────
 // Used for partial failures — keeps the download button right in
 // the notification so the admin can act immediately.
-const FailureToastBody = ({ failedCount, downloadUrl, onDownload }) => ( // ✅ Added onDownload prop
+const FailureToastBody = ({ failedCount, downloadUrl, onDownload, aborted }) => (
   <div className="flex flex-col gap-2">
-    <p className="text-sm font-semibold text-slate-800">Import completed with issues</p>
+    <p className="text-sm font-semibold text-slate-800">
+      {aborted ? 'Import blocked — nothing was listed' : 'Import failed'}
+    </p>
     <p className="text-xs text-slate-600">
-      {failedCount} product{failedCount !== 1 ? 's' : ''} failed to save.
-      All other products were saved successfully.
+      {failedCount} row{failedCount !== 1 ? 's' : ''} had errors.
+      {' '}No products from this batch were saved, and no images were uploaded.
     </p>
     {downloadUrl && (
       <button
         onClick={(e) => {
           e.stopPropagation();
-          onDownload(downloadUrl); // ✅ CHANGED: call onDownload instead of window.open
+          onDownload(downloadUrl);
         }}
         className="self-start text-xs font-medium px-3 py-1.5 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition-colors"
       >
@@ -91,7 +102,7 @@ const FailureToastBody = ({ failedCount, downloadUrl, onDownload }) => ( // ✅ 
       </button>
     )}
     <p className="text-[11px] text-slate-400">
-      Fix the errors in your Excel file, then re-upload from the Upload tab.
+      Fix every row in your Excel/ZIP (name, product code, row number are in the report), then re-upload.
     </p>
   </div>
 );
@@ -131,8 +142,8 @@ const DropZone = ({ accept, label, hint, icon, onFile, file, disabled }) => {
   const inputRef = useRef();
   const [drag, setDrag] = useState(false);
 
-  const handle     = (f) => { if (f && !disabled) onFile(f); };
-  const onDrop     = useCallback((e) => { e.preventDefault(); setDrag(false); handle(e.dataTransfer.files[0]); }, [disabled]);
+  const handle     = useCallback((f) => { if (f && !disabled) onFile(f); }, [disabled, onFile]);
+  const onDrop     = useCallback((e) => { e.preventDefault(); setDrag(false); handle(e.dataTransfer.files[0]); }, [handle]);
   const onDragOver = (e) => { e.preventDefault(); !disabled && setDrag(true); };
   const onDragLeave= (e) => { e.preventDefault(); setDrag(false); };
 
@@ -221,9 +232,15 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
   const dispatch = useDispatch();
   const {
     step, imageMode,
-    csvFile, csvPct, previewing, previewData, csvError,
-    zipFile, importPct, importing, result, importError,
+    csvPct, previewing, previewData, csvError,
+    importPct, importing, result, importError,
   } = useSelector((s) => s.adminBulkUpload);
+
+  // File blobs stay in component state (never Redux) — serializable + avoids
+  // Chrome ERR_UPLOAD_FILE_CHANGED when Excel/ZIP is touched after pick.
+  const [csvFile, setCsvFileLocal] = useState(null);
+  const [zipFile, setZipFileLocal] = useState(null);
+  const [fileBusy, setFileBusy] = useState(false);
 
   const [resultTab, setResultTab] = useState('all');
 
@@ -231,45 +248,109 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
   const displayImportPct = useSimulatedProgress(importing, importPct);
   const displayCsvPct    = useSimulatedProgress(previewing, csvPct);
 
+  const clearLocalFiles = useCallback(() => {
+    setCsvFileLocal(null);
+    setZipFileLocal(null);
+  }, []);
+
+  const handlePickCsv = useCallback(async (file) => {
+    if (!file) {
+      setCsvFileLocal(null);
+      dispatch(setCsvMeta(null));
+      return;
+    }
+    setFileBusy(true);
+    try {
+      const stable = await stabilizeUploadFile(file);
+      setCsvFileLocal(stable);
+      dispatch(setCsvMeta({ name: stable.name, size: stable.size }));
+    } catch (err) {
+      console.error('CSV stabilize failed:', err);
+      toast.error('Could not read CSV/Excel file. Please select it again.');
+      setCsvFileLocal(null);
+      dispatch(setCsvMeta(null));
+    } finally {
+      setFileBusy(false);
+    }
+  }, [dispatch]);
+
+  const handlePickZip = useCallback(async (file) => {
+    if (!file) {
+      setZipFileLocal(null);
+      dispatch(setZipMeta(null));
+      return;
+    }
+    setFileBusy(true);
+    const toastId = toast.loading('Preparing ZIP in memory…');
+    try {
+      const stable = await stabilizeUploadFile(file);
+      setZipFileLocal(stable);
+      dispatch(setZipMeta({ name: stable.name, size: stable.size }));
+      toast.update(toastId, {
+        render: 'ZIP ready',
+        type: 'success',
+        isLoading: false,
+        autoClose: 2000,
+      });
+    } catch (err) {
+      console.error('ZIP stabilize failed:', err);
+      toast.update(toastId, {
+        render: 'Could not read ZIP file. Please select it again.',
+        type: 'error',
+        isLoading: false,
+        autoClose: 4000,
+      });
+      setZipFileLocal(null);
+      dispatch(setZipMeta(null));
+    } finally {
+      setFileBusy(false);
+    }
+  }, [dispatch]);
+
   // ── Fire toast exactly once when result arrives ───────────────
   // We track the previous step with a ref so this only fires on
   // the transition  importing → result, never on re-renders.
   const prevStep = useRef(step);
   useEffect(() => {
     if (prevStep.current !== 'result' && step === 'result' && result) {
-      const { insertedProducts = 0, updatedProducts = 0, failedCount = 0, downloadUrl } = result;
+      const {
+        insertedProducts = 0,
+        updatedProducts = 0,
+        failedCount = 0,
+        downloadUrl,
+        aborted,
+      } = result;
       const savedCount = insertedProducts + updatedProducts;
 
-      if (failedCount === 0) {
-        // ✅ Everything saved
+      if (failedCount === 0 && !aborted) {
         toast.success(
           `Import complete — ${fmt(savedCount)} product${savedCount !== 1 ? 's' : ''} saved successfully!`,
           { autoClose: 5000 }
         );
-      } else if (savedCount === 0) {
-        // ❌ Nothing saved at all
-        toast.error(
-          `Import failed — all ${fmt(failedCount)} product${failedCount !== 1 ? 's' : ''} had errors. Download the error report to fix them.`,
-          { autoClose: false }
-        );
       } else {
-        // ⚠️ Partial — some saved, some failed → persistent toast with download button
-     toast.warning(
-            <FailureToastBody 
-              failedCount={failedCount} 
-              downloadUrl={downloadUrl}
-              onDownload={(url) => downloadWithAuth(url)} // ✅ ADD THIS LINE
-            />,
-            {
-              autoClose   : false,
-              closeOnClick: false,
-              icon        : false,
-            }
-          );
+        toast.error(
+          <FailureToastBody
+            failedCount={failedCount || 1}
+            downloadUrl={downloadUrl}
+            aborted
+            onDownload={(url) => downloadWithAuth(url)}
+          />,
+          {
+            autoClose   : false,
+            closeOnClick: false,
+            icon        : false,
+          }
+        );
       }
     }
     prevStep.current = step;
   }, [step, result]);
+
+  useEffect(() => {
+    if (importError) {
+      toast.error(importError, { autoClose: 8000 });
+    }
+  }, [importError]);
 
   const [templateDownloading, setTemplateDownloading] = useState(false);
 
@@ -311,10 +392,37 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
     }
   };
 
-  const handleClose        = () => { dispatch(resetBulkUpload()); setResultTab('all'); onClose(); };
-  const handlePreview      = () => { if (csvFile)            dispatch(previewCSV(csvFile)); };
-  const handleModeAImport  = () => { if (csvFile)            dispatch(importWithUrls(csvFile)); };
-  const handleZipImport    = () => { if (csvFile && zipFile) dispatch(importWithZip({ csvFile, zipFile })); };
+  const handleClose = () => {
+    clearLocalFiles();
+    dispatch(resetBulkUpload());
+    setResultTab('all');
+    onClose();
+  };
+
+  const handlePreview = () => {
+    if (!csvFile) {
+      toast.error('Please select a CSV/Excel file first');
+      return;
+    }
+    dispatch(previewCSV(csvFile));
+  };
+
+  const handleModeAImport = () => {
+    if (!csvFile) {
+      toast.error('Please select a CSV/Excel file first');
+      return;
+    }
+    dispatch(importWithUrls(csvFile));
+  };
+
+  const handleZipImport = () => {
+    if (!csvFile || !zipFile) {
+      toast.error('Please select both CSV/Excel and ZIP files');
+      return;
+    }
+    dispatch(importWithZip({ csvFile, zipFile }));
+  };
+
   const handleDownloadReport = (url) => downloadWithAuth(url);
 
   if (!isOpen) return null;
@@ -424,7 +532,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
 
               <p className="text-sm text-slate-600 font-medium">How are you providing product images?</p>
               <div className="grid  grid-cols-1 sm:grid-cols-2 gap-4">
-                <button onClick={() => dispatch(setImageMode('url'))}
+                <button onClick={() => { clearLocalFiles(); dispatch(setImageMode('url')); }}
                   className="group border-2 border-slate-200 cursor-pointer rounded-2xl p-5 text-left hover:border-indigo-400 hover:bg-indigo-50/40 transition-all">
                   <div className="text-3xl mb-3">🔗</div>
                   <div className="font-semibold text-slate-800 group-hover:text-indigo-800 mb-1">Image URLs in Excel</div>
@@ -436,7 +544,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
                   <div className="mt-3 text-xs font-medium text-indigo-600 group-hover:text-indigo-700">1 file upload →</div>
                 </button>
 
-                <button onClick={() => dispatch(setImageMode('zip'))}
+                <button onClick={() => { clearLocalFiles(); dispatch(setImageMode('zip')); }}
                   className="group border-2 border-slate-200 cursor-pointer rounded-2xl p-5 text-left hover:border-violet-400 hover:bg-violet-50/40 transition-all">
                   <div className="text-3xl mb-3">📦</div>
                   <div className="font-semibold text-slate-800 group-hover:text-violet-800 mb-1">Upload images separately</div>
@@ -466,7 +574,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
               </p>
               <DropZone accept=".csv" label="Drop your CSV file"
                 hint="CSV File - max 10 MB" icon="📄"
-                file={csvFile} onFile={(f) => dispatch(setCsvFile(f))} disabled={previewing} />
+                file={csvFile} onFile={handlePickCsv} disabled={previewing || fileBusy} />
               {csvError && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{csvError}</p>}
               {previewing && (
                 <div className="space-y-1">
@@ -488,7 +596,7 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
               </p>
               <DropZone accept=".csv" label="Drop your  CSV file"
                 hint="CSV File — max 10 MB" icon="📄"
-                file={csvFile} onFile={(f) => dispatch(setCsvFile(f))} disabled={previewing} />
+                file={csvFile} onFile={handlePickCsv} disabled={previewing || fileBusy} />
               {csvError && <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{csvError}</p>}
               {previewing && (
                 <div className="space-y-1">
@@ -636,10 +744,26 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
               </div>
 
               {previewData.invalidCount > 0 && (
+                <div className="space-y-2">
+                  <p className="text-xs text-red-700 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+                    ⛔ <strong>{previewData.invalidCount}</strong> product(s) have validation errors.
+                    Import is <strong>blocked</strong> — nothing will be listed until every row is fixed.
+                    The error report includes product name, product code, exact row number, and reason.
+                  </p>
+                  {previewData.downloadUrl && (
+                    <button
+                      type="button"
+                      onClick={() => downloadWithAuth(previewData.downloadUrl)}
+                      className="text-xs font-medium px-3 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+                    >
+                      ↓ Download error report (CSV)
+                    </button>
+                  )}
+                </div>
+              )}
+              {previewData.warning && previewData.invalidCount === 0 && (
                 <p className="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2">
-                  ⚠ {previewData.invalidCount} product(s) have validation errors and will be{' '}
-                  <strong>skipped</strong> during import. Fix them in your file and re-upload, or proceed
-                  to import only the valid ones.
+                  {previewData.warning}
                 </p>
               )}
             </div>
@@ -649,13 +773,21 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
           {step === 'zip' && (
             <div className="space-y-4">
               {previewData && (
-                <div className="bg-violet-50 border border-violet-100 rounded-lg px-3 py-2 text-xs text-violet-700">
-                  📋 Ready to import <strong>{previewData.validCount}</strong> product(s). Now drop the ZIP file.
+                <div className="bg-violet-50 border border-violet-100 rounded-lg px-3 py-2 text-xs text-violet-700 space-y-1">
+                  <p>
+                    📋 Ready to import <strong>{previewData.validCount}</strong> product(s).
+                    Folder names in the ZIP must match each productCode. If any folder is missing or
+                    wrongly named, <strong>nothing</strong> will be listed and no images will upload —
+                    you&apos;ll get a full error report instead.
+                  </p>
+                  <p className="text-violet-600/80">
+                    Tip: After selecting CSV/ZIP, do not open or re-save those files until upload finishes.
+                  </p>
                 </div>
               )}
               <DropZone accept=".zip" label="Drop your ZIP file of product images"
                 hint="Max 500 MB — one folder per Product Code number" icon="📦"
-                file={zipFile} onFile={(f) => dispatch(setZipFile(f))} disabled={importing} />
+                file={zipFile} onFile={handlePickZip} disabled={importing || fileBusy} />
               <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 text-xs text-slate-600 space-y-2">
                 <p className="font-semibold text-slate-700">ZIP folder structure:</p>
                 <pre className="font-mono text-slate-500 leading-relaxed bg-white rounded-lg p-3 border border-slate-100 text-[11px]">
@@ -722,41 +854,42 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
               </div>
 
               {/* ✅ Full success banner */}
-              {result.failedCount === 0 && (
+              {result.failedCount === 0 && !result.aborted && (
                 <div className="bg-emerald-50 border border-emerald-100 rounded-lg px-3 py-2 text-xs text-emerald-700">
                   ✅ All products imported successfully! You can close this window or import another batch.
                 </div>
               )}
 
-              {/* ⚠️ Partial or total failure — prominent download CTA */}
+              {/* Failure — all-or-nothing: nothing listed */}
               {result.failedCount > 0 && (
-                <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 space-y-3">
+                <div className="bg-red-50 border border-red-200 rounded-xl p-4 space-y-3">
                   <div className="flex items-start gap-3">
-                    <span className="text-xl leading-none mt-0.5">⚠️</span>
+                    <span className="text-xl leading-none mt-0.5">⛔</span>
                     <div className="flex-1 space-y-1">
-                      <p className="text-sm font-semibold text-amber-800">
-                        {result.failedCount} product{result.failedCount !== 1 ? 's' : ''} failed to import
+                      <p className="text-sm font-semibold text-red-800">
+                        {result.aborted
+                          ? 'Upload blocked — nothing was listed'
+                          : `${result.failedCount} row${result.failedCount !== 1 ? 's' : ''} failed`}
                       </p>
-                      <p className="text-xs text-amber-700 leading-relaxed">
-                        All other products were saved successfully. Download the error report to see exactly
-                        which rows failed and why — fix them in your Excel file, then come back and
-                        re-upload normally.
+                      <p className="text-xs text-red-700 leading-relaxed">
+                        {result.abortMessage ||
+                          'No products from this batch were saved and no images were uploaded. Download the error report, fix every row, then retry the full file.'}
                       </p>
                     </div>
                   </div>
 
-                 {result.downloadUrl && (
-                      <button
-                        onClick={() => downloadWithAuth(result.downloadUrl)} // ✅ CHANGED: call downloadWithAuth directly
-                        className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg bg-amber-600 text-white hover:bg-amber-700 transition-colors"
-                      >
-                        <span>↓</span>
-                        <span>Download error report (CSV)</span>
-                      </button>
-                    )}
+                  {result.downloadUrl && (
+                    <button
+                      onClick={() => downloadWithAuth(result.downloadUrl)}
+                      className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg bg-red-600 text-white hover:bg-red-700 transition-colors"
+                    >
+                      <span>↓</span>
+                      <span>Download error report (CSV)</span>
+                    </button>
+                  )}
 
-                  <p className="text-[11px] text-amber-600">
-                    The report contains: product name · row number · exact error reason
+                  <p className="text-[11px] text-red-600">
+                    The report contains: row number · product name · product code · exact error reason
                   </p>
                 </div>
               )}
@@ -831,42 +964,88 @@ const BulkUploadModal = ({ isOpen, onClose }) => {
 
             {/* Mode A — Upload → Preview */}
             {step === 'upload' && imageMode === 'url' && (
-              <button disabled={!csvFile || previewing} onClick={handlePreview}
+              <button disabled={!csvFile || previewing || fileBusy} onClick={handlePreview}
                 className="text-sm px-5 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                {previewing ? 'Parsing…' : 'Preview →'}
+                {previewing || fileBusy ? 'Parsing…' : 'Preview →'}
               </button>
             )}
-            {/* Mode A — Preview → Import */}
+            {/* Mode A — Preview → Import (blocked if any validation errors) */}
             {step === 'preview' && imageMode === 'url' && (
-              <button disabled={importing || !previewData?.validCount} onClick={handleModeAImport}
-                className="text-sm px-5 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                Import {previewData?.validCount || 0} product{previewData?.validCount !== 1 ? 's' : ''} →
+              <button
+                disabled={
+                  importing ||
+                  fileBusy ||
+                  !csvFile ||
+                  !previewData?.validCount ||
+                  previewData?.importBlocked ||
+                  previewData?.invalidCount > 0
+                }
+                onClick={handleModeAImport}
+                className="text-sm px-5 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title={
+                  previewData?.invalidCount > 0
+                    ? 'Fix all CSV errors before importing'
+                    : undefined
+                }
+              >
+                {previewData?.invalidCount > 0
+                  ? 'Fix errors to import'
+                  : `Import ${previewData?.validCount || 0} product${previewData?.validCount !== 1 ? 's' : ''} →`}
               </button>
             )}
             {/* Mode B — Upload → Preview */}
             {step === 'upload' && imageMode === 'zip' && (
-              <button disabled={!csvFile || previewing} onClick={handlePreview}
+              <button disabled={!csvFile || previewing || fileBusy} onClick={handlePreview}
                 className="text-sm px-5 py-2 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                {previewing ? 'Parsing…' : 'Preview →'}
+                {previewing || fileBusy ? 'Parsing…' : 'Preview →'}
               </button>
             )}
-            {/* Mode B — Preview → ZIP */}
+            {/* Mode B — Preview → ZIP (blocked if CSV has errors) */}
             {step === 'preview' && imageMode === 'zip' && (
-              <button disabled={!previewData?.validCount} onClick={() => dispatch(goToStep('zip'))}
-                className="text-sm px-5 cursor-pointer py-2 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                Next: Upload ZIP →
+              <button
+                disabled={
+                  !previewData?.validCount ||
+                  previewData?.importBlocked ||
+                  previewData?.invalidCount > 0 ||
+                  fileBusy
+                }
+                onClick={() => dispatch(goToStep('zip'))}
+                className="text-sm px-5 cursor-pointer py-2 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                title={
+                  previewData?.invalidCount > 0
+                    ? 'Fix all CSV errors before uploading ZIP'
+                    : undefined
+                }
+              >
+                {previewData?.invalidCount > 0
+                  ? 'Fix errors first'
+                  : 'Next: Upload ZIP →'}
               </button>
             )}
-            {/* Mode B — ZIP → Import */}
+            {/* Mode B — ZIP → Import (ZIP folder errors caught server-side as all-or-nothing) */}
             {step === 'zip' && (
-              <button disabled={!zipFile || !csvFile || importing} onClick={handleZipImport}
-                className="text-sm px-5 py-2 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-                {importing ? 'Importing…' : `Import ${previewData?.validCount || 0} product${previewData?.validCount !== 1 ? 's' : ''} →`}
+              <button
+                disabled={
+                  !zipFile ||
+                  !csvFile ||
+                  importing ||
+                  fileBusy ||
+                  previewData?.importBlocked ||
+                  previewData?.invalidCount > 0
+                }
+                onClick={handleZipImport}
+                className="text-sm px-5 py-2 rounded-lg bg-violet-600 text-white font-medium hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                {importing
+                  ? 'Importing…'
+                  : fileBusy
+                    ? 'Preparing…'
+                  : `Import ${previewData?.validCount || 0} product${previewData?.validCount !== 1 ? 's' : ''} →`}
               </button>
             )}
             {/* Result — import another batch */}
             {step === 'result' && (
-              <button onClick={() => dispatch(resetBulkUpload())}
+              <button onClick={() => { clearLocalFiles(); dispatch(resetBulkUpload()); }}
                 className="text-sm px-5 py-2 rounded-lg bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors">
                 Import another batch
               </button>

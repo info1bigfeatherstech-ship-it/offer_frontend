@@ -1,11 +1,66 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
 import axiosInstance from "../../../SERVICES/axiosInstance";
 
+function extractApiErrorPayload(err) {
+  const data = err?.response?.data;
+  if (data && typeof data === 'object') {
+    return {
+      message: data.message || err.message || 'Request failed',
+      downloadUrl: data.downloadUrl || null,
+      errorReportFileName: data.errorReportFileName || null,
+      failed: data.failed ?? null,
+      aborted: Boolean(data.aborted),
+      success: data.success === false ? false : data.success,
+    };
+  }
+
+  const raw = String(err?.message || err || '');
+  // Chrome throws this when the on-disk file changed after <input type="file"> selection.
+  if (/ERR_UPLOAD_FILE_CHANGED/i.test(raw) || /Upload.*changed/i.test(raw)) {
+    return {
+      message:
+        'Upload failed because the CSV/ZIP file changed on disk after you selected it. ' +
+        'Please re-select the files (do not edit/save them while uploading) and try again.',
+      downloadUrl: null,
+      aborted: false,
+    };
+  }
+  if (err?.code === 'ERR_NETWORK' || /Network Error/i.test(raw)) {
+    return {
+      message:
+        'Network error while uploading. If you edited the CSV/ZIP after selecting it, re-select the files and retry. ' +
+        'Otherwise check your connection and try again.',
+      downloadUrl: null,
+      aborted: false,
+    };
+  }
+
+  return { message: raw || 'Request failed', downloadUrl: null, aborted: false };
+}
+
+/**
+ * Clone a browser File into an in-memory File.
+ * Prevents Chrome `net::ERR_UPLOAD_FILE_CHANGED` if the user (or Excel) touches
+ * the original path between pick and upload.
+ */
+export async function stabilizeUploadFile(file) {
+  if (!file) return null;
+  if (!(file instanceof Blob)) {
+    throw new Error('Invalid file selected');
+  }
+  const buffer = await file.arrayBuffer();
+  const name = typeof file.name === 'string' && file.name ? file.name : 'upload.bin';
+  const type = file.type || 'application/octet-stream';
+  return new File([buffer], name, { type, lastModified: Date.now() });
+}
+
 // ─── STEP 1: Preview CSV/Excel ───────────────────────────────
 export const previewCSV = createAsyncThunk(
   'bulkUpload/previewCSV',
   async (file, { rejectWithValue, dispatch }) => {
     try {
+      if (!file) return rejectWithValue('CSV/Excel file is required');
+
       const fd = new FormData();
       fd.append('csvFile', file);
 
@@ -19,25 +74,23 @@ export const previewCSV = createAsyncThunk(
         },
       });
 
-      // ── Normalize backend preview response ──────────────────
-      // Backend returns: { success, summary: { totalProducts, validProducts, invalidProducts, ... }, products: [...] }
-      // Frontend expects: { totalProducts, validCount, invalidCount, preview[], hasImageUrls, productCode [] }
       const summary = data.summary || {};
       const rawProducts = data.products || [];
+      const invalidCount =
+        summary.invalidProducts ?? rawProducts.filter((p) => p.hasErrors).length;
+      const validCount =
+        summary.validProducts ?? rawProducts.filter((p) => !p.hasErrors).length;
 
-      const normalized = {
+      return {
         totalProducts  : summary.totalProducts   ?? rawProducts.length,
-        validCount     : summary.validProducts   ?? rawProducts.filter(p => !p.hasErrors).length,
-        invalidCount   : summary.invalidProducts ?? rawProducts.filter(p =>  p.hasErrors).length,
+        validCount,
+        invalidCount,
+        importBlocked  : Boolean(summary.importBlocked ?? invalidCount > 0),
         hasImageUrls   : rawProducts.some(p => p.hasImages),
         uploadType     : data.uploadType || 'CSV only',
-        // Map backend product shape → frontend preview table shape.
-        //
-        // IMPORTANT: keep the `variants` array intact. Each variant carries
-        // its own `errors` and `warnings` (e.g. duplicate productCode,
-        // invalid basePrice, missing image folder). Stripping it here would
-        // mean the preview table can only show product-level errors and
-        // admins would see "⚠" with no message for variant-level issues.
+        downloadUrl    : data.downloadUrl || null,
+        errorReportFileName: data.errorReportFileName || null,
+        warning        : data.warning || null,
         preview: rawProducts.map(p => ({
           name          : p.name,
           category      : p.category,
@@ -46,8 +99,7 @@ export const previewCSV = createAsyncThunk(
           totalQuantity : p.totalQuantity  ?? 0,
           imageUrlCount : p.variants?.reduce((s, v) => s + (v.imageCount || 0), 0) ?? (p.hasImages ? 1 : 0),
           hasErrors     : p.hasErrors      ?? false,
-          errors        : p.errors         || [],
-          // Preserve per-variant errors/warnings for granular display.
+          errors        : p.errors || p.productErrors || [],
           variants      : (p.variants || []).map(v => ({
             rowNumber  : v.rowNumber,
             productCode: v.productCode,
@@ -59,10 +111,8 @@ export const previewCSV = createAsyncThunk(
           })),
         })),
       };
-
-      return normalized;
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || err.message);
+      return rejectWithValue(extractApiErrorPayload(err).message);
     }
   }
 );
@@ -72,6 +122,8 @@ export const importWithUrls = createAsyncThunk(
   'bulkUpload/importWithUrls',
   async (csvFile, { rejectWithValue, dispatch }) => {
     try {
+      if (!csvFile) return rejectWithValue('CSV/Excel file is required');
+
       const fd = new FormData();
       fd.append('csvFile',   csvFile);
       fd.append('imageMode', 'url');
@@ -81,32 +133,44 @@ export const importWithUrls = createAsyncThunk(
         timeout: 600_000,
         onUploadProgress: (e) => {
           if (e.total) {
-            // File upload can only reach ~40% — rest is server processing
             const uploadPct = Math.round((e.loaded / e.total) * 40);
             dispatch(setImportPct(uploadPct));
           }
         },
       });
 
-      // ── Normalize backend import response ───────────────────
-      // Backend returns: { success, totalRows, uniqueProducts, inserted, updated, failed, downloadUrl }
-      // Frontend result step expects: { totalRows, insertedProducts, failedCount, products[], downloadUrl }
       return normalizeImportResult(data);
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || err.message);
+      const payload = extractApiErrorPayload(err);
+      if (payload.aborted || payload.downloadUrl) {
+        return {
+          ...normalizeImportResult({
+            totalRows: err?.response?.data?.totalRows,
+            inserted: 0,
+            updated: 0,
+            failed: payload.failed ?? 0,
+            downloadUrl: payload.downloadUrl,
+          }),
+          aborted: true,
+          abortMessage: payload.message,
+        };
+      }
+      return rejectWithValue(payload.message);
     }
   }
 );
 
 // ─── STEP 2B: Mode B — ZIP folder of images ─────────────────
-// NOTE: Uses /bulk-new-products endpoint (not /import-csv)
 export const importWithZip = createAsyncThunk(
   'bulkUpload/importWithZip',
   async ({ csvFile, zipFile }, { rejectWithValue, dispatch }) => {
     try {
+      if (!csvFile) return rejectWithValue('CSV/Excel file is required');
+      if (!zipFile) return rejectWithValue('Images ZIP file is required');
+
       const fd = new FormData();
       fd.append('csvFile',    csvFile);
-      fd.append('imagesZip',  zipFile);   // field name matches backend multer config
+      fd.append('imagesZip',  zipFile);
       fd.append('imageMode',  'zip');
 
       const { data } = await axiosInstance.post(`/admin/products/bulk-new-products`, fd, {
@@ -114,24 +178,32 @@ export const importWithZip = createAsyncThunk(
         timeout: 600_000,
         onUploadProgress: (e) => {
           if (e.total) {
-            // ZIP can be large — upload itself can be 60–70% of total time
             const uploadPct = Math.round((e.loaded / e.total) * 60);
             dispatch(setImportPct(uploadPct));
           }
         },
       });
 
-      // ── Normalize backend bulk-upload response ──────────────
-      // Backend returns: { success, totalRows, successful, failed, downloadUrl }
       return normalizeImportResult(data, 'zip');
     } catch (err) {
-      return rejectWithValue(err.response?.data?.message || err.message);
+      const payload = extractApiErrorPayload(err);
+      if (payload.aborted || payload.downloadUrl) {
+        return {
+          ...normalizeImportResult({
+            totalRows: err?.response?.data?.totalRows,
+            successful: 0,
+            failed: payload.failed ?? 0,
+            downloadUrl: payload.downloadUrl,
+          }, 'zip'),
+          aborted: true,
+          abortMessage: payload.message,
+        };
+      }
+      return rejectWithValue(payload.message);
     }
   }
 );
 
-// ─── Shared normalizer ───────────────────────────────────────
-// Converts either backend shape into what the result UI needs
 function normalizeImportResult(data, mode = 'url') {
   const inserted = data.inserted    ?? data.successful ?? 0;
   const updated  = data.updated     ?? 0;
@@ -145,14 +217,14 @@ function normalizeImportResult(data, mode = 'url') {
     updatedProducts   : updated,
     failedCount       : failed,
     downloadUrl       : data.downloadUrl   || null,
+    errorReportFileName: data.errorReportFileName || null,
     imageMode         : mode,
-    // Backend doesn't return per-product rows on import (only on preview)
-    // We build summary rows so the result table has something to show
+    aborted           : Boolean(data.aborted),
+    abortMessage      : data.message && data.aborted ? data.message : null,
     products: buildSummaryRows({ inserted, updated, failed }),
   };
 }
 
-// Build placeholder rows for the result table when backend only returns counts
 function buildSummaryRows({ inserted, updated, failed }) {
   const rows = [];
   if (inserted > 0) {
@@ -177,60 +249,64 @@ function buildSummaryRows({ inserted, updated, failed }) {
   }
   if (failed > 0) {
     rows.push({
-      name      : `${failed} product${failed !== 1 ? 's' : ''} failed`,
+      name      : `${failed} row${failed !== 1 ? 's' : ''} failed — nothing was listed`,
       status    : 'failed',
       imageCount: null,
       warnings  : [],
-      errors    : ['Download the error report below for details'],
+      errors    : ['Download the error report below for row number, product name, product code, and reason'],
       isSummary : true,
     });
   }
   return rows;
 }
 
-// ─── Slice ───────────────────────────────────────────────────
+const initialState = {
+  step        : 'mode',
+  imageMode   : null,
+  // Serializable file metadata only — actual File blobs live in component state.
+  csvMeta     : null, // { name, size } | null
+  zipMeta     : null,
+  csvPct      : 0,
+  previewing  : false,
+  previewData : null,
+  csvError    : null,
+  importPct   : 0,
+  importing   : false,
+  result      : null,
+  importError : null,
+};
+
 const slice = createSlice({
   name: 'bulkUpload',
-  initialState: {
-    step        : 'mode',   // 'mode' | 'upload' | 'preview' | 'zip' | 'importing' | 'result'
-    imageMode   : null,     // 'url' | 'zip'
-    csvFile     : null,
-    csvPct      : 0,
-    previewing  : false,
-    previewData : null,
-    csvError    : null,
-    zipFile     : null,
-    importPct   : 0,
-    importing   : false,
-    result      : null,
-    importError : null,
-  },
+  initialState,
   reducers: {
-    setImageMode    : (s, a) => { s.imageMode = a.payload; s.step = 'upload'; },
-    setCsvFile      : (s, a) => { s.csvFile   = a.payload; s.csvError = null; },
-    setZipFile      : (s, a) => { s.zipFile   = a.payload; },
+    setImageMode    : (s, a) => {
+      s.imageMode = a.payload;
+      s.step = 'upload';
+      s.csvMeta = null;
+      s.zipMeta = null;
+      s.previewData = null;
+      s.csvError = null;
+      s.importError = null;
+      s.result = null;
+    },
+    setCsvMeta      : (s, a) => { s.csvMeta = a.payload; s.csvError = null; },
+    setZipMeta      : (s, a) => { s.zipMeta = a.payload; },
     setCsvPct       : (s, a) => { s.csvPct    = a.payload; },
     setImportPct    : (s, a) => { s.importPct = a.payload; },
     goToStep        : (s, a) => { s.step      = a.payload; },
-    resetBulkUpload : ()     => ({
-      step: 'mode', imageMode: null, csvFile: null, csvPct: 0,
-      previewing: false, previewData: null, csvError: null,
-      zipFile: null, importPct: 0, importing: false, result: null, importError: null,
-    }),
+    resetBulkUpload : ()     => ({ ...initialState }),
     clearResult: (s) => { s.result = null; s.importError = null; s.step = 'mode'; },
   },
   extraReducers: (b) => {
-    // Preview
     b.addCase(previewCSV.pending,   (s) => { s.previewing = true;  s.csvError = null; s.csvPct = 0; });
     b.addCase(previewCSV.fulfilled, (s, a) => { s.previewing = false; s.previewData = a.payload; s.step = 'preview'; s.csvPct = 100; });
     b.addCase(previewCSV.rejected,  (s, a) => { s.previewing = false; s.csvError = a.payload; s.csvPct = 0; });
 
-    // Import with URLs
     b.addCase(importWithUrls.pending,   (s) => { s.importing = true;  s.importError = null; s.importPct = 0; s.step = 'importing'; });
     b.addCase(importWithUrls.fulfilled, (s, a) => { s.importing = false; s.result = a.payload; s.step = 'result'; s.importPct = 100; });
     b.addCase(importWithUrls.rejected,  (s, a) => { s.importing = false; s.importError = a.payload; s.step = 'upload'; s.importPct = 0; });
 
-    // Import with ZIP
     b.addCase(importWithZip.pending,   (s) => { s.importing = true;  s.importError = null; s.importPct = 0; s.step = 'importing'; });
     b.addCase(importWithZip.fulfilled, (s, a) => { s.importing = false; s.result = a.payload; s.step = 'result'; s.importPct = 100; });
     b.addCase(importWithZip.rejected,  (s, a) => { s.importing = false; s.importError = a.payload; s.step = 'zip'; s.importPct = 0; });
@@ -238,9 +314,8 @@ const slice = createSlice({
 });
 
 export const {
-  setImageMode, setCsvFile, setZipFile, setCsvPct, setImportPct,
+  setImageMode, setCsvMeta, setZipMeta, setCsvPct, setImportPct,
   goToStep, resetBulkUpload, clearResult,
 } = slice.actions;
 
 export default slice.reducer;
-
