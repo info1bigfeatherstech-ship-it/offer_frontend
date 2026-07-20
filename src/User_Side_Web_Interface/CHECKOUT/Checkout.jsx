@@ -939,9 +939,25 @@ const Checkout = () => {
   };
 
   const advanceAmount = paymentPlan === "full" ? 0 : getPartialPayNowAmount();
+  // Partial = COD-style total × %. Never preview against prepaid/online quote alone.
+  const codStylePayableForPartialPreview = (() => {
+    if (checkoutMode === "cod" || checkoutMode === "advance_cod") {
+      return Number(quote?.amountPayable);
+    }
+    const online =
+      onlineFullDisplayAmount ??
+      onlineFullPayableRef.current ??
+      (quote?.amountPayable != null ? Number(quote.amountPayable) : null);
+    if (!Number.isFinite(online)) return NaN;
+    if (Number.isFinite(codVsOnlineSavings) && codVsOnlineSavings > 0) {
+      return online + codVsOnlineSavings;
+    }
+    return online;
+  })();
+
   const advancePreviewNow =
-    quote?.amountPayable != null && policyPartialPercent != null
-      ? (quote.amountPayable * policyPartialPercent) / 100
+    Number.isFinite(codStylePayableForPartialPreview) && policyPartialPercent != null
+      ? (codStylePayableForPartialPreview * policyPartialPercent) / 100
       : 0;
 
   // -- Scroll to top on mount and step change ---------------------------------
