@@ -30,6 +30,7 @@ import CartDeliverySection from './CartDeliverySection';
 
 import { fetchCategories } from '../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/categoriesSlice';
 import { getProductCategoryDisplayName } from '../../utils/getProductCategoryDisplayName';
+import { lockBodyScroll, unlockBodyScroll } from '../../utils/lockBodyScroll';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -281,19 +282,11 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth }) => {
     dispatch(fetchCategories()).catch(() => {});
   }, [isOpen, categories.length, dispatch]);
 
-  // ── Lock body scroll when open ────────────────────────────────
+  // ── Lock body scroll when open (compensate scrollbar width) ───
   useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow       = 'hidden';
-      document.body.style.willChange     = 'scroll-position';
-    } else {
-      document.body.style.overflow       = '';
-      document.body.style.willChange     = '';
-    }
-    return () => {
-      document.body.style.overflow       = '';
-      document.body.style.willChange     = '';
-    };
+    if (isOpen) lockBodyScroll();
+    else unlockBodyScroll();
+    return () => unlockBodyScroll();
   }, [isOpen]);
 
   // ── Clear errors on close ─────────────────────────────────────

@@ -23,6 +23,8 @@ import {
   addGuestCartItem,
 } from '../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice';
 
+import { lockBodyScroll, unlockBodyScroll } from '../../utils/lockBodyScroll';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
 // ─────────────────────────────────────────────────────────────────────────────
@@ -261,10 +263,11 @@ const WishlistSidebar = ({ isOpen, onClose, onOpenAuth }) => {
     }
   }, [isOpen, isLoggedIn, dispatch]);
 
-  // ── Body scroll lock ───────────────────────────────────────────────────────
+  // ── Body scroll lock (compensate scrollbar width) ──────────────────────────
   useEffect(() => {
-    document.body.style.overflow = isOpen ? 'hidden' : 'unset';
-    return () => { document.body.style.overflow = 'unset'; };
+    if (isOpen) lockBodyScroll();
+    else unlockBodyScroll();
+    return () => unlockBodyScroll();
   }, [isOpen]);
 
   // ── Clear errors when closing ──────────────────────────────────────────────
