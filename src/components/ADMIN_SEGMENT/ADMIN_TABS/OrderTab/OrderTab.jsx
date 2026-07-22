@@ -813,8 +813,14 @@ const OrderTab = () => {
           <h1 className="text-2xl font-black text-slate-900 tracking-tight">Orders</h1>
           <div className="flex flex-wrap items-center gap-2">
             <select
-              className="bg-white border border-slate-200 text-xs px-3 py-1.5 rounded-lg shadow-sm outline-none"
+              className="bg-white border border-slate-200 text-xs px-3 py-1.5 rounded-lg shadow-sm outline-none disabled:opacity-50 disabled:cursor-not-allowed"
               value={ui.datePreset}
+              disabled={Boolean(String(ui.search || "").trim())}
+              title={
+                String(ui.search || "").trim()
+                  ? "Date range paused while searching — Clear search to filter by date"
+                  : undefined
+              }
               onChange={(e) => {
                 const v = e.target.value;
                 setCustomRangeError(null);
@@ -836,7 +842,7 @@ const OrderTab = () => {
               <option value="last30">Last 30 days</option>
               <option value="custom">Custom range</option>
             </select>
-            {ui.datePreset === "custom" && (
+            {ui.datePreset === "custom" && !String(ui.search || "").trim() && (
               <div className="flex flex-wrap items-center gap-2">
                 <label className="text-[10px] text-slate-500 uppercase">From</label>
                 <input
@@ -881,6 +887,11 @@ const OrderTab = () => {
             )}
           </div>
           </div>
+          {String(ui.search || "").trim() ? (
+            <p className="text-xs text-slate-500">
+              Searching all dates (order ID, AWB, name, phone) — Clear search to use the date filter again.
+            </p>
+          ) : null}
           {customRangeError && <p className="text-xs text-red-600">{customRangeError}</p>}
         </div>
         <div className="flex items-center gap-3">
@@ -952,7 +963,7 @@ const OrderTab = () => {
           <div className="flex items-center gap-2 w-full lg:w-auto px-2">
             <input
               type="search"
-              placeholder="Search orders…"
+              placeholder="Search orders..."
               value={ui.searchInput}
               onChange={(e) => dispatch(setSearchInput(e.target.value))}
               onKeyDown={(e) => {
