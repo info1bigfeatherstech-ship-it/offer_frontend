@@ -3,7 +3,6 @@ import { X } from "lucide-react";
 import Login from "./Login";
 import Register from "./Register";
 import ForgotPassword from "./ForgotPassword";
-import OtpVerification from "./OTPVerification";
 import { useDispatch } from "react-redux";
 import { clearError, clearSuccess } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
 
@@ -53,13 +52,13 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
   const dispatch = useDispatch();
   const [activeTab, setActiveTab] = useState("login");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
-  const [showOtpPanel, setShowOtpPanel] = useState(false);
-  const [otpIdentifier, setOtpIdentifier] = useState("");
-  const [otpPhone, setOtpPhone] = useState("");
-  const [otpRegistrationPassword, setOtpRegistrationPassword] = useState("");
-  const [otpDeliveryMessage, setOtpDeliveryMessage] = useState("");
-  const [otpName, setOtpName] = useState("");
-  const [otpEmail, setOtpEmail] = useState("");
+
+  const handleTabChange = useCallback((tab) => {
+    setActiveTab(tab);
+    setShowForgotPassword(false);
+    dispatch(clearError());
+    dispatch(clearSuccess());
+  }, [dispatch]);
 
   // ── Swipe tracking ────────────────────────────────────────────────────────
   const touchStartX = useRef(null);
@@ -68,12 +67,12 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
   const backdropRef = useRef(null);
 
   const handleTouchStart = useCallback((e) => {
-    if (showForgotPassword || showOtpPanel) { swipeEnabled.current = false; return; }
+    if (showForgotPassword) { swipeEnabled.current = false; return; }
     if (isInteractive(e.target)) { swipeEnabled.current = false; return; }
     swipeEnabled.current = true;
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
-  }, [showForgotPassword, showOtpPanel]);
+  }, [showForgotPassword]);
 
   const handleTouchEnd = useCallback((e) => {
     if (!swipeEnabled.current || touchStartX.current === null) return;
@@ -86,7 +85,7 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
     swipeEnabled.current = false;
     touchStartX.current = null;
     touchStartY.current = null;
-  }, [activeTab]);
+  }, [activeTab, handleTabChange]);
 
   const handleTouchCancel = useCallback(() => {
     swipeEnabled.current = false;
@@ -149,14 +148,6 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
 
   if (!isOpen) return null;
 
-  const handleTabChange = (tab) => {
-    setActiveTab(tab);
-    setShowForgotPassword(false);
-    setShowOtpPanel(false);
-    dispatch(clearError());
-    dispatch(clearSuccess());
-  };
-
   const handleClose = () => {
     dispatch(clearError());
     dispatch(clearSuccess());
@@ -175,39 +166,14 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
     setShowForgotPassword(false);
   };
 
-  const handleShowOtp = ({
-    identifier,
-    phone,
-    name,
-    email = "",
-    password = "",
-    deliveryMessage = "",
-  }) => {
-    setOtpIdentifier(String(identifier || "").trim());
-    setOtpPhone(String(phone || "").replace(/\D/g, "").slice(0, 10));
-    setOtpRegistrationPassword(password);
-    setOtpDeliveryMessage(typeof deliveryMessage === "string" ? deliveryMessage : "");
-    setOtpName(name);
-    setOtpEmail(email);
-    setShowOtpPanel(true);
-  };
+  /*
+    Legacy OTP modal helpers intentionally removed from live wiring.
+    The direct-register flow now reuses onLoginSuccess immediately after
+    successful registration. OTPVerification.jsx is preserved in the codebase
+    as a rollback reference.
+  */
 
-  const handleOtpClose = () => {
-    setShowOtpPanel(false);
-    setOtpIdentifier("");
-    setOtpPhone("");
-    setOtpRegistrationPassword("");
-    setOtpDeliveryMessage("");
-    setOtpName("");
-    setOtpEmail("");
-  };
-
-  const handleOtpVerify = () => {
-    setShowOtpPanel(false);
-    onLoginSuccess();
-  };
-
-  const currentView = showOtpPanel ? "otp" : showForgotPassword ? "forgot" : "tabs";
+  const currentView = showForgotPassword ? "forgot" : "tabs";
 
   return (
     <>
@@ -342,22 +308,6 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
               </button>
             </div>
 
-            {/* ── OTP view ── */}
-            {currentView === "otp" && (
-              <div className="lr-panel-body lr-slide-up">
-                <OtpVerification
-                  identifier={otpIdentifier}
-                  phone={otpPhone}
-                  name={otpName}
-                  email={otpEmail}
-                  registrationPassword={otpRegistrationPassword}
-                  deliveryMessage={otpDeliveryMessage}
-                  onClose={handleOtpClose}
-                  onVerify={handleOtpVerify}
-                />
-              </div>
-            )}
-
             {/* ── Forgot Password view ── */}
             {currentView === "forgot" && (
               <div className="lr-panel-body">
@@ -429,7 +379,6 @@ onLoginSuccess={onLoginSuccess}
                       <Register
                         onRegisterSuccess={onLoginSuccess}
                         onLoginClick={() => handleTabChange("login")}
-                        onShowOtp={handleShowOtp}
                       />
                     </div>
                   )}
