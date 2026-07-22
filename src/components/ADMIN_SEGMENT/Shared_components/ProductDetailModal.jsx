@@ -226,11 +226,19 @@ const ProductDetailModal = ({ product, categories, onClose, formatIndianRupee, g
                     <p className="text-xs text-gray-400 mb-2">Inventory</p>
                     <div className="space-y-1">
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">Quantity:</span>
+                        <span className="text-gray-500">Ecom stock:</span>
                         <span className={`font-semibold ${activeVariant.inventory?.quantity < activeVariant.inventory?.lowStockThreshold
                           ? "text-red-600" : "text-gray-900"
                           }`}>
                           {activeVariant.inventory?.quantity ?? 0}
+                        </span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">Inventory stock:</span>
+                        <span className="font-semibold text-gray-900" title="Live stock from inventory software">
+                          {activeVariant.inventory?.liveQuantity == null
+                            ? "—"
+                            : activeVariant.inventory.liveQuantity}
                         </span>
                       </div>
                       <div className="flex justify-between text-sm">
