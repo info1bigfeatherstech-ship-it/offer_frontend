@@ -7,10 +7,11 @@ import {
   notifyAccessTokenStored,
 } from "../../../SERVICES/axiosInstance";
 
-/**
- * Choose phone or email for POST /auth/otp-verify-login `identifier`
- * so the correct verification flag is set (matches OTP_DELIVERY_MODE / deliveredVia).
- */
+/*
+Legacy register-OTP helper intentionally preserved for rollback reference.
+The new register flow logs the user in immediately, so no pending OTP identifier
+is stored in Redux anymore.
+
 export const pickRegisterOtpIdentifier = (payload = {}, metaArg = {}) => {
   const mode = String(payload.deliveryMode || "").toLowerCase();
   const via = Array.isArray(payload.deliveredVia) ? payload.deliveredVia : [];
@@ -23,14 +24,15 @@ export const pickRegisterOtpIdentifier = (payload = {}, metaArg = {}) => {
   if (via.includes("email")) return String(payload.email || metaArg.email || "").trim();
   return String(payload.phone || metaArg.phone || "").trim();
 };
+*/
 
 // ─────────────────────────────────────────────────────────────
 // THUNKS
 // ─────────────────────────────────────────────────────────────
 
 // ✅ REGISTER
-// Backend: name, email, phone (10-digit), password — OTP channel from OTP_DELIVERY_MODE
-// Response: { success, message, phone, email, deliveryMode, deliveredVia, requiresOTPVerification }
+// Backend: name, email(optional), phone (10-digit), password
+// Response: { success, message, accessToken, user }
 export const registerUser = createAsyncThunk(
   "auth/register",
   async ({ name, email, password, phone }, { rejectWithValue }) => {
@@ -41,6 +43,10 @@ export const registerUser = createAsyncThunk(
         password,
         phone,
       });
+      if (res.data.accessToken) {
+        localStorage.setItem(USER_ACCESS_TOKEN_KEY, res.data.accessToken);
+        notifyAccessTokenStored(AUTH_CONTEXT_USER);
+      }
       return res.data;
     } catch (err) {
       return rejectWithValue(
@@ -50,8 +56,10 @@ export const registerUser = createAsyncThunk(
   }
 );
 
-// ✅ VERIFY OTP & AUTO-LOGIN
-// Backend: POST /auth/otp-verify-login — prefers { identifier, otp } (phone or email)
+/*
+Legacy OTP verification thunk preserved for rollback reference after
+registration-OTP removal.
+
 export const verifyOTP = createAsyncThunk(
   "auth/verifyOTP",
   async ({ identifier, otp }, { rejectWithValue }) => {
@@ -64,7 +72,7 @@ export const verifyOTP = createAsyncThunk(
         localStorage.setItem(USER_ACCESS_TOKEN_KEY, res.data.accessToken);
         notifyAccessTokenStored(AUTH_CONTEXT_USER);
       }
-      return res.data; // { success, accessToken, user }
+      return res.data;
     } catch (err) {
       return rejectWithValue(
         err.response?.data || { message: "OTP verification failed" }
@@ -72,6 +80,7 @@ export const verifyOTP = createAsyncThunk(
     }
   }
 );
+*/
 
 // ✅ LOGIN
 // Backend now expects field named "identifier" (not "email")
@@ -137,10 +146,10 @@ export const logoutUser = createAsyncThunk(
   }
 );
 
-// ✅ FORGOT PASSWORD — STEP 1: Request OTP
-// New endpoint: POST /auth/forgot-password/request-otp
-// Sends: { identifier } — accepts email OR phone
-// Response: { success, message, identifierType: 'email'|'phone' }
+/*
+Legacy OTP forgot-password thunks preserved for rollback reference.
+Ecomm now uses Option D: find-user + reset-direct.
+
 export const forgotPasswordRequestOTP = createAsyncThunk(
   "auth/forgotPasswordRequestOTP",
   async ({ identifier }, { rejectWithValue }) => {
@@ -148,7 +157,7 @@ export const forgotPasswordRequestOTP = createAsyncThunk(
       const res = await axiosInstance.post("/auth/forgot-password/request-otp", {
         identifier,
       });
-      return { ...res.data, identifier }; // pass identifier forward for next steps
+      return { ...res.data, identifier };
     } catch (err) {
       return rejectWithValue(
         err.response?.data || { message: "Failed to send OTP" }
@@ -157,10 +166,6 @@ export const forgotPasswordRequestOTP = createAsyncThunk(
   }
 );
 
-// ✅ FORGOT PASSWORD — STEP 2: Verify OTP
-// New endpoint: POST /auth/forgot-password/verify-otp
-// Sends: { identifier, otp }
-// Response: { success, message }
 export const forgotPasswordVerifyOTP = createAsyncThunk(
   "auth/forgotPasswordVerifyOTP",
   async ({ identifier, otp }, { rejectWithValue }) => {
@@ -178,10 +183,6 @@ export const forgotPasswordVerifyOTP = createAsyncThunk(
   }
 );
 
-// ✅ FORGOT PASSWORD — STEP 3: Reset Password
-// New endpoint: POST /auth/forgot-password/reset
-// Sends: { identifier, otp, newPassword }
-// Response: { success, message }
 export const forgotPasswordReset = createAsyncThunk(
   "auth/forgotPasswordReset",
   async ({ identifier, otp, newPassword }, { rejectWithValue }) => {
@@ -190,6 +191,46 @@ export const forgotPasswordReset = createAsyncThunk(
         identifier,
         otp,
         newPassword,
+      });
+      return res.data;
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data || { message: "Password reset failed" }
+      );
+    }
+  }
+);
+*/
+
+// ✅ FORGOT PASSWORD — STEP 1: Find user by phone (Option D)
+// Endpoint: POST /auth/forgot-password/find-user
+// Response: { success, message, resetToken?, phone? }
+export const forgotPasswordFindUser = createAsyncThunk(
+  "auth/forgotPasswordFindUser",
+  async ({ phone }, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.post("/auth/forgot-password/find-user", {
+        phone,
+      });
+      return { ...res.data, phone };
+    } catch (err) {
+      return rejectWithValue(
+        err.response?.data || { message: "Failed to start password reset" }
+      );
+    }
+  }
+);
+
+// ✅ FORGOT PASSWORD — STEP 2: Reset password with short-lived token
+// Endpoint: POST /auth/forgot-password/reset-direct
+export const forgotPasswordResetDirect = createAsyncThunk(
+  "auth/forgotPasswordResetDirect",
+  async ({ resetToken, newPassword, confirmPassword }, { rejectWithValue }) => {
+    try {
+      const res = await axiosInstance.post("/auth/forgot-password/reset-direct", {
+        resetToken,
+        newPassword,
+        confirmPassword,
       });
       return res.data;
     } catch (err) {
@@ -265,10 +306,9 @@ const initialState = {
   loading: false,
   error: null,
   successMessage: null,
-  /** Phone or email string used for registration OTP verify step */
-  pendingOtpIdentifier: null,
-  // Keep identifier for forgot password flow across 3 steps
-  forgotPasswordIdentifier: null,
+  // Option D forgot-password: short-lived reset token + phone for auto-login
+  resetToken: null,
+  forgotPasswordPhone: null,
 };
 
 // ─────────────────────────────────────────────────────────────
@@ -285,11 +325,9 @@ const authSlice = createSlice({
     clearSuccess: (state) => {
       state.successMessage = null;
     },
-    clearPendingOtpIdentifier: (state) => {
-      state.pendingOtpIdentifier = null;
-    },
     clearForgotPasswordState: (state) => {
-      state.forgotPasswordIdentifier = null;
+      state.resetToken = null;
+      state.forgotPasswordPhone = null;
       state.error = null;
       state.successMessage = null;
     },
@@ -300,8 +338,8 @@ const authSlice = createSlice({
       state.isLoggedIn = false;
       state.error = null;
       state.successMessage = null;
-      state.pendingOtpIdentifier = null;
-      state.forgotPasswordIdentifier = null;
+      state.resetToken = null;
+      state.forgotPasswordPhone = null;
       localStorage.removeItem(USER_ACCESS_TOKEN_KEY);
     },
   },
@@ -335,25 +373,12 @@ const authSlice = createSlice({
       .addCase(registerUser.pending, setPending)
       .addCase(registerUser.fulfilled, (state, action) => {
         state.loading = false;
-        state.successMessage = action.payload.message;
-        state.pendingOtpIdentifier = pickRegisterOtpIdentifier(
-          action.payload,
-          action.meta.arg
-        );
-      })
-      .addCase(registerUser.rejected, setRejected)
-
-      // ── VERIFY OTP ──────────────────────────────────────────
-      .addCase(verifyOTP.pending, setPending)
-      .addCase(verifyOTP.fulfilled, (state, action) => {
-        state.loading = false;
         state.isLoggedIn = true;
         state.accessToken = action.payload.accessToken;
         state.user = action.payload.user;
-        state.pendingOtpIdentifier = null;
-        state.successMessage = "Account verified! Welcome!";
+        state.successMessage = action.payload.message || "Registration successful!";
       })
-      .addCase(verifyOTP.rejected, setRejected)
+      .addCase(registerUser.rejected, setRejected)
 
       // ── LOGIN ─────────────────────────────────────────────
       .addCase(loginUser.pending, setPending)
@@ -388,8 +413,8 @@ const authSlice = createSlice({
         state.loading = false;
         state.error = null;
         state.successMessage = null;
-        state.pendingOtpIdentifier = null;
-        state.forgotPasswordIdentifier = null;
+        state.resetToken = null;
+        state.forgotPasswordPhone = null;
       })
       .addCase(logoutUser.rejected, (state) => {
         // Still clear state even if API call fails
@@ -399,32 +424,25 @@ const authSlice = createSlice({
         state.loading = false;
       })
 
-      // ── FORGOT PASSWORD: REQUEST OTP ──────────────────────
-      .addCase(forgotPasswordRequestOTP.pending, setPending)
-      .addCase(forgotPasswordRequestOTP.fulfilled, (state, action) => {
+      // ── FORGOT PASSWORD: FIND USER (Option D) ──────────────
+      .addCase(forgotPasswordFindUser.pending, setPending)
+      .addCase(forgotPasswordFindUser.fulfilled, (state, action) => {
         state.loading = false;
         state.successMessage = action.payload.message;
-        // Store identifier for use in steps 2 and 3
-        state.forgotPasswordIdentifier = action.payload.identifier;
+        state.resetToken = action.payload.resetToken || null;
+        state.forgotPasswordPhone =
+          action.payload.phone || action.meta?.arg?.phone || null;
       })
-      .addCase(forgotPasswordRequestOTP.rejected, setRejected)
+      .addCase(forgotPasswordFindUser.rejected, setRejected)
 
-      // ── FORGOT PASSWORD: VERIFY OTP ───────────────────────
-      .addCase(forgotPasswordVerifyOTP.pending, setPending)
-      .addCase(forgotPasswordVerifyOTP.fulfilled, (state, action) => {
+      // ── FORGOT PASSWORD: RESET DIRECT (Option D) ───────────
+      .addCase(forgotPasswordResetDirect.pending, setPending)
+      .addCase(forgotPasswordResetDirect.fulfilled, (state, action) => {
         state.loading = false;
         state.successMessage = action.payload.message;
+        state.resetToken = null;
       })
-      .addCase(forgotPasswordVerifyOTP.rejected, setRejected)
-
-      // ── FORGOT PASSWORD: RESET PASSWORD ───────────────────
-      .addCase(forgotPasswordReset.pending, setPending)
-      .addCase(forgotPasswordReset.fulfilled, (state, action) => {
-        state.loading = false;
-        state.successMessage = action.payload.message;
-        state.forgotPasswordIdentifier = null;
-      })
-      .addCase(forgotPasswordReset.rejected, setRejected)
+      .addCase(forgotPasswordResetDirect.rejected, setRejected)
 
       // ── FETCH ME ──────────────────────────────────────────
       .addCase(fetchMe.pending, setPending)
@@ -461,7 +479,6 @@ const authSlice = createSlice({
 export const {
   clearError,
   clearSuccess,
-  clearPendingOtpIdentifier,
   clearForgotPasswordState,
   forceLogout,
 } = authSlice.actions;
@@ -478,8 +495,6 @@ export const selectAccessToken = (state) => state.auth.accessToken;
 export const selectAuthLoading = (state) => state.auth.loading;
 export const selectAuthError = (state) => state.auth.error;
 export const selectSuccessMessage = (state) => state.auth.successMessage;
-export const selectPendingOtpIdentifier = (state) => state.auth.pendingOtpIdentifier;
-/** @deprecated use selectPendingOtpIdentifier */
-export const selectPendingPhone = selectPendingOtpIdentifier;
-export const selectForgotPasswordIdentifier = (state) => state.auth.forgotPasswordIdentifier;
+export const selectResetToken = (state) => state.auth.resetToken;
+export const selectForgotPasswordPhone = (state) => state.auth.forgotPasswordPhone;
 export default authSlice.reducer;

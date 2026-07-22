@@ -2,11 +2,11 @@ import React, { useState, useEffect, useRef } from "react";
 import { Phone, Mail, User, Lock } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
-import { registerUser, googleLogin, clearError, pickRegisterOtpIdentifier } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
+import { registerUser, googleLogin, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
 import { GoogleIcon } from "./Login";
 import LOGO from "../../assets/logo2.svg";
 
-const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
+const Register = ({ onRegisterSuccess, onLoginClick }) => {
   const dispatch = useDispatch();
   const { loading, error } = useSelector((state) => state.auth);
   const googleBtnRef = useRef(null);
@@ -79,19 +79,11 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
       ).unwrap();
 
       if (result) {
-        const verifyId = pickRegisterOtpIdentifier(result, { email, phone: cleanPhone });
         const msg = typeof result.message === "string" ? result.message : "";
-        toast.success(msg || "OTP sent!");
-        onShowOtp({
-          identifier: verifyId,
-          phone: cleanPhone,
-          name,
-          email,
-          password,
-          deliveryMessage: msg,
-        });
+        toast.success(msg || "Welcome to the Club!");
+        onRegisterSuccess();
       }
-    } catch (_) {
+    } catch {
       // Error shown via Redux error state + useEffect toast above
     }
   };
@@ -223,10 +215,6 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
           </div>
         </div>
 
-        {/* <p className="text-[10px] text-gray-500 text-center leading-snug px-1 -mt-1 mb-2">
-          A one-time code is sent by the server (commonly to your email; SMS only if enabled). The next step shows exactly where it was sent.
-        </p> */}
-
         <form onSubmit={handleSubmit} className="space-y-2">
           {/* Full Name */}
           <div className="relative">
@@ -246,7 +234,7 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
             />
           </div>
 
-          {/* Email */}
+          {/* Email (optional) */}
           <div className="relative">
             <Mail
               className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
@@ -260,7 +248,6 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
               style={inputBase}
-              required
             />
           </div>
 
@@ -312,7 +299,7 @@ const Register = ({ onRegisterSuccess, onLoginClick, onShowOtp }) => {
             disabled={loading}
             className="reg-btn-primary touch-manipulation select-none"
           >
-            {loading ? "SENDING OTP..." : "REGISTER"}
+            {loading ? "CREATING ACCOUNT..." : "REGISTER"}
           </button>
         </form>
 
