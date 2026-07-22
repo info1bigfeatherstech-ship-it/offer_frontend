@@ -1089,9 +1089,9 @@ const ProductsTab = ({ onSwitchTab }) => {
                 </th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Product</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Category</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Brand</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Price (₹)</th>
-                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Inventory</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Ecom Stock</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Inventory Stock</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Ecom Status</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Wholesale Status</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Featured</th>
@@ -1106,6 +1106,20 @@ const ProductsTab = ({ onSwitchTab }) => {
                 const salePrice = mainVariant.price?.sale;
                 const discountPct = salePrice ? getDiscountPercentage(basePrice, salePrice) : 0;
                 const totalStock = product.variants?.reduce((sum, v) => sum + (v.inventory?.quantity || 0), 0) || 0;
+                const liveTotalStock =
+                  product.liveTotalStock != null && Number.isFinite(Number(product.liveTotalStock))
+                    ? Number(product.liveTotalStock)
+                    : (() => {
+                        let sum = 0;
+                        let any = false;
+                        for (const v of product.variants || []) {
+                          const live = v?.inventory?.liveQuantity;
+                          if (live == null || !Number.isFinite(Number(live))) continue;
+                          any = true;
+                          sum += Number(live);
+                        }
+                        return any ? sum : null;
+                      })();
                 const isLowStock = product.variants?.some((v) => v.inventory?.quantity < v.inventory?.lowStockThreshold);
                 const v0Images = mainVariant.images || [];
                 const thumbUrl = (v0Images.find((img) => img.isMain) || v0Images[0])?.url || product.images?.[0]?.url || null;
@@ -1145,13 +1159,6 @@ const ProductsTab = ({ onSwitchTab }) => {
                         {getCategoryName(product.category)}
                       </span>
                     </td>
-                    <td className="px-3 py-3 text-sm"> {/* RESPONSIVE FIX */}
-                      {!product.brand || product.brand === "Generic" ? (
-                        <span className="text-gray-400">—</span>
-                      ) : (
-                        <span className="font-medium text-gray-700">{product.brand}</span>
-                      )}
-                    </td>
                     <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
                       <div className="text-sm">
                         {salePrice ? (
@@ -1170,10 +1177,15 @@ const ProductsTab = ({ onSwitchTab }) => {
                       </div>
                     </td>
                     <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
-                      <div className="flex items-center space-x-2">
+                      <div className="flex items-center gap-1.5">
                         <span className={`text-sm font-medium ${isLowStock ? "text-red-600" : "text-gray-700"}`}>{totalStock}</span>
-                        {isLowStock && <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-medium rounded-full">Low</span>}
+                        {isLowStock && <span className="px-1.5 py-0.5 bg-red-100 text-red-700 text-[10px] font-medium rounded-full">Low</span>}
                       </div>
+                    </td>
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
+                      <span className="text-sm font-medium text-gray-700" title="Live stock from inventory software">
+                        {liveTotalStock == null ? "—" : liveTotalStock}
+                      </span>
                     </td>
                     <td className="px-3 py-3"> {/* RESPONSIVE FIX */}{getEcomStatusBadge(product)}</td>
                     <td className="px-3 py-3"> {/* RESPONSIVE FIX */}{getWholesaleStatusBadge(product)}</td>
