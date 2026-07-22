@@ -3,6 +3,7 @@ import { User, Lock, ShieldAlert, Eye, EyeOff } from "lucide-react";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
 import { loginUser, googleLogin, clearError } from "../REDUX_FEATURES/REDUX_SLICES/authSlice";
+import { sanitizeLoginIdentifierInput } from "./USER_LOGIN_UTILS/validation";
 import LOGO from "../../assets/logo2.svg";
 
 // ── Shared Google icon (used by Register too) ──────────────────
@@ -313,9 +314,11 @@ const Login = ({ onLoginSuccess, onRegisterClick, onForgotPasswordClick }) => {
               type="text"
               placeholder="Email or Phone Number"
               value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
+              onChange={(e) => setIdentifier(sanitizeLoginIdentifierInput(e.target.value))}
               disabled={isLocked}
               autoComplete="username"
+              inputMode="text"
+              maxLength={/^[0-9]*$/.test(identifier) ? 10 : 254}
               style={inputBase}
               required
             />
