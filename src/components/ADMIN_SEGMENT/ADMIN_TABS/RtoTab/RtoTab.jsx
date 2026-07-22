@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useCallback, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   useGetAdminRtoOrdersQuery,
@@ -104,7 +105,50 @@ const BTN_DENY =
 const BTN_CLOSE =
   "px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-600 text-xs font-semibold hover:bg-slate-50 disabled:opacity-50 min-w-[80px]";
 const BTN_ACTION_MENU =
-  "inline-flex items-center justify-between gap-2 min-w-[112px] px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 text-xs font-semibold shadow-sm hover:bg-slate-50 disabled:opacity-50";
+  "inline-flex items-center justify-center gap-1 px-2.5 py-1 text-[11px] font-semibold text-slate-700 border border-slate-200 rounded-md bg-white hover:bg-slate-50 disabled:opacity-50 whitespace-nowrap";
+
+function useFloatingPanelStyle(anchorRef, open, widthPx = 176) {
+  const [style, setStyle] = useState(null);
+
+  useEffect(() => {
+    if (!open) {
+      setStyle(null);
+      return undefined;
+    }
+
+    const update = () => {
+      const el = anchorRef.current;
+      if (!el) return;
+      const rect = el.getBoundingClientRect();
+      const gap = 4;
+      const maxLeft = Math.max(8, window.innerWidth - widthPx - 8);
+      const left = Math.min(Math.max(8, rect.right - widthPx), maxLeft);
+      const spaceBelow = window.innerHeight - rect.bottom - gap;
+      const preferUp = spaceBelow < 160 && rect.top > spaceBelow;
+      const top = preferUp ? undefined : rect.bottom + gap;
+      const bottom = preferUp ? window.innerHeight - rect.top + gap : undefined;
+
+      setStyle({
+        position: "fixed",
+        left,
+        ...(top != null ? { top } : {}),
+        ...(bottom != null ? { bottom } : {}),
+        zIndex: 9999,
+        width: widthPx,
+      });
+    };
+
+    update();
+    window.addEventListener("scroll", update, true);
+    window.addEventListener("resize", update);
+    return () => {
+      window.removeEventListener("scroll", update, true);
+      window.removeEventListener("resize", update);
+    };
+  }, [anchorRef, open, widthPx]);
+
+  return style;
+}
 
 function isNoRefundPayment(row) {
   const k = String(row?.paymentType?.key || "").toLowerCase();
@@ -294,31 +338,33 @@ function finalStatusLabel(row) {
 
 function RowActionMenu({ row, busy, onAction }) {
   const [open, setOpen] = useState(false);
-  const wrapRef = useRef(null);
+  const anchorRef = useRef(null);
   const items = buildRowActionItems(row);
   const hasActions = items.length > 0;
   const statusLabel = finalStatusLabel(row);
+  const menuPanelStyle = useFloatingPanelStyle(anchorRef, open, 176);
 
   useEffect(() => {
     if (!open) return undefined;
 
     const handlePointerDown = (event) => {
-      if (!wrapRef.current?.contains(event.target)) {
-        setOpen(false);
-      }
+      if (anchorRef.current?.contains(event.target)) return;
+      if (event.target.closest?.("[data-rto-row-floating-panel]")) return;
+      setOpen(false);
     };
 
     const handleEscape = (event) => {
-      if (event.key === "Escape") {
-        setOpen(false);
-      }
+      if (event.key === "Escape") setOpen(false);
     };
 
-    document.addEventListener("mousedown", handlePointerDown);
     document.addEventListener("keydown", handleEscape);
+    const t = window.setTimeout(() => {
+      document.addEventListener("pointerdown", handlePointerDown);
+    }, 0);
     return () => {
-      document.removeEventListener("mousedown", handlePointerDown);
+      window.clearTimeout(t);
       document.removeEventListener("keydown", handleEscape);
+      document.removeEventListener("pointerdown", handlePointerDown);
     };
   }, [open]);
 
@@ -330,7 +376,7 @@ function RowActionMenu({ row, busy, onAction }) {
   if (!hasActions) {
     return (
       <span
-        className={`inline-flex min-w-[112px] items-center justify-center rounded-lg border px-3 py-2 text-xs font-semibold ${statusBadgeClass(row.rtoStatus)}`}
+        className={`inline-flex min-w-[72px] items-center justify-center rounded-md border px-2.5 py-1 text-[11px] font-semibold ${statusBadgeClass(row.rtoStatus)}`}
       >
         {statusLabel}
       </span>
@@ -338,46 +384,61 @@ function RowActionMenu({ row, busy, onAction }) {
   }
 
   return (
-    <div ref={wrapRef} className="relative inline-flex">
+    <div
+      ref={anchorRef}
+      className={`relative inline-flex items-center justify-center ${busy ? "opacity-60" : ""}`}
+      onClick={(e) => e.stopPropagation()}
+    >
       <button
         type="button"
         className={BTN_ACTION_MENU}
         disabled={busy}
-        onClick={() => setOpen((prev) => !prev)}
+        onClick={(e) => {
+          e.stopPropagation();
+          setOpen((prev) => !prev);
+        }}
         aria-haspopup="menu"
         aria-expanded={open}
+        aria-label="RTO actions"
       >
         <span>Actions</span>
-        <span className={`transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
+        <span className={`text-[10px] transition-transform ${open ? "rotate-180" : ""}`}>▾</span>
       </button>
 
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 top-full z-30 mt-2 w-44 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg"
-        >
-          <div className="p-1.5">
-            {items.map((item) => (
-              <button
-                key={item.key}
-                type="button"
-                role="menuitem"
-                disabled={busy}
-                onClick={() => handleSelect(item.key)}
-                className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-xs font-semibold transition ${
-                  item.tone === "danger"
-                    ? "text-red-700 hover:bg-red-50"
-                    : item.tone === "primary"
-                      ? "text-slate-800 hover:bg-slate-50"
-                      : "text-slate-700 hover:bg-slate-50"
-                }`}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+      {open && menuPanelStyle
+        ? createPortal(
+            <div
+              data-rto-row-floating-panel=""
+              role="menu"
+              style={menuPanelStyle}
+              className="rounded-lg border border-slate-200 bg-white shadow-xl py-1"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {items.map((item) => (
+                <button
+                  key={item.key}
+                  type="button"
+                  role="menuitem"
+                  disabled={busy}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleSelect(item.key);
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-xs whitespace-nowrap disabled:opacity-50 ${
+                    item.tone === "danger"
+                      ? "text-red-700 hover:bg-red-50 font-semibold"
+                      : item.tone === "primary"
+                        ? "text-slate-800 hover:bg-slate-50 font-semibold"
+                        : "text-slate-800 hover:bg-slate-50"
+                  }`}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>,
+            document.body
+          )
+        : null}
     </div>
   );
 }

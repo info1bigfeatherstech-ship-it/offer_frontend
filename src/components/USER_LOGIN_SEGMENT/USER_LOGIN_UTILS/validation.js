@@ -18,3 +18,19 @@ export const validatePhone = (phone) => {
     const re = /^[0-9]{10}$/;
     return re.test(phone.replace(/\D/g, ''));
 };
+
+/**
+ * Login identifier accepts email OR phone.
+ * When the value is phone-like (no letters / @), keep digits only and cap at 10.
+ * Email-like input is left unchanged.
+ *
+ * @param {string} raw
+ * @returns {string}
+ */
+export const sanitizeLoginIdentifierInput = (raw) => {
+  const value = String(raw ?? '');
+  if (!/[a-zA-Z@]/.test(value)) {
+    return value.replace(/\D/g, '').slice(0, 10);
+  }
+  return value;
+};

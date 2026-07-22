@@ -201,10 +201,15 @@ export const selectAdminOrdersListQueryArgs = createSelector([selectAdminOrdersU
     limit: ui.limit,
     sortBy: ui.sortBy,
     sortOrder: ui.sortOrder,
-    /** When search is active, bucket is omitted so the API searches all statuses globally. */
+    /**
+     * When search is active:
+     * - omit status bucket (match any tab / cancelled)
+     * - use all-time date range so order ID / AWB / name hits are not limited to Last 30 days
+     * Browse without search keeps the selected date preset (default last30).
+     */
     ...(search ? {} : { bucket }),
     search,
-    ...dateArgs,
+    ...(search ? { rangePreset: 'all' } : dateArgs),
   };
 });
 
