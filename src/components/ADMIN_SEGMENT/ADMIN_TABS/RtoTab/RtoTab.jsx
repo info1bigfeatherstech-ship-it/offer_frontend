@@ -173,6 +173,24 @@ function buildRefundBreakdown(row) {
     Number(ded.cartValue ?? calc.cartValue ?? row.subtotalInr) || 0;
   const forwardShipping =
     Number(ded.forwardShipping ?? calc.deductions?.forwardShipping ?? row.deliveryChargesInr) || 0;
+  let forwardFreight =
+    row.deliveryFreightInr != null && Number.isFinite(Number(row.deliveryFreightInr))
+      ? Number(row.deliveryFreightInr)
+      : null;
+  let deliveryCodFee =
+    row.deliveryCodFeeInr != null && Number.isFinite(Number(row.deliveryCodFeeInr))
+      ? Number(row.deliveryCodFeeInr)
+      : 0;
+  let showShippingSplit = false;
+  if (deliveryCodFee > 0.005) {
+    if (!(forwardFreight > 0.005)) {
+      forwardFreight = round2(Math.max(0, forwardShipping - deliveryCodFee));
+    }
+    showShippingSplit = true;
+  } else if (forwardFreight != null && forwardFreight > 0.005 && forwardShipping > forwardFreight + 0.5) {
+    deliveryCodFee = round2(forwardShipping - forwardFreight);
+    showShippingSplit = deliveryCodFee > 0.005;
+  }
   const orderTotal =
     Number(ded.orderTotal ?? calc.orderTotal ?? row.amountInr) ||
     round2(cartValue + forwardShipping);
@@ -200,6 +218,9 @@ function buildRefundBreakdown(row) {
     cartValue,
     orderTotal,
     forwardShipping,
+    forwardFreight: showShippingSplit ? forwardFreight : null,
+    deliveryCodFee: showShippingSplit ? deliveryCodFee : 0,
+    showShippingSplit,
     rtoShipping,
     platformFee,
     platformFeePercent,
@@ -251,7 +272,22 @@ function RefundBreakdownPanel({ breakdown, variant = "compact" }) {
       )}
       <p className={`${labelClass} text-[9px] uppercase tracking-wide mb-0.5`}>Order value</p>
       <Line label="Items (cart)" value={breakdown.cartValue} />
-      <Line label="+ Forward shipping" value={breakdown.forwardShipping} />
+      {breakdown.showShippingSplit ? (
+        <>
+          <Line label="+ Forward freight" value={breakdown.forwardFreight} />
+          <Line
+            label="+ COD collection fee"
+            value={breakdown.deliveryCodFee}
+            hint="Bundled into customer shipping at checkout; Shiprocket may adjust COD fee on RTO"
+          />
+          <div className="flex justify-between gap-2 text-[9px] text-slate-400">
+            <span>Shipping charged to customer</span>
+            <span className="tabular-nums">{fmtInrDetail(breakdown.forwardShipping)}</span>
+          </div>
+        </>
+      ) : (
+        <Line label="+ Forward shipping" value={breakdown.forwardShipping} />
+      )}
       <div className="flex justify-between gap-2 border-t border-dashed border-slate-200 pt-0.5">
         <span className={`${labelClass} font-semibold`}>Order total</span>
         <span className={valueClass}>{fmtInrDetail(breakdown.orderTotal)}</span>
@@ -274,7 +310,16 @@ function RefundBreakdownPanel({ breakdown, variant = "compact" }) {
       <p className={`${labelClass} text-[9px] uppercase tracking-wide mt-1.5 mb-0.5`}>
         {infoOnly ? "RTO / logistics charges" : "Deductions"}
       </p>
-      {!infoOnly && <Line label="− Forward shipping" value={breakdown.forwardShipping} negative />}
+      {!infoOnly && (
+        breakdown.showShippingSplit ? (
+          <>
+            <Line label="− Forward freight" value={breakdown.forwardFreight} negative />
+            <Line label="− COD collection fee" value={breakdown.deliveryCodFee} negative />
+          </>
+        ) : (
+          <Line label="− Forward shipping" value={breakdown.forwardShipping} negative />
+        )
+      )}
       <Line
         label={infoOnly ? "Reverse / RTO shipping" : "− RTO return shipping"}
         value={breakdown.rtoShipping}
