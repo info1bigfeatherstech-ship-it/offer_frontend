@@ -225,15 +225,18 @@ function RefundBreakdownPanel({ breakdown, variant = "compact" }) {
       {isModal && (
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Refund breakdown</p>
       )}
-      <Line label="Cart value" value={breakdown.cartValue} />
-      <Line label="Forward shipping" value={breakdown.forwardShipping} negative />
+      <p className={`${labelClass} text-[9px] uppercase tracking-wide mb-0.5`}>Order value (₹100 rule base)</p>
+      <Line label="Items (cart)" value={breakdown.cartValue} />
+      <Line label="+ Forward shipping" value={breakdown.forwardShipping} />
       <div className="flex justify-between gap-2 border-t border-dashed border-slate-200 pt-0.5">
-        <span className={labelClass}>Order total (cart + shipping)</span>
+        <span className={`${labelClass} font-semibold`}>Order total</span>
         <span className={valueClass}>{fmtInrDetail(breakdown.orderTotal)}</span>
       </div>
-      <Line label="RTO return shipping" value={breakdown.rtoShipping} negative />
+      <p className={`${labelClass} text-[9px] uppercase tracking-wide mt-1.5 mb-0.5`}>Deductions</p>
+      <Line label="− Forward shipping" value={breakdown.forwardShipping} negative />
+      <Line label="− RTO return shipping" value={breakdown.rtoShipping} negative />
       <Line
-        label={`Platform fee${breakdown.platformFeePercent ? ` (${breakdown.platformFeePercent}%)` : ""}`}
+        label={`− Platform fee${breakdown.platformFeePercent ? ` (${breakdown.platformFeePercent}%)` : ""}`}
         value={breakdown.platformFee}
         negative
       />
@@ -254,10 +257,20 @@ function RefundBreakdownPanel({ breakdown, variant = "compact" }) {
 function AmountCell({ row, breakdown: breakdownProp, expanded, onToggle }) {
   const breakdown = breakdownProp ?? buildRefundBreakdown(row);
   const canShowBreakdown = Boolean(breakdown);
+  const items = Number(row.subtotalInr) || Number(breakdown?.cartValue) || 0;
+  const shipping = Number(row.deliveryChargesInr) || Number(breakdown?.forwardShipping) || 0;
+  const paid = Number(row.amountPaidInr) || 0;
+  const codDue = Number(row.codDueInr) || 0;
 
   return (
     <td className="p-3 align-top min-w-[200px]">
       <div className="font-bold">{fmtInr(row.amountInr)}</div>
+      {(items > 0 || shipping > 0) && (
+        <div className="text-[10px] text-slate-500 mt-0.5 leading-tight">
+          Items {fmtInrDetail(items)}
+          {shipping > 0 ? ` + ship ${fmtInrDetail(shipping)}` : ""}
+        </div>
+      )}
       {row.paymentType && (
         <span
           className={`inline-flex mt-1 px-1.5 py-0.5 rounded border text-[10px] font-bold ${paymentTypeBadgeClass(row.paymentType.key)}`}
@@ -267,14 +280,14 @@ function AmountCell({ row, breakdown: breakdownProp, expanded, onToggle }) {
         </span>
       )}
       {row.paymentType?.key === "partial_paid" && (
-        <div className="text-[10px] text-amber-800 mt-0.5">
-          Paid {fmtInr(row.amountPaidInr)} of {fmtInr(row.amountInr)}
+        <div className="text-[10px] text-amber-800 mt-0.5 leading-tight">
+          Paid {fmtInr(paid)} · COD due {fmtInr(codDue || Math.max(0, Number(row.amountInr) - paid))}
         </div>
       )}
       {isNoRefundPayment(row) && (
         <div className="text-[10px] text-slate-500 mt-0.5">No refund — close case when done</div>
       )}
-      {canShowBreakdown && (
+      {canShowBreakdown && breakdown.eligible && (
         <>
           {breakdown.netRefund > 0 && (
             <div className="text-[10px] text-emerald-700 font-semibold mt-1">
@@ -291,8 +304,10 @@ function AmountCell({ row, breakdown: breakdownProp, expanded, onToggle }) {
           {expanded && <RefundBreakdownPanel breakdown={breakdown} variant="compact" />}
         </>
       )}
-      {row.refundBlockedReason && !row.canRefund && row.paymentType?.key === "full_paid" && (
-        <div className="text-[10px] text-slate-500 mt-0.5 max-w-[200px] leading-tight">{row.refundBlockedReason}</div>
+      {!isNoRefundPayment(row) && row.refundBlockedReason && !row.canRefund && (
+        <div className="text-[10px] text-amber-800 font-semibold mt-1 max-w-[220px] leading-tight">
+          {row.refundBlockedReason}
+        </div>
       )}
     </td>
   );
