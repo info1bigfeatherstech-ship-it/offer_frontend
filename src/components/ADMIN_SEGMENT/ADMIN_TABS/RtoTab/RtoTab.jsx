@@ -155,33 +155,48 @@ function isNoRefundPayment(row) {
   return k === "partial_paid" || k === "cod";
 }
 
-/** Build refund deduction lines from API `refundCalculation` / saved `rtoDeductions`. */
+/**
+ * Amount / charges breakdown for RTO rows.
+ * - Full-paid refundable: full refund math (net refund).
+ * - Partial / COD: info-only (order value, paid/COD due, reverse shipping) — no refund CTA.
+ */
 function buildRefundBreakdown(row) {
-  if (!row || isNoRefundPayment(row)) return null;
+  if (!row) return null;
 
+  const infoOnly = isNoRefundPayment(row);
   const calc = row.refundCalculation || {};
   const saved = row.rtoDeductions || {};
-  const useSaved = saved.platformFee != null && row.rtoRefundAmount != null;
-  const ded = useSaved ? saved : calc.deductions || saved;
+  const useSaved = !infoOnly && saved.platformFee != null && row.rtoRefundAmount != null;
+  const ded = useSaved ? saved : calc.deductions || saved || {};
 
   const cartValue =
     Number(ded.cartValue ?? calc.cartValue ?? row.subtotalInr) || 0;
   const forwardShipping =
-    Number(ded.forwardShipping ?? row.deliveryChargesInr) || 0;
+    Number(ded.forwardShipping ?? calc.deductions?.forwardShipping ?? row.deliveryChargesInr) || 0;
   const orderTotal =
-    Number(ded.orderTotal ?? calc.orderTotal) ||
+    Number(ded.orderTotal ?? calc.orderTotal ?? row.amountInr) ||
     round2(cartValue + forwardShipping);
-  const rtoShipping = Number(ded.rtoShipping) || 0;
-  const platformFeePercent = Number(ded.platformFeePercent) || 0;
-  const platformFee = Number(ded.platformFee) || 0;
+  const rtoShipping = Number(
+    ded.rtoShipping ?? calc.deductions?.rtoShipping ?? saved.rtoShipping
+  ) || 0;
+  const platformFeePercent = Number(ded.platformFeePercent ?? calc.deductions?.platformFeePercent) || 0;
+  const platformFee = Number(ded.platformFee ?? calc.deductions?.platformFee) || 0;
   const totalDeductions =
     Number(calc.totalDeductions) || round2(forwardShipping + rtoShipping + platformFee);
-  const netRefund =
-    row.rtoRefundAmount != null
+  const netRefund = infoOnly
+    ? 0
+    : row.rtoRefundAmount != null
       ? Number(row.rtoRefundAmount)
       : Number(calc.maxRefundableInr ?? calc.netRefund) || 0;
 
+  const paidInr = Number(row.amountPaidInr) || 0;
+  const codDueInr =
+    Number(row.codDueInr) ||
+    (infoOnly ? Math.max(0, round2(orderTotal - paidInr)) : 0);
+
   return {
+    infoOnly,
+    paymentKey: String(row.paymentType?.key || "").toLowerCase(),
     cartValue,
     orderTotal,
     forwardShipping,
@@ -190,8 +205,11 @@ function buildRefundBreakdown(row) {
     platformFeePercent,
     totalDeductions,
     netRefund,
-    eligible: Boolean(calc.eligible),
-    processed: row.rtoRefundAmount != null,
+    paidInr,
+    codDueInr,
+    eligible: infoOnly ? false : Boolean(calc.eligible),
+    processed: !infoOnly && row.rtoRefundAmount != null,
+    rtoShippingKnown: rtoShipping > 0.005,
   };
 }
 
@@ -203,6 +221,7 @@ function RefundBreakdownPanel({ breakdown, variant = "compact" }) {
   if (!breakdown) return null;
 
   const isModal = variant === "modal";
+  const infoOnly = Boolean(breakdown.infoOnly);
   const wrap = isModal
     ? "rounded-lg border border-slate-200 bg-white p-3 space-y-1.5 text-xs"
     : "mt-2 rounded-lg border border-slate-100 bg-slate-50/90 p-2 space-y-0.5 text-[10px] leading-snug";
@@ -210,9 +229,12 @@ function RefundBreakdownPanel({ breakdown, variant = "compact" }) {
   const valueClass = isModal ? "text-slate-800 font-medium tabular-nums" : "text-slate-700 font-semibold tabular-nums";
   const minusClass = "text-red-600/90";
 
-  const Line = ({ label, value, negative, bold, accent }) => (
+  const Line = ({ label, value, negative, bold, accent, hint }) => (
     <div className={`flex justify-between gap-2 ${bold ? "font-bold pt-1 border-t border-slate-200 mt-1" : ""}`}>
-      <span className={labelClass}>{label}</span>
+      <span className={labelClass}>
+        {label}
+        {hint ? <span className="block text-[9px] font-normal text-slate-400">{hint}</span> : null}
+      </span>
       <span className={`${valueClass} ${negative ? minusClass : ""} ${accent ? "text-emerald-700" : ""}`}>
         {negative ? "− " : ""}
         {fmtInrDetail(value)}
@@ -223,32 +245,72 @@ function RefundBreakdownPanel({ breakdown, variant = "compact" }) {
   return (
     <div className={wrap}>
       {isModal && (
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">Refund breakdown</p>
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">
+          {infoOnly ? "Order / RTO charges" : "Refund breakdown"}
+        </p>
       )}
-      <p className={`${labelClass} text-[9px] uppercase tracking-wide mb-0.5`}>Order value (₹100 rule base)</p>
+      <p className={`${labelClass} text-[9px] uppercase tracking-wide mb-0.5`}>Order value</p>
       <Line label="Items (cart)" value={breakdown.cartValue} />
       <Line label="+ Forward shipping" value={breakdown.forwardShipping} />
       <div className="flex justify-between gap-2 border-t border-dashed border-slate-200 pt-0.5">
         <span className={`${labelClass} font-semibold`}>Order total</span>
         <span className={valueClass}>{fmtInrDetail(breakdown.orderTotal)}</span>
       </div>
-      <p className={`${labelClass} text-[9px] uppercase tracking-wide mt-1.5 mb-0.5`}>Deductions</p>
-      <Line label="− Forward shipping" value={breakdown.forwardShipping} negative />
-      <Line label="− RTO return shipping" value={breakdown.rtoShipping} negative />
+
+      {infoOnly && (
+        <>
+          <p className={`${labelClass} text-[9px] uppercase tracking-wide mt-1.5 mb-0.5`}>Payment</p>
+          {breakdown.paymentKey === "partial_paid" ? (
+            <>
+              <Line label="Paid online (advance)" value={breakdown.paidInr} accent />
+              <Line label="COD due at delivery" value={breakdown.codDueInr} />
+            </>
+          ) : (
+            <Line label="COD collect (full)" value={breakdown.orderTotal} />
+          )}
+        </>
+      )}
+
+      <p className={`${labelClass} text-[9px] uppercase tracking-wide mt-1.5 mb-0.5`}>
+        {infoOnly ? "RTO / logistics charges" : "Deductions"}
+      </p>
+      {!infoOnly && <Line label="− Forward shipping" value={breakdown.forwardShipping} negative />}
       <Line
-        label={`− Platform fee${breakdown.platformFeePercent ? ` (${breakdown.platformFeePercent}%)` : ""}`}
-        value={breakdown.platformFee}
-        negative
+        label={infoOnly ? "Reverse / RTO shipping" : "− RTO return shipping"}
+        value={breakdown.rtoShipping}
+        negative={!infoOnly}
+        accent={infoOnly && breakdown.rtoShippingKnown}
+        hint={
+          infoOnly && !breakdown.rtoShippingKnown
+            ? "Not received from Shiprocket yet (shows ₹0)"
+            : undefined
+        }
       />
-      <Line label="Total deductions" value={breakdown.totalDeductions} negative bold />
-      <Line
-        label={breakdown.processed ? "Refunded to customer" : "Net refund"}
-        value={breakdown.netRefund}
-        bold
-        accent={breakdown.netRefund > 0}
-      />
-      {!breakdown.eligible && !breakdown.processed && breakdown.netRefund <= 0 && (
-        <p className="text-[10px] text-amber-800 pt-1">Not eligible for Razorpay refund</p>
+      {!infoOnly && (
+        <Line
+          label={`− Platform fee${breakdown.platformFeePercent ? ` (${breakdown.platformFeePercent}%)` : ""}`}
+          value={breakdown.platformFee}
+          negative
+        />
+      )}
+      {!infoOnly && (
+        <>
+          <Line label="Total deductions" value={breakdown.totalDeductions} negative bold />
+          <Line
+            label={breakdown.processed ? "Refunded to customer" : "Net refund"}
+            value={breakdown.netRefund}
+            bold
+            accent={breakdown.netRefund > 0}
+          />
+          {!breakdown.eligible && !breakdown.processed && breakdown.netRefund <= 0 && (
+            <p className="text-[10px] text-amber-800 pt-1">Not eligible for Razorpay refund</p>
+          )}
+        </>
+      )}
+      {infoOnly && (
+        <p className="text-[10px] text-amber-800 pt-1 font-semibold">
+          No Razorpay refund on {breakdown.paymentKey === "cod" ? "COD" : "partial paid"} — close case when done.
+        </p>
       )}
     </div>
   );
@@ -257,10 +319,12 @@ function RefundBreakdownPanel({ breakdown, variant = "compact" }) {
 function AmountCell({ row, breakdown: breakdownProp, expanded, onToggle }) {
   const breakdown = breakdownProp ?? buildRefundBreakdown(row);
   const canShowBreakdown = Boolean(breakdown);
+  const infoOnly = Boolean(breakdown?.infoOnly);
   const items = Number(row.subtotalInr) || Number(breakdown?.cartValue) || 0;
   const shipping = Number(row.deliveryChargesInr) || Number(breakdown?.forwardShipping) || 0;
   const paid = Number(row.amountPaidInr) || 0;
   const codDue = Number(row.codDueInr) || 0;
+  const rtoShip = Number(breakdown?.rtoShipping) || 0;
 
   return (
     <td className="p-3 align-top min-w-[200px]">
@@ -287,7 +351,12 @@ function AmountCell({ row, breakdown: breakdownProp, expanded, onToggle }) {
       {isNoRefundPayment(row) && (
         <div className="text-[10px] text-slate-500 mt-0.5">No refund — close case when done</div>
       )}
-      {canShowBreakdown && breakdown.eligible && (
+      {infoOnly && rtoShip > 0 && (
+        <div className="text-[10px] text-slate-700 font-semibold mt-0.5">
+          RTO ship: {fmtInrDetail(rtoShip)}
+        </div>
+      )}
+      {canShowBreakdown && !infoOnly && breakdown.eligible && (
         <>
           {breakdown.netRefund > 0 && (
             <div className="text-[10px] text-emerald-700 font-semibold mt-1">
@@ -300,6 +369,18 @@ function AmountCell({ row, breakdown: breakdownProp, expanded, onToggle }) {
             className="mt-1 text-[10px] font-semibold text-indigo-700 hover:text-indigo-900 underline-offset-2 hover:underline"
           >
             {expanded ? "Hide breakdown ▲" : "View breakdown ▼"}
+          </button>
+          {expanded && <RefundBreakdownPanel breakdown={breakdown} variant="compact" />}
+        </>
+      )}
+      {canShowBreakdown && infoOnly && (
+        <>
+          <button
+            type="button"
+            onClick={onToggle}
+            className="mt-1 text-[10px] font-semibold text-indigo-700 hover:text-indigo-900 underline-offset-2 hover:underline"
+          >
+            {expanded ? "Hide charges ▲" : "View charges ▼"}
           </button>
           {expanded && <RefundBreakdownPanel breakdown={breakdown} variant="compact" />}
         </>
@@ -532,7 +613,10 @@ function RtoActionModal({ modal, note, onNoteChange, onClose, onConfirm, loading
             )}
           </div>
         )}
-        {modal.type === "refund" && breakdown && (
+        {modal.type === "refund" && breakdown && !breakdown.infoOnly && (
+          <RefundBreakdownPanel breakdown={breakdown} variant="modal" />
+        )}
+        {modal.type === "close" && breakdown?.infoOnly && (
           <RefundBreakdownPanel breakdown={breakdown} variant="modal" />
         )}
         {(modal.type === "reject" || modal.type === "close" || modal.type === "bulk-reject") && (
