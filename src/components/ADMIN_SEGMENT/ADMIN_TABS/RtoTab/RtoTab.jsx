@@ -325,6 +325,7 @@ function AmountCell({ row, breakdown: breakdownProp, expanded, onToggle }) {
   const paid = Number(row.amountPaidInr) || 0;
   const codDue = Number(row.codDueInr) || 0;
   const rtoShip = Number(breakdown?.rtoShipping) || 0;
+  const showAsCharges = infoOnly || !breakdown?.eligible;
 
   return (
     <td className="p-3 align-top min-w-[200px]">
@@ -351,36 +352,30 @@ function AmountCell({ row, breakdown: breakdownProp, expanded, onToggle }) {
       {isNoRefundPayment(row) && (
         <div className="text-[10px] text-slate-500 mt-0.5">No refund — close case when done</div>
       )}
-      {infoOnly && rtoShip > 0 && (
+      {rtoShip > 0 && (
         <div className="text-[10px] text-slate-700 font-semibold mt-0.5">
           RTO ship: {fmtInrDetail(rtoShip)}
         </div>
       )}
-      {canShowBreakdown && !infoOnly && breakdown.eligible && (
-        <>
-          {breakdown.netRefund > 0 && (
-            <div className="text-[10px] text-emerald-700 font-semibold mt-1">
-              {breakdown.processed ? "Refunded" : "Net refund"}: {fmtInrDetail(breakdown.netRefund)}
-            </div>
-          )}
-          <button
-            type="button"
-            onClick={onToggle}
-            className="mt-1 text-[10px] font-semibold text-indigo-700 hover:text-indigo-900 underline-offset-2 hover:underline"
-          >
-            {expanded ? "Hide breakdown ▲" : "View breakdown ▼"}
-          </button>
-          {expanded && <RefundBreakdownPanel breakdown={breakdown} variant="compact" />}
-        </>
+      {canShowBreakdown && !infoOnly && breakdown.eligible && breakdown.netRefund > 0 && (
+        <div className="text-[10px] text-emerald-700 font-semibold mt-1">
+          {breakdown.processed ? "Refunded" : "Net refund"}: {fmtInrDetail(breakdown.netRefund)}
+        </div>
       )}
-      {canShowBreakdown && infoOnly && (
+      {canShowBreakdown && (
         <>
           <button
             type="button"
             onClick={onToggle}
             className="mt-1 text-[10px] font-semibold text-indigo-700 hover:text-indigo-900 underline-offset-2 hover:underline"
           >
-            {expanded ? "Hide charges ▲" : "View charges ▼"}
+            {expanded
+              ? showAsCharges
+                ? "Hide charges ▲"
+                : "Hide breakdown ▲"
+              : showAsCharges
+                ? "View charges ▼"
+                : "View breakdown ▼"}
           </button>
           {expanded && <RefundBreakdownPanel breakdown={breakdown} variant="compact" />}
         </>
