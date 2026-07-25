@@ -1038,6 +1038,21 @@ export default function AdminOrderDetailView({
           </div>
         </div>
 
+        {order?.paymentInfo?.oosShippingSettlement?.pending === true ? (
+          <div
+            className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-950 shadow-sm"
+            role="status"
+          >
+            <p className="font-semibold">Shipping settlement pending</p>
+            <p className="mt-0.5 leading-relaxed text-amber-900/90">
+              OOS item edit held prepaid shipping at{" "}
+              {formatInr(order.paymentInfo.oosShippingSettlement.heldDeliveryCharges)}. After{" "}
+              <span className="font-semibold">Ship Now</span>, unused shipping vs actual courier
+              rate is refunded automatically.
+            </p>
+          </div>
+        ) : null}
+
         {(carrierPaymentHint || fulfillmentBlockMessage) && (
           <div
             className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
