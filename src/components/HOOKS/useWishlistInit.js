@@ -17,7 +17,7 @@ const useWishlistInit = (enabled = true) => {
   // ── On app boot — load guest wishlist from localStorage into Redux ─────────
   useEffect(() => {
     if (!enabled) return; // ← guard: skip on admin routes
-    console.log("💛 [useWishlistInit] Loading guest wishlist from localStorage...");
+    // console.log("💛 [useWishlistInit] Loading guest wishlist from localStorage...");
     dispatch(loadGuestWishlist());
   }, [dispatch, enabled]);
 
@@ -28,19 +28,19 @@ const useWishlistInit = (enabled = true) => {
 
     const init = async () => {
       try {
-        console.log("💛 [useWishlistInit] User logged in — initializing wishlist...");
+        // console.log("💛 [useWishlistInit] User logged in — initializing wishlist...");
 
         const guestSlugs = getGuestWishlist();
 
         if (guestSlugs.length > 0) {
-          console.log(`💛 [useWishlistInit] Found ${guestSlugs.length} guest items — merging...`);
+          // console.log(`💛 [useWishlistInit] Found ${guestSlugs.length} guest items — merging...`);
           await dispatch(mergeWishlist({ slugs: guestSlugs })).unwrap();
           dispatch(clearGuestItems());
-          console.log("✅ [useWishlistInit] Guest wishlist merged and cleared");
+          // console.log("✅ [useWishlistInit] Guest wishlist merged and cleared");
         }
 
         await dispatch(fetchWishlist()).unwrap();
-        console.log("✅ [useWishlistInit] Wishlist fetched successfully");
+        // console.log("✅ [useWishlistInit] Wishlist fetched successfully");
 
       } catch (error) {
         console.group("🔴 [useWishlistInit] ERROR during wishlist init");

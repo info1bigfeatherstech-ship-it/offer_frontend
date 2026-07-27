@@ -94,7 +94,7 @@ export const fetchProductsByTag = createAsyncThunk(
         `/products/all?tags=${tag}&page=${page}&limit=${limit}`,
         { signal }
       );
-      console.log("res",response.data);
+      // console.log("res",response.data);
       
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to fetch products");
@@ -478,7 +478,7 @@ clearTagProducts: (state, action) => {
   const incoming = action.payload.products || [];
   const page = action.payload.pagination?.page ?? 1;
 
-  console.log(`✅ Featured fulfilled — page: ${page}, incoming: ${incoming.length}, appending: ${page > 1}`);
+  // console.log(`✅ Featured fulfilled — page: ${page}, incoming: ${incoming.length}, appending: ${page > 1}`);
 
   if (page === 1) {
     state.featuredProducts = incoming;
