@@ -84,7 +84,7 @@ export default function AdminPendingOrderEditPanel({ order, orderId, disabled, o
   const runApply = async () => {
     if (
       !window.confirm(
-        "Apply these item changes? Shipping will be re-quoted (customer is never charged more). Refunds or COD balance will update automatically."
+        "Apply these item changes? For prepaid orders, money is NOT refunded yet — after Confirm → Ship Now, final bill uses actual courier shipping and any excess is refunded. Balance due / COD will never increase. Customer is never asked for extra."
       )
     ) {
       return;
@@ -94,13 +94,20 @@ export default function AdminPendingOrderEditPanel({ order, orderId, disabled, o
       const res = await applyEdit({ orderId, itemUpdates }).unwrap();
       const data = res?.data || {};
       setPreview(null);
+      const deferred = Boolean(
+        data.shippingSettlementDeferred ||
+          data.refundDeferredUntilShipNow ||
+          data.shipping?.shippingSettlementDeferred
+      );
       setLocalMsg({
         type: data.refundWarning ? "warn" : "ok",
         text:
           res?.message ||
           (data.cancelledEmpty
             ? "Order cancelled — no items left."
-            : "Order updated successfully."),
+            : deferred
+              ? "Items updated. Refund (if any) will run after Ship Now with actual shipping."
+              : "Order updated successfully."),
       });
       if (typeof onApplied === "function") {
         await onApplied(data);
@@ -122,9 +129,9 @@ export default function AdminPendingOrderEditPanel({ order, orderId, disabled, o
           Edit items before confirm
         </p>
         <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-          Remove out-of-stock items or reduce quantity. Shipping re-quotes to the cheapest courier;
-          discount stays as-is. Customer is never charged extra shipping. Full paid → refund excess;
-          partial paid → COD balance updates.
+          Remove out-of-stock items or reduce quantity. Discount stays as-is. Prepaid: Apply saves
+          items only — after Ship Now, bill = remaining items + actual courier rate; excess online
+          payment is refunded. Balance due / COD never increases. COD-only orders update immediately.
         </p>
       </div>
 
@@ -226,9 +233,19 @@ export default function AdminPendingOrderEditPanel({ order, orderId, disabled, o
                   <p className="font-semibold">{formatInr(preview.after?.subtotal)}</p>
                 </div>
                 <div>
-                  <p className="text-slate-500">Shipping (customer)</p>
+                  <p className="text-slate-500">Shipping (on bill now)</p>
                   <p className="font-semibold">{formatInr(preview.shipping?.customerDelivery)}</p>
-                  {preview.shipping?.quotedDelivery != null &&
+                  {preview.shipping?.shippingSettlementDeferred ? (
+                    <p className="text-[10px] text-amber-800 mt-0.5">
+                      Held until Ship Now
+                      {preview.shipping.quotedDelivery != null
+                        ? ` · estimate ${formatInr(preview.shipping.quotedDelivery)}${
+                            preview.shipping.quotedMock ? " (mock)" : ""
+                          }`
+                        : ""}
+                    </p>
+                  ) : (
+                    preview.shipping?.quotedDelivery != null &&
                     preview.shipping.quotedDelivery !== preview.shipping.customerDelivery && (
                       <p className="text-[10px] text-slate-500">
                         Quoted {formatInr(preview.shipping.quotedDelivery)}
@@ -236,23 +253,34 @@ export default function AdminPendingOrderEditPanel({ order, orderId, disabled, o
                           ? " (increase absorbed)"
                           : ""}
                       </p>
-                    )}
+                    )
+                  )}
                 </div>
                 <div>
                   <p className="text-slate-500">New total</p>
                   <p className="font-semibold">{formatInr(preview.after?.totalAmount)}</p>
                 </div>
                 <div>
-                  <p className="text-slate-500">Refund / COD due</p>
+                  <p className="text-slate-500">Refund now / COD due</p>
                   <p className="font-semibold">
                     Refund {formatInr(preview.refundInr)} · Due{" "}
                     {formatInr(preview.after?.balanceDueInr)}
                   </p>
                 </div>
               </div>
+              {preview.shippingSettlementDeferred || preview.shipping?.shippingSettlementDeferred ? (
+                <p className="text-amber-900 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5">
+                  No refund on Apply. After Confirm → Ship Now, final total uses actual courier
+                  shipping; any excess prepaid amount is refunded. Due/COD will not increase
+                  {preview.refundInr > 0.005
+                    ? ` (preview refund now: ${formatInr(preview.refundInr)} — deferred).`
+                    : "."}
+                </p>
+              ) : null}
               {preview.shipping?.courierName && (
                 <p className="text-slate-600">
-                  Courier: <span className="font-semibold">{preview.shipping.courierName}</span>
+                  Estimate courier:{" "}
+                  <span className="font-semibold">{preview.shipping.courierName}</span>
                   {preview.shipping.estimatedDays
                     ? ` · ETA ${preview.shipping.estimatedDays}`
                     : ""}
