@@ -71,11 +71,11 @@ export const fetchCart = createAsyncThunk(
   "userCart/fetchCart",
   async (_, { rejectWithValue }) => {
     try {
-      console.log("🛒 [fetchCart] Fetching cart...");
+      // console.log("🛒 [fetchCart] Fetching cart...");
       const response = await axiosInstance.get("/cart");
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to fetch cart");
-      console.log(`✅ [fetchCart] Got ${response.data.cart?.items?.length || 0} items`);
+      // console.log(`✅ [fetchCart] Got ${response.data.cart?.items?.length || 0} items`);
       return response.data.cart;
     } catch (error) {
       logError("fetchCart", error);
@@ -92,7 +92,7 @@ export const addToCart = createAsyncThunk(
   "userCart/addToCart",
   async ({ productSlug, productId, variantId, quantity = 1 }, { rejectWithValue }) => {
     try {
-      console.log(`🛒 [addToCart] slug="${productSlug}" qty=${quantity}`);
+      // console.log(`🛒 [addToCart] slug="${productSlug}" qty=${quantity}`);
       const response = await axiosInstance.post("/cart", {
         productSlug,
         variantId,
@@ -101,7 +101,7 @@ export const addToCart = createAsyncThunk(
       });
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to add to cart");
-      console.log(`✅ [addToCart] slug="${productSlug}" added`);
+      // console.log(`✅ [addToCart] slug="${productSlug}" added`);
       // ✅ return productSlug alongside cart so reducer can attach it
       return { cart: response.data.cart, productSlug, productId, variantId, quantity };
     } catch (error) {
@@ -119,7 +119,7 @@ export const updateCartItem = createAsyncThunk(
   "userCart/updateCartItem",
   async ({ productId, variantId, quantity, productSlug }, { rejectWithValue }) => {
     try {
-      console.log(`🛒 [updateCartItem] productId="${productId}" qty=${quantity}`);
+      // console.log(`🛒 [updateCartItem] productId="${productId}" qty=${quantity}`);
       const response = await axiosInstance.put("/cart/item", {
         productId,
         variantId,
@@ -127,7 +127,7 @@ export const updateCartItem = createAsyncThunk(
       });
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to update cart item");
-      console.log(`✅ [updateCartItem] updated qty=${quantity}`);
+      // console.log(`✅ [updateCartItem] updated qty=${quantity}`);
       // ✅ pass existing slugMap through so we don't lose slug info
       // return { cart: response.data.cart, productSlug };
       return { cart: response.data.cart, productSlug, productId, variantId, quantity };
@@ -146,13 +146,13 @@ export const removeCartItem = createAsyncThunk(
   "userCart/removeCartItem",
   async ({ productId, variantId, productSlug }, { rejectWithValue }) => {
     try {
-      console.log(`🛒 [removeCartItem] productId="${productId}"`);
+      // console.log(`🛒 [removeCartItem] productId="${productId}"`);
       const response = await axiosInstance.delete("/cart/item", {
         data: { productId, variantId },
       });
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to remove cart item");
-      console.log(`✅ [removeCartItem] removed`);
+      // console.log(`✅ [removeCartItem] removed`);
       // return { cart: response.data.cart, productSlug };
       return { cart: response.data.cart, productSlug, productId, variantId };
     } catch (error) {
@@ -170,11 +170,11 @@ export const bulkRemoveCartItems = createAsyncThunk(
   "userCart/bulkRemoveCartItems",
   async ({ items }, { rejectWithValue }) => {
     try {
-      console.log(`🛒 [bulkRemoveCartItems] Removing ${items.length} items...`);
+      // console.log(`🛒 [bulkRemoveCartItems] Removing ${items.length} items...`);
       const response = await axiosInstance.post("/cart/bulk-remove", { items });
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to bulk remove");
-      console.log("✅ [bulkRemoveCartItems] Done");
+      // console.log("✅ [bulkRemoveCartItems] Done");
       return { cart: response.data.cart };
     } catch (error) {
       logError("bulkRemoveCartItems", error, { items });
@@ -191,11 +191,11 @@ export const clearCart = createAsyncThunk(
   "userCart/clearCart",
   async (_, { rejectWithValue }) => {
     try {
-      console.log("🛒 [clearCart] Clearing...");
+      // console.log("🛒 [clearCart] Clearing...");
       const response = await axiosInstance.delete("/cart/clear");
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to clear cart");
-      console.log("✅ [clearCart] Cleared");
+      // console.log("✅ [clearCart] Cleared");
       return response.data.cart;
     } catch (error) {
       logError("clearCart", error);
@@ -212,11 +212,11 @@ export const mergeCart = createAsyncThunk(
   "userCart/mergeCart",
   async ({ items }, { rejectWithValue }) => {
     try {
-      console.log(`🛒 [mergeCart] Merging ${items.length} guest items...`);
+      // console.log(`🛒 [mergeCart] Merging ${items.length} guest items...`);
       const response = await axiosInstance.post("/cart/merge", { items });
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to merge cart");
-      console.log("✅ [mergeCart] Merged");
+      // console.log("✅ [mergeCart] Merged");
       return { cart: response.data.cart };
     } catch (error) {
       logError("mergeCart", error, { items });
@@ -233,11 +233,11 @@ export const checkout = createAsyncThunk(
   "userCart/checkout",
   async ({ paymentInfo } = {}, { rejectWithValue }) => {
     try {
-      console.log("🛒 [checkout] Starting...");
+      // console.log("🛒 [checkout] Starting...");
       const response = await axiosInstance.post("/cart/checkout", { paymentInfo });
       if (!response.data.success)
         throw new Error(response.data.message || "Checkout failed");
-      console.log("✅ [checkout] Order:", response.data.order?._id);
+      // console.log("✅ [checkout] Order:", response.data.order?._id);
       return response.data;
     } catch (error) {
       logError("checkout", error, { paymentInfo });
@@ -313,7 +313,7 @@ const userCartSlice = createSlice({
     loadGuestCart: (state) => {
       state.guestItems = getGuestCart();
       state.totalItems = state.guestItems.reduce((sum, i) => sum + (i.quantity || 1), 0);
-      console.log(`🛒 [loadGuestCart] Loaded ${state.guestItems.length} guest items`);
+      // console.log(`🛒 [loadGuestCart] Loaded ${state.guestItems.length} guest items`);
     },
 
     addGuestCartItem: (state, action) => {
@@ -323,10 +323,10 @@ const userCartSlice = createSlice({
       );
       if (existing) {
         existing.quantity += quantity;
-        console.log(`🛒 [addGuestCartItem] slug="${productSlug}" qty → ${existing.quantity}`);
+        // console.log(`🛒 [addGuestCartItem] slug="${productSlug}" qty → ${existing.quantity}`);
       } else {
         state.guestItems.push({ productId, productSlug, variantId, quantity });
-        console.log(`🛒 [addGuestCartItem] slug="${productSlug}" added qty=${quantity}`);
+        // console.log(`🛒 [addGuestCartItem] slug="${productSlug}" added qty=${quantity}`);
       }
       state.totalItems = state.guestItems.reduce((sum, i) => sum + (i.quantity || 1), 0);
       saveGuestCart(state.guestItems);
@@ -358,10 +358,10 @@ const userCartSlice = createSlice({
           state.guestItems = state.guestItems.filter(
             (i) => !(i.productSlug === productSlug && i.variantId === variantId)
           );
-          console.log(`🛒 [updateGuestCartItem] slug="${productSlug}" removed`);
+          // console.log(`🛒 [updateGuestCartItem] slug="${productSlug}" removed`);
         } else {
           item.quantity = quantity;
-          console.log(`🛒 [updateGuestCartItem] slug="${productSlug}" qty=${quantity}`);
+          // console.log(`🛒 [updateGuestCartItem] slug="${productSlug}" qty=${quantity}`);
         }
         state.totalItems = state.guestItems.reduce((sum, i) => sum + (i.quantity || 1), 0);
         saveGuestCart(state.guestItems);
@@ -375,14 +375,14 @@ const userCartSlice = createSlice({
       );
       state.totalItems = state.guestItems.reduce((sum, i) => sum + (i.quantity || 1), 0);
       saveGuestCart(state.guestItems);
-      console.log(`🛒 [removeGuestCartItem] slug="${productSlug}" removed`);
+      // console.log(`🛒 [removeGuestCartItem] slug="${productSlug}" removed`);
     },
 
     clearGuestCartItems: (state) => {
       state.guestItems = [];
       state.totalItems = 0;
       clearGuestCartStorage();
-      console.log("🛒 [clearGuestCartItems] Guest cart cleared");
+      // console.log("🛒 [clearGuestCartItems] Guest cart cleared");
     },
 
     clearCartErrors: (state) => {
@@ -407,7 +407,7 @@ const userCartSlice = createSlice({
         state.items = items;
         state.totalAmount = action.payload?.totalAmount ?? 0;
         state.totalItems = items.reduce((sum, i) => sum + (i.quantity || 1), 0);
-        console.log(`✅ [fetchCart] Stored ${items.length} items with slugs`);
+        // console.log(`✅ [fetchCart] Stored ${items.length} items with slugs`);
       })
       .addCase(fetchCart.rejected, (state, action) => {
         state.loading.fetch = false;
@@ -444,7 +444,7 @@ const userCartSlice = createSlice({
         state.items = items;
         state.totalAmount = cart?.totalAmount ?? 0;
         state.totalItems = items.reduce((sum, i) => sum + (i.quantity || 1), 0);
-        console.log(`✅ [addToCart.fulfilled] slug="${productSlug}" stored in slugMap`);
+        // console.log(`✅ [addToCart.fulfilled] slug="${productSlug}" stored in slugMap`);
       })
       .addCase(addToCart.rejected, (state, action) => {
         state.loading.add = false;
@@ -468,7 +468,7 @@ const userCartSlice = createSlice({
         if (existingItem) existingItem.quantity = quantity;
         state.totalAmount = cart?.totalAmount ?? state.totalAmount;
         state.totalItems = state.items.reduce((sum, i) => sum + (i.quantity || 1), 0);
-        console.log("✅ [updateCartItem.fulfilled] cart updated");
+        // console.log("✅ [updateCartItem.fulfilled] cart updated");
       })
       .addCase(updateCartItem.rejected, (state, action) => {
         state.loading.update = false;
@@ -491,7 +491,7 @@ const userCartSlice = createSlice({
         );
         state.totalAmount = cart?.totalAmount ?? state.totalAmount;
         state.totalItems = state.items.reduce((sum, i) => sum + (i.quantity || 1), 0);
-        console.log("✅ [removeCartItem.fulfilled] item removed");
+        // console.log("✅ [removeCartItem.fulfilled] item removed");
       })
       .addCase(removeCartItem.rejected, (state, action) => {
         state.loading.remove = false;
@@ -530,7 +530,7 @@ const userCartSlice = createSlice({
         state.totalAmount = 0;
         state.totalItems = 0;
         state.slugMap = {};
-        console.log("✅ [clearCart.fulfilled] cart cleared");
+        // console.log("✅ [clearCart.fulfilled] cart cleared");
       })
       .addCase(clearCart.rejected, (state, action) => {
         state.loading.clear = false;
@@ -551,7 +551,7 @@ const userCartSlice = createSlice({
         state.items = items;
         state.totalAmount = action.payload?.cart?.totalAmount ?? 0;
         state.totalItems = items.reduce((sum, i) => sum + (i.quantity || 1), 0);
-        console.log("✅ [mergeCart.fulfilled] merged");
+        // console.log("✅ [mergeCart.fulfilled] merged");
       })
       .addCase(mergeCart.rejected, (state, action) => {
         state.loading.merge = false;
@@ -571,7 +571,7 @@ const userCartSlice = createSlice({
         state.totalItems = 0;
         state.slugMap = {};
         state.lastOrder = action.payload?.order || null;
-        console.log("✅ [checkout.fulfilled] order:", state.lastOrder?._id);
+        // console.log("✅ [checkout.fulfilled] order:", state.lastOrder?._id);
       })
       .addCase(checkout.rejected, (state, action) => {
         state.loading.checkout = false;

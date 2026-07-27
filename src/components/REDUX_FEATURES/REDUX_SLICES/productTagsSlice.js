@@ -16,7 +16,7 @@ export const fetchProductsByTag = createAsyncThunk(
       const response = await axiosInstance.get(
         `/products/all?tags=${tag}&page=${page}&limit=${limit}&_cb=1`
       );
-      console.log("res", response.data);
+      // console.log("res", response.data);
       
       if (!response.data.success) {
         throw new Error(response.data.message || "Failed to fetch products");

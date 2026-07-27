@@ -45,11 +45,11 @@ export const fetchWishlist = createAsyncThunk(
   "userWishlist/fetchWishlist",
   async (_, { rejectWithValue }) => {
     try {
-      console.log("💛 [fetchWishlist] Fetching wishlist from server...");
+      // console.log("💛 [fetchWishlist] Fetching wishlist from server...");
       const response = await axiosInstance.get("/wishlist");
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to fetch wishlist");
-      console.log(`✅ [fetchWishlist] Got ${response.data.wishlist?.products?.length || 0} items`);
+      // console.log(`✅ [fetchWishlist] Got ${response.data.wishlist?.products?.length || 0} items`);
       return response.data.wishlist;
     } catch (error) {
       logError("fetchWishlist", error);
@@ -66,14 +66,14 @@ export const addToWishlist = createAsyncThunk(
   "userWishlist/addToWishlist",
   async ({ productSlug, variantId }, { rejectWithValue }) => {
     try {
-      console.log(`💛 [addToWishlist] Adding slug="${productSlug}"...`);
+      // console.log(`💛 [addToWishlist] Adding slug="${productSlug}"...`);
       const response = await axiosInstance.post("/wishlist/add", {
         productSlug,
         variantId,
       });
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to add to wishlist");
-      console.log(`✅ [addToWishlist] slug="${productSlug}" added`);
+      // console.log(`✅ [addToWishlist] slug="${productSlug}" added`);
       return response.data.wishlist;
     } catch (error) {
       logError("addToWishlist", error, { productSlug });
@@ -90,13 +90,13 @@ export const removeFromWishlist = createAsyncThunk(
   "userWishlist/removeFromWishlist",
   async ({ productSlug }, { rejectWithValue }) => {
     try {
-      console.log(`💛 [removeFromWishlist] Removing slug="${productSlug}"...`);
+      // console.log(`💛 [removeFromWishlist] Removing slug="${productSlug}"...`);
       const response = await axiosInstance.delete(
         `/wishlist/remove/${productSlug}`
       );
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to remove from wishlist");
-      console.log(`✅ [removeFromWishlist] slug="${productSlug}" removed`);
+      // console.log(`✅ [removeFromWishlist] slug="${productSlug}" removed`);
       return response.data.wishlist;
     } catch (error) {
       logError("removeFromWishlist", error, { productSlug });
@@ -113,11 +113,11 @@ export const mergeWishlist = createAsyncThunk(
   "userWishlist/mergeWishlist",
   async ({ slugs }, { rejectWithValue }) => {
     try {
-      console.log(`💛 [mergeWishlist] Merging ${slugs.length} guest items...`);
+      // console.log(`💛 [mergeWishlist] Merging ${slugs.length} guest items...`);
       const response = await axiosInstance.post("/wishlist/merge", { slugs });
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to merge wishlist");
-      console.log("✅ [mergeWishlist] Guest wishlist merged successfully");
+      // console.log("✅ [mergeWishlist] Guest wishlist merged successfully");
       return response.data;
     } catch (error) {
       logError("mergeWishlist", error, { slugs });
@@ -134,11 +134,11 @@ export const clearWishlist = createAsyncThunk(
   "userWishlist/clearWishlist",
   async (_, { rejectWithValue }) => {
     try {
-      console.log("💛 [clearWishlist] Clearing wishlist...");
+      // console.log("💛 [clearWishlist] Clearing wishlist...");
       const response = await axiosInstance.delete("/wishlist/clear");
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to clear wishlist");
-      console.log("✅ [clearWishlist] Wishlist cleared");
+      // console.log("✅ [clearWishlist] Wishlist cleared");
       return response.data.wishlist;
     } catch (error) {
       logError("clearWishlist", error);
@@ -155,14 +155,14 @@ export const moveToCart = createAsyncThunk(
   "userWishlist/moveToCart",
   async ({ productIds, moveAll = false }, { rejectWithValue }) => {
     try {
-      console.log(`💛 [moveToCart] Moving ${moveAll ? "all" : productIds?.length} items to cart...`);
+      // console.log(`💛 [moveToCart] Moving ${moveAll ? "all" : productIds?.length} items to cart...`);
       const response = await axiosInstance.post("/wishlist/move-to-cart", {
         productIds,
         moveAll,
       });
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to move to cart");
-      console.log("✅ [moveToCart] Items moved to cart successfully");
+      // console.log("✅ [moveToCart] Items moved to cart successfully");
       return response.data;
     } catch (error) {
       logError("moveToCart", error, { productIds, moveAll });
@@ -213,7 +213,7 @@ const userWishlistSlice = createSlice({
       if (!state.guestItems.includes(slug)) {
         state.guestItems.push(slug);
         saveGuestWishlist(state.guestItems);
-        console.log(`💛 [addGuestItem] slug="${slug}" added to guest wishlist`);
+        // console.log(`💛 [addGuestItem] slug="${slug}" added to guest wishlist`);
       }
     },
     // Guest: remove slug from local state + localStorage
@@ -221,18 +221,18 @@ const userWishlistSlice = createSlice({
       const slug = action.payload;
       state.guestItems = state.guestItems.filter((s) => s !== slug);
       saveGuestWishlist(state.guestItems);
-      console.log(`💛 [removeGuestItem] slug="${slug}" removed from guest wishlist`);
+      // console.log(`💛 [removeGuestItem] slug="${slug}" removed from guest wishlist`);
     },
     // Load guest wishlist from localStorage into state on app init
     loadGuestWishlist: (state) => {
       state.guestItems = getGuestWishlist();
-      console.log(`💛 [loadGuestWishlist] Loaded ${state.guestItems.length} guest items`);
+      // console.log(`💛 [loadGuestWishlist] Loaded ${state.guestItems.length} guest items`);
     },
     // After merge — clear guest items from state + localStorage
     clearGuestItems: (state) => {
       state.guestItems = [];
       clearGuestWishlist();
-      console.log("💛 [clearGuestItems] Guest wishlist cleared after merge");
+      // console.log("💛 [clearGuestItems] Guest wishlist cleared after merge");
     },
     // Clear all errors
     clearWishlistErrors: (state) => {
@@ -298,7 +298,7 @@ const userWishlistSlice = createSlice({
       .addCase(mergeWishlist.fulfilled, (state, action) => {
         state.loading.merge = false;
         // after merge, re-fetch will update items — or clear guest
-        console.log("✅ [mergeWishlist] fulfilled");
+        // console.log("✅ [mergeWishlist] fulfilled");
       })
       .addCase(mergeWishlist.rejected, (state, action) => {
         state.loading.merge = false;
@@ -331,7 +331,7 @@ const userWishlistSlice = createSlice({
         state.loading.moveToCart = false;
         // backend returns updated wishlist after move
         if (action.payload?.cart) {
-          console.log("✅ [moveToCart] Cart updated");
+          // console.log("✅ [moveToCart] Cart updated");
         }
       })
       .addCase(moveToCart.rejected, (state, action) => {

@@ -19,11 +19,11 @@ export const fetchAddresses = createAsyncThunk(
   "userAddress/fetchAddresses",
   async (_, { rejectWithValue }) => {
     try {
-      console.log("📍 [fetchAddresses] fetching...");
+      // console.log("📍 [fetchAddresses] fetching...");
       const response = await axiosInstance.get("/addresses");
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to fetch addresses");
-      console.log(`✅ [fetchAddresses] got ${response.data.count} addresses`);
+      // console.log(`✅ [fetchAddresses] got ${response.data.count} addresses`);
       return response.data;
     } catch (error) {
       logError("fetchAddresses", error);
@@ -40,11 +40,11 @@ export const addAddress = createAsyncThunk(
   "userAddress/addAddress",
   async (addressData, { rejectWithValue }) => {
     try {
-      console.log("📍 [addAddress] adding...", addressData);
+      // console.log("📍 [addAddress] adding...", addressData);
       const response = await axiosInstance.post("/addresses", addressData);
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to add address");
-      console.log(`✅ [addAddress] added: ${response.data.address?._id}`);
+      // console.log(`✅ [addAddress] added: ${response.data.address?._id}`);
       return response.data.address;
     } catch (error) {
       logError("addAddress", error, { addressData });
@@ -64,11 +64,11 @@ export const updateAddress = createAsyncThunk(
   "userAddress/updateAddress",
   async ({ id, ...addressData }, { rejectWithValue }) => {
     try {
-      console.log(`📍 [updateAddress] id="${id}"`);
+      // console.log(`📍 [updateAddress] id="${id}"`);
       const response = await axiosInstance.put(`/addresses/${id}`, addressData);
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to update address");
-      console.log(`✅ [updateAddress] updated: ${id}`);
+      // console.log(`✅ [updateAddress] updated: ${id}`);
       return response.data.address;
     } catch (error) {
       logError("updateAddress", error, { id });
@@ -88,11 +88,11 @@ export const deleteAddress = createAsyncThunk(
   "userAddress/deleteAddress",
   async (id, { rejectWithValue }) => {
     try {
-      console.log(`📍 [deleteAddress] id="${id}"`);
+      // console.log(`📍 [deleteAddress] id="${id}"`);
       const response = await axiosInstance.delete(`/addresses/${id}`);
       if (!response.data.success)
         throw new Error(response.data.message || "Failed to delete address");
-      console.log(`✅ [deleteAddress] deleted: ${id}`);
+      // console.log(`✅ [deleteAddress] deleted: ${id}`);
       return { id };
     } catch (error) {
       logError("deleteAddress", error, { id });
