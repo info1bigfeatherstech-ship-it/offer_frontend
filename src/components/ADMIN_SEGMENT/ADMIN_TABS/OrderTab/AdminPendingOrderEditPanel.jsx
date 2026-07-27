@@ -84,7 +84,7 @@ export default function AdminPendingOrderEditPanel({ order, orderId, disabled, o
   const runApply = async () => {
     if (
       !window.confirm(
-        "Apply these item changes? Unavailable item value is refunded now. Shipping stays as-paid until Ship Now (actual courier rate), then any unused shipping is refunded. Customer is never charged extra shipping."
+        "Apply these item changes? For prepaid orders, money is NOT refunded yet — after Confirm → Ship Now, final bill uses actual courier shipping and any excess is refunded. Balance due / COD will never increase. Customer is never asked for extra."
       )
     ) {
       return;
@@ -94,7 +94,11 @@ export default function AdminPendingOrderEditPanel({ order, orderId, disabled, o
       const res = await applyEdit({ orderId, itemUpdates }).unwrap();
       const data = res?.data || {};
       setPreview(null);
-      const deferred = Boolean(data.shippingSettlementDeferred || data.shipping?.shippingSettlementDeferred);
+      const deferred = Boolean(
+        data.shippingSettlementDeferred ||
+          data.refundDeferredUntilShipNow ||
+          data.shipping?.shippingSettlementDeferred
+      );
       setLocalMsg({
         type: data.refundWarning ? "warn" : "ok",
         text:
@@ -102,7 +106,7 @@ export default function AdminPendingOrderEditPanel({ order, orderId, disabled, o
           (data.cancelledEmpty
             ? "Order cancelled — no items left."
             : deferred
-              ? "Order updated. Item refund processed if due. Shipping will finalize after Ship Now."
+              ? "Items updated. Refund (if any) will run after Ship Now with actual shipping."
               : "Order updated successfully."),
       });
       if (typeof onApplied === "function") {
@@ -125,9 +129,9 @@ export default function AdminPendingOrderEditPanel({ order, orderId, disabled, o
           Edit items before confirm
         </p>
         <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-          Remove out-of-stock items or reduce quantity. Discount stays as-is. Customer is never charged
-          extra shipping. For prepaid orders: item value refunds on Apply; shipping is held until Ship
-          Now (actual Shiprocket rate), then unused shipping is refunded. COD balance updates immediately.
+          Remove out-of-stock items or reduce quantity. Discount stays as-is. Prepaid: Apply saves
+          items only — after Ship Now, bill = remaining items + actual courier rate; excess online
+          payment is refunded. Balance due / COD never increases. COD-only orders update immediately.
         </p>
       </div>
 
@@ -266,8 +270,11 @@ export default function AdminPendingOrderEditPanel({ order, orderId, disabled, o
               </div>
               {preview.shippingSettlementDeferred || preview.shipping?.shippingSettlementDeferred ? (
                 <p className="text-amber-900 bg-amber-50 border border-amber-100 rounded-md px-2 py-1.5">
-                  Shipping refund is deferred: after Confirm → Ship Now, unused shipping (held minus
-                  actual courier rate) is refunded automatically.
+                  No refund on Apply. After Confirm → Ship Now, final total uses actual courier
+                  shipping; any excess prepaid amount is refunded. Due/COD will not increase
+                  {preview.refundInr > 0.005
+                    ? ` (preview refund now: ${formatInr(preview.refundInr)} — deferred).`
+                    : "."}
                 </p>
               ) : null}
               {preview.shipping?.courierName && (

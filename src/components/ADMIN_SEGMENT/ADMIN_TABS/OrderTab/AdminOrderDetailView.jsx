@@ -1043,12 +1043,12 @@ export default function AdminOrderDetailView({
             className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-950 shadow-sm"
             role="status"
           >
-            <p className="font-semibold">Shipping settlement pending</p>
+            <p className="font-semibold">Settlement pending (after Ship Now)</p>
             <p className="mt-0.5 leading-relaxed text-amber-900/90">
-              OOS item edit held prepaid shipping at{" "}
-              {formatInr(order.paymentInfo.oosShippingSettlement.heldDeliveryCharges)}. After{" "}
-              <span className="font-semibold">Ship Now</span>, unused shipping vs actual courier
-              rate is refunded automatically.
+              OOS edit saved without refund. After Ship Now / Refresh Shiprocket, bill uses actual
+              courier shipping (held checkout ship was{" "}
+              {formatInr(order.paymentInfo.oosShippingSettlement.heldDeliveryCharges)}
+              ; never zero). Excess prepaid is refunded; balance due / COD will not increase.
             </p>
           </div>
         ) : null}
