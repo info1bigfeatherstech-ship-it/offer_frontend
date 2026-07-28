@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { X, Heart, ShoppingBag, Trash2, ArrowRight, Star, Ghost, RefreshCw, AlertCircle, Loader2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
@@ -24,6 +24,7 @@ import {
 } from '../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice';
 
 import { lockBodyScroll, unlockBodyScroll } from '../../utils/lockBodyScroll';
+import axiosInstance from '../../SERVICES/axiosInstance';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -48,7 +49,7 @@ const logError = (context, error, info = {}) => {
 // WishlistItem
 // Handles both logged-in (populated productId object) and guest (slug string) shapes
 // ─────────────────────────────────────────────────────────────────────────────
-const WishlistItem = ({ item, isLoggedIn, onRemove, onMoveToCart, isRemoving, isMoving }) => {
+const WishlistItem = ({ item, isLoggedIn, onRemove, onMoveToCart, isRemoving, isMoving, onClose, path }) => {
 
   // ── Data extraction — same pattern as CartSidebar ─────────────────────────
   // Logged-in: item.productId is a populated object from DB
@@ -92,7 +93,11 @@ const WishlistItem = ({ item, isLoggedIn, onRemove, onMoveToCart, isRemoving, is
     <div className="flex gap-4 group py-4">
 
       {/* ── Image ── */}
-      <div className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-[20px] border border-gray-100 bg-gray-50 relative">
+      <Link
+        to={path}
+        onClick={onClose}
+        className="h-24 w-24 flex-shrink-0 overflow-hidden rounded-[20px] border border-gray-100 bg-gray-50 relative block"
+      >
         {image ? (
           <img
             src={image}
@@ -118,15 +123,19 @@ const WishlistItem = ({ item, isLoggedIn, onRemove, onMoveToCart, isRemoving, is
             </span>
           </div>
         )}
-      </div>
+      </Link>
 
       {/* ── Details ── */}
       <div className="flex flex-1 flex-col justify-between py-1 min-w-0">
         <div>
           <div className="flex justify-between items-start gap-2">
-            <h3 className="text-xs font-black text-gray-900 uppercase tracking-tight line-clamp-1 flex-1">
+            <Link
+              to={path}
+              onClick={onClose}
+              className="text-xs font-black text-gray-900 uppercase tracking-tight line-clamp-1 flex-1 hover:text-[#F7A221] transition-colors"
+            >
               {name}
-            </h3>
+            </Link>
             {price != null && (
               <p className="text-xs font-black text-gray-900 whitespace-nowrap flex-shrink-0">
                 {fmt(price)}
@@ -251,6 +260,54 @@ const WishlistSidebar = ({ isOpen, onClose, onOpenAuth }) => {
   // Display items — logged-in uses DB items, guest uses slug array
   const currentItems = isLoggedIn ? items : guestItems;
   const displayCount = isLoggedIn ? totalCount : guestItems.length;
+
+  const [guestProducts, setGuestProducts] = useState({});
+
+  const guestWishlistFetchKey = useMemo(
+    () => guestItems.slice().sort().join('|'),
+    [guestItems]
+  );
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      setGuestProducts({});
+      return;
+    }
+    if (!isOpen || guestItems.length === 0) return;
+
+    const slugs = [...new Set(guestItems)];
+    const ac = new AbortController();
+
+    (async () => {
+      try {
+        const pairs = await Promise.all(
+          slugs.map(async (slug) => {
+            try {
+              const { data } = await axiosInstance.get(`/products/${slug}`, {
+                signal: ac.signal,
+              });
+              const product = data?.success ? data?.product : null;
+              return { slug, product };
+            } catch {
+              return { slug, product: null };
+            }
+          })
+        );
+        if (ac.signal.aborted) return;
+        setGuestProducts((prev) => {
+          const next = { ...prev };
+          for (const { slug, product } of pairs) {
+            if (product) next[slug] = product;
+          }
+          return next;
+        });
+      } catch {
+        /* aborted */
+      }
+    })();
+
+    return () => ac.abort();
+  }, [isOpen, isLoggedIn, guestWishlistFetchKey, guestItems]);
 
   // ── Fetch wishlist when sidebar opens (logged in only) ────────────────────
   useEffect(() => {
@@ -469,6 +526,7 @@ const WishlistSidebar = ({ isOpen, onClose, onOpenAuth }) => {
               {isLoggedIn && items.map((item) => {
                 const slug = item.productId?.slug || item.productSlug || item._id;
                 const state = itemLoading[slug] || {};
+                const path = slug ? `/products/${slug}` : '#';
                 return (
                   <WishlistItem
                     key={item._id || slug}
@@ -478,18 +536,47 @@ const WishlistSidebar = ({ isOpen, onClose, onOpenAuth }) => {
                     onMoveToCart={handleMoveToCart}
                     isRemoving={!!state.removing}
                     isMoving={!!state.moving}
+                    onClose={onClose}
+                    path={path}
                   />
                 );
               })}
 
-              {/* Guest items — only slugs available */}
-              {!isLoggedIn && guestItems.map((slug) => (
-                <GuestItem
-                  key={slug}
-                  slug={slug}
-                  onRemove={handleRemove}
-                />
-              ))}
+              {/* Guest items — only slugs available, fetch details if possible */}
+              {!isLoggedIn && guestItems.map((slug) => {
+                const state = itemLoading[slug] || {};
+                const resolvedProduct = guestProducts[slug];
+                const path = slug ? `/products/${slug}` : '#';
+
+                if (resolvedProduct) {
+                  const itemObject = {
+                    productId: resolvedProduct,
+                    productSlug: slug,
+                    variantId: resolvedProduct.variants?.[0]?._id,
+                  };
+                  return (
+                    <WishlistItem
+                      key={slug}
+                      item={itemObject}
+                      isLoggedIn={isLoggedIn}
+                      onRemove={handleRemove}
+                      onMoveToCart={handleMoveToCart}
+                      isRemoving={!!state.removing}
+                      isMoving={!!state.moving}
+                      onClose={onClose}
+                      path={path}
+                    />
+                  );
+                }
+
+                return (
+                  <GuestItem
+                    key={slug}
+                    slug={slug}
+                    onRemove={handleRemove}
+                  />
+                );
+              })}
 
               {/* Guest sign-in nudge */}
               {!isLoggedIn && (

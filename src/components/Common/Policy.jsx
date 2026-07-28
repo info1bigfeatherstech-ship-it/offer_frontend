@@ -162,7 +162,7 @@ const policiesData = [
     "title": "Privacy Policy",
     "subtitle": "Your privacy and trust matter to us. This policy explains how we collect, use, and protect your information.",
     "tag": "Data & Privacy",
-    "updated": "",
+    "updated": "May 8, 2026",
     "sections": [
       {
         "heading": "Information We Collect",
