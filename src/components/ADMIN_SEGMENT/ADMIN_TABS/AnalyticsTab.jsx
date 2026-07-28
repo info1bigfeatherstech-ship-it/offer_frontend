@@ -1,7 +1,7 @@
 // src/components/ADMIN_SEGMENT/ADMIN_TABS/AnalyticsTab.jsx
 import React, { useState, useMemo, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { fetchProducts, fetchActiveProductsCount } from '../ADMIN_REDUX_MANAGEMENT/adminGetProductsSlice';
+import { fetchProducts, fetchActiveProductsCount, fetchLowStockProducts } from '../ADMIN_REDUX_MANAGEMENT/adminGetProductsSlice';
 import {
   LineChart,
   Line,
@@ -27,13 +27,18 @@ const AnalyticsTab = () => {
   const [endDate, setEndDate] = useState(new Date());
 
   // Same source as Products tab: list is paginated; totals come from API fields on fetch.
-  const { products, totalProducts: adminTotalProductCount, realActiveCount } = useSelector(
-    (state) => state.adminGetProducts
-  );
+  const {
+    products,
+    totalProducts: adminTotalProductCount,
+    realActiveCount,
+    realLowStockCount,
+    lowStockProducts: { products: lowStockProductsList } = { products: [] }
+  } = useSelector((state) => state.adminGetProducts);
 
   useEffect(() => {
     dispatch(fetchProducts({ page: 1, limit: 15 }));
     dispatch(fetchActiveProductsCount());
+    dispatch(fetchLowStockProducts({ page: 1, limit: 100 }));
   }, [dispatch]);
 
   const COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899'];
@@ -116,14 +121,12 @@ const AnalyticsTab = () => {
   const lowStockProducts = useMemo(() => {
     const lowStock = [];
     
-    products.forEach(product => {
-      if (product.status !== 'active') return;
-      
+    lowStockProductsList.forEach(product => {
       (product.variants || []).forEach(variant => {
         const threshold = variant.inventory?.lowStockThreshold || 5;
         const quantity = variant.inventory?.quantity || 0;
         
-        if (quantity <= threshold && quantity > 0) {
+        if (quantity <= threshold) {
           lowStock.push({
             id: `${product._id}-${variant.sku}`,
             name: product.name,
@@ -137,7 +140,7 @@ const AnalyticsTab = () => {
     });
 
     return lowStock.sort((a, b) => a.stock - b.stock).slice(0, 10);
-  }, [products]);
+  }, [lowStockProductsList]);
 
   // Revenue potential (price × stock)
   const revenuePotential = useMemo(() => {
@@ -273,7 +276,7 @@ const AnalyticsTab = () => {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-gray-500 mb-1">Low Stock Items</p>
-              <p className="text-2xl font-bold text-gray-900">{lowStockProducts.length}</p>
+              <p className="text-2xl font-bold text-gray-900">{realLowStockCount}</p>
             </div>
             <div className="w-10 h-10 bg-red-50 rounded-lg flex items-center justify-center">
               <AlertTriangle className="w-5 h-5 text-red-600" />

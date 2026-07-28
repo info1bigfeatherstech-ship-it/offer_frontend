@@ -19,6 +19,7 @@ import {
   optimisticUpdateProduct,
   fetchLowStockProducts,
   fetchActiveProductsCount,
+  fetchFeaturedProductsCount,
   setCurrentPage,
   optimisticBulkTagUpdate,
 } from "../ADMIN_REDUX_MANAGEMENT/adminGetProductsSlice";
@@ -356,32 +357,43 @@ const ProductsTab = ({ onSwitchTab }) => {
     currentPage,
     totalPages,
     realActiveCount,
+    realFeaturedCount,
     realLowStockCount,
     loading: productsLoading,
     isFetching: productsFetching,
     hasLoadedOnce: productsHasLoadedOnce,
     error: productsError,
   } = useSelector((s) => s.adminGetProducts);
-  const normalizedProducts = useMemo(
-    () =>
-      products.map((p) => ({
-        ...p,
-        tags: p.tags || [],
-      })),
-    [products]
-  );
+
+  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
 
   const {
     products: lowStockProducts,
     total: lowStockTotal,
+    page: lowStockPage,
     loading: lowStockLoading,
   } = useSelector(
     (s) =>
       s.adminGetProducts.lowStockProducts || {
         products: [],
         total: 0,
+        page: 1,
         loading: false,
       }
+  );
+
+  const currentProducts = showLowStockOnly ? lowStockProducts : products;
+  const currentTotal = showLowStockOnly ? lowStockTotal : totalProducts;
+  const pageNum = showLowStockOnly ? (lowStockPage || 1) : currentPage;
+  const totalPagesCount = showLowStockOnly ? Math.ceil(lowStockTotal / PRODUCTS_PAGE_LIMIT) : totalPages;
+
+  const normalizedProducts = useMemo(
+    () =>
+      currentProducts.map((p) => ({
+        ...p,
+        tags: p.tags || [],
+      })),
+    [currentProducts]
   );
 
   const { products: archivedProducts } = useSelector((s) => s.adminArchived);
@@ -398,7 +410,6 @@ const ProductsTab = ({ onSwitchTab }) => {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterCategory, setFilterCategory] = useState("all");
   const [detailProduct, setDetailProduct] = useState(null);
-  const [showLowStockOnly, setShowLowStockOnly] = useState(false);
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [selectedSlugs, setSelectedSlugs] = useState(new Set());
   const [bulkLoading, setBulkLoading] = useState(false);
@@ -470,15 +481,20 @@ const ProductsTab = ({ onSwitchTab }) => {
 
   useEffect(() => {
     dispatch(fetchCategories());
-    dispatch(fetchLowStockProducts({ page: 1, limit: 1 }));
+    dispatch(fetchLowStockProducts({ page: 1, limit: PRODUCTS_PAGE_LIMIT }));
     dispatch(fetchActiveProductsCount());
+    dispatch(fetchFeaturedProductsCount());
   }, [dispatch]);
 
   useEffect(() => {
-    dispatch(
-      fetchProducts({ page: 1, limit: PRODUCTS_PAGE_LIMIT, search: debouncedSearch })
-    );
-  }, [dispatch, debouncedSearch]);
+    if (showLowStockOnly) {
+      dispatch(fetchLowStockProducts({ page: 1, limit: PRODUCTS_PAGE_LIMIT }));
+    } else {
+      dispatch(
+        fetchProducts({ page: 1, limit: PRODUCTS_PAGE_LIMIT, search: debouncedSearch })
+      );
+    }
+  }, [dispatch, debouncedSearch, showLowStockOnly]);
   const [todayIndeterminate, setTodayIndeterminate] = useState(false);
   const [saleIndeterminate, setSaleIndeterminate] = useState(false);
 
@@ -534,30 +550,38 @@ const ProductsTab = ({ onSwitchTab }) => {
     if (deleteSuccess) {
       toast.success("Product archived successfully");
       dispatch(fetchArchivedProducts());
-      dispatch(fetchLowStockProducts({ page: 1, limit: 1 }));
+      dispatch(fetchLowStockProducts({ page: 1, limit: PRODUCTS_PAGE_LIMIT }));
     }
   }, [deleteSuccess, dispatch]);
 
   const refreshProducts = useCallback(() => {
-    dispatch(
-      fetchProducts({
-        page: currentPage,
-        limit: PRODUCTS_PAGE_LIMIT,
-        search: debouncedSearch,
-      })
-    );
-    dispatch(fetchLowStockProducts({ page: 1, limit: 1 }));
-  }, [dispatch, currentPage, debouncedSearch]);
-
-  const handlePageChange = (newPage) => {
-    if (newPage >= 1 && newPage <= totalPages) {
+    if (showLowStockOnly) {
+      dispatch(fetchLowStockProducts({ page: lowStockPage || 1, limit: PRODUCTS_PAGE_LIMIT }));
+    } else {
       dispatch(
         fetchProducts({
-          page: newPage,
+          page: currentPage,
           limit: PRODUCTS_PAGE_LIMIT,
           search: debouncedSearch,
         })
       );
+      dispatch(fetchLowStockProducts({ page: 1, limit: PRODUCTS_PAGE_LIMIT }));
+    }
+  }, [dispatch, currentPage, debouncedSearch, showLowStockOnly, lowStockPage]);
+
+  const handlePageChange = (newPage) => {
+    if (newPage >= 1 && newPage <= totalPagesCount) {
+      if (showLowStockOnly) {
+        dispatch(fetchLowStockProducts({ page: newPage, limit: PRODUCTS_PAGE_LIMIT }));
+      } else {
+        dispatch(
+          fetchProducts({
+            page: newPage,
+            limit: PRODUCTS_PAGE_LIMIT,
+            search: debouncedSearch,
+          })
+        );
+      }
     }
   };
 
@@ -686,7 +710,7 @@ const ProductsTab = ({ onSwitchTab }) => {
   };
 
   const activeProducts = realActiveCount;
-  const featuredProducts = normalizedProducts.filter((p) => p.isFeatured).length;
+  const featuredProducts = realFeaturedCount;
   const lowStockCount = realLowStockCount;
 
   const getDateFilterRange = useCallback(() => {
@@ -1259,18 +1283,18 @@ const ProductsTab = ({ onSwitchTab }) => {
           )}
         </div>
 
-      {totalPages > 1 && (
+      {totalPagesCount > 1 && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-200 px-6 py-4">
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500">
-              Showing {(currentPage - 1) * PRODUCTS_PAGE_LIMIT + 1}–
-              {Math.min(currentPage * PRODUCTS_PAGE_LIMIT, totalProducts)} of {totalProducts} products
+              Showing {(pageNum - 1) * PRODUCTS_PAGE_LIMIT + 1}–
+              {Math.min(pageNum * PRODUCTS_PAGE_LIMIT, currentTotal)} of {currentTotal} products
               {debouncedSearch ? ` matching "${debouncedSearch}"` : ""}
             </p>
             <div className="flex items-center gap-2">
               <button
-                onClick={() => handlePageChange(currentPage - 1)}
-                disabled={currentPage === 1}
+                onClick={() => handlePageChange(pageNum - 1)}
+                disabled={pageNum === 1}
                 className="px-4 py-2 text-sm cursor-pointer font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1279,31 +1303,31 @@ const ProductsTab = ({ onSwitchTab }) => {
                 Previous
               </button>
               <div className="flex gap-1">
-                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                  let pageNum;
-                  if (totalPages <= 5) pageNum = i + 1;
-                  else if (currentPage <= 3) pageNum = i + 1;
-                  else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
-                  else pageNum = currentPage - 2 + i;
+                {Array.from({ length: Math.min(5, totalPagesCount) }, (_, i) => {
+                  let pageNumBtn;
+                  if (totalPagesCount <= 5) pageNumBtn = i + 1;
+                  else if (pageNum <= 3) pageNumBtn = i + 1;
+                  else if (pageNum >= totalPagesCount - 2) pageNumBtn = totalPagesCount - 4 + i;
+                  else pageNumBtn = pageNum - 2 + i;
                   return (
                     <button
-                      key={pageNum}
-                      onClick={() => handlePageChange(pageNum)}
-                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${pageNum === currentPage ? "bg-blue-600 text-white" : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
+                      key={pageNumBtn}
+                      onClick={() => handlePageChange(pageNumBtn)}
+                      className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors cursor-pointer ${pageNumBtn === pageNum ? "bg-blue-600 text-white" : "text-gray-700 bg-white border border-gray-300 hover:bg-gray-50"
                         }`}
                     >
-                      {pageNum}
+                      {pageNumBtn}
                     </button>
                   );
                 })}
               </div>
               <button
-                onClick={() => handlePageChange(currentPage + 1)}
-                disabled={currentPage === totalPages}
+                onClick={() => handlePageChange(pageNum + 1)}
+                disabled={pageNum === totalPagesCount}
                 className="px-4 py-2 text-sm cursor-pointer font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               >
                 Next
-                <svg className="w-4 h-4 inline ml-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                 </svg>
               </button>
