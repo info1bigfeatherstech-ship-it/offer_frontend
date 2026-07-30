@@ -11,6 +11,7 @@ import {
   selectWishlistLoading,
   selectWishlistError,
 } from '../../../components/REDUX_FEATURES/REDUX_SLICES/userWishlistSlice';
+import { fetchAllCategories } from '../../../components/REDUX_FEATURES/REDUX_SLICES/userCategoriesSlice';
 
 // ── Reuse existing shared components ─────────────────────────────────────────
 import ProductCard from '../../Product_segment/ProductCard';
@@ -43,6 +44,7 @@ const UserWishlist = () => {
   // ── Fetch on mount — self-contained ──────────────────────────────────────
   useEffect(() => {
     console.log('💛 [UserWishlist] mounted — fetching wishlist');
+    dispatch(fetchAllCategories());
     dispatch(fetchWishlist())
       .unwrap()
       .then((d) => console.log(`✅ [UserWishlist] loaded ${d?.products?.length ?? 0} items`))
@@ -50,14 +52,6 @@ const UserWishlist = () => {
 
     return () => { dispatch(clearWishlistErrors()); };
   }, [dispatch]);
-
-     const getCategoryName = (productCategory) => {
-     
-     if (!productCategory) return "Uncategorized";
-     const found = categories.find((cat) => cat._id === productCategory || cat.name === productCategory
-    );
-    return found ? found.name : "Uncategorized";
-  };
 
   // ─────────────────────────────────────────────────────────────────────────
   // Wishlist item shape from API:
