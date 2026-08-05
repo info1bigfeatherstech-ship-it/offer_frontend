@@ -278,10 +278,13 @@ export const adminOrdersApi = createApi({
     }),
 
     adminFulfillmentAssignShip: builder.mutation({
-      query: ({ orderId, courierId }) => ({
+      query: ({ orderId, courierId, confirmSubstitute }) => ({
         url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/assign-ship`,
         method: 'POST',
-        data: courierId != null ? { courierId } : {},
+        data: {
+          ...(courierId != null ? { courierId } : {}),
+          ...(confirmSubstitute ? { confirmSubstitute: true } : {})
+        },
       }),
       invalidatesTags: (result, error, arg) => [
         { type: 'AdminOrdersList', id: arg.orderId },

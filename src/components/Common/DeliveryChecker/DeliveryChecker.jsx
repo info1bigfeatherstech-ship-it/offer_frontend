@@ -9,6 +9,23 @@ import {
 } from "../../../components/REDUX_FEATURES/REDUX_SLICES/checkoutSlice/checkoutSlice";
 import { MapPin, CheckCircle2, XCircle, Loader2, RefreshCw } from "lucide-react";
 
+const DEFAULT_NOT_DELIVERABLE_MESSAGE = "Delivery not available at this time. Please try again later.";
+
+function getCustomerSafeDeliveryMessage(message) {
+  const raw = String(message || "").trim();
+  if (!raw) return DEFAULT_NOT_DELIVERABLE_MESSAGE;
+  const normalized = raw.toLowerCase();
+  if (
+    /under verification|profile|kyc|not configured|warehouse|pickup pincode|pickup pin|api key|private key|public key/.test(
+      normalized
+    ) ||
+    /\bauth\b|unauthori[sz]ed|forbidden|credential|token/.test(normalized)
+  ) {
+    return DEFAULT_NOT_DELIVERABLE_MESSAGE;
+  }
+  return raw;
+}
+
 /**
  * DeliveryChecker
  *
@@ -68,6 +85,8 @@ const DeliveryChecker = ({
   const isChecking = loading.delivery;
   const result = delivery;
   const hasResult = result.isDeliverable !== null && result.checkedPincode === pincode;
+  const safeErrorMessage = getCustomerSafeDeliveryMessage(error.delivery?.message);
+  const safeResultMessage = getCustomerSafeDeliveryMessage(result.message);
 
   // ── Compact pill version ──────────────────────────────────────────────────
   if (compact) {
@@ -163,7 +182,7 @@ const DeliveryChecker = ({
       {error.delivery && (
         <div className="mt-3 flex items-center gap-2 text-red-500">
           <XCircle size={14} className="flex-shrink-0" />
-          <p className="text-xs font-bold">{error.delivery.message}</p>
+          <p className="text-xs font-bold">{safeErrorMessage}</p>
         </div>
       )}
 
@@ -201,7 +220,7 @@ const DeliveryChecker = ({
                   Delivery not available to {result.checkedPincode}
                 </p>
                 <p className="text-[11px] text-red-500 font-medium mt-0.5">
-                  {result.message || "We don't deliver to this pincode yet"}
+                  {safeResultMessage}
                 </p>
               </div>
             </>
