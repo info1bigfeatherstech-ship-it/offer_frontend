@@ -1011,6 +1011,17 @@ export default function AdminOrderDetailView({
             <h2 className="text-2xl font-black text-slate-900 tracking-tight">
               #{String(order.orderId || "").replace(/^#/, "")}
             </h2>
+            <span
+              className={`inline-flex mt-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
+                String(order.shippingProvider || order.shipmentInfo?.provider || "shiprocket") === "shipmozo"
+                  ? "bg-teal-50 text-teal-800 border-teal-200"
+                  : "bg-indigo-50 text-indigo-800 border-indigo-200"
+              }`}
+            >
+              {String(order.shippingProvider || order.shipmentInfo?.provider || "shiprocket") === "shipmozo"
+                ? "Shipmozo"
+                : "Shiprocket"}
+            </span>
             {ship?.shiprocketPickupId ? (
               <p className="text-sm font-semibold text-indigo-600 mt-1 tracking-wide">
                 {String(ship.shiprocketPickupId).match(/^SRPID-/i)
@@ -1680,7 +1691,31 @@ export default function AdminOrderDetailView({
                                   });
                                   return;
                                 }
-                                throw ae;
+                                if (ae?.data?.code === "QUOTED_COURIER_UNAVAILABLE") {
+                                  const suggested = ae?.data?.suggestedCourier;
+                                  const quoted = ae?.data?.quotedCourier;
+                                  const confirmMsg = suggested
+                                    ? `Checkout courier "${quoted?.courierName || quoted?.courierId || "quoted"}" is unavailable on Shipmozo.\n\nAssign cheapest available "${suggested.courierName || suggested.courierId}" (₹${suggested.totalCharges ?? "—"})?\n\nCancel to assign from Shipmozo panel instead.`
+                                    : `${ae?.data?.message || "Quoted courier unavailable."}\n\nRetry with confirm, or assign from Shipmozo panel.`;
+                                  const ok = window.confirm(confirmMsg);
+                                  if (!ok) {
+                                    setActionMsg({
+                                      type: "err",
+                                      surface: "ship",
+                                      text: "Ship now cancelled. Assign courier from Shipmozo panel or pick another courier.",
+                                    });
+                                    return;
+                                  }
+                                  assignResult = await assignShip({
+                                    orderId,
+                                    confirmSubstitute: true,
+                                    ...(suggested?.courierId != null
+                                      ? { courierId: suggested.courierId }
+                                      : {}),
+                                  }).unwrap();
+                                } else {
+                                  throw ae;
+                                }
                               }
                             }
                             const siFinal = assignResult?.order?.shipmentInfo || si;

@@ -175,6 +175,22 @@ async function executeAction(key, ctx) {
           await ctx.assignShip({ orderId: id }).unwrap();
         } catch (assignErr) {
           if (assignErr?.data?.code === "AWB_ALREADY_ASSIGNED") return;
+          if (assignErr?.data?.code === "QUOTED_COURIER_UNAVAILABLE") {
+            const suggested = assignErr?.data?.suggestedCourier;
+            const quoted = assignErr?.data?.quotedCourier;
+            const confirmMsg = suggested
+              ? `Checkout courier "${quoted?.courierName || quoted?.courierId || "quoted"}" is unavailable.\n\nAssign cheapest "${suggested.courierName || suggested.courierId}" (₹${suggested.totalCharges ?? "—"})?\n\nCancel to use Shipmozo panel.`
+              : `${assignErr?.data?.message || "Quoted courier unavailable."}`;
+            if (!window.confirm(confirmMsg)) {
+              throw new Error("Ship now cancelled — assign from Shipmozo panel or pick another courier.");
+            }
+            await ctx.assignShip({
+              orderId: id,
+              confirmSubstitute: true,
+              ...(suggested?.courierId != null ? { courierId: suggested.courierId } : {}),
+            }).unwrap();
+            return;
+          }
           throw assignErr;
         }
       }

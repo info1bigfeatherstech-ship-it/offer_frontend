@@ -8,15 +8,27 @@ import { CacheFirst, NetworkFirst } from 'workbox-strategies';
 self.skipWaiting();
 clientsClaim();
 
-precacheAndRoute(self.__WB_MANIFEST);
+const wbManifest = self.__WB_MANIFEST;
+precacheAndRoute(wbManifest);
 cleanupOutdatedCaches();
 
-// injectManifest requires exactly one `self.__WB_MANIFEST` in this file — use fixed SPA shell path.
-registerRoute(
-  new NavigationRoute(createHandlerBoundToURL('/index.html'), {
-    denylist: [/^\/api/],
-  })
-);
+// VitePWA may precache `index.html` (no leading slash). createHandlerBoundToURL
+// requires an exact precache match — resolve from the injected manifest safely.
+const spaShellUrl = (Array.isArray(wbManifest) ? wbManifest : [])
+  .map((entry) => (typeof entry === 'string' ? entry : entry && entry.url))
+  .find(
+    (url) =>
+      typeof url === 'string' &&
+      (url === '/index.html' || url === 'index.html' || url.endsWith('/index.html'))
+  );
+
+if (spaShellUrl) {
+  registerRoute(
+    new NavigationRoute(createHandlerBoundToURL(spaShellUrl), {
+      denylist: [/^\/api/],
+    })
+  );
+}
 
 registerRoute(
   ({ request }) => request.destination === 'image',

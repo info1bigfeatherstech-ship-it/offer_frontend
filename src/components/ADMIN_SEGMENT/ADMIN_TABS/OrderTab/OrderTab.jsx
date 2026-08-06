@@ -1366,6 +1366,15 @@ const OrderTab = () => {
                   </td>
                   <td className="px-4 py-4 text-slate-900 font-medium">
                     <div>{order.orderIdDisplay || order.orderId}</div>
+                    <span
+                      className={`inline-flex mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border ${
+                        order.shippingProvider === "shipmozo"
+                          ? "bg-teal-50 text-teal-800 border-teal-200"
+                          : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                      }`}
+                    >
+                      {order.shippingProvider === "shipmozo" ? "Shipmozo" : "Shiprocket"}
+                    </span>
                     {order.shiprocketPickupIdDisplay ? (
                       <p className="text-[10px] font-semibold text-indigo-600 mt-0.5 tracking-wide">
                         {order.shiprocketPickupIdDisplay}
