@@ -18,6 +18,7 @@ import { wholesalerApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/wholes
 import couponReducer from '../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/couponApi/CouponSlice';
 import { couponApi } from '../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/couponApi/couponApi';
 import staffPasswordReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/staffPasswordSlice";
+import adminSelfPasswordReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminSelfPasswordSlice";
 
 // USER REDUCER 
 import userProductsReducer from "../REDUX_SLICES/userProductsSlice";
@@ -39,6 +40,7 @@ const store = configureStore({
     adminProductCreate: adminProductCreateReducer,
     staff: staffReducer,
     staffPassword: staffPasswordReducer,
+    adminSelfPassword: adminSelfPasswordReducer,
     adminGetProducts: adminGetProductsReducer,
     adminEditProduct: adminEditProductReducer,
     adminArchived: adminArchivedReducer,
