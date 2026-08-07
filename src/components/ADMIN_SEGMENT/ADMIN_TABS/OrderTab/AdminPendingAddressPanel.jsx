@@ -198,15 +198,32 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
   };
 
   return (
-    <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+    <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden">
       <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500">
-            Address & delivery
-          </h3>
-          <p className="text-[11px] text-slate-500 mt-0.5">
-            Contact, quality score, and street edit (pending only).
-          </p>
+        <div className="flex items-center gap-2 min-w-0">
+          <span
+            className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-slate-100 text-slate-600 shrink-0"
+            aria-hidden
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"
+              />
+            </svg>
+          </span>
+          <div className="min-w-0">
+            <h3 className="text-sm font-bold text-slate-900">Customer & address</h3>
+            <p className="text-[11px] text-slate-500 truncate">Who receives this order</p>
+          </div>
         </div>
         <div className="flex flex-wrap gap-1.5">
           <button
@@ -226,9 +243,18 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
                 setPreview(null);
                 setLocalMsg(null);
               }}
-              className="rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+              title={editing ? "Cancel edit" : "Edit address"}
             >
-              {editing ? "Cancel edit" : "Edit address"}
+              <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"
+                />
+              </svg>
+              {editing ? "Cancel" : "Edit"}
             </button>
           )}
         </div>
@@ -308,7 +334,7 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
 
         {/* Pending edit — collapsed until Edit address */}
         {isPending && editing && (
-          <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3 space-y-3">
+          <div className="rounded-md border border-slate-200 bg-slate-50/60 p-3 space-y-3">
             <p className="text-[11px] text-slate-600">
               Name and phone stay locked. Street fields update this order&apos;s snapshot for Shiprocket.
             </p>

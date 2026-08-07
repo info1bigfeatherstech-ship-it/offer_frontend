@@ -1375,9 +1375,18 @@ const OrderTab = () => {
                     >
                       {order.shippingProvider === "shipmozo" ? "Shipmozo" : "Shiprocket"}
                     </span>
-                    {order.shiprocketPickupIdDisplay ? (
-                      <p className="text-[10px] font-semibold text-indigo-600 mt-0.5 tracking-wide">
-                        {order.shiprocketPickupIdDisplay}
+                    {(order.shiprocketPickupIdDisplay || order.shiprocketPickupId) ? (
+                      <p className="text-[10px] font-semibold text-indigo-700 mt-0.5 tracking-wide">
+                        SRPID:{" "}
+                        {(() => {
+                          const d = String(order.shiprocketPickupIdDisplay || "").trim();
+                          if (/^SRPID-/i.test(d)) return d.toUpperCase();
+                          if (d) return d.startsWith("SRPID") ? d : `SRPID-${d.replace(/\D/g, "") || d}`;
+                          const raw = String(order.shiprocketPickupId || "").trim();
+                          if (/^SRPID-/i.test(raw)) return raw.toUpperCase();
+                          const digits = raw.replace(/\D/g, "");
+                          return digits ? `SRPID-${digits}` : raw;
+                        })()}
                       </p>
                     ) : null}
                   </td>
@@ -1467,9 +1476,18 @@ const OrderTab = () => {
                     <p className="text-xs font-semibold text-slate-900 truncate">
                       {order.orderIdDisplay || order.orderId}
                     </p>
+                    <span
+                      className={`inline-flex mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold uppercase tracking-wide border ${
+                        order.shippingProvider === "shipmozo"
+                          ? "bg-teal-50 text-teal-800 border-teal-200"
+                          : "bg-indigo-50 text-indigo-700 border-indigo-200"
+                      }`}
+                    >
+                      {order.shippingProvider === "shipmozo" ? "Shipmozo" : "Shiprocket"}
+                    </span>
                     {order.shiprocketPickupIdDisplay ? (
-                      <p className="text-[10px] font-semibold text-indigo-600 mt-0.5 tracking-wide">
-                        {order.shiprocketPickupIdDisplay}
+                      <p className="text-[10px] font-semibold text-indigo-700 mt-0.5 tracking-wide">
+                        SRPID: {order.shiprocketPickupIdDisplay}
                       </p>
                     ) : null}
                   </div>
