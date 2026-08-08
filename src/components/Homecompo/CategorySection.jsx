@@ -11,6 +11,7 @@ import {
   selectErrorBySlug,
   selectPaginationBySlug,
   selectStatusBySlug,
+  selectLoadMoreErrorBySlug,
 } from '../REDUX_FEATURES/REDUX_SLICES/userProductsSlice';
 
 import ProductCard from '../../User_Side_Web_Interface/Product_segment/ProductCard';
@@ -135,20 +136,35 @@ const CategorySection = ({ slug, title }) => {
   const selectError      = useMemo(() => selectErrorBySlug(slug),      [slug]);
   const selectPagination = useMemo(() => selectPaginationBySlug(slug), [slug]);
   const selectStatus     = useMemo(() => selectStatusBySlug(slug),     [slug]);
+  const selectLoadMoreError = useMemo(() => selectLoadMoreErrorBySlug(slug), [slug]);
 
   const products      = useSelector(selectProducts);
   let categoryname    = products[0]?.category?.slug;
   const loading       = useSelector(selectLoading);
   const error         = useSelector(selectError);
+  const loadMoreError = useSelector(selectLoadMoreError);
   const pagination    = useSelector(selectPagination);
   const status        = useSelector(selectStatus);
 
-  const currentPage   = pagination?.page ?? 1;
-  const loadingMore   = loading && currentPage > 1;
+  const loadingMore   = Boolean(loading && products.length > 0);
   const hasMore       = pagination?.hasNextPage ?? false;
 
+  const isRateLimited = useMemo(() => {
+    const statusCode = error?.status ?? loadMoreError?.status;
+    const msg = String(error?.message || loadMoreError?.message || '').toLowerCase();
+    return statusCode === 429 || msg.includes('too many requests') || msg.includes('slow down');
+  }, [error, loadMoreError]);
+
+  const softErrorMessage = useMemo(() => {
+    if (!loadMoreError?.message) return null;
+    if (isRateLimited) {
+      return 'Too many requests — please wait a moment, then try Load More again.';
+    }
+    return loadMoreError.message;
+  }, [loadMoreError, isRateLimited]);
+
   const triggerFetch = useCallback(() => {
-    dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 })); // Changed from 8 to 12
+    dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 }));
   }, [slug, dispatch]);
 
   // rootMargin: '1500px' — fires the API call when the section is ~1500px
@@ -164,12 +180,17 @@ const CategorySection = ({ slug, title }) => {
   const handleLoadMore = useCallback(() => {
     if (loading || !hasMore) return;
     const nextPage = (pagination?.page ?? 1) + 1;
-    dispatch(fetchProductsByCategory({ slug, page: nextPage, limit: 12 })); // Changed from 8 to 12
+    dispatch(fetchProductsByCategory({ slug, page: nextPage, limit: 12 }));
   }, [slug, dispatch, loading, hasMore, pagination]);
 
   const handleRetry = useCallback(() => {
-    dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 })); // Changed from 8 to 12
+    dispatch(fetchProductsByCategory({ slug, page: 1, limit: 12 }));
   }, [slug, dispatch]);
+
+  const handleRetryLoadMore = useCallback(() => {
+    if (loading || !hasMore) return;
+    handleLoadMore();
+  }, [loading, hasMore, handleLoadMore]);
 
   const waveRef = useRef(null);
 
@@ -231,17 +252,21 @@ const CategorySection = ({ slug, title }) => {
     );
   }
 
-  // ── ERROR ────────────────────────────────────────────────────────────────────
-  if (error) {
+  // ── ERROR (initial load only — never wipe products already on screen) ─────
+  if (error && products.length === 0) {
     return (
       <div className="w-full bg-white py-8 md:py-16 text-center">
         <p className="text-red-500 mb-2 font-medium">Failed to load {title}</p>
         <p className="text-gray-400 text-sm mb-4">
-          {error.message || "Something went wrong"}
+          {isRateLimited
+            ? 'Too many requests — please wait a moment and try again.'
+            : (error.message || "Something went wrong")}
         </p>
         <button
+          type="button"
           onClick={handleRetry}
-          className="inline-flex items-center gap-2 px-6 py-2 bg-[#f7a221] text-white rounded-lg hover:bg-[#e09110] transition-colors"
+          disabled={loading}
+          className="inline-flex items-center gap-2 px-6 py-2 bg-[#f7a221] text-white rounded-lg hover:bg-[#e09110] transition-colors disabled:opacity-60"
         >
           <RefreshCw size={16} /> Try Again
         </button>
@@ -278,10 +303,25 @@ const CategorySection = ({ slug, title }) => {
               loadingMore={loadingMore}
             />
 
+            {softErrorMessage ? (
+              <div className="mt-6 mx-auto max-w-xl rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center">
+                <p className="text-sm text-amber-900 mb-2">{softErrorMessage}</p>
+                <button
+                  type="button"
+                  onClick={handleRetryLoadMore}
+                  disabled={loading || !hasMore}
+                  className="inline-flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-950 underline disabled:opacity-50"
+                >
+                  <RefreshCw size={12} /> Retry load more
+                </button>
+              </div>
+            ) : null}
+
             {/* Load more */}
             {hasMore && (
               <div className="flex justify-center mt-10">
                 <button
+                  type="button"
                   onClick={handleLoadMore}
                   disabled={loading}
                   className={`

@@ -14,9 +14,10 @@ import {
   useGetAdminPickupCalendarQuery,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 import { isPostConfirmOrderStatus } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersSlice";
-import { shouldShowOnlinePaymentHoldCountdown } from "../../../../utils/paymentHoldDisplay";
 import AdminPendingOrderEditPanel from "./AdminPendingOrderEditPanel";
 import AdminPendingAddressPanel from "./AdminPendingAddressPanel";
+import OrderShipmentTrackingPanel from "./OrderShipmentTrackingPanel";
+import OrderPaymentSummaryCard from "./OrderPaymentSummaryCard";
 
 /** @deprecated Prefer shipmentOps.opsState — kept for legacy sync heuristics only. */
 function isPickupBookedOnOrder(ship, opsState) {
@@ -71,6 +72,15 @@ function buildShiprocketSupportClipboardText({ orderId, ship, ops }) {
     `Ops state: ${ops?.opsStateLabel || ops?.opsState || "—"}`,
   ];
   return lines.join("\n");
+}
+
+function formatSrpidDisplay(raw) {
+  if (raw == null || raw === "") return null;
+  const s = String(raw).trim();
+  if (!s) return null;
+  if (/^SRPID-/i.test(s)) return s.toUpperCase();
+  const digits = s.replace(/\D/g, "");
+  return digits ? `SRPID-${digits}` : `SRPID-${s}`;
 }
 
 function formatInr(amount) {
@@ -175,7 +185,7 @@ function statusBadgeClass(orderStatus, providerStatus) {
   if (isShiprocketRtoStatus(s, providerStatus)) {
     return "bg-orange-50 text-orange-800 border-orange-200";
   }
-  if (["delivered", "confirmed"].includes(s)) return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (["delivered", "confirmed"].includes(s)) return "bg-blue-50 text-blue-700 border-blue-200";
   if (["shipped", "out_for_delivery", "processing"].includes(s)) return "bg-blue-50 text-blue-700 border-blue-200";
   if (["pending", "return_requested"].includes(s)) return "bg-amber-50 text-amber-800 border-amber-200";
   if (["cancelled", "payment_failed"].includes(s)) return "bg-red-50 text-red-700 border-red-200";
@@ -184,7 +194,7 @@ function statusBadgeClass(orderStatus, providerStatus) {
 
 function paymentBadgeClass(paymentStatus) {
   const s = String(paymentStatus || "").toLowerCase();
-  if (s === "paid") return "bg-emerald-50 text-emerald-700 border-emerald-200";
+  if (s === "paid") return "bg-blue-50 text-blue-700 border-blue-200";
   if (s === "partially_paid") return "bg-amber-50 text-amber-800 border-amber-200";
   if (["failed", "refunded", "partially_refunded"].includes(s)) return "bg-red-50 text-red-700 border-red-200";
   if (["pending", "initiated"].includes(s)) return "bg-amber-50 text-amber-800 border-amber-200";
@@ -308,7 +318,7 @@ function FulfillmentStatusBanner({ msg }) {
       ? "bg-red-50 text-red-800 border-red-100"
       : msg.type === "warn"
         ? "bg-amber-50 text-amber-900 border-amber-200"
-        : "bg-emerald-50 text-emerald-900 border-emerald-100";
+        : "bg-blue-50 text-blue-900 border-blue-100";
   return (
     <div className={`mt-3 rounded-lg px-3 py-2.5 text-sm border ${tone}`} role="status" aria-live="polite">
       <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-1">Shiprocket status</p>
@@ -317,28 +327,80 @@ function FulfillmentStatusBanner({ msg }) {
   );
 }
 
-function FulfillmentStepCard({ step, focusStep, done, title, children, id }) {
+function FulfillmentStepCard({
+  step,
+  focusStep,
+  done,
+  title,
+  heading,
+  children,
+  id,
+  isLast = false,
+  /** When true, only render if this step is locked (for accordion). */
+  onlyIfLocked = false,
+  /** When true (default), hide locked steps from the main timeline. */
+  hideIfLocked = true,
+}) {
   const isActive = step === focusStep && !done;
-  const shell = isActive
-    ? "rounded-xl border border-indigo-300 bg-indigo-50/50 ring-1 ring-indigo-200 p-4 mb-4"
-    : done
-      ? "rounded-xl border border-emerald-200 bg-emerald-50/30 p-4 mb-4"
-      : "rounded-xl border border-slate-200 bg-white p-4 mb-4";
+  const locked = !done && !isActive && Number(step) > Number(focusStep);
+  if (onlyIfLocked && !locked) return null;
+  if (hideIfLocked && locked && !onlyIfLocked) return null;
+
+  const circleClass = done
+    ? "border-blue-600 bg-blue-600 text-white"
+    : isActive
+      ? "border-blue-600 bg-white"
+      : "border-slate-300 bg-white";
+
   return (
-    <div className={shell} id={id}>
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">{title}</p>
-        {done ? (
-          <span className="text-[10px] font-bold uppercase tracking-wide text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded-full">
-            Done
-          </span>
-        ) : isActive ? (
-          <span className="text-[10px] font-bold uppercase tracking-wide text-indigo-900 bg-indigo-100 px-2 py-0.5 rounded-full">
-            Next on Shiprocket
-          </span>
-        ) : null}
+    <div className={`relative flex gap-3 ${locked ? "opacity-70" : ""}`} id={id}>
+      <div className="flex w-5 shrink-0 flex-col items-center">
+        <span
+          className={`mt-1 flex h-5 w-5 items-center justify-center rounded-full border-2 shrink-0 ${circleClass}`}
+          aria-current={isActive ? "step" : undefined}
+        >
+          {done ? (
+            <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor" aria-hidden>
+              <path
+                fillRule="evenodd"
+                d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
+                clipRule="evenodd"
+              />
+            </svg>
+          ) : isActive ? (
+            <span className="h-2 w-2 rounded-full bg-blue-600" />
+          ) : null}
+        </span>
+        {!isLast ? <span className="mt-1 w-px flex-1 min-h-[1.25rem] bg-slate-200" aria-hidden /> : null}
       </div>
-      {children}
+      <div
+        className={`min-w-0 flex-1 border px-3 py-2.5 mb-2 rounded-md ${
+          isActive
+            ? "border-blue-300 bg-blue-50/50"
+            : done
+              ? "border-slate-200 bg-slate-50/40"
+              : "border-slate-200 bg-white"
+        }`}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-2 mb-1.5">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">{title}</p>
+            {heading ? <p className="text-sm font-bold text-slate-900 mt-0.5">{heading}</p> : null}
+          </div>
+          {done ? (
+            <span className="text-[9px] font-bold uppercase tracking-wide text-slate-600 bg-slate-100 px-1.5 py-0.5 rounded-md shrink-0">
+              Done
+            </span>
+          ) : isActive ? (
+            <span className="text-[9px] font-bold uppercase tracking-wide text-blue-800 bg-blue-100 px-1.5 py-0.5 rounded-md shrink-0">
+              Action required
+            </span>
+          ) : locked ? (
+            <span className="text-[9px] font-semibold italic text-slate-400 shrink-0">Locked</span>
+          ) : null}
+        </div>
+        {children}
+      </div>
     </div>
   );
 }
@@ -514,48 +576,6 @@ export default function AdminOrderDetailView({
     e?.message ||
     "Could not load invoice.";
 
-  const openTaxInvoice = useCallback(async () => {
-    if (!orderId) return;
-    setActionMsg(null);
-    setInvoiceBusy(true);
-    let url;
-    try {
-      url = await fetchInvoiceObjectUrl();
-      window.open(url, "_blank", "noopener,noreferrer");
-      setTimeout(() => URL.revokeObjectURL(url), 120000);
-    } catch (e) {
-      if (url) URL.revokeObjectURL(url);
-      setActionMsg({ type: "err", text: invoiceErrorMessage(e), surface: "invoice" });
-    } finally {
-      setInvoiceBusy(false);
-    }
-  }, [orderId, fetchInvoiceObjectUrl]);
-
-  const downloadTaxInvoice = useCallback(async () => {
-    if (!orderId) return;
-    setActionMsg(null);
-    setInvoiceBusy(true);
-    let url;
-    try {
-      url = await fetchInvoiceObjectUrl();
-      const safeId = String(orderId)
-        .replace(/[^a-zA-Z0-9-_]/g, "_")
-        .slice(0, 80);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `Tax-invoice-${safeId}.html`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 8000);
-    } catch (e) {
-      if (url) URL.revokeObjectURL(url);
-      setActionMsg({ type: "err", text: invoiceErrorMessage(e), surface: "invoice" });
-    } finally {
-      setInvoiceBusy(false);
-    }
-  }, [orderId, fetchInvoiceObjectUrl]);
-
   const printTaxInvoice = useCallback(async () => {
     if (!orderId) return;
     setActionMsg(null);
@@ -568,7 +588,7 @@ export default function AdminOrderDetailView({
         URL.revokeObjectURL(url);
         setActionMsg({
           type: "err",
-          text: "Pop-up blocked — allow pop-ups for this site to print, or use Open / Download.",
+          text: "Pop-up blocked — allow pop-ups for this site to print the invoice.",
           surface: "invoice",
         });
         return;
@@ -722,13 +742,17 @@ export default function AdminOrderDetailView({
     }
   }, [orderId, refreshOrder]);
 
-  const addr = order?.addressSnapshot || {};
   const ship = order?.shipmentInfo || {};
   const ops = order?.shipmentOps || {};
   const caps = ops.actionCapabilities || {};
   const blockReasons = ops.blockReasons || {};
   const riskFlags = ops.riskFlags || {};
   const externalLinks = ops.externalLinks || {};
+  const shippingProviderKey =
+    String(order?.shippingProvider || order?.shipmentInfo?.provider || "shiprocket").toLowerCase() ===
+    "shipmozo"
+      ? "shipmozo"
+      : "shiprocket";
   const hasCarrierAwb = Boolean(ship.awbCode || ship.trackingNumber);
   const pickupAlreadyScheduled =
     ops.opsState === "PICKUP_SCHEDULED" ||
@@ -819,20 +843,13 @@ export default function AdminOrderDetailView({
   const quoteShip = order?.shippingSnapshot || {};
   const coupon = order?.appliedCoupon;
 
-  const waLink = useMemo(() => {
-    const raw = String(addr.phone || order?.customer?.phone || "").replace(/\D/g, "");
-    const last10 = raw.slice(-10);
-    if (last10.length !== 10) return null;
-    return `https://wa.me/91${last10}`;
-  }, [addr.phone, order?.customer?.phone]);
-
   if (loading && !order) {
     return (
       <div className="p-6 bg-[#F8FAFC] min-h-screen">
         <div className="max-w-6xl mx-auto animate-pulse space-y-4">
           <div className="h-8 bg-slate-200 rounded w-48" />
-          <div className="h-40 bg-slate-200 rounded-xl" />
-          <div className="h-64 bg-slate-200 rounded-xl" />
+          <div className="h-40 bg-slate-200 rounded-md" />
+          <div className="h-64 bg-slate-200 rounded-md" />
         </div>
       </div>
     );
@@ -854,7 +871,7 @@ export default function AdminOrderDetailView({
           >
             ← Back to orders
           </button>
-          <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{msg}</div>
+          <div className="rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">{msg}</div>
         </div>
       </div>
     );
@@ -991,87 +1008,187 @@ export default function AdminOrderDetailView({
     !isExceptionOpsState;
 
   return (
-    <div className="p-4 md:p-6 bg-[#F8FAFC] min-h-screen pb-12">
-      <div className="max-w-6xl mx-auto space-y-6">
+    <div className="p-3 md:p-5 bg-[#F8FAFC] min-h-screen pb-10">
+      <div className="max-w-7xl mx-auto space-y-4">
         <button
           type="button"
           onClick={onBack}
-          className="flex items-center gap-2 text-slate-600 font-medium hover:text-slate-900 transition-colors"
+          className="flex items-center gap-2 text-slate-600 text-sm font-medium hover:text-slate-900 transition-colors"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
           </svg>
           Back to orders
         </button>
 
-        {/* Title row */}
-        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">Order ID</p>
-            <h2 className="text-2xl font-black text-slate-900 tracking-tight">
+        {/* Title row — order id, status, and pending confirm/cancel in one glance */}
+        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3 bg-white rounded-md border border-slate-200 shadow-sm px-4 py-3.5">
+          <div className="min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Order</p>
+            <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
               #{String(order.orderId || "").replace(/^#/, "")}
             </h2>
-            <span
-              className={`inline-flex mt-1.5 px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
-                String(order.shippingProvider || order.shipmentInfo?.provider || "shiprocket") === "shipmozo"
-                  ? "bg-teal-50 text-teal-800 border-teal-200"
-                  : "bg-indigo-50 text-indigo-800 border-indigo-200"
-              }`}
-            >
-              {String(order.shippingProvider || order.shipmentInfo?.provider || "shiprocket") === "shipmozo"
-                ? "Shipmozo"
-                : "Shiprocket"}
-            </span>
-            {ship?.shiprocketPickupId ? (
-              <p className="text-sm font-semibold text-indigo-600 mt-1 tracking-wide">
-                {String(ship.shiprocketPickupId).match(/^SRPID-/i)
-                  ? String(ship.shiprocketPickupId).toUpperCase()
-                  : `SRPID-${String(ship.shiprocketPickupId).replace(/\D/g, "")}`}
+            <div className="mt-1.5 flex flex-wrap items-center gap-2">
+              <span
+                className={`inline-flex px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wide border ${
+                  shippingProviderKey === "shipmozo"
+                    ? "bg-teal-50 text-teal-800 border-teal-200"
+                    : "bg-indigo-50 text-indigo-800 border-indigo-200"
+                }`}
+              >
+                {shippingProviderKey === "shipmozo" ? "Shipmozo" : "Shiprocket"}
+              </span>
+              <span className="text-xs text-slate-500">{formatDateHeader(order.createdAt)}</span>
+              {formatSrpidDisplay(ship?.shiprocketPickupId) ? (
+                <span className="text-xs font-semibold text-indigo-700 tracking-wide">
+                  SRPID: {formatSrpidDisplay(ship.shiprocketPickupId)}
+                </span>
+              ) : null}
+            </div>
+            {showNextActionBanner ? (
+              <p className="text-xs text-blue-700 mt-1.5">
+                Next: <span className="font-semibold">{primaryActionLabel}</span>
+                {ops.nextStepMessage ? (
+                  <span className="text-slate-600"> — {ops.nextStepMessage}</span>
+                ) : null}
               </p>
             ) : null}
-            <p className="text-sm text-slate-500 mt-1">{formatDateHeader(order.createdAt)}</p>
           </div>
-          <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex flex-wrap gap-2 items-center lg:justify-end">
             <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${statusBadgeClass(order.orderStatus, order.shipmentInfo?.providerStatus)}`}
-              title="Order status (orderStatus)"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border ${statusBadgeClass(order.orderStatus, order.shipmentInfo?.providerStatus)}`}
+              title="Order status"
             >
-              <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Order</span>
+              <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Status</span>
               {labelOrderStatus(order.orderStatus, order.shipmentInfo?.providerStatus)}
             </span>
             <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border ${paymentBadgeClass(order.paymentStatus)}`}
-              title="Payment status (paymentStatus)"
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border ${paymentBadgeClass(order.paymentStatus)}`}
+              title="Payment status"
             >
-              <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Payment</span>
+              <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Pay</span>
               {labelPaymentStatus(order.paymentStatus)}
             </span>
+            {isPendingOrder ? (
+              <>
+                <button
+                  type="button"
+                  disabled={fulfillmentBusy || !carrierPaymentReady}
+                  onClick={async () => {
+                    setActionMsg(null);
+                    try {
+                      const data = await bulkConfirm({ orderIds: [orderId] }).unwrap();
+                      const row = (data.results || []).find((r) => r.orderId === orderId);
+                      if (row && !row.success) {
+                        throw new Error(row.message || row.code || "Confirm failed.");
+                      }
+                      const deferred = row?.code === "CONFIRMED_SHIPMENT_DEFERRED";
+                      setActionMsg({
+                        type: deferred ? "warn" : "ok",
+                        text:
+                          row?.message ||
+                          (deferred
+                            ? "Order confirmed. Shiprocket create failed — retry Ship now below."
+                            : "Order confirmed."),
+                      });
+                    } catch (e) {
+                      setActionMsg({
+                        type: "err",
+                        text: fulfillmentActionErrorText(e, "Confirm failed."),
+                      });
+                    }
+                  }}
+                  className="px-4 py-2 text-sm font-bold bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {bulkConfirmState.isLoading ? "Confirming…" : "Confirm order"}
+                </button>
+                <button
+                  type="button"
+                  disabled={fulfillmentBusy}
+                  onClick={async () => {
+                    if (
+                      !window.confirm(
+                        "Cancel this pending order? Stock will be restored and the customer will not be shipped."
+                      )
+                    ) {
+                      return;
+                    }
+                    setActionMsg(null);
+                    try {
+                      const data = await bulkCancel({ orderIds: [orderId] }).unwrap();
+                      const row = (data.results || []).find((r) => r.orderId === orderId);
+                      if (row && !row.success) {
+                        throw new Error(row.message || row.code || "Cancel failed.");
+                      }
+                      setActionMsg({
+                        type: "ok",
+                        text: row?.message || "Order cancelled.",
+                      });
+                    } catch (e) {
+                      setActionMsg({
+                        type: "err",
+                        text: fulfillmentActionErrorText(e, "Cancel failed."),
+                      });
+                    }
+                  }}
+                  className="px-4 py-2 text-sm font-bold border border-red-300 text-red-800 rounded-md bg-white hover:bg-red-50 disabled:opacity-50"
+                >
+                  {bulkCancelState.isLoading ? "Cancelling…" : "Cancel"}
+                </button>
+              </>
+            ) : null}
+            {showInvoiceAndLogistics ? (
+              <button
+                type="button"
+                onClick={printTaxInvoice}
+                disabled={invoiceBusy || !orderId}
+                className="px-3 py-1.5 text-xs font-bold rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {invoiceBusy ? "…" : "Print invoice"}
+              </button>
+            ) : null}
           </div>
         </div>
 
+        {actionMsg?.text && !actionMsg?.surface ? (
+          <div
+            className={`rounded-md border px-4 py-2.5 text-sm shadow-sm ${
+              actionMsg.type === "err"
+                ? "bg-red-50 border-red-200 text-red-900"
+                : actionMsg.type === "warn"
+                  ? "bg-amber-50 border-amber-200 text-amber-950"
+                  : "bg-blue-50 border-blue-200 text-blue-900"
+            }`}
+            role="status"
+            aria-live="polite"
+          >
+            {actionMsg.text}
+          </div>
+        ) : null}
+
         {order?.paymentInfo?.oosShippingSettlement?.pending === true ? (
           <div
-            className="rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-950 shadow-sm"
+            className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5 text-xs text-amber-950 shadow-sm"
             role="status"
           >
             <p className="font-semibold">Settlement pending (after Ship Now)</p>
             <p className="mt-0.5 leading-relaxed text-amber-900/90">
-              OOS edit saved without refund. After Ship Now / Refresh Shiprocket, bill uses actual
-              courier shipping (held checkout ship was{" "}
-              {formatInr(order.paymentInfo.oosShippingSettlement.heldDeliveryCharges)}
-              ; never zero). Excess prepaid is refunded; balance due / COD will not increase.
+              OOS edit saved without refund. After Ship Now / Refresh Shiprocket, bill uses actual courier shipping
+              (held checkout ship was{" "}
+              {formatInr(order.paymentInfo.oosShippingSettlement.heldDeliveryCharges)}; never zero). Excess prepaid is
+              refunded; balance due / COD will not increase.
             </p>
           </div>
         ) : null}
 
         {(carrierPaymentHint || fulfillmentBlockMessage) && (
           <div
-            className="rounded-xl border border-slate-200 bg-white p-3 shadow-sm"
+            className="rounded-md border border-slate-200 bg-white p-3 shadow-sm"
             role="status"
             aria-live="polite"
           >
             <div
-              className={`rounded-lg px-3 py-2 text-xs border ${
+              className={`rounded-md px-3 py-2 text-xs border ${
                 fulfillmentBlockMessage
                   ? "text-slate-700 bg-slate-100 border-slate-200"
                   : "text-amber-900 bg-amber-50 border-amber-100"
@@ -1082,431 +1199,225 @@ export default function AdminOrderDetailView({
           </div>
         )}
 
-        {showNextActionBanner ? (
-          <div className="rounded-xl border border-indigo-200 bg-indigo-50/90 p-4 shadow-sm">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-              <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-indigo-600">
-                  Next action · Shiprocket
-                </p>
-                <p className="text-base font-bold text-indigo-950 mt-1">{primaryActionLabel}</p>
-                {ops.nextStepMessage ? (
-                  <p className="text-xs text-indigo-800 mt-1 leading-relaxed max-w-2xl">{ops.nextStepMessage}</p>
-                ) : null}
-                {carrierStatusDisplay ? (
-                  <p className="text-[11px] text-indigo-700 mt-2">
-                    Current status: <span className="font-semibold">{carrierStatusDisplay}</span>
-                  </p>
-                ) : null}
-                {ops.opsState === "PICKUP_SCHEDULED" && ship.labelUrl && !ship.manifestUrl ? (
-                  <p className="text-[10px] font-semibold text-emerald-700 mt-1.5">
-                    Label downloaded on Shiprocket (manifest is the next step).
-                  </p>
-                ) : null}
-              </div>
-              <div className="flex flex-col sm:flex-row sm:items-end gap-2 shrink-0">
-                {primaryActionKey === "schedulePickup" && caps.schedulePickup ? (
-                  <>
-                    {pickupUsesShiprocketRules && pickupAllowedDates.length > 0 ? (
-                      <select
-                        value={pickupAllowedDates.includes(pickupDate) ? pickupDate : pickupAllowedDates[0]}
-                        onChange={(e) => setPickupDate(e.target.value)}
-                        disabled={fulfillmentBusy}
-                        className="border border-indigo-200 rounded-lg px-2 py-2 text-xs bg-white min-w-[11rem]"
-                      >
-                        {pickupAllowedDates.map((d) => (
-                          <option key={d} value={d}>
-                            {d}
-                          </option>
-                        ))}
-                      </select>
-                    ) : (
-                      <input
-                        type="date"
-                        value={pickupDate}
-                        onChange={(e) => setPickupDate(e.target.value)}
-                        disabled={fulfillmentBusy}
-                        className="border border-indigo-200 rounded-lg px-2 py-2 text-xs bg-white min-w-[9.5rem]"
-                      />
-                    )}
-                    <button
-                      type="button"
-                      disabled={fulfillmentBusy || !pickupDate || !carrierPaymentReady}
-                      title={blockReasons.schedulePickup}
-                      onClick={async () => {
-                        setActionMsg(null);
-                        try {
-                          const r = await schedulePickup({ orderId, pickupDate }).unwrap();
-                          const fb = pickupScheduleFeedback({ response: r, selectedDate: pickupDate });
-                          setActionMsg({
-                            type: fb.type,
-                            surface: "pickup",
-                            text: fb.text,
-                          });
-                          await refreshOrder();
-                          if (typeof onRefreshTracking === "function") await onRefreshTracking();
-                        } catch (e) {
-                          setActionMsg({
-                            type: "err",
-                            surface: "pickup",
-                            text: fulfillmentActionErrorText(e, "Schedule pickup failed."),
-                          });
-                        }
-                      }}
-                      className="px-5 py-2.5 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                    >
-                      {pickupState.isLoading ? "Scheduling…" : primaryActionLabel}
-                    </button>
-                  </>
-                ) : primaryActionKey === "syncShiprocket" && caps.syncShiprocket ? (
-                  <button
-                    type="button"
-                    disabled={fulfillmentBusy}
-                    onClick={async () => {
-                      setActionMsg(null);
-                      try {
-                        const r = await syncShiprocket(orderId).unwrap();
-                        setActionMsg({
-                          type: "ok",
-                          surface: "ops",
-                          text: r?.message || "Updated from Shiprocket.",
-                        });
-                        await refreshOrder();
-                        if (typeof onRefreshTracking === "function") await onRefreshTracking();
-                      } catch (e) {
-                        setActionMsg({
-                          type: "err",
-                          surface: "ops",
-                          text: fulfillmentActionErrorText(e, "Sync failed."),
-                        });
-                      }
-                    }}
-                    className="px-5 py-2.5 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                  >
-                    {syncShiprocketState.isLoading ? "Syncing…" : primaryActionLabel}
-                  </button>
-                ) : primaryActionKey === "downloadLabel" && caps.downloadLabel ? (
-                  <button
-                    type="button"
-                    disabled={fulfillmentBusy || labelDownloadBusy}
-                    onClick={() => {
-                      void downloadShippingLabelFile();
-                    }}
-                    className="px-5 py-2.5 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                  >
-                    {labelDownloadBusy ? "Downloading…" : primaryActionLabel}
-                  </button>
-                ) : primaryActionKey === "generateManifest" && caps.generateManifest ? (
-                  <button
-                    type="button"
-                    disabled={fulfillmentBusy || !carrierPaymentReady || !hasCarrierAwb}
-                    title={blockReasons.generateManifest}
-                    onClick={async () => {
-                      setActionMsg(null);
-                      try {
-                        const r = await fulfillmentManifest(orderId).unwrap();
-                        const u = r?.manifestUrl;
-                        setActionMsg({
-                          type: "ok",
-                          surface: "manifest",
-                          text: u ? "Manifest ready on Shiprocket." : "Manifest generated on Shiprocket.",
-                        });
-                        if (u) window.open(u, "_blank", "noopener,noreferrer");
-                        await refreshOrder();
-                        if (typeof onRefreshTracking === "function") await onRefreshTracking();
-                      } catch (e) {
-                        setActionMsg({
-                          type: "err",
-                          surface: "manifest",
-                          text: fulfillmentActionErrorText(e, "Manifest failed."),
-                        });
-                      }
-                    }}
-                    className="px-5 py-2.5 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                  >
-                    {manifestState.isLoading ? "Working…" : primaryActionLabel}
-                  </button>
-                ) : primaryActionKey === "downloadManifest" && caps.downloadManifest ? (
-                  <button
-                    type="button"
-                    disabled={fulfillmentBusy || manifestDownloadBusy || !carrierPaymentReady}
-                    title={blockReasons.downloadManifest}
-                    onClick={() => {
-                      void downloadManifestFile();
-                    }}
-                    className="px-5 py-2.5 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
-                  >
-                    {manifestDownloadBusy ? "Downloading…" : primaryActionLabel}
-                  </button>
-                ) : null}
-                {caps.syncShiprocket && primaryActionKey !== "syncShiprocket" ? (
-                  <button
-                    type="button"
-                    disabled={fulfillmentBusy}
-                    onClick={async () => {
-                      setActionMsg(null);
-                      try {
-                        await syncShiprocket(orderId).unwrap();
-                        await refreshOrder();
-                        if (typeof onRefreshTracking === "function") await onRefreshTracking();
-                      } catch (_) {
-                        /* ignore */
-                      }
-                    }}
-                    className="px-3 py-2 text-xs font-semibold border border-indigo-300 rounded-lg bg-white text-indigo-900 hover:bg-indigo-100/60 disabled:opacity-50"
-                  >
-                    Refresh Shiprocket
-                  </button>
-                ) : null}
-              </div>
-            </div>
-            <FulfillmentStatusBanner
-              msg={
-                actionMsg?.surface === "pickup" || actionMsg?.surface === "ops" ? actionMsg : null
-              }
-            />
-          </div>
-        ) : null}
 
-        {isPendingOrder && (
-          <div className="space-y-3">
-            <AdminPendingOrderEditPanel
-              order={order}
-              orderId={orderId}
-              disabled={fulfillmentBusy}
-              onApplied={async () => {
-                setActionMsg({ type: "ok", text: "Pending order items updated." });
-                await refreshOrder();
-              }}
-            />
-          <div className="rounded-xl border border-amber-200 bg-amber-50/80 p-4 shadow-sm space-y-3">
-            <div>
-              <p className="text-[11px] font-black uppercase tracking-widest text-amber-900">
-                Awaiting admin approval
-              </p>
-              <p className="text-xs text-amber-950/90 mt-1 leading-relaxed">
-                Only admin can approve or reject pending orders. Confirm unlocks GST invoice and Shiprocket steps.
-                Cancel restores stock and closes the order. Edit out-of-stock items above before confirming.
-              </p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                disabled={fulfillmentBusy || !carrierPaymentReady}
-                onClick={async () => {
-                  setActionMsg(null);
-                  try {
-                    const data = await bulkConfirm({ orderIds: [orderId] }).unwrap();
-                    const row = (data.results || []).find((r) => r.orderId === orderId);
-                    if (row && !row.success) {
-                      throw new Error(row.message || row.code || "Confirm failed.");
-                    }
-                    const deferred = row?.code === "CONFIRMED_SHIPMENT_DEFERRED";
-                    setActionMsg({
-                      type: deferred ? "warn" : "ok",
-                      text:
-                        row?.message ||
-                        (deferred
-                          ? "Order confirmed. Shiprocket create failed — retry Ship now below."
-                          : "Order confirmed."),
-                    });
-                  } catch (e) {
-                    setActionMsg({
-                      type: "err",
-                      text: fulfillmentActionErrorText(e, "Confirm failed."),
-                    });
-                  }
-                }}
-                className="px-4 py-2 text-sm font-bold bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-50"
-              >
-                {bulkConfirmState.isLoading ? "Confirming…" : "Confirm order"}
-              </button>
-              <button
-                type="button"
-                disabled={fulfillmentBusy}
-                onClick={async () => {
-                  if (
-                    !window.confirm(
-                      "Cancel this pending order? Stock will be restored and the customer will not be shipped."
-                    )
-                  ) {
-                    return;
-                  }
-                  setActionMsg(null);
-                  try {
-                    const data = await bulkCancel({ orderIds: [orderId] }).unwrap();
-                    const row = (data.results || []).find((r) => r.orderId === orderId);
-                    if (row && !row.success) {
-                      throw new Error(row.message || row.code || "Cancel failed.");
-                    }
-                    setActionMsg({
-                      type: "ok",
-                      text: row?.message || "Order cancelled.",
-                    });
-                  } catch (e) {
-                    setActionMsg({
-                      type: "err",
-                      text: fulfillmentActionErrorText(e, "Cancel failed."),
-                    });
-                  }
-                }}
-                className="px-4 py-2 text-sm font-bold border border-red-300 text-red-800 rounded-lg bg-white hover:bg-red-50 disabled:opacity-50"
-              >
-                {bulkCancelState.isLoading ? "Cancelling…" : "Cancel order"}
-              </button>
-            </div>
-          </div>
-          </div>
-        )}
-
-        {hideStaleTracking && carrierStatusDisplay && (
-          <div className="bg-amber-50 rounded-xl border border-amber-200 shadow-sm p-4">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-amber-800">Shipment</p>
-            <p className="text-sm font-semibold text-amber-950 mt-1">{carrierStatusDisplay}</p>
-            {carrierStatusSecondary && (
-              <p className="text-[10px] text-amber-800 mt-1">Previous Shiprocket label: {carrierStatusSecondary}</p>
-            )}
-            <p className="text-xs text-amber-900 mt-2">Stale AWB cleared — use Ship now after refresh.</p>
-          </div>
-        )}
-        {(ship.trackingNumber || ship.courier || carrierStatusDisplay) && !hideStaleTracking && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Shipment</p>
-              <p className="text-sm font-semibold text-slate-900">
-                {ship.courier || "Courier"} {ship.trackingNumber ? `· ${ship.trackingNumber}` : ""}
-              </p>
-              {carrierStatusDisplay && (
-                <p className="text-xs text-blue-700 mt-1">
-                  Carrier status: <span className="font-semibold">{carrierStatusDisplay}</span>
-                </p>
-              )}
-              {carrierStatusSecondary && (
-                <p className="text-[10px] text-slate-500 mt-1">Shiprocket label: {carrierStatusSecondary}</p>
-              )}
-              {ship.shippedAt && (
-                <p className="text-xs text-slate-500 mt-1">Shipped {formatDateHeader(ship.shippedAt)}</p>
-              )}
-              {ship.deliveredAt && (
-                <p className="text-xs text-emerald-600 mt-0.5">Delivered {formatDateHeader(ship.deliveredAt)}</p>
-              )}
-            </div>
-            {ship.trackingNumber && (
-              <a
-                href={`https://www.google.com/search?q=${encodeURIComponent(ship.trackingNumber + " " + (ship.courier || "tracking"))}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center px-4 py-2 text-xs font-semibold bg-slate-900 text-white rounded-lg hover:bg-slate-800"
-              >
-                Track package
-              </a>
-            )}
-          </div>
-        )}
-
-        {orderId && !showInvoiceAndLogistics && (isPendingOrder || fulfillmentActionsBlocked) && (
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <p className="text-sm font-semibold text-slate-800">
-              {isPendingOrder ? "Invoice & logistics locked" : "Invoice & logistics not available"}
-            </p>
+        {orderId && !showInvoiceAndLogistics && !isPendingOrder && fulfillmentActionsBlocked && (
+          <div className="rounded-md border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="text-sm font-semibold text-slate-800">Invoice & logistics not available</p>
             <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-              {isPendingOrder
-                ? "GST tax invoice and Shiprocket steps appear after you confirm this order (Confirmed tab)."
-                : "Cancelled and unpaid orders do not need a tax invoice or shipment booking."}
+              Cancelled and unpaid orders do not need a tax invoice or shipment booking.
             </p>
           </div>
         )}
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+          {/* Left — items, logistics (not full page), tracking */}
+          <div className="lg:col-span-2 space-y-4">
+            {isPendingOrder ? (
+              <AdminPendingOrderEditPanel
+                order={order}
+                orderId={orderId}
+                disabled={fulfillmentBusy}
+                onApplied={async () => {
+                  setActionMsg({ type: "ok", text: "Pending order items updated." });
+                  await refreshOrder();
+                }}
+              />
+            ) : (
+                <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden">
+                  <div className="px-4 py-2.5 border-b border-slate-100 bg-slate-50/80 flex flex-wrap items-start justify-between gap-2">
+                    <h3 className="text-sm font-bold text-slate-900">Items in this order</h3>
+                    {weightSnap?.totalWeightKg != null && (
+                      <div className="text-right text-[11px] space-y-0.5 text-slate-600">
+                        <p>
+                          Weight{" "}
+                          <span className="font-semibold text-slate-900">{formatKg(weightSnap.totalWeightKg)}</span>
+                          {packageDimsLabel ? (
+                            <>
+                              {" · "}
+                              <span className="font-semibold text-slate-900">{packageDimsLabel}</span>
+                            </>
+                          ) : null}
+                        </p>
+                        {weightSourceCatalogFallback && (
+                          <p className="text-amber-700">Estimated from catalog (legacy order)</p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="divide-y divide-slate-100">
+                    {items.map((line, idx) => {
+                      const name = line?.productId?.name || "Product";
+                      const img =
+                        line?.thumbnailUrl || line?.productId?.images?.[0]?.url || line?.productId?.images?.[0];
+                      const sku = line?.sku || "—";
+                      const qty = line?.quantity ?? 0;
+                      const lineTotal = Number(line?.lineTotal ?? line?.priceSnapshot?.total) || 0;
+                      const weightRow = weightByVariantId.get(String(line?.variantId ?? ""));
+                      const lineDimsLabel = weightRow ? formatPackageDims(weightRow) : null;
+                      const unitDimWeightKg =
+                        weightRow?.unitDimWeightKg != null
+                          ? Number(weightRow.unitDimWeightKg)
+                          : weightRow
+                            ? dimWeightKgFromDims(weightRow)
+                            : null;
+                      const lineDimWeightKg =
+                        weightRow?.lineDimWeightKg != null
+                          ? Number(weightRow.lineDimWeightKg)
+                          : unitDimWeightKg != null
+                            ? Math.round(unitDimWeightKg * qty * 100) / 100
+                            : null;
+                      return (
+                        <div key={idx} className="px-4 py-3.5 flex gap-4">
+                          <div className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-md border border-slate-100 bg-slate-50 overflow-hidden">
+                            {img ? (
+                              <img src={img} alt="" className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-2xl text-slate-300">
+                                📦
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0 flex flex-wrap items-start justify-between gap-2">
+                            <div className="min-w-0">
+                              <p className="text-sm font-semibold text-slate-900 leading-snug">{name}</p>
+                              <p className="text-[11px] text-slate-500 mt-0.5">
+                                Qty {qty} · SKU <span className="font-mono">{sku}</span>
+                                {weightRow ? (
+                                  <>
+                                    {" · "}
+                                    {formatKg(weightRow.lineWeightKg)}
+                                  </>
+                                ) : null}
+                                {lineDimsLabel ? ` · ${lineDimsLabel}` : null}
+                                {lineDimWeightKg != null ? ` · dim ${formatKg(lineDimWeightKg)}` : null}
+                              </p>
+                            </div>
+                            <p className="text-sm font-bold text-slate-900 shrink-0">{formatInr(lineTotal)}</p>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  <div className="px-4 py-3 bg-slate-50/50 border-t border-slate-100 space-y-1.5 text-sm">
+                    <div className="flex justify-between text-slate-600">
+                      <span>Subtotal</span>
+                      <span>{formatInr(order.subtotal)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Taxes & Others</span>
+                      <span>{formatInr(order.tax)}</span>
+                    </div>
+                    <div className="flex justify-between text-slate-600">
+                      <span>Delivery</span>
+                      <span>
+                        {Number(order.deliveryCharges) === 0 ? (
+                          <span className="text-blue-600 font-semibold">FREE</span>
+                        ) : (
+                          formatInr(order.deliveryCharges)
+                        )}
+                      </span>
+                    </div>
+                    {Number(order.discount) > 0 && (
+                      <div className="flex justify-between text-blue-700">
+                        <span>Discount{coupon?.code ? ` (${coupon.code})` : ""}</span>
+                        <span>−{formatInr(order.discount)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-base font-black text-slate-900 pt-2 border-t border-slate-200">
+                      <span>Grand total</span>
+                      <span>{formatInr(order.totalAmount)}</span>
+                    </div>
+                  </div>
+                </div>
+            )}
 
         {orderId && showInvoiceAndLogistics && (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="bg-gradient-to-r from-slate-900 to-slate-800 px-4 sm:px-5 py-4 text-white flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden">
+            <div className="px-4 py-3 border-b border-slate-100 flex flex-wrap items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">Your store</p>
-                <h3 className="text-lg font-black tracking-tight">GST tax invoice</h3>
-                <p className="text-xs text-slate-300 mt-1 max-w-xl leading-relaxed">
-                  This is your store&apos;s tax invoice (HTML from your server). Anything named &quot;invoice&quot; on
-                  Shiprocket&apos;s site is usually a logistics document. For GST and the customer, use this{" "}
-                  <strong className="text-white">tax invoice</strong>.
-                </p>
-              </div>
-              <div className="flex flex-col items-stretch sm:items-end gap-2 shrink-0">
-                <div className="flex flex-wrap gap-2 justify-end">
-                  <button
-                    type="button"
-                    onClick={openTaxInvoice}
-                    disabled={invoiceBusy || !orderId}
-                    className="px-4 py-2.5 rounded-lg text-xs font-bold bg-white text-slate-900 hover:bg-slate-100 shadow-sm disabled:opacity-50"
-                  >
-                    {invoiceBusy ? "…" : "Open"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={printTaxInvoice}
-                    disabled={invoiceBusy || !orderId}
-                    className="px-4 py-2.5 rounded-lg text-xs font-bold bg-slate-700 text-white hover:bg-slate-600 border border-slate-600 disabled:opacity-50"
-                  >
-                    Print
-                  </button>
-                  <button
-                    type="button"
-                    onClick={downloadTaxInvoice}
-                    disabled={invoiceBusy || !orderId}
-                    className="px-4 py-2.5 rounded-lg text-xs font-bold bg-emerald-700 text-white hover:bg-emerald-600 disabled:opacity-50"
-                  >
-                    Download
-                  </button>
-                </div>
-                <p className="text-[10px] text-slate-400 text-right max-w-xs leading-snug">
-                  After AWB is saved, open or print again so the AWB line updates. Use the browser print dialog
-                  &quot;Save as PDF&quot; if you need a PDF file.
-                </p>
-                {actionMsg?.surface === "invoice" && actionMsg?.text ? (
-                  <div
-                    className={`w-full max-w-sm rounded-lg px-3 py-2 text-xs border sm:ml-auto ${
-                      actionMsg.type === "err"
-                        ? "bg-red-950/90 border-red-400/50 text-red-50"
-                        : "bg-emerald-950/80 border-emerald-400/40 text-emerald-50"
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="text-sm font-bold text-slate-900">Logistics</h3>
+                  <span
+                    className={`inline-flex px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wide border ${
+                      shippingProviderKey === "shipmozo"
+                        ? "bg-teal-50 text-teal-800 border-teal-200"
+                        : "bg-indigo-50 text-indigo-800 border-indigo-200"
                     }`}
-                    role="status"
-                    aria-live="polite"
                   >
-                    {actionMsg.text}
-                  </div>
-                ) : null}
+                    {shippingProviderKey === "shipmozo" ? "Shipmozo" : "Shiprocket"}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 mt-0.5">Manage courier assignment and tracking</p>
               </div>
+              {caps.syncShiprocket ? (
+                <button
+                  type="button"
+                  disabled={fulfillmentBusy}
+                  onClick={async () => {
+                    setActionMsg(null);
+                    try {
+                      const r = await syncShiprocket(orderId).unwrap();
+                      setActionMsg({
+                        type: "ok",
+                        surface: "ops",
+                        text: r?.message || "Updated from Shiprocket.",
+                      });
+                      await refreshOrder();
+                      if (typeof onRefreshTracking === "function") await onRefreshTracking();
+                    } catch (e) {
+                      setActionMsg({
+                        type: "err",
+                        surface: "ops",
+                        text: fulfillmentActionErrorText(e, "Sync failed."),
+                      });
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1.5 text-[11px] font-semibold border border-slate-200 rounded-lg hover:bg-slate-50 disabled:opacity-50"
+                >
+                  <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden>
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                  {syncShiprocketState.isLoading ? "Refreshing…" : "Refresh"}
+                </button>
+              ) : null}
             </div>
 
-            <div className="p-4 sm:p-5 space-y-4 border-t border-slate-100">
-              <div>
-                <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500">
-                  Logistics (Shiprocket)
-                </h3>
-                <p className="text-xs text-slate-600 mt-2 max-w-2xl leading-relaxed">
-                  Checkout shows an <span className="font-semibold">estimated</span> courier and delivery charge from our
-                  rates. Shiprocket uses its own live partners and prices when the shipment is booked — they are not
-                  always the same as checkout.
+            {actionMsg?.surface === "invoice" && actionMsg?.text ? (
+              <div
+                className={`mx-4 mt-3 rounded-lg px-3 py-2 text-xs border ${
+                  actionMsg.type === "err"
+                    ? "bg-red-50 border-red-200 text-red-900"
+                    : "bg-blue-50 border-blue-200 text-blue-900"
+                }`}
+                role="status"
+              >
+                {actionMsg.text}
+              </div>
+            ) : null}
+
+            <div className="p-3 space-y-2.5">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <p className="text-slate-500 font-semibold">Quoted courier (checkout)</p>
+                <p className="font-semibold text-slate-900 mt-0.5 truncate">{quoteShip.courierName || "—"}</p>
+                <p className="text-slate-500 mt-0.5">
+                  Est. delivery: {quoteShip.estimatedDays != null ? `${quoteShip.estimatedDays} days` : "—"}
                 </p>
               </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-xs">
-              <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 px-3 py-2">
-                <p className="text-slate-600 font-semibold">Quoted courier (checkout)</p>
-                <p className="font-semibold text-slate-900 mt-0.5">{quoteShip.courierName || "—"}</p>
-                <p className="text-slate-500 mt-1">Est. delivery: {quoteShip.estimatedDays || "—"}</p>
-              </div>
-              <div className="rounded-lg border border-indigo-100 bg-indigo-50/50 px-3 py-2">
-                <p className="text-slate-600 font-semibold">Assigned courier (Shiprocket)</p>
-                <p className="font-semibold text-slate-900 mt-0.5">{ship.courier || "—"}</p>
-                <p className="text-slate-500 mt-1">After AWB assignment</p>
-                {ship.courierAssignNote ? (
-                  <p className="text-[10px] text-indigo-800 mt-2 leading-snug border-t border-indigo-100 pt-2">
-                    {ship.courierAssignNote}
-                  </p>
+              <div className="rounded-lg border border-slate-200 bg-white px-3 py-2">
+                <p className="text-slate-500 font-semibold">Assigned courier</p>
+                <p className={`font-semibold mt-0.5 truncate ${ship.courier ? "text-slate-900" : "text-slate-400 italic"}`}>
+                  {ship.courier || "Pending assignment"}
+                </p>
+                {ship.shiprocketOrderId ? (
+                  <p className="text-slate-500 mt-0.5 font-mono truncate">ID {ship.shiprocketOrderId}</p>
                 ) : null}
-              </div>
-              <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                <p className="text-slate-500">Shiprocket order ID</p>
-                <p className="font-mono font-semibold break-all">{ship.shiprocketOrderId || "—"}</p>
               </div>
             </div>
 
@@ -1640,9 +1551,10 @@ export default function AdminOrderDetailView({
                 focusStep={fulfillmentFocusStep}
                 done={step1Done}
                 title="Step 1 · Create & assign"
+                heading="Assign courier"
               >
                 {step1Done ? (
-                  <p className="text-sm text-emerald-900">
+                  <p className="text-sm text-blue-900">
                     <span className="font-semibold">{ship.courier || "Courier"}</span>
                     {hasCarrierAwb ? (
                       <>
@@ -1742,7 +1654,7 @@ export default function AdminOrderDetailView({
                             });
                           }
                         }}
-                        className="px-4 py-2.5 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                        className="px-4 py-2 text-sm font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                       >
                         {ensureState.isLoading || assignState.isLoading ? "Working…" : "Ship now"}
                       </button>
@@ -1751,68 +1663,6 @@ export default function AdminOrderDetailView({
                   </>
                 )}
               </FulfillmentStepCard>
-
-              {showStandardFulfillmentSteps ? (
-              <details className="group rounded-lg border border-slate-200 bg-slate-50/90 px-3 py-2">
-                <summary className="text-xs font-semibold text-slate-800 cursor-pointer list-none flex items-center gap-2 [&::-webkit-details-marker]:hidden">
-                  <span className="text-slate-400 group-open:rotate-90 transition-transform inline-block">▸</span>
-                  Advanced — split steps (troubleshooting)
-                </summary>
-                <p className="text-[11px] text-slate-600 mt-2 mb-3 leading-relaxed max-w-xl">
-                  <strong className="text-slate-800">Create on Shiprocket only</strong> pushes the order to Shiprocket
-                  without assigning a courier or AWB (same as “ensure” / draft on their side).{" "}
-                  <strong className="text-slate-800">Assign AWB only</strong> runs after a shipment id exists, if you
-                  need to retry courier selection separately.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    type="button"
-                    disabled={fulfillmentBusy || !carrierPaymentReady}
-                    title="Create forward order on Shiprocket only (no AWB)"
-                    onClick={async () => {
-                      setActionMsg(null);
-                      try {
-                        await ensureShipment(orderId).unwrap();
-                        setActionMsg({ type: "ok", text: "Order pushed to Shiprocket (AWB not assigned yet)." });
-                      } catch (e) {
-                        setActionMsg({
-                          type: "err",
-                          text: fulfillmentActionErrorText(e, "Ensure failed."),
-                        });
-                      }
-                    }}
-                    className="px-3 py-2 text-xs font-semibold border border-slate-300 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    Create on Shiprocket only
-                  </button>
-                  <button
-                    type="button"
-                    disabled={
-                      fulfillmentBusy ||
-                      !carrierPaymentReady ||
-                      !ship.shipmentId ||
-                      Boolean(ship.awbCode || ship.trackingNumber)
-                    }
-                    title="Assign courier and generate AWB (shipment id required)"
-                    onClick={async () => {
-                      setActionMsg(null);
-                      try {
-                        await assignShip({ orderId }).unwrap();
-                        setActionMsg({ type: "ok", text: "Courier assigned and AWB generated." });
-                      } catch (e) {
-                        setActionMsg({
-                          type: "err",
-                          text: fulfillmentActionErrorText(e, "Assign failed."),
-                        });
-                      }
-                    }}
-                    className="px-3 py-2 text-xs font-semibold border border-slate-300 rounded-lg bg-white hover:bg-slate-50 disabled:opacity-50"
-                  >
-                    Assign AWB only
-                  </button>
-                </div>
-              </details>
-              ) : null}
               </>
               ) : null}
 
@@ -1823,8 +1673,9 @@ export default function AdminOrderDetailView({
                 focusStep={fulfillmentFocusStep}
                 done={step2Done}
                 title="Step 2 · Pickup"
+                heading="Schedule pickup"
               >
-                <p className="text-[11px] text-slate-500 mb-3 max-w-2xl leading-relaxed">
+                <p className="text-[11px] text-slate-500 mb-3 max-w-2xl leading-relaxed sr-only">
                   After AWB is assigned, schedule when the courier should collect the parcel.
                 </p>
                 {!pickupAlreadyScheduled && pickupUsesShiprocketRules ? (
@@ -1838,7 +1689,7 @@ export default function AdminOrderDetailView({
                   </p>
                 ) : null}
                 {pickupAlreadyScheduled ? (
-                  <p className="text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-lg px-2 py-1.5 mb-2 max-w-xl">
+                  <p className="text-[11px] text-blue-800 bg-blue-50 border border-blue-200 rounded-lg px-2 py-1.5 mb-2 max-w-xl">
                     Pickup booked on Shiprocket
                     {ship.pickupDate ? ` for ${ship.pickupDate}` : ""}. Continue with Step 3 below.
                   </p>
@@ -1981,16 +1832,17 @@ export default function AdminOrderDetailView({
                 focusStep={fulfillmentFocusStep}
                 done={step3Done}
                 title="Step 3 · Manifest"
+                heading="Manifest"
                 id="admin-manifest-step"
               >
-                <p className="text-[11px] text-slate-500 mb-2 max-w-xl leading-relaxed">
+                <p className="text-[11px] text-slate-500 mb-2 max-w-xl leading-relaxed sr-only">
                   Same as Shiprocket panel — download manifest after pickup is scheduled.
                 </p>
                 {fulfillmentFocusStep === 3 && !step3Done ? (
                   <p className="text-xs font-semibold text-indigo-900 mb-2">{ops.nextStepMessage || primaryActionLabel}</p>
                 ) : null}
                 {hasLabel && !hasManifest ? (
-                  <p className="text-[10px] font-semibold text-emerald-700 mb-2">
+                  <p className="text-[10px] font-semibold text-blue-700 mb-2">
                     Label already downloaded on Shiprocket — manifest is still required next.
                   </p>
                 ) : null}
@@ -2030,7 +1882,7 @@ export default function AdminOrderDetailView({
                           });
                         }
                       }}
-                      className="px-4 py-2.5 text-sm font-bold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50"
+                      className="px-4 py-2.5 text-sm font-bold bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
                     >
                       {manifestState.isLoading || manifestDownloadBusy
                         ? "Working…"
@@ -2086,7 +1938,7 @@ export default function AdminOrderDetailView({
                   ) : null}
                 </div>
                 {hasManifest ? (
-                  <p className="text-[11px] text-emerald-700 mt-2">Manifest URL saved on this order.</p>
+                  <p className="text-[11px] text-blue-700 mt-2">Manifest URL saved on this order.</p>
                 ) : null}
                 <FulfillmentStatusBanner msg={actionMsg?.surface === "manifest" ? actionMsg : null} />
               </FulfillmentStepCard>
@@ -2096,14 +1948,16 @@ export default function AdminOrderDetailView({
                 focusStep={fulfillmentFocusStep}
                 done={hasLabel && step3Done}
                 title="Step 4 · Shipping label"
+                heading="Shipping label"
                 id="admin-shipping-label-step"
+                isLast
               >
-                <p className="text-[11px] text-slate-500 mb-2 max-w-xl leading-relaxed">
-                  Courier AWB label from Shiprocket (parcel sticker). Not your GST tax invoice — use Invoice above for
-                  tax invoice.
+                <p className="text-[11px] text-slate-500 mb-2 max-w-xl leading-relaxed sr-only">
+                  Courier AWB label from Shiprocket (parcel sticker). Not your GST tax invoice — use Print invoice
+                  in the order header.
                 </p>
                 {hasLabel && !step3Done ? (
-                  <p className="text-[10px] font-semibold text-emerald-700 mb-2">
+                  <p className="text-[10px] font-semibold text-blue-700 mb-2">
                     Label downloaded on Shiprocket — available after manifest step if needed again.
                   </p>
                 ) : null}
@@ -2145,15 +1999,50 @@ export default function AdminOrderDetailView({
                 <FulfillmentStatusBanner msg={actionMsg?.surface === "label" ? actionMsg : null} />
               </FulfillmentStepCard>
 
-              <div className="pt-2 border-t border-slate-100">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-red-700/80 mb-2">Shiprocket order</p>
+              <div className="pt-1 space-y-2">
+                {fulfillmentFocusStep < 4 ? (
+                  <details className="group border border-slate-200 rounded-md bg-slate-50/80 px-3 py-2">
+                    <summary className="cursor-pointer list-none flex items-center justify-between gap-2 text-xs font-semibold text-slate-700">
+                      <span>
+                        Upcoming steps
+                        <span className="font-normal text-slate-500">
+                          {" "}
+                          (after {primaryActionLabel || "current action"})
+                        </span>
+                      </span>
+                      <span className="text-slate-400 group-open:rotate-180 transition-transform" aria-hidden>
+                        ▾
+                      </span>
+                    </summary>
+                    <ul className="mt-2 space-y-1 text-xs text-slate-600 border-t border-slate-200 pt-2">
+                      {fulfillmentFocusStep < 2 && !step2Done ? (
+                        <li className="flex justify-between gap-2">
+                          <span>2 · Schedule pickup</span>
+                          <span className="italic text-slate-400">Locked</span>
+                        </li>
+                      ) : null}
+                      {fulfillmentFocusStep < 3 && !step3Done ? (
+                        <li className="flex justify-between gap-2">
+                          <span>3 · Manifest</span>
+                          <span className="italic text-slate-400">Locked</span>
+                        </li>
+                      ) : null}
+                      {fulfillmentFocusStep < 4 && !(hasLabel && step3Done) ? (
+                        <li className="flex justify-between gap-2">
+                          <span>4 · Shipping label</span>
+                          <span className="italic text-slate-400">Locked</span>
+                        </li>
+                      ) : null}
+                    </ul>
+                  </details>
+                ) : null}
                 <button
                   type="button"
                   disabled={fulfillmentBusy || !ship.shiprocketOrderId || !caps.cancelShipment}
                   onClick={() => {
                     void runCancelAndPrepareReship();
                   }}
-                  className="px-3 py-2 text-xs font-semibold border border-red-200 text-red-700 rounded-lg bg-white hover:bg-red-50 disabled:opacity-50"
+                  className="px-2.5 py-1.5 text-[11px] font-semibold border border-red-200 text-red-700 rounded-md bg-white hover:bg-red-50 disabled:opacity-50"
                 >
                   {cancelState.isLoading ? "Working…" : "Cancel on Shiprocket"}
                 </button>
@@ -2166,230 +2055,27 @@ export default function AdminOrderDetailView({
           </div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Left column */}
-          <div className="lg:col-span-2 space-y-6">
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80 flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500">Shipment tracking</h3>
-                  <p className="text-[11px] text-slate-500 mt-1">Live from Shiprocket + saved shipment events</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={onRefreshTracking}
-                  disabled={Boolean(trackingLoading)}
-                  className="inline-flex items-center gap-2 px-3 py-2 text-xs font-semibold border border-slate-200 rounded-lg hover:bg-slate-100 disabled:opacity-50"
-                >
-                  {trackingLoading ? "Refreshing..." : "Refresh tracking"}
-                </button>
-              </div>
-              <div className="p-4 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                  <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                    <p className="text-slate-500">Provider status</p>
-                    <p className="font-semibold text-slate-900 mt-0.5">{carrierStatusDisplay || "—"}</p>
-                    {carrierStatusSecondary && carrierStatusSecondary !== carrierStatusDisplay ? (
-                      <p className="text-[10px] text-slate-500 mt-1">Shiprocket label: {carrierStatusSecondary}</p>
-                    ) : null}
-                  </div>
-                  <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                    <p className="text-slate-500">Last synced</p>
-                    <p className="font-semibold text-slate-900 mt-0.5">{formatDateHeader(lastSyncedAt)}</p>
-                  </div>
-                  <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                    <p className="text-slate-500">Tracking number</p>
-                    <p className="font-semibold text-slate-900 mt-0.5">{ship.trackingNumber || ship.awbCode || "—"}</p>
-                  </div>
-                  <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2">
-                    <p className="text-slate-500">Shipment id</p>
-                    <p className="font-semibold text-slate-900 mt-0.5">{ship.shipmentId || "—"}</p>
-                  </div>
-                  <div className="rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 sm:col-span-2">
-                    <p className="text-slate-500">Shiprocket order ID</p>
-                    <p className="font-mono text-[11px] font-semibold text-slate-900 mt-0.5 break-all">
-                      {ship.shiprocketOrderId || "—"}
-                    </p>
-                  </div>
-                </div>
+            <OrderShipmentTrackingPanel
+              ship={ship}
+              ops={ops}
+              orderStatus={order.orderStatus}
+              carrierStatusDisplay={carrierStatusDisplay || (isPendingOrder ? "Awaiting approval" : null)}
+              carrierStatusSecondary={carrierStatusSecondary}
+              lastSyncedAt={lastSyncedAt}
+              lastSyncError={lastSyncError}
+              hideStaleTracking={hideStaleTracking}
+              carrierTimeline={carrierTimeline}
+              trackingLoading={trackingLoading}
+              trackingError={trackingError}
+              providerKey={shippingProviderKey}
+              trackingUrl={tracking?.trackingUrl || ship?.trackingUrl || null}
+              formatDateTime={formatDateHeader}
+              onRefreshTracking={onRefreshTracking}
+            />
+          </div>
 
-                {trackingError?.data?.message && (
-                  <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-900">
-                    Could not fetch live tracking: {trackingError.data.message}
-                  </div>
-                )}
-
-                {lastSyncError && (
-                  <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900">
-                    Last sync error: {lastSyncError}
-                  </div>
-                )}
-
-                {carrierTimeline.length > 0 ? (
-                  <div className="space-y-2">
-                    <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Carrier timeline</p>
-                    <div className="max-h-80 overflow-auto rounded-lg border border-slate-100">
-                      <table className="w-full text-xs">
-                        <thead className="bg-slate-50 text-slate-500 uppercase">
-                          <tr>
-                            <th className="text-left px-3 py-2">Status</th>
-                            <th className="text-left px-3 py-2">Time</th>
-                            <th className="text-left px-3 py-2">Location</th>
-                            <th className="text-left px-3 py-2">Description</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100">
-                          {carrierTimeline.map((event) => (
-                            <tr key={event.id}>
-                              <td className="px-3 py-2 text-slate-900 font-medium">{event.status || "—"}</td>
-                              <td className="px-3 py-2 text-slate-600">{formatDateHeader(event.timestamp)}</td>
-                              <td className="px-3 py-2 text-slate-600">{event.location || "—"}</td>
-                              <td className="px-3 py-2 text-slate-600">{event.description || "—"}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-xs text-slate-500">No carrier timeline events yet.</p>
-                )}
-              </div>
-            </div>
-
-            {/* Line items */}
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80 flex flex-wrap items-start justify-between gap-3">
-                <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500">Items</h3>
-                {weightSnap?.totalWeightKg != null && (
-                  <div className="text-right text-xs space-y-0.5">
-                    <p className="text-slate-600">
-                      Total weight{" "}
-                      <span className="font-semibold text-slate-900">{formatKg(weightSnap.totalWeightKg)}</span>
-                    </p>
-                    {packageDimsLabel && (
-                      <p className="text-slate-600">
-                        Total dimensions{" "}
-                        <span className="font-semibold text-slate-900">{packageDimsLabel}</span>
-                      </p>
-                    )}
-                    {packageDimWeightKg != null && (
-                      <p className="text-slate-600">
-                        Total dim weight{" "}
-                        <span className="font-semibold text-slate-900">{formatKg(packageDimWeightKg)}</span>
-                        <span className="text-slate-400 ml-1">(L×B×H÷5000)</span>
-                      </p>
-                    )}
-                    {weightSourceCatalogFallback && (
-                      <p className="text-amber-700 mt-0.5 text-[11px]">Estimated from current catalog (legacy order)</p>
-                    )}
-                  </div>
-                )}
-              </div>
-              <div className="divide-y divide-slate-100">
-                {items.map((line, idx) => {
-                  const name = line?.productId?.name || "Product";
-                  const img = line?.thumbnailUrl || line?.productId?.images?.[0]?.url || line?.productId?.images?.[0];
-                  const sku = line?.sku || "—";
-                  const qty = line?.quantity ?? 0;
-                  const lineTotal = Number(line?.lineTotal ?? line?.priceSnapshot?.total) || 0;
-                  const weightRow = weightByVariantId.get(String(line?.variantId ?? ""));
-                  const lineDimsLabel = weightRow ? formatPackageDims(weightRow) : null;
-                  const unitDimWeightKg =
-                    weightRow?.unitDimWeightKg != null
-                      ? Number(weightRow.unitDimWeightKg)
-                      : weightRow
-                        ? dimWeightKgFromDims(weightRow)
-                        : null;
-                  const lineDimWeightKg =
-                    weightRow?.lineDimWeightKg != null
-                      ? Number(weightRow.lineDimWeightKg)
-                      : unitDimWeightKg != null
-                        ? Math.round(unitDimWeightKg * qty * 100) / 100
-                        : null;
-                  return (
-                    <div key={idx} className="p-4 flex gap-4">
-                      <div className="w-20 h-20 shrink-0 rounded-lg border border-slate-100 bg-slate-50 overflow-hidden">
-                        {img ? (
-                          <img src={img} alt="" className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-2xl text-slate-300">📦</div>
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-semibold text-slate-900 leading-snug">{name}</p>
-                        <p className="text-[11px] text-slate-500 mt-1">
-                          SKU: <span className="font-mono">{sku}</span>
-                        </p>
-                        <div className="mt-2 space-y-1 text-xs text-slate-600">
-                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                            <span>Qty: {qty}</span>
-                            {weightRow && (
-                              <span>
-                                Weight: {formatKg(weightRow.unitWeightKg)} × {qty} ={" "}
-                                <span className="font-semibold text-slate-800">{formatKg(weightRow.lineWeightKg)}</span>
-                              </span>
-                            )}
-                          </div>
-                          {lineDimsLabel && (
-                            <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                              <span>
-                                Dimensions: <span className="font-medium text-slate-800">{lineDimsLabel}</span>
-                              </span>
-                              {unitDimWeightKg != null && (
-                                <span>
-                                  Dim weight: {formatKg(unitDimWeightKg)} × {qty} ={" "}
-                                  <span className="font-semibold text-slate-800">{formatKg(lineDimWeightKg)}</span>
-                                  <span className="text-slate-400 ml-1">(L×B×H÷5000)</span>
-                                </span>
-                              )}
-                            </div>
-                          )}
-                          <div>
-                            <span>Price: </span>
-                            <span className="font-semibold text-slate-900">{formatInr(lineTotal)}</span>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Totals */}
-              <div className="px-4 py-4 bg-slate-50/50 border-t border-slate-100 space-y-2 text-sm">
-                <div className="flex justify-between text-slate-600">
-                  <span>Subtotal</span>
-                  <span>{formatInr(order.subtotal)}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Taxes & Others</span>
-                  <span>{formatInr(order.tax)}</span>
-                </div>
-                <div className="flex justify-between text-slate-600">
-                  <span>Delivery</span>
-                  <span>
-                    {Number(order.deliveryCharges) === 0 ? (
-                      <span className="text-emerald-600 font-semibold">FREE</span>
-                    ) : (
-                      formatInr(order.deliveryCharges)
-                    )}
-                  </span>
-                </div>
-                {Number(order.discount) > 0 && (
-                  <div className="flex justify-between text-emerald-700">
-                    <span>Discount{coupon?.code ? ` (${coupon.code})` : ""}</span>
-                    <span>−{formatInr(order.discount)}</span>
-                  </div>
-                )}
-                <div className="flex justify-between text-base font-black text-slate-900 pt-2 border-t border-slate-200">
-                  <span>Grand total</span>
-                  <span>{formatInr(order.totalAmount)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Address — single card (score + contact + edit) */}
+          {/* Right — customer, payment, quick actions */}
+          <div className="space-y-4 lg:sticky lg:top-4">
             <AdminPendingAddressPanel
               order={order}
               orderId={orderId}
@@ -2399,158 +2085,17 @@ export default function AdminOrderDetailView({
                 await refreshOrder();
               }}
             />
-          </div>
 
-          {/* Right column */}
-          <div className="space-y-6">
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-              <div className="px-4 py-3 border-b border-slate-100 bg-slate-50/80">
-                <h3 className="text-[11px] font-black uppercase tracking-widest text-slate-500">Payment</h3>
-                <p className="text-[11px] text-slate-500 mt-1 leading-snug">
-                  Summary of how this order was paid, including any balance due and gateway references.
-                </p>
-              </div>
-              <div className="p-4 space-y-4 text-sm">
-                <div className="flex justify-between gap-4">
-                  <span className="text-slate-600">Payment status</span>
-                  <span
-                    className={`font-semibold text-right ${
-                      String(order.paymentStatus || "").toLowerCase() === "paid" ? "text-emerald-700" : "text-slate-900"
-                    }`}
-                  >
-                    {labelPaymentStatus(order.paymentStatus)}
-                  </span>
-                </div>
-                <div className="flex justify-between gap-4">
-                  <span className="text-slate-600">Method</span>
-                  <span className="font-medium text-slate-900 text-right">{paymentMethodLabel(order)}</span>
-                </div>
-                <div className="rounded-lg border border-slate-100 bg-slate-50/80 p-3 space-y-2 text-[13px]">
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Order total (bill)</span>
-                    <span className="font-semibold text-slate-900">{formatInr(order.totalAmount)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Amount paid</span>
-                    <span className="font-semibold text-emerald-700">{formatInr(order.amountPaidInr)}</span>
-                  </div>
-                  {Number(order.balanceDueInr) > 0.01 && (
-                    <div className="flex justify-between text-amber-800">
-                      <span>Balance due</span>
-                      <span className="font-bold">{formatInr(order.balanceDueInr)}</span>
-                    </div>
-                  )}
-                </div>
-                {shouldShowOnlinePaymentHoldCountdown(order) && (
-                  <div className="flex justify-between gap-2 text-amber-900 bg-amber-50/80 border border-amber-100 rounded-lg px-3 py-2">
-                    <span className="text-xs">Payment hold expires</span>
-                    <span className="text-xs font-medium text-right">{formatDateHeader(order.paymentHoldExpiresAt)}</span>
-                  </div>
-                )}
-                {pi.paidAt && (
-                  <div className="flex justify-between gap-2">
-                    <span className="text-slate-600">Paid at</span>
-                    <span className="font-medium text-slate-900 text-right">{formatDateHeader(pi.paidAt)}</span>
-                  </div>
-                )}
-                {showRazorpayIds && (
-                  <div className="space-y-2 pt-2 border-t border-slate-100">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Gateway references</p>
-                    {pi.razorpayOrderId && (
-                      <div>
-                        <p className="text-[10px] text-slate-500 uppercase">Razorpay order</p>
-                        <p className="font-mono text-[11px] text-slate-800 break-all">{pi.razorpayOrderId}</p>
-                      </div>
-                    )}
-                    {pi.razorpayPaymentId && (
-                      <div>
-                        <p className="text-[10px] text-slate-500 uppercase">Razorpay payment</p>
-                        <p className="font-mono text-[11px] text-slate-800 break-all">{pi.razorpayPaymentId}</p>
-                      </div>
-                    )}
-                    {pi.status && (
-                      <p className="text-[11px] text-slate-500">
-                        Gateway session: <span className="font-medium text-slate-700">{pi.status}</span>
-                      </p>
-                    )}
-                  </div>
-                )}
-                {pi.cancelledAt && (
-                  <div className="rounded-lg border border-red-100 bg-red-50/60 px-3 py-2 text-xs text-red-900">
-                    <p className="font-semibold">Cancelled</p>
-                    <p>{formatDateHeader(pi.cancelledAt)}</p>
-                    {pi.cancellationReason && <p className="mt-1 text-red-800">{pi.cancellationReason}</p>}
-                  </div>
-                )}
-                {refundHistory.length > 0 && (
-                  <div className="pt-2 border-t border-slate-100">
-                    <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">Refunds</p>
-                    <ul className="space-y-2">
-                      {refundHistory.map((r, i) => (
-                        <li key={r.refundId || i} className="text-xs text-slate-700 rounded-lg border border-slate-100 bg-slate-50/50 px-2 py-2">
-                          <div className="flex justify-between gap-2">
-                            <span className="font-mono">{r.refundId || "—"}</span>
-                            <span className="font-semibold">{formatInr(r.amountInr)}</span>
-                          </div>
-                          {r.status && <p className="text-slate-500 mt-0.5">{r.status}</p>}
-                          {r.createdAt && <p className="text-slate-400 text-[10px]">{formatDateHeader(r.createdAt)}</p>}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl border border-slate-200 shadow-sm p-4 space-y-2">
-              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Quick actions</p>
-              {waLink && (
-                <a
-                  href={waLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 px-3 py-2.5 rounded-lg text-xs font-medium text-slate-700 hover:bg-slate-50 border border-slate-100"
-                >
-                  <span aria-hidden>💬</span> WhatsApp customer
-                </a>
-              )}
-              {showInvoiceAndLogistics ? (
-                <div className="flex flex-col gap-2">
-                  <button
-                    type="button"
-                    onClick={openTaxInvoice}
-                    disabled={invoiceBusy || !orderId}
-                    className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium text-slate-900 hover:bg-slate-50 border border-slate-200 disabled:opacity-50"
-                  >
-                    Open tax invoice
-                  </button>
-                  <button
-                    type="button"
-                    onClick={printTaxInvoice}
-                    disabled={invoiceBusy || !orderId}
-                    className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium text-slate-900 hover:bg-slate-50 border border-slate-200 disabled:opacity-50"
-                  >
-                    Print tax invoice
-                  </button>
-                  <button
-                    type="button"
-                    onClick={downloadTaxInvoice}
-                    disabled={invoiceBusy || !orderId}
-                    className="w-full text-left px-3 py-2.5 rounded-lg text-xs font-medium text-slate-900 hover:bg-slate-50 border border-slate-200 disabled:opacity-50"
-                  >
-                    Download tax invoice (.html)
-                  </button>
-                </div>
-              ) : (
-                <p className="text-[11px] text-slate-500 leading-relaxed px-1">
-                  Tax invoice is available after admin confirms the order.
-                </p>
-              )}
-            </div>
-
-            <div className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-[11px] text-slate-500 leading-relaxed">
-              Additional settlement or partner links can be shown here when those integrations are enabled.
-            </div>
+            <OrderPaymentSummaryCard
+              order={order}
+              paymentInfo={pi}
+              refundHistory={refundHistory}
+              showRazorpayIds={showRazorpayIds}
+              formatInr={formatInr}
+              formatDateTime={formatDateHeader}
+              labelPaymentStatus={labelPaymentStatus}
+              paymentMethodLabel={paymentMethodLabel}
+            />
           </div>
         </div>
       </div>

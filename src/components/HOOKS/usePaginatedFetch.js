@@ -4,12 +4,10 @@ import { useDispatch, useSelector } from 'react-redux';
 
 /**
  * ROBUST usePaginatedFetch Hook
- * - No unnecessary API calls
- * - Correct hasNextPage calculation
+ * - Page advances only after a successful fetch (no skipped pages on 429/errors)
+ * - Load-more lock prevents double-clicks from stacking requests
  * - AbortController for race condition prevention
- * - Memoized fetch params comparison
- * - Prevents loadMore button when no more products
- * - FIXED: Properly re-fetches when fetchParams changes
+ * - Skeleton/loading clears when Redux loading clears (including failures)
  */
 const usePaginatedFetch = ({
   fetchAction,
@@ -22,19 +20,23 @@ const usePaginatedFetch = ({
 }) => {
   const dispatch = useDispatch();
   const [page, setPage] = useState(1);
+  const [isFetchingMore, setIsFetchingMore] = useState(false);
   const abortControllerRef = useRef(null);
   const isMountedRef = useRef(true);
+  const loadMoreLockRef = useRef(false);
+  const pageRef = useRef(1);
 
   const data = useSelector(selectData);
   const isLoading = useSelector(selectLoading);
   const pagination = useSelector(selectPagination);
 
-  // Store previous fetchParams for comparison
   const prevFetchParamsRef = useRef();
 
-  // Core fetch function with abort support
-  const executeFetch = useCallback(async (pageToFetch, shouldAppend = false) => {
-    // Cancel any ongoing request
+  useEffect(() => {
+    pageRef.current = page;
+  }, [page]);
+
+  const executeFetch = useCallback(async (pageToFetch) => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
     }
@@ -56,6 +58,7 @@ const usePaginatedFetch = ({
     } catch (error) {
       if (error?.name === 'ConditionError') return null;
       if (error?.name === 'AbortError') return null;
+      if (error?.aborted) return null;
       if (!isMountedRef.current) return null;
       throw error;
     } finally {
@@ -65,53 +68,63 @@ const usePaginatedFetch = ({
     }
   }, [dispatch, fetchAction, fetchParams, limit]);
 
-  // 🔥 CRITICAL FIX: Detect when fetchParams changes and reset everything
+  // Params change → reset to page 1 and refetch
   useEffect(() => {
     if (!enabled) return;
 
-    // Check if fetchParams changed
     const currentParamsStr = JSON.stringify(fetchParams);
-    const prevParamsStr = prevFetchParamsRef.current ? JSON.stringify(prevFetchParamsRef.current) : null;
+    const prevParamsStr = prevFetchParamsRef.current
+      ? JSON.stringify(prevFetchParamsRef.current)
+      : null;
 
     if (prevParamsStr !== currentParamsStr) {
-      // Params changed - reset to page 1 and refetch
       setPage(1);
-      // Cancel any ongoing requests
+      pageRef.current = 1;
+      setIsFetchingMore(false);
+      loadMoreLockRef.current = false;
       if (abortControllerRef.current) {
         abortControllerRef.current.abort();
         abortControllerRef.current = null;
       }
-      // Fetch new data
-      executeFetch(1, false);
+      executeFetch(1).catch(() => {
+        /* Redux rejected handler owns error state */
+      });
     }
 
-    // Store current params for next comparison
     prevFetchParamsRef.current = fetchParams;
   }, [fetchParams, enabled, executeFetch]);
 
-  // Effect for page changes
-  useEffect(() => {
-    if (!enabled) return;
-    if (page === 1) return; // Page 1 is handled by the params change effect
-
-    executeFetch(page, true);
-  }, [page, enabled, executeFetch]);
-
-  // Reset function for manual refresh
   const resetPage = useCallback(() => {
     setPage(1);
-    // Force refetch by resetting params ref
+    pageRef.current = 1;
+    setIsFetchingMore(false);
+    loadMoreLockRef.current = false;
     prevFetchParamsRef.current = null;
   }, []);
 
-  // Load more function
-  const loadMore = useCallback(() => {
-    if (pagination?.hasNextPage === true && !isLoading && page < (pagination?.totalPages || Infinity)) {
-      setPage(prev => prev + 1);
-    }
-  }, [pagination?.hasNextPage, isLoading, page, pagination?.totalPages]);
+  const loadMore = useCallback(async () => {
+    if (!enabled) return;
+    if (loadMoreLockRef.current || isLoading || isFetchingMore) return;
+    if (pagination?.hasNextPage !== true) return;
 
-  // Cleanup on unmount
+    const nextPage = pageRef.current + 1;
+    if (pagination?.totalPages != null && nextPage > pagination.totalPages) return;
+
+    loadMoreLockRef.current = true;
+    setIsFetchingMore(true);
+    try {
+      await executeFetch(nextPage);
+      if (!isMountedRef.current) return;
+      setPage(nextPage);
+      pageRef.current = nextPage;
+    } catch {
+      // Stay on current page so the failed page can be retried
+    } finally {
+      if (isMountedRef.current) setIsFetchingMore(false);
+      loadMoreLockRef.current = false;
+    }
+  }, [enabled, isLoading, isFetchingMore, pagination?.hasNextPage, pagination?.totalPages, executeFetch]);
+
   useEffect(() => {
     isMountedRef.current = true;
     return () => {
@@ -122,8 +135,7 @@ const usePaginatedFetch = ({
     };
   }, []);
 
-  // Derived state
-  const isFetchingMore = isLoading && page > 1;
+  // Local flag is set for the whole load-more attempt and cleared in finally (incl. 429).
   const hasNoMoreProducts = pagination?.hasNextPage === false && data?.length > 0;
   const shouldShowLoadMore = pagination?.hasNextPage === true && !hasNoMoreProducts;
 
@@ -143,4 +155,3 @@ const usePaginatedFetch = ({
 };
 
 export default usePaginatedFetch;
-
