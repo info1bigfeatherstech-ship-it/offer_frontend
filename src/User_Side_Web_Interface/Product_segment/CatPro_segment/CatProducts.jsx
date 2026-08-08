@@ -24,6 +24,7 @@ import {
   selectLoadingBySlug,
   selectErrorBySlug,
   selectPaginationBySlug,
+  selectLoadMoreErrorBySlug,
 } from "../../../components/REDUX_FEATURES/REDUX_SLICES/userProductsSlice";
 
 import {
@@ -225,7 +226,11 @@ const CatProducts = () => {
   const selectProducts = useMemo(() => selectProductsBySlug(slug), [slug]);
   const selectLoading = useMemo(() => selectLoadingBySlug(slug), [slug]);
   const selectPagination = useMemo(() => selectPaginationBySlug(slug), [slug]);
+  const selectProductsError = useMemo(() => selectErrorBySlug(slug), [slug]);
+  const selectLoadMoreError = useMemo(() => selectLoadMoreErrorBySlug(slug), [slug]);
 
+  const productsError = useSelector(selectProductsError);
+  const loadMoreError = useSelector(selectLoadMoreError);
 
 
 
@@ -256,14 +261,27 @@ const CatProducts = () => {
 
   // ── Derived ────────────────────────────────────────────────────────────────
   const isLoading = (catLoading || categoryLoadingState) && products.length === 0;
-  const hasError = !isLoading && !!categoryErrorState;
+  const hasError = !isLoading && !!categoryErrorState && products.length === 0;
   const hasMore = pagination?.hasNextPage ?? false;
+  const loadMoreBanner = useMemo(() => {
+    const err = loadMoreError || (productsError && products.length > 0 ? productsError : null);
+    if (!err?.message) return null;
+    const msg = String(err.message);
+    const low = msg.toLowerCase();
+    if (err.status === 429 || low.includes('too many requests') || low.includes('slow down')) {
+      return 'Too many requests — please wait a moment, then try Load More again.';
+    }
+    return msg;
+  }, [loadMoreError, productsError, products.length]);
 
   // Friendly copy for bad slug / missing category (API still returns e.g. "Category not found")
   const categoryErrorUserMessage = useMemo(() => {
-    const raw = (categoryErrorState?.message || "").trim();
+    const raw = (categoryErrorState?.message || productsError?.message || "").trim();
     const low = raw.toLowerCase();
     if (!low) return "We're Updating this Category";
+    if (low.includes("too many requests") || low.includes("slow down")) {
+      return "Too many requests — please wait a moment and try again.";
+    }
     if (low.includes("category not found") || low.includes("not found")) {
       return "We're Updating this Category";
     }
@@ -274,7 +292,7 @@ const CatProducts = () => {
       return "We're Updating this Category";
     }
     return raw;
-  }, [categoryErrorState]);
+  }, [categoryErrorState, productsError]);
 
   // ── Filter logic ───────────────────────────────────────────────────────────
   const filteredProducts = useMemo(() => {
@@ -858,14 +876,21 @@ const CatProducts = () => {
                     loadingMore={loadingMore}
                   />
 
+                  {loadMoreBanner ? (
+                    <div className="mt-8 mx-auto max-w-md rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-center">
+                      <p className="text-sm text-amber-900">{loadMoreBanner}</p>
+                    </div>
+                  ) : null}
+
                   {/* LOAD MORE */}
                   <div className="mt-20 text-center cursor-pointer">
                     {hasMore ? (
                       <div className="space-y-6">
                         <button
+                          type="button"
                           onClick={handleLoadMore}
-                          disabled={catLoading}
-                          className="group relative cursor-pointer px-10 py-3 rounded-full hover:bg-orange-400 duration-300 bg-zinc-800 text-zinc-100 border-zinc-300 overflow-hidden transition-all"
+                          disabled={catLoading || loadingMore}
+                          className="group relative cursor-pointer px-10 py-3 rounded-full hover:bg-orange-400 duration-300 bg-zinc-800 text-zinc-100 border-zinc-300 overflow-hidden transition-all disabled:opacity-60 disabled:cursor-wait"
                         >
                           <span className="relative z-10 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest">
                             {loadingMore ? (

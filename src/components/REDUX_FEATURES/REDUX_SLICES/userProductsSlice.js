@@ -205,6 +205,8 @@ const initialState = {
   categoryPagination: {},
   categoryLoading: {},   // kept for backward compat with existing selectors
   categoryError: {},
+  /** Soft error for page>1 failures — must not wipe already-loaded products in UI */
+  categoryLoadMoreError: {},
   // ── NEW: per-slug status and fetchedAt for dedup + TTL ────────────────────
   categoryStatus: {},    // 'idle' | 'loading' | 'success' | 'error'
   categoryFetchedAt: {}, // timestamp (ms) of last successful fetch,
@@ -249,6 +251,7 @@ const userProductsSlice = createSlice({
         delete state.categoryPagination[slug];
         delete state.categoryLoading[slug];
         delete state.categoryError[slug];
+        delete state.categoryLoadMoreError[slug];
         // ── also clear new status fields ──────────────────────────────────
         delete state.categoryStatus[slug];
         delete state.categoryFetchedAt[slug];
@@ -366,9 +369,18 @@ clearTagProducts: (state, action) => {
       // ── fetchProductsByCategory — per-slug buckets ──────────────────────────
       .addCase(fetchProductsByCategory.pending, (state, action) => {
         const slug = action.meta.arg.slug;
+        const page = Number(action.meta.arg.page) || 1;
         state.categoryLoading[slug] = true;
-        state.categoryError[slug] = null;
-        state.categoryStatus[slug] = "loading"; // NEW
+        state.categoryLoadMoreError[slug] = null;
+        // Initial load clears hard error; load-more keeps existing products visible.
+        if (page <= 1) {
+          state.categoryError[slug] = null;
+          state.categoryStatus[slug] = "loading";
+        } else if ((state.categoryProducts[slug] || []).length === 0) {
+          state.categoryError[slug] = null;
+          state.categoryStatus[slug] = "loading";
+        }
+        // page>1 with existing products: keep status "success" so sections don't unmount
       })
       .addCase(fetchProductsByCategory.fulfilled, (state, action) => {
   const { slug }   = action.payload;
@@ -381,6 +393,7 @@ clearTagProducts: (state, action) => {
   state.categoryStatus[slug]    = "success";
   state.categoryFetchedAt[slug] = action.payload.fetchedAt ?? Date.now();
   state.categoryError[slug]     = null;
+  state.categoryLoadMoreError[slug] = null;
 
   if (page === 1) {
     state.categoryProducts[slug] = incoming;
@@ -400,35 +413,32 @@ clearTagProducts: (state, action) => {
     hasPrevPage: page > 1,
   };
 })
-      // .addCase(fetchProductsByCategory.fulfilled, (state, action) => {
-      //   const slug = action.payload.slug;
-      //   const total = action.payload.total ?? 0;
-      //   const page = action.payload.page ?? 1;
-      //   const limit = action.payload.limit ?? 12;
-      //   state.categoryLoading[slug] = false;
-      //   state.categoryProducts[slug] = action.payload.products || [];
-      //   state.categoryPagination[slug] = {
-      //     total, page, limit,
-      //     totalPages: Math.ceil(total / limit),
-      //     hasNextPage: page * limit < total,
-      //     hasPrevPage: page > 1,
-      //   };
-      //   // NEW ─────────────────────────────────────────────────────────────────
-      //   state.categoryStatus[slug] = "success";
-      //   state.categoryFetchedAt[slug] = action.payload.fetchedAt ?? Date.now();
-      // })
       .addCase(fetchProductsByCategory.rejected, (state, action) => {
         const slug = action.meta.arg.slug;
+        const page = Number(action.meta.arg?.page) || 1;
+        const hasProducts = (state.categoryProducts[slug] || []).length > 0;
         // Silently ignore aborted requests — do NOT mark as error
         if (action.payload?.aborted) {
           state.categoryLoading[slug] = false;
-          state.categoryStatus[slug] = "idle"; // reset so next mount retries
+          // Keep success if we already have products; otherwise idle for retry
+          state.categoryStatus[slug] = hasProducts ? "success" : "idle";
           return;
         }
         console.error(`❌ [${slug}] failed:`, action.payload?.message);
         state.categoryLoading[slug] = false;
+
+        // Load-more / rate-limit failures must not wipe the grid
+        if (page > 1 && hasProducts) {
+          state.categoryStatus[slug] = "success";
+          state.categoryLoadMoreError[slug] = action.payload || {
+            message: "Failed to load more products",
+          };
+          return;
+        }
+
         state.categoryError[slug] = action.payload || { message: "Failed to fetch category products" };
-        state.categoryStatus[slug] = "error"; // NEW
+        state.categoryStatus[slug] = "error";
+        state.categoryLoadMoreError[slug] = null;
       })
 
       // ── fetchProductBySlug ──────────────────────────────────────────────────
@@ -546,6 +556,9 @@ export const selectLoadingBySlug    = (slug) => (state) =>
 
 export const selectErrorBySlug      = (slug) => (state) =>
   state.userProducts.categoryError[slug] ?? null;
+
+export const selectLoadMoreErrorBySlug = (slug) => (state) =>
+  state.userProducts.categoryLoadMoreError?.[slug] ?? null;
 
 export const selectPaginationBySlug = (slug) => (state) =>
   state.userProducts.categoryPagination[slug] ?? null;
