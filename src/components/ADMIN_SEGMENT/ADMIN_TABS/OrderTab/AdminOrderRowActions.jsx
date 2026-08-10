@@ -100,7 +100,7 @@ function useFloatingPanelStyle(anchorRef, open, widthPx = 176) {
 
 async function downloadBlobFromGet(url, defaultFilename) {
   const res = await axiosInstance.get(url, { responseType: "blob" });
-  const ct = String(res.headers["content-type"] || "");
+  const ct = String(res.headers["content-type"] || "").split(";")[0].trim();
   if (ct.includes("application/json")) {
     const text = await res.data.text();
     let msg = "Download failed.";
@@ -117,6 +117,13 @@ async function downloadBlobFromGet(url, defaultFilename) {
   if (dispo) {
     const m = /filename\*?=(?:UTF-8''|"?)([^";\n]+)/i.exec(dispo);
     if (m && m[1]) filename = decodeURIComponent(m[1].replace(/"/g, "").trim());
+  }
+  // Shipmozo labels are PNG; never keep a .pdf extension on an image body.
+  if (/^image\//i.test(ct) && /\.pdf$/i.test(filename)) {
+    const ext = /jpeg|jpg/i.test(ct) ? "jpg" : /webp/i.test(ct) ? "webp" : "png";
+    filename = filename.replace(/\.pdf$/i, `.${ext}`);
+  } else if ((ct === "application/pdf" || !ct) && !/\.[a-z0-9]+$/i.test(filename)) {
+    filename = `${filename}.pdf`;
   }
   const blob = new Blob([res.data], { type: ct || "application/octet-stream" });
   const objectUrl = URL.createObjectURL(blob);
@@ -178,11 +185,20 @@ async function executeAction(key, ctx) {
           if (assignErr?.data?.code === "QUOTED_COURIER_UNAVAILABLE") {
             const suggested = assignErr?.data?.suggestedCourier;
             const quoted = assignErr?.data?.quotedCourier;
+            const quotedFreight = assignErr?.data?.quotedFreightInr;
+            const gapLine =
+              suggested?.exceedsQuotedFreight &&
+              suggested?.freightGapInr != null &&
+              Number(suggested.freightGapInr) > 0
+                ? `\nCustomer paid ₹${quotedFreight ?? "—"} shipping; suggested is ₹${suggested.totalCharges ?? "—"} (gap ₹${suggested.freightGapInr} is merchant-side only).`
+                : suggested && quotedFreight != null
+                  ? `\nCustomer paid ₹${quotedFreight} shipping; suggested ₹${suggested.totalCharges ?? "—"}.`
+                  : "";
             const confirmMsg = suggested
-              ? `Checkout courier "${quoted?.courierName || quoted?.courierId || "quoted"}" is unavailable.\n\nAssign cheapest "${suggested.courierName || suggested.courierId}" (₹${suggested.totalCharges ?? "—"})?\n\nCancel to use Shipmozo panel.`
-              : `${assignErr?.data?.message || "Quoted courier unavailable."}`;
+              ? `Checkout courier "${quoted?.courierName || quoted?.courierId || "quoted"}" could not be assigned.${gapLine}\n\nAssign suggested "${suggested.courierName || suggested.courierId}" (₹${suggested.totalCharges ?? "—"})?\n\nCustomer order total will NOT change.\nCancel to assign from the shipping panel instead.`
+              : `${assignErr?.data?.message || "Checkout courier could not be assigned."}\n\nCustomer order total will NOT change.`;
             if (!window.confirm(confirmMsg)) {
-              throw new Error("Ship now cancelled — assign from Shipmozo panel or pick another courier.");
+              throw new Error("Ship now cancelled — assign from the shipping panel or pick another courier.");
             }
             await ctx.assignShip({
               orderId: id,
@@ -216,7 +232,7 @@ async function executeAction(key, ctx) {
     case "downloadLabel":
       await downloadBlobFromGet(
         `/orders/admin/items/${encodeURIComponent(String(id))}/fulfillment/shipping-label-file`,
-        `label-${id}.pdf`
+        ctx.shippingProvider === "shipmozo" ? `Shipmozo-label-${id}.png` : `Shiprocket-label-${id}.pdf`
       );
       return;
     case "downloadTaxInvoice": {
@@ -341,6 +357,7 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback }
   const actionCtx = useMemo(
     () => ({
       orderId,
+      shippingProvider: order?.shippingProvider,
       bulkConfirm,
       bulkCancel,
       ensureShipment: ensureShipmentMut,
@@ -356,6 +373,7 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback }
     }),
     [
       orderId,
+      order?.shippingProvider,
       bulkConfirm,
       bulkCancel,
       ensureShipmentMut,

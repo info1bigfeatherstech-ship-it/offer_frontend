@@ -1375,7 +1375,8 @@ const OrderTab = () => {
                     >
                       {order.shippingProvider === "shipmozo" ? "Shipmozo" : "Shiprocket"}
                     </span>
-                    {(order.shiprocketPickupIdDisplay || order.shiprocketPickupId) ? (
+                    {(order.shiprocketPickupIdDisplay || order.shiprocketPickupId) &&
+                    order.shippingProvider !== "shipmozo" ? (
                       <p className="text-[10px] font-semibold text-indigo-700 mt-0.5 tracking-wide">
                         SRPID:{" "}
                         {(() => {
@@ -1387,6 +1388,12 @@ const OrderTab = () => {
                           const digits = raw.replace(/\D/g, "");
                           return digits ? `SRPID-${digits}` : raw;
                         })()}
+                      </p>
+                    ) : null}
+                    {order.shippingProvider === "shipmozo" &&
+                    (order.shipmozoOrderIdDisplay || order.shipmozoOrderId) ? (
+                      <p className="text-[10px] font-semibold text-teal-800 mt-0.5 tracking-wide font-mono truncate max-w-[14rem]">
+                        Shipmozo ID: {order.shipmozoOrderIdDisplay || order.shipmozoOrderId}
                       </p>
                     ) : null}
                   </td>
@@ -1485,9 +1492,15 @@ const OrderTab = () => {
                     >
                       {order.shippingProvider === "shipmozo" ? "Shipmozo" : "Shiprocket"}
                     </span>
-                    {order.shiprocketPickupIdDisplay ? (
+                    {order.shippingProvider !== "shipmozo" && order.shiprocketPickupIdDisplay ? (
                       <p className="text-[10px] font-semibold text-indigo-700 mt-0.5 tracking-wide">
                         SRPID: {order.shiprocketPickupIdDisplay}
+                      </p>
+                    ) : null}
+                    {order.shippingProvider === "shipmozo" &&
+                    (order.shipmozoOrderIdDisplay || order.shipmozoOrderId) ? (
+                      <p className="text-[10px] font-semibold text-teal-800 mt-0.5 tracking-wide font-mono truncate">
+                        Shipmozo ID: {order.shipmozoOrderIdDisplay || order.shipmozoOrderId}
                       </p>
                     ) : null}
                   </div>

@@ -4,6 +4,10 @@ import {
   useAdminPreviewPendingAddressEditMutation,
   useAdminApplyPendingAddressEditMutation,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
+import {
+  getCourierStreetUsage,
+  validateCourierStreetClient,
+} from "../../../../utils/addressValidation";
 
 function formatInr(n) {
   const v = Number(n);
@@ -139,6 +143,7 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
   const primary = intelRes?.data?.primary || null;
   const shiprocketIntel = intelRes?.data?.shiprocket || null;
   const intelLoadingAny = intelLoading || intelFetching;
+  const courierUsage = useMemo(() => getCourierStreetUsage(draft), [draft]);
 
   const addressRisk =
     normalizeRiskLevel(primary?.risk) || normalizeRiskLevel(shiprocketIntel?.risk);
@@ -148,9 +153,19 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
     shiprocketIntel?.available || primary?.source === "shiprocket"
   );
 
+  const guardCourierStreetLength = () => {
+    const err = validateCourierStreetClient(draft);
+    if (err) {
+      setLocalMsg({ type: "err", text: err });
+      return false;
+    }
+    return true;
+  };
+
   const runPreview = async () => {
     setLocalMsg(null);
     setPreview(null);
+    if (!guardCourierStreetLength()) return;
     try {
       const res = await previewEdit({
         orderId,
@@ -167,6 +182,7 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
   };
 
   const runApply = async () => {
+    if (!guardCourierStreetLength()) return;
     if (
       !window.confirm(
         "Update delivery address on this order? Name and phone stay unchanged. Shipping will be re-quoted (customer never charged more)."
@@ -338,6 +354,20 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
             <p className="text-[11px] text-slate-600">
               Name and phone stay locked. Street fields update this order&apos;s snapshot for Shiprocket.
             </p>
+            <div
+              className={`rounded-md border px-2.5 py-2 text-[11px] font-semibold ${
+                courierUsage.overLimit
+                  ? "border-red-200 bg-red-50 text-red-800"
+                  : courierUsage.remaining <= 30
+                    ? "border-amber-200 bg-amber-50 text-amber-900"
+                    : "border-slate-200 bg-white text-slate-700"
+              }`}
+            >
+              Courier street length: {courierUsage.combinedLength}/{courierUsage.max}
+              {courierUsage.overLimit
+                ? " — too long. Shorten house, building, floor, landmark, or street details."
+                : " (city / state / pincode count separately)"}
+            </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {EDITABLE_FIELDS.map((f) => (
                 <label
@@ -374,7 +404,7 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                disabled={busy || !hasChanges}
+                disabled={busy || !hasChanges || courierUsage.overLimit}
                 onClick={runPreview}
                 className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
               >
@@ -382,7 +412,7 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
               </button>
               <button
                 type="button"
-                disabled={busy || !hasChanges || !preview}
+                disabled={busy || !hasChanges || !preview || courierUsage.overLimit}
                 onClick={runApply}
                 className="rounded-md bg-blue-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
               >
