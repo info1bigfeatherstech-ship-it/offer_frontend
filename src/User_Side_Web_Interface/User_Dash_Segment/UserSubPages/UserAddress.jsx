@@ -1,7 +1,7 @@
 // ============================================
 // UserAddress.js - 100% ROBUST VERSION
 // ============================================
-import React, { useEffect, useState, useCallback, useRef } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";
@@ -21,7 +21,8 @@ import {
 import {
   validateAddressFormStep2,
   ADDRESS_LINE1_MIN_LEN,
-  ADDRESS_LINE_MAX_LEN
+  ADDRESS_LINE_MAX_LEN,
+  getCourierStreetUsage,
 } from "../../../utils/addressValidation";
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -466,6 +467,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
   const [areaOptions, setAreaOptions] = useState([]);
   const [savedCustomAreas, setSavedCustomAreas] = useState([]);
   const [isPincodeFetched, setIsPincodeFetched] = useState(false);
+  const courierUsage = useMemo(() => getCourierStreetUsage(form), [form]);
 
   // On edit mode: if address has pincode, fetch its areas on mount
   useEffect(() => {
@@ -541,6 +543,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
 
   const handleChange = useCallback((e) => {
     const { name, value } = e.target;
+    setFormError(null);
 
     if (name === "phone") {
       const v = value.replace(/\D/g, "");
@@ -663,7 +666,8 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
             {step === 3 && "Final preferences"}
           </h2>
 
-          {(formError || error) && (
+          {(formError || error) &&
+            !(step === 2 && courierUsage.overLimit && /too long for courier/i.test(String(formError || ""))) && (
             <div className="flex items-center gap-3 bg-red-50 border border-red-100 rounded-2xl px-4 py-3 mb-6">
               <AlertCircle size={16} className="text-red-500 flex-shrink-0" />
               <p className="text-xs font-bold text-red-700">
@@ -749,6 +753,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
                   label="Landmark" name="landmark"
                   value={form.landmark} onChange={handleChange}
                   placeholder="Near City Mall"
+                  maxLength={150}
                 />
 
                 {/* Address Line 1 - Simple text input */}
@@ -762,7 +767,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
                   placeholder="Street And Road Details"
                 />
                 <p className="text-[10px] font-bold text-gray-400 -mt-3 ml-1">
-                  Couriers need a full street line (at least {ADDRESS_LINE1_MIN_LEN} characters).
+                  Full street name required (min. {ADDRESS_LINE1_MIN_LEN} characters).
                 </p>
 
                 <Field
@@ -864,31 +869,57 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
         </div>
 
         {/* Footer */}
-        <div className="px-8 py-6 bg-gray-50 border-t border-gray-100 flex gap-3 flex-shrink-0">
-          {step > 1 && (
-            <button
-              onClick={() => setStep((s) => s - 1)}
-              className="px-6 py-4 rounded-2xl border-2 border-gray-200 font-black text-[10px] uppercase tracking-widest hover:border-black transition-all cursor-pointer"
-            >
-              <ChevronLeft size={16} />
-            </button>
+        <div className="px-8 py-5 bg-gray-50 border-t border-gray-100 flex-shrink-0 space-y-2">
+          {step === 2 && (
+            <div className="flex flex-col items-end gap-0.5 px-0.5">
+              <p
+                className={`text-[10px] font-bold tabular-nums tracking-wide ${
+                  courierUsage.overLimit
+                    ? "text-red-600"
+                    : courierUsage.remaining <= 30
+                      ? "text-amber-700"
+                      : "text-gray-400"
+                }`}
+              >
+                {courierUsage.combinedLength}/{courierUsage.max} Characters
+              </p>
+              {courierUsage.overLimit && (
+                <p className="text-[11px] font-bold text-red-600">
+                  Shorten address to continue
+                </p>
+              )}
+            </div>
           )}
-          {step < 3 ? (
-            <button
-              onClick={handleNext}
-              className="flex-1 py-4 bg-black text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-[#F7A221] hover:text-black transition-all cursor-pointer"
-            >
-              Continue <ChevronRight size={16} />
-            </button>
-          ) : (
-            <button
-              onClick={handleFinalSubmit}
-              disabled={isSaving}
-              className="flex-1 py-4 bg-black text-white rounded-2xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50 hover:bg-[#F7A221] hover:text-black transition-all cursor-pointer disabled:cursor-not-allowed"
-            >
-              {isSaving ? "Saving..." : initial ? "Update Address" : "Save Address"}
-            </button>
-          )}
+          <div className="flex gap-3">
+            {step > 1 && (
+              <button
+                type="button"
+                onClick={() => setStep((s) => s - 1)}
+                className="px-6 py-4 rounded-2xl border-2 border-gray-200 font-black text-[10px] uppercase tracking-widest hover:border-black transition-all cursor-pointer"
+              >
+                <ChevronLeft size={16} />
+              </button>
+            )}
+            {step < 3 ? (
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={step === 2 && courierUsage.overLimit}
+                className="flex-1 py-4 bg-black text-white rounded-2xl font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-[#F7A221] hover:text-black transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-black disabled:hover:text-white"
+              >
+                Continue <ChevronRight size={16} />
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleFinalSubmit}
+                disabled={isSaving || courierUsage.overLimit}
+                className="flex-1 py-4 bg-black text-white rounded-2xl font-black text-[10px] uppercase tracking-widest disabled:opacity-50 hover:bg-[#F7A221] hover:text-black transition-all cursor-pointer disabled:cursor-not-allowed"
+              >
+                {isSaving ? "Saving..." : initial ? "Update Address" : "Save Address"}
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>,
