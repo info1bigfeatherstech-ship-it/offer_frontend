@@ -1,9 +1,17 @@
 import axios from "axios";
+import {
+  isAdminTokenCompatible,
+  isCustomerTokenCompatible,
+  isScopeMismatchCode,
+  sanitizeStoredTokenIfIncompatible,
+} from "./authPortalSession";
 
 export const USER_ACCESS_TOKEN_KEY = "userAccessToken";
 export const ADMIN_ACCESS_TOKEN_KEY = "adminAccessToken";
 export const AUTH_CONTEXT_USER = "user";
 export const AUTH_CONTEXT_ADMIN = "admin";
+const CUSTOMER_PORTAL = "ecomm";
+const ADMIN_PORTAL = "admin-ecomm";
 
 /** Refresh access token this many ms before JWT exp (avoids visible 401 cliff). */
 const REFRESH_BEFORE_EXPIRY_MS = 90 * 1000;
@@ -161,6 +169,11 @@ export function notifyAccessTokenStored(authContext) {
 
   const storageKey = getTokenStorageKey(authContext);
   const token = localStorage.getItem(storageKey);
+  try {
+    if (!isTokenCompatibleForContext(token, authContext)) return;
+  } catch {
+    /* fail open: still schedule refresh */
+  }
   const expMs = getAccessTokenExpiryMs(token);
   if (!expMs) return;
 
@@ -176,6 +189,34 @@ export function notifyAccessTokenStored(authContext) {
 
 export function clearAccessTokenSchedule(authContext) {
   clearProactiveRefreshTimer(authContext);
+}
+
+function isTokenCompatibleForContext(token, authContext) {
+  if (!token) return false;
+  if (authContext === AUTH_CONTEXT_ADMIN) {
+    return isAdminTokenCompatible(token, ADMIN_PORTAL);
+  }
+  return isCustomerTokenCompatible(token, CUSTOMER_PORTAL);
+}
+
+function dropIncompatibleSession(authContext) {
+  try {
+    localStorage.removeItem(getTokenStorageKey(authContext));
+  } catch {
+    /* ignore storage errors */
+  }
+  try {
+    clearAccessTokenSchedule(authContext);
+  } catch {
+    /* ignore */
+  }
+  try {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new Event(getLogoutEventName(authContext)));
+    }
+  } catch {
+    /* ignore */
+  }
 }
 
 const RAW_BACKEND_BASE_URL = String(import.meta.env.VITE_BACKEND_BASE_URL || "").trim().replace(/\/$/, "");
@@ -198,6 +239,7 @@ const axiosInstance = axios.create({
 
 axiosInstance.interceptors.request.use(
   (config) => {
+    config.headers = config.headers || {};
     const authContext = getAuthContext(config);
     config.authContext = authContext;
 
@@ -206,8 +248,21 @@ axiosInstance.interceptors.request.use(
     }
 
     const storageKey = getTokenStorageKey(authContext);
-    const token =
-      localStorage.getItem(storageKey) || localStorage.getItem("accessToken");
+    let token = null;
+    try {
+      token = localStorage.getItem(storageKey);
+    } catch {
+      token = null;
+    }
+
+    try {
+      if (token && !isTokenCompatibleForContext(token, authContext)) {
+        dropIncompatibleSession(authContext);
+        token = null;
+      }
+    } catch {
+      /* fail open: still attach token if the guard itself throws */
+    }
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -220,58 +275,108 @@ axiosInstance.interceptors.request.use(
 axiosInstance.interceptors.response.use(
   (response) => response,
   async (error) => {
-    const originalRequest = error.config || {};
-    if (originalRequest.skipAuthRefresh) {
+    try {
+      const originalRequest = error.config || {};
+      if (originalRequest.skipAuthRefresh) {
+        try {
+          const authContext = getAuthContext(originalRequest);
+          const errorCode = error.response?.data?.code;
+          if (
+            authContext === AUTH_CONTEXT_USER &&
+            error.response?.status === 403 &&
+            isScopeMismatchCode(errorCode)
+          ) {
+            dropIncompatibleSession(authContext);
+          }
+        } catch {
+          /* still reject original error */
+        }
+        return Promise.reject(error);
+      }
+
+      const authContext = getAuthContext(originalRequest);
+      const tokenStorageKey = getTokenStorageKey(authContext);
+      const requestUrl = String(originalRequest?.url || "");
+
+      const errorCode = error.response?.data?.code;
+      const isUserContext = authContext === AUTH_CONTEXT_USER;
+      const isScopeMismatch =
+        error.response?.status === 403 && isScopeMismatchCode(errorCode);
+
+      // Wrong storefront / portal: never refresh (refresh would use this app's
+      // portal and fail in a loop). Drop only this auth slot, then guest-browse.
+      if (isScopeMismatch && isUserContext) {
+        dropIncompatibleSession(authContext);
+        return Promise.reject(error);
+      }
+      if (errorCode === "PORTAL_ACCESS_DENIED" && !isUserContext) {
+        dropIncompatibleSession(authContext);
+        return Promise.reject(error);
+      }
+
+      const isAuthFailure =
+        error.response?.status === 401 ||
+        (error.response?.status === 403 && errorCode === "INSUFFICIENT_ADMIN_ROLE");
+
+      if (
+        isAuthFailure &&
+        !originalRequest._retry &&
+        !requestUrl.includes("/auth/refresh") &&
+        !requestUrl.includes("/auth/login")
+      ) {
+        if (refreshInFlight[authContext]) {
+          return new Promise((resolve, reject) => {
+            refreshWaitQueues[authContext].push({ resolve, reject });
+          })
+            .then((token) => {
+              originalRequest.headers.Authorization = `Bearer ${token}`;
+              return axiosInstance(originalRequest);
+            })
+            .catch((err) => Promise.reject(err));
+        }
+
+        const currentToken = localStorage.getItem(tokenStorageKey);
+        if (currentToken && !isTokenCompatibleForContext(currentToken, authContext)) {
+          dropIncompatibleSession(authContext);
+          return Promise.reject(error);
+        }
+
+        originalRequest._retry = true;
+
+        try {
+          const newToken = await enqueueTokenRefresh(authContext);
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return axiosInstance(originalRequest);
+        } catch (refreshError) {
+          localStorage.removeItem(tokenStorageKey);
+          clearAccessTokenSchedule(authContext);
+          window.dispatchEvent(new Event(getLogoutEventName(authContext)));
+          return Promise.reject(refreshError);
+        }
+      }
+
+      return Promise.reject(error);
+    } catch {
       return Promise.reject(error);
     }
-
-    const authContext = getAuthContext(originalRequest);
-    const tokenStorageKey = getTokenStorageKey(authContext);
-    const requestUrl = String(originalRequest?.url || "");
-
-    const isAuthFailure =
-      error.response?.status === 401 ||
-      (error.response?.status === 403 &&
-        ["PORTAL_ACCESS_DENIED", "INSUFFICIENT_ADMIN_ROLE"].includes(
-          error.response?.data?.code
-        ));
-
-    if (
-      isAuthFailure &&
-      !originalRequest._retry &&
-      !requestUrl.includes("/auth/refresh") &&
-      !requestUrl.includes("/auth/login")
-    ) {
-      if (refreshInFlight[authContext]) {
-        return new Promise((resolve, reject) => {
-          refreshWaitQueues[authContext].push({ resolve, reject });
-        })
-          .then((token) => {
-            originalRequest.headers.Authorization = `Bearer ${token}`;
-            return axiosInstance(originalRequest);
-          })
-          .catch((err) => Promise.reject(err));
-      }
-
-      originalRequest._retry = true;
-
-      try {
-        const newToken = await enqueueTokenRefresh(authContext);
-        originalRequest.headers.Authorization = `Bearer ${newToken}`;
-        return axiosInstance(originalRequest);
-      } catch (refreshError) {
-        localStorage.removeItem(tokenStorageKey);
-        clearAccessTokenSchedule(authContext);
-        window.dispatchEvent(new Event(getLogoutEventName(authContext)));
-        return Promise.reject(refreshError);
-      }
-    }
-
-    return Promise.reject(error);
   }
 );
 
 if (typeof window !== "undefined") {
+  try {
+    sanitizeStoredTokenIfIncompatible({
+      storageKey: USER_ACCESS_TOKEN_KEY,
+      expectedPortal: CUSTOMER_PORTAL,
+      kind: "customer",
+    });
+    sanitizeStoredTokenIfIncompatible({
+      storageKey: ADMIN_ACCESS_TOKEN_KEY,
+      expectedPortal: ADMIN_PORTAL,
+      kind: "admin",
+    });
+  } catch {
+    /* never block boot */
+  }
   if (localStorage.getItem(ADMIN_ACCESS_TOKEN_KEY)) {
     notifyAccessTokenStored(AUTH_CONTEXT_ADMIN);
   }

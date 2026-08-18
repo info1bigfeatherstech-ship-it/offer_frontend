@@ -24,7 +24,8 @@ import {
 
 import { selectDefaultAddress } from '../../components/REDUX_FEATURES/REDUX_SLICES/Useraddressslice';
 
-import axiosInstance from '../../SERVICES/axiosInstance';
+import axiosInstance, { USER_ACCESS_TOKEN_KEY } from '../../SERVICES/axiosInstance';
+import { isCustomerTokenCompatible, isSilentPortalScopePayload } from '../../SERVICES/authPortalSession';
 
 import CartDeliverySection from './CartDeliverySection';
 
@@ -268,12 +269,20 @@ const CartSidebar = ({ isOpen, onClose, onOpenAuth }) => {
     return () => ac.abort();
   }, [isOpen, isLoggedIn, guestCartFetchKey, guestItems]);
 
-  // ── Fetch cart when sidebar opens ────────────────────────────
+  // ── Fetch cart when sidebar opens (ecomm customer session only) ────────────
   useEffect(() => {
-    if (isOpen && isLoggedIn) {
+    try {
+      if (!isOpen || !isLoggedIn) return;
+      const token = localStorage.getItem(USER_ACCESS_TOKEN_KEY);
+      if (!isCustomerTokenCompatible(token, "ecomm")) return;
       dispatch(fetchCart())
         .unwrap()
-        .catch((e) => logError('fetchCart on open', e));
+        .catch((e) => {
+          if (isSilentPortalScopePayload(e)) return;
+          logError("fetchCart on open", e);
+        });
+    } catch {
+      /* never block sidebar */
     }
   }, [isOpen, isLoggedIn, dispatch]);
 

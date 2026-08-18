@@ -331,7 +331,7 @@ const authSlice = createSlice({
       state.error = null;
       state.successMessage = null;
     },
-    // Force logout — called by axiosInstance on refresh failure
+    // Force logout — called by axiosInstance on refresh failure / portal mismatch
     forceLogout: (state) => {
       state.user = null;
       state.accessToken = null;
@@ -340,7 +340,12 @@ const authSlice = createSlice({
       state.successMessage = null;
       state.resetToken = null;
       state.forgotPasswordPhone = null;
-      localStorage.removeItem(USER_ACCESS_TOKEN_KEY);
+      try {
+        localStorage.removeItem(USER_ACCESS_TOKEN_KEY);
+        clearAccessTokenSchedule(AUTH_CONTEXT_USER);
+      } catch {
+        /* ignore */
+      }
     },
   },
   extraReducers: (builder) => {
@@ -451,8 +456,23 @@ const authSlice = createSlice({
         state.user = action.payload.user;
         state.isLoggedIn = true;
       })
-      .addCase(fetchMe.rejected, (state) => {
+      .addCase(fetchMe.rejected, (state, action) => {
         state.loading = false;
+        const code = action.payload?.code;
+        if (
+          code === "PORTAL_ACCESS_DENIED" ||
+          code === "STOREFRONT_SCOPE_FORBIDDEN"
+        ) {
+          state.user = null;
+          state.accessToken = null;
+          state.isLoggedIn = false;
+          try {
+            localStorage.removeItem(USER_ACCESS_TOKEN_KEY);
+            clearAccessTokenSchedule(AUTH_CONTEXT_USER);
+          } catch {
+            /* ignore */
+          }
+        }
       })
 
       // ── CHANGE PASSWORD ───────────────────────────────────

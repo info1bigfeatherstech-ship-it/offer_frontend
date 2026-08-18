@@ -7,6 +7,20 @@ import {
   clearGuestItems,
   getGuestWishlist,
 } from "../REDUX_FEATURES/REDUX_SLICES/userWishlistSlice";
+import { USER_ACCESS_TOKEN_KEY } from "../../SERVICES/axiosInstance";
+import {
+  isCustomerTokenCompatible,
+  isSilentPortalScopePayload,
+} from "../../SERVICES/authPortalSession";
+
+const hasEcommCustomerSession = () => {
+  try {
+    const token = localStorage.getItem(USER_ACCESS_TOKEN_KEY);
+    return Boolean(token) && isCustomerTokenCompatible(token, "ecomm");
+  } catch {
+    return false;
+  }
+};
 
 // ── enabled: false → hook mounts but does NOTHING (no dispatch, no API calls)
 // Pass !isAdminRoute from App.jsx to skip entirely on admin routes.
@@ -17,32 +31,26 @@ const useWishlistInit = (enabled = true) => {
   // ── On app boot — load guest wishlist from localStorage into Redux ─────────
   useEffect(() => {
     if (!enabled) return; // ← guard: skip on admin routes
-    // console.log("💛 [useWishlistInit] Loading guest wishlist from localStorage...");
     dispatch(loadGuestWishlist());
   }, [dispatch, enabled]);
 
   // ── When login state changes ───────────────────────────────────────────────
   useEffect(() => {
     if (!enabled) return; // ← guard: skip on admin routes
-    if (!isLoggedIn) return;
+    if (!isLoggedIn || !hasEcommCustomerSession()) return;
 
     const init = async () => {
       try {
-        // console.log("💛 [useWishlistInit] User logged in — initializing wishlist...");
-
         const guestSlugs = getGuestWishlist();
 
         if (guestSlugs.length > 0) {
-          // console.log(`💛 [useWishlistInit] Found ${guestSlugs.length} guest items — merging...`);
           await dispatch(mergeWishlist({ slugs: guestSlugs })).unwrap();
           dispatch(clearGuestItems());
-          // console.log("✅ [useWishlistInit] Guest wishlist merged and cleared");
         }
 
         await dispatch(fetchWishlist()).unwrap();
-        // console.log("✅ [useWishlistInit] Wishlist fetched successfully");
-
       } catch (error) {
+        if (isSilentPortalScopePayload(error)) return;
         console.group("🔴 [useWishlistInit] ERROR during wishlist init");
         console.error(error);
         console.groupEnd();
