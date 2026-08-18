@@ -635,7 +635,7 @@ export default function AdminOrderDetailView({
             .toLowerCase() === "shipmozo";
         let filename = `${isSm ? "Shipmozo" : "Shiprocket"}-label-${String(orderId)
           .replace(/[^\w.-]+/g, "_")
-          .slice(0, 80)}.${isSm ? "png" : "pdf"}`;
+          .slice(0, 80)}.pdf`;
         const dispo = res.headers["content-disposition"];
         if (dispo) {
           const m = /filename\*?=(?:UTF-8''|"?)([^";\n]+)/i.exec(dispo);

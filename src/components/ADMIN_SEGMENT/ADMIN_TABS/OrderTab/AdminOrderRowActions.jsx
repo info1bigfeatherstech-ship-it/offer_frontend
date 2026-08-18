@@ -232,7 +232,7 @@ async function executeAction(key, ctx) {
     case "downloadLabel":
       await downloadBlobFromGet(
         `/orders/admin/items/${encodeURIComponent(String(id))}/fulfillment/shipping-label-file`,
-        ctx.shippingProvider === "shipmozo" ? `Shipmozo-label-${id}.png` : `Shiprocket-label-${id}.pdf`
+        ctx.shippingProvider === "shipmozo" ? `Shipmozo-label-${id}.pdf` : `Shiprocket-label-${id}.pdf`
       );
       return;
     case "downloadTaxInvoice": {

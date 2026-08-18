@@ -5,7 +5,7 @@ import { SettingTabRegistry } from "./SettingTabregistry";
 import { ROLES } from "../../roles";
 
 /** Order managers may only open Delivery (shipping partner switch). Admins see all settings tabs. */
-const ORDER_MANAGER_SETTING_TAB_IDS = new Set(["delivery"]);
+const ORDER_MANAGER_SETTING_TAB_IDS = new Set(["delivery", "shipmozo-label"]);
 
 const SettingsDashboard = ({ onExit }) => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -41,7 +41,7 @@ const SettingsDashboard = ({ onExit }) => {
   };
 
   return (
-    <div className="flex flex-1 min-h-screen bg-gray-50">
+    <div className="flex h-screen min-h-0 bg-gray-50">
       <aside className="w-64 bg-white border-r border-gray-200 flex flex-col sticky top-0 h-screen z-20">
         <div className="px-4 py-5 flex items-center gap-4 border-b border-gray-200 bg-white sticky top-0 z-30">
           <button
@@ -97,14 +97,24 @@ const SettingsDashboard = ({ onExit }) => {
         </nav>
       </aside>
 
-      <main className="flex-1 overflow-y-auto">
-        <header className="bg-white h-16 border-b border-gray-200 flex items-center px-8 sticky top-0 z-10">
+      <main
+        className={`flex min-w-0 flex-1 flex-col ${
+          resolvedCtab === "shipmozo-label" ? "overflow-hidden" : "overflow-y-auto"
+        }`}
+      >
+        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center border-b border-gray-200 bg-white px-6">
           <h2 className="text-xl font-medium text-gray-900 capitalize">
             {activeTabConfig?.label || "Settings"}
           </h2>
         </header>
 
-        <div className="p-8">
+        <div
+          className={
+            resolvedCtab === "shipmozo-label"
+              ? "min-h-0 flex-1 overflow-hidden py-4 pl-8 pr-5"
+              : "p-8"
+          }
+        >
           <Suspense
             fallback={
               <div className="flex items-center justify-center h-64">
