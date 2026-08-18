@@ -1,5 +1,10 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "../../../SERVICES/axiosInstance";
+import {
+  isScopeMismatchAxiosError,
+  isSilentPortalScopePayload,
+  thunkRejectFromAxios,
+} from "../../../SERVICES/authPortalSession";
 
 // ── Error Logger ──────────────────────────────────────────────────────────────
 const logError = (context, error, info = {}) => {
@@ -52,11 +57,8 @@ export const fetchWishlist = createAsyncThunk(
       // console.log(`✅ [fetchWishlist] Got ${response.data.wishlist?.products?.length || 0} items`);
       return response.data.wishlist;
     } catch (error) {
-      logError("fetchWishlist", error);
-      return rejectWithValue({
-        message: error.response?.data?.message || "Failed to load wishlist",
-        status: error.response?.status,
-      });
+      if (!isScopeMismatchAxiosError(error)) logError("fetchWishlist", error);
+      return rejectWithValue(thunkRejectFromAxios(error, "Failed to load wishlist"));
     }
   }
 );
@@ -120,11 +122,8 @@ export const mergeWishlist = createAsyncThunk(
       // console.log("✅ [mergeWishlist] Guest wishlist merged successfully");
       return response.data;
     } catch (error) {
-      logError("mergeWishlist", error, { slugs });
-      return rejectWithValue({
-        message: error.response?.data?.message || "Failed to merge wishlist",
-        status: error.response?.status,
-      });
+      if (!isScopeMismatchAxiosError(error)) logError("mergeWishlist", error, { slugs });
+      return rejectWithValue(thunkRejectFromAxios(error, "Failed to merge wishlist"));
     }
   }
 );
@@ -254,6 +253,10 @@ const userWishlistSlice = createSlice({
       })
       .addCase(fetchWishlist.rejected, (state, action) => {
         state.loading.fetch = false;
+        if (isSilentPortalScopePayload(action.payload)) {
+          state.error.fetch = null;
+          return;
+        }
         state.error.fetch = action.payload || { message: "Failed to fetch wishlist" };
         console.error("❌ [fetchWishlist] rejected:", action.payload?.message);
       })
@@ -302,6 +305,10 @@ const userWishlistSlice = createSlice({
       })
       .addCase(mergeWishlist.rejected, (state, action) => {
         state.loading.merge = false;
+        if (isSilentPortalScopePayload(action.payload)) {
+          state.error.merge = null;
+          return;
+        }
         state.error.merge = action.payload || { message: "Failed to merge wishlist" };
         console.error("❌ [mergeWishlist] rejected:", action.payload?.message);
       })

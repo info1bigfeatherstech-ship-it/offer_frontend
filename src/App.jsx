@@ -31,6 +31,7 @@ import { adminForceLogout } from "./components/ADMIN_SEGMENT/ADMIN_REDUX_MANAGEM
 
 import { logoutUser, fetchMe, forceLogout } from "./components/REDUX_FEATURES/REDUX_SLICES/authSlice";
 import { USER_ACCESS_TOKEN_KEY } from "./SERVICES/axiosInstance";
+import { isCustomerTokenCompatible } from "./SERVICES/authPortalSession";
 
 // ── These two are fine at app-level — they power Navbar badges ───────────────
 import useWishlistInit from "./components/HOOKS/useWishlistInit";
@@ -93,10 +94,16 @@ const AppContent = () => {
     // No separate profile fetch needed in UserDashboard
    // App.jsx — AppContent component
             useEffect(() => {
-                const token = localStorage.getItem(USER_ACCESS_TOKEN_KEY);
-                // ✅ Don't run user fetchMe on admin routes — admin has its own auth system
-                if (token && !isAdminRoute) {
+                try {
+                    const token = localStorage.getItem(USER_ACCESS_TOKEN_KEY);
+                    if (!token || isAdminRoute) return;
+                    if (!isCustomerTokenCompatible(token, "ecomm")) {
+                        dispatch(forceLogout());
+                        return;
+                    }
                     dispatch(fetchMe());
+                } catch {
+                    /* never block render */
                 }
             }, [dispatch, isAdminRoute]);
 

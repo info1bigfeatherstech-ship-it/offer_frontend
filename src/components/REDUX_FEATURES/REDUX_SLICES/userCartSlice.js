@@ -1,5 +1,10 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import axiosInstance from "../../../SERVICES/axiosInstance";
+import {
+  isScopeMismatchAxiosError,
+  isSilentPortalScopePayload,
+  thunkRejectFromAxios,
+} from "../../../SERVICES/authPortalSession";
 
 // ── Error Logger ──────────────────────────────────────────────────────────────
 const logError = (context, error, info = {}) => {
@@ -78,11 +83,8 @@ export const fetchCart = createAsyncThunk(
       // console.log(`✅ [fetchCart] Got ${response.data.cart?.items?.length || 0} items`);
       return response.data.cart;
     } catch (error) {
-      logError("fetchCart", error);
-      return rejectWithValue({
-        message: error.response?.data?.message || "Failed to load cart",
-        status: error.response?.status,
-      });
+      if (!isScopeMismatchAxiosError(error)) logError("fetchCart", error);
+      return rejectWithValue(thunkRejectFromAxios(error, "Failed to load cart"));
     }
   }
 );
@@ -219,11 +221,8 @@ export const mergeCart = createAsyncThunk(
       // console.log("✅ [mergeCart] Merged");
       return { cart: response.data.cart };
     } catch (error) {
-      logError("mergeCart", error, { items });
-      return rejectWithValue({
-        message: error.response?.data?.message || "Failed to merge cart",
-        status: error.response?.status,
-      });
+      if (!isScopeMismatchAxiosError(error)) logError("mergeCart", error, { items });
+      return rejectWithValue(thunkRejectFromAxios(error, "Failed to merge cart"));
     }
   }
 );
@@ -411,6 +410,10 @@ const userCartSlice = createSlice({
       })
       .addCase(fetchCart.rejected, (state, action) => {
         state.loading.fetch = false;
+        if (isSilentPortalScopePayload(action.payload)) {
+          state.error.fetch = null;
+          return;
+        }
         state.error.fetch = action.payload || { message: "Failed to fetch cart" };
         console.error("❌ [fetchCart] rejected:", action.payload?.message);
       })
@@ -555,6 +558,10 @@ const userCartSlice = createSlice({
       })
       .addCase(mergeCart.rejected, (state, action) => {
         state.loading.merge = false;
+        if (isSilentPortalScopePayload(action.payload)) {
+          state.error.merge = null;
+          return;
+        }
         state.error.merge = action.payload || { message: "Failed to merge cart" };
         console.error("❌ [mergeCart] rejected:", action.payload?.message);
       })

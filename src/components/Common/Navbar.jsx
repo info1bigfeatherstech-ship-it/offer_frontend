@@ -19,6 +19,8 @@ import homeIcon from "../../assets/home (2).png";
 import audio from "../../assets/headphone.png";
 import WishlistSidebar from './WishlistSidebar';
 import { selectDefaultAddress, fetchAddresses } from '../REDUX_FEATURES/REDUX_SLICES/Useraddressslice';
+import { USER_ACCESS_TOKEN_KEY } from '../../SERVICES/axiosInstance';
+import { isCustomerTokenCompatible } from '../../SERVICES/authPortalSession';
 import SearchModal from './Search_Modal/SearchModal';
 import MobileBottomNav from './Mobilebottomnav';
 import NotificationBellIcon from './NotificationBellIcon';
@@ -347,9 +349,16 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
     path: `/category/${cat.slug || cat.name.toLowerCase().replace(/\s+/g, '-')}`
   }));
 
-  // Fetch user address when logged in
+  // Fetch user address when logged in with a valid ecomm customer session
   useEffect(() => {
-    if (isLoggedIn) dispatch(fetchAddresses());
+    try {
+      if (!isLoggedIn) return;
+      const token = localStorage.getItem(USER_ACCESS_TOKEN_KEY);
+      if (!isCustomerTokenCompatible(token, "ecomm")) return;
+      dispatch(fetchAddresses());
+    } catch {
+      /* never block navbar */
+    }
   }, [dispatch, isLoggedIn]);
 
   // Show tooltip on first visit

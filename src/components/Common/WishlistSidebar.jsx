@@ -24,7 +24,8 @@ import {
 } from '../../components/REDUX_FEATURES/REDUX_SLICES/userCartSlice';
 
 import { lockBodyScroll, unlockBodyScroll } from '../../utils/lockBodyScroll';
-import axiosInstance from '../../SERVICES/axiosInstance';
+import axiosInstance, { USER_ACCESS_TOKEN_KEY } from '../../SERVICES/axiosInstance';
+import { isCustomerTokenCompatible, isSilentPortalScopePayload } from '../../SERVICES/authPortalSession';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Helpers
@@ -309,14 +310,21 @@ const WishlistSidebar = ({ isOpen, onClose, onOpenAuth }) => {
     return () => ac.abort();
   }, [isOpen, isLoggedIn, guestWishlistFetchKey, guestItems]);
 
-  // ── Fetch wishlist when sidebar opens (logged in only) ────────────────────
+  // ── Fetch wishlist when sidebar opens (logged in ecomm customer only) ──────
   useEffect(() => {
-    if (isOpen && isLoggedIn) {
-      console.log('💛 [WishlistSidebar] opened — refreshing wishlist from DB');
+    try {
+      if (!isOpen || !isLoggedIn) return;
+      const token = localStorage.getItem(USER_ACCESS_TOKEN_KEY);
+      if (!isCustomerTokenCompatible(token, "ecomm")) return;
       dispatch(fetchWishlist())
         .unwrap()
-        .then(() => console.log('✅ [WishlistSidebar] wishlist refreshed'))
-        .catch((e) => logError('fetchWishlist on open', e));
+        .then(() => {})
+        .catch((e) => {
+          if (isSilentPortalScopePayload(e)) return;
+          logError("fetchWishlist on open", e);
+        });
+    } catch {
+      /* never block sidebar */
     }
   }, [isOpen, isLoggedIn, dispatch]);
 
