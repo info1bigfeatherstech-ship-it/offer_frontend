@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertCircle, CheckCircle2, Loader2, Printer, Save } from "lucide-react";
+import { AlertCircle, CheckCircle2, ImagePlus, Loader2, Printer, Save, Trash2 } from "lucide-react";
 import axiosInstance from "../../../../../SERVICES/axiosInstance";
 
 const Toggle = ({ checked, onChange, label, locked }) => (
@@ -36,8 +36,12 @@ const LabelSettingsTab = () => {
   const [previewHtml, setPreviewHtml] = useState("");
   const [previewError, setPreviewError] = useState(null);
   const [pickupIdentity, setPickupIdentity] = useState({ name: "", source: "" });
+  const [logoUploading, setLogoUploading] = useState(false);
+  const [logoRemoving, setLogoRemoving] = useState(false);
+  const [logoError, setLogoError] = useState(null);
   const previewTimer = useRef(null);
   const iframeRef = useRef(null);
+  const logoInputRef = useRef(null);
 
   const patch = useCallback((section, key, value) => {
     setSettings((prev) => {
@@ -147,6 +151,57 @@ const LabelSettingsTab = () => {
     }
   };
 
+  const handleLogoPick = () => {
+    logoInputRef.current?.click();
+  };
+
+  const handleLogoUpload = async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setLogoUploading(true);
+    setLogoError(null);
+    setSaveOk(false);
+    try {
+      const form = new FormData();
+      form.append("logo", file);
+      const res = await axiosInstance.post("/shipping-provider/admin/shipmozo-label-settings/logo", form, {
+        headers: { "Content-Type": "multipart/form-data" },
+      });
+      if (!res.data?.success || !res.data?.data?.settings) {
+        throw new Error(res.data?.message || "Logo upload failed");
+      }
+      setSettings(res.data.data.settings);
+      if (res.data?.data?.pickupIdentity) {
+        setPickupIdentity({
+          name: res.data.data.pickupIdentity.name || "",
+          source: res.data.data.pickupIdentity.source || "",
+        });
+      }
+    } catch (e) {
+      setLogoError(e.response?.data?.message || e.message || "Logo upload failed");
+    } finally {
+      setLogoUploading(false);
+      if (logoInputRef.current) logoInputRef.current.value = "";
+    }
+  };
+
+  const handleLogoRemove = async () => {
+    setLogoRemoving(true);
+    setLogoError(null);
+    setSaveOk(false);
+    try {
+      const res = await axiosInstance.delete("/shipping-provider/admin/shipmozo-label-settings/logo");
+      if (!res.data?.success || !res.data?.data?.settings) {
+        throw new Error(res.data?.message || "Could not remove logo");
+      }
+      setSettings(res.data.data.settings);
+    } catch (e) {
+      setLogoError(e.response?.data?.message || e.message || "Could not remove logo");
+    } finally {
+      setLogoRemoving(false);
+    }
+  };
+
   const s = settings;
   const storefrontLabel = storefront === "wholesale" ? "Wholesale" : "E-comm";
 
@@ -177,7 +232,7 @@ const LabelSettingsTab = () => {
   }
 
   return (
-    <div className="flex min-h-0 min-w-0 flex-col h-full">
+    <div className="flex h-full min-h-0 w-full flex-col">
       <div className="mb-4 flex shrink-0 flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl text-gray-900">Shipmozo label settings</h1>
@@ -198,18 +253,85 @@ const LabelSettingsTab = () => {
       </div>
 
       {saveError && (
-        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="mb-3 shrink-0 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {saveError}
         </div>
       )}
       {saveOk && (
-        <div className="mb-4 flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+        <div className="mb-3 flex shrink-0 items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
           <CheckCircle2 className="h-4 w-4" /> Saved for {storefrontLabel} only
         </div>
       )}
 
-      <div className="flex min-h-0 min-w-0 flex-1 flex-col items-stretch gap-6 overflow-hidden lg:flex-row lg:items-start">
-        <div className="min-h-0 min-w-0 flex-1 space-y-4 overflow-y-auto pr-1">
+      <div className="grid min-h-0 w-full flex-1 grid-cols-1 gap-6 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(520px,560px)]">
+        <div className="min-h-0 min-w-0 space-y-4 overflow-y-auto pr-1">
+          <Section title="Label logo">
+            <Toggle
+              checked={s.branding?.showLogo}
+              label="Print logo on label (Ship To section, right side)"
+              onChange={(v) => patch("branding", "showLogo", v)}
+            />
+            <div className="col-span-full flex flex-wrap items-center gap-3">
+              {s.branding?.logoUrl ? (
+                <div className="flex h-20 w-28 items-center justify-center rounded-lg border border-gray-200 bg-white p-2">
+                  <img
+                    src={s.branding.logoUrl}
+                    alt="Label logo preview"
+                    className="max-h-full max-w-full object-contain"
+                  />
+                </div>
+              ) : (
+                <div className="flex h-20 w-28 items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 text-xs text-gray-400">
+                  No logo
+                </div>
+              )}
+              <div className="flex flex-col gap-2">
+                <input
+                  ref={logoInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/jpg"
+                  className="hidden"
+                  onChange={handleLogoUpload}
+                />
+                <button
+                  type="button"
+                  onClick={handleLogoPick}
+                  disabled={logoUploading || logoRemoving}
+                  className="inline-flex items-center gap-2 rounded-md border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                >
+                  {logoUploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ImagePlus className="h-4 w-4" />
+                  )}
+                  {s.branding?.logoUrl ? "Replace logo" : "Upload logo"}
+                </button>
+                {s.branding?.logoUrl ? (
+                  <button
+                    type="button"
+                    onClick={handleLogoRemove}
+                    disabled={logoUploading || logoRemoving}
+                    className="inline-flex items-center gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-100 disabled:opacity-60"
+                  >
+                    {logoRemoving ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="h-4 w-4" />
+                    )}
+                    Remove logo
+                  </button>
+                ) : null}
+              </div>
+            </div>
+            {logoError ? (
+              <p className="col-span-full text-sm text-red-600">{logoError}</p>
+            ) : null}
+            <p className="col-span-full text-xs text-gray-500">
+              Saved separately for {storefrontLabel} only (Cloudinary). Max 1 MB. PNG, JPG, or WebP.
+              Logo prints centered beside Ship To — no vertical divider line.
+            </p>
+          </Section>
+
           <Section title="Support details">
             <Toggle
               checked={s.support.showCustomerSupport}
@@ -246,8 +368,6 @@ const LabelSettingsTab = () => {
             <Toggle checked={s.pickup.showPickupName} label="Pickup name" onChange={(v) => patch("pickup", "showPickupName", v)} />
             <Toggle checked={s.pickup.showPickupAddress} label="Pickup address" onChange={(v) => patch("pickup", "showPickupAddress", v)} />
             <Toggle checked={s.pickup.showPickupPhone} label="Pickup phone number" onChange={(v) => patch("pickup", "showPickupPhone", v)} />
-            <Toggle checked={s.pickup.showRtoName} label="RTO name" onChange={(v) => patch("pickup", "showRtoName", v)} />
-            <Toggle checked={s.pickup.showRtoAddress} label="RTO address" onChange={(v) => patch("pickup", "showRtoAddress", v)} />
             <Toggle checked={s.pickup.showGstin} label="GSTIN" onChange={(v) => patch("pickup", "showGstin", v)} />
             {pickupIdentity.source === "shipmozo" ? (
               <p className="col-span-full rounded-md bg-slate-50 px-3 py-2 text-xs text-gray-600">
@@ -329,7 +449,7 @@ const LabelSettingsTab = () => {
             <Toggle checked={s.misc.showOrderDate} label="Order date" onChange={(v) => patch("misc", "showOrderDate", v)} />
             <Toggle checked={s.misc.showOrderTotal} label="Show order total" onChange={(v) => patch("misc", "showOrderTotal", v)} />
             <Toggle checked={s.misc.showEwayBill} label="E-way bill no" onChange={(v) => patch("misc", "showEwayBill", v)} />
-            <Toggle checked={s.misc.showPoweredBy} label="Powered by OfferWale Baba" onChange={(v) => patch("misc", "showPoweredBy", v)} />
+            <Toggle checked={s.misc.showPoweredBy} label="Powered by Offer Wale Baba" onChange={(v) => patch("misc", "showPoweredBy", v)} />
             <Toggle checked={s.misc.showAutoGeneratedDisclaimer} label="Auto-generated disclaimer" onChange={(v) => patch("misc", "showAutoGeneratedDisclaimer", v)} />
             <textarea
               className="col-span-full min-h-[88px] rounded-md border border-gray-200 px-3 py-2 text-sm"
@@ -339,7 +459,7 @@ const LabelSettingsTab = () => {
           </Section>
         </div>
 
-        <div className="ml-auto flex w-max max-w-full shrink-0 flex-col">
+        <div className="flex min-h-0 w-full min-w-0 flex-col overflow-y-auto">
           <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-gray-800">Label preview (4×6)</h3>
             <button
@@ -353,10 +473,10 @@ const LabelSettingsTab = () => {
             </button>
           </div>
           {previewError && <p className="mb-2 shrink-0 text-xs text-red-600">{previewError}</p>}
-          <div className="w-max overflow-auto rounded-xl bg-neutral-200 p-3">
+          <div className="w-full overflow-auto rounded-xl bg-neutral-200 p-3">
             <div
-              className="overflow-hidden bg-white shadow-lg"
-              style={{ width: 456, height: 684 }}
+              className="relative w-full overflow-hidden bg-white shadow-lg"
+              style={{ aspectRatio: "4 / 6" }}
             >
               <iframe
                 ref={iframeRef}
@@ -366,11 +486,12 @@ const LabelSettingsTab = () => {
                   previewHtml ||
                   "<p style='padding:12px;font-family:sans-serif;color:#666'>Loading preview…</p>"
                 }
-                style={{ width: 456, height: 684, border: 0, overflow: "hidden" }}
+                className="absolute inset-0 h-full w-full"
+                style={{ border: 0, overflow: "hidden" }}
               />
             </div>
           </div>
-          <p className="mt-2 max-w-[456px] shrink-0 text-[11px] text-gray-400">
+          <p className="mt-2 shrink-0 text-[11px] text-gray-400">
             Preview stays here while you change fields on the left. Print uses 4×6 paper. Example barcodes in preview; real Shipmozo orders print the actual AWB and order ID.
           </p>
         </div>

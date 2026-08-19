@@ -40,9 +40,15 @@ const SettingsDashboard = ({ onExit }) => {
     setSearchParams({ tab: "settings", ctab: tabId });
   };
 
+  const isLabelTab = resolvedCtab === "shipmozo-label";
+
   return (
-    <div className="flex h-screen min-h-0 bg-gray-50">
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col sticky top-0 h-screen z-20">
+    <div
+      className={`flex w-full min-w-0 flex-1 bg-gray-50 ${
+        isLabelTab ? "h-screen overflow-hidden" : "min-h-screen"
+      }`}
+    >
+      <aside className="sticky top-0 z-20 flex h-screen w-64 shrink-0 flex-col border-r border-gray-200 bg-white">
         <div className="px-4 py-5 flex items-center gap-4 border-b border-gray-200 bg-white sticky top-0 z-30">
           <button
             type="button"
@@ -98,23 +104,17 @@ const SettingsDashboard = ({ onExit }) => {
       </aside>
 
       <main
-        className={`flex min-w-0 flex-1 flex-col ${
-          resolvedCtab === "shipmozo-label" ? "overflow-hidden" : "overflow-y-auto"
+        className={`min-w-0 flex-1 ${
+          isLabelTab ? "flex flex-col overflow-hidden" : "overflow-y-auto"
         }`}
       >
-        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center border-b border-gray-200 bg-white px-6">
+        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center border-b border-gray-200 bg-white px-8">
           <h2 className="text-xl font-medium text-gray-900 capitalize">
             {activeTabConfig?.label || "Settings"}
           </h2>
         </header>
 
-        <div
-          className={
-            resolvedCtab === "shipmozo-label"
-              ? "min-h-0 flex-1 overflow-hidden py-4 pl-8 pr-5"
-              : "p-8"
-          }
-        >
+        <div className={isLabelTab ? "min-h-0 flex-1 overflow-hidden p-6 pl-10 pr-8" : "w-full p-8"}>
           <Suspense
             fallback={
               <div className="flex items-center justify-center h-64">
@@ -123,7 +123,9 @@ const SettingsDashboard = ({ onExit }) => {
             }
           >
             {TabComponent ? (
-              <TabComponent />
+              <div className={isLabelTab ? "h-full min-h-0 w-full" : undefined}>
+                <TabComponent />
+              </div>
             ) : (
               <div className="text-gray-400">Content coming soon</div>
             )}

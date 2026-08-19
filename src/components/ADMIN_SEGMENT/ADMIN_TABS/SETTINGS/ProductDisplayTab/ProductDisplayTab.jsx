@@ -14,7 +14,7 @@ const ProductDisplaySettings = () => {
   ];
 
   return (
-    <div className="max-w-6xl mx-auto p-8 font-sans text-gray-900">
+    <div className="w-full p-8 font-sans text-gray-900">
       {/* Page Title */}
       <h1 className="text-xl  mb-6">Product display preference</h1>
 
