@@ -5,7 +5,7 @@ import { SettingTabRegistry } from "./SettingTabregistry";
 import { ROLES } from "../../roles";
 
 /** Order managers may only open Delivery (shipping partner switch). Admins see all settings tabs. */
-const ORDER_MANAGER_SETTING_TAB_IDS = new Set(["delivery"]);
+const ORDER_MANAGER_SETTING_TAB_IDS = new Set(["delivery", "shipmozo-label"]);
 
 const SettingsDashboard = ({ onExit }) => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -40,9 +40,15 @@ const SettingsDashboard = ({ onExit }) => {
     setSearchParams({ tab: "settings", ctab: tabId });
   };
 
+  const isLabelTab = resolvedCtab === "shipmozo-label";
+
   return (
-    <div className="flex flex-1 min-h-screen bg-gray-50">
-      <aside className="w-64 bg-white border-r border-gray-200 flex flex-col sticky top-0 h-screen z-20">
+    <div
+      className={`flex w-full min-w-0 flex-1 bg-gray-50 ${
+        isLabelTab ? "h-screen overflow-hidden" : "min-h-screen"
+      }`}
+    >
+      <aside className="sticky top-0 z-20 flex h-screen w-64 shrink-0 flex-col border-r border-gray-200 bg-white">
         <div className="px-4 py-5 flex items-center gap-4 border-b border-gray-200 bg-white sticky top-0 z-30">
           <button
             type="button"
@@ -97,14 +103,18 @@ const SettingsDashboard = ({ onExit }) => {
         </nav>
       </aside>
 
-      <main className="flex-1 overflow-y-auto">
-        <header className="bg-white h-16 border-b border-gray-200 flex items-center px-8 sticky top-0 z-10">
+      <main
+        className={`min-w-0 flex-1 ${
+          isLabelTab ? "flex flex-col overflow-hidden" : "overflow-y-auto"
+        }`}
+      >
+        <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center border-b border-gray-200 bg-white px-8">
           <h2 className="text-xl font-medium text-gray-900 capitalize">
             {activeTabConfig?.label || "Settings"}
           </h2>
         </header>
 
-        <div className="p-8">
+        <div className={isLabelTab ? "min-h-0 flex-1 overflow-hidden p-6 pl-10 pr-8" : "w-full p-8"}>
           <Suspense
             fallback={
               <div className="flex items-center justify-center h-64">
@@ -113,7 +123,9 @@ const SettingsDashboard = ({ onExit }) => {
             }
           >
             {TabComponent ? (
-              <TabComponent />
+              <div className={isLabelTab ? "h-full min-h-0 w-full" : undefined}>
+                <TabComponent />
+              </div>
             ) : (
               <div className="text-gray-400">Content coming soon</div>
             )}

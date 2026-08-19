@@ -28,6 +28,7 @@ const ProfileTab = lazy(() => import("./ProfileTab/ProfileTab"));
 const ControlTab = lazy(() => import("./ControlTab/ControlTab"));
 const ProductDisplayTab = lazy(() => import("./ProductDisplayTab/ProductDisplayTab"));
 const DeliveryTab = lazy(() => import("./DeliveryTab/DeliveryTab"));
+const LabelSettingsTab = lazy(() => import("./LabelSettingsTab/LabelSettingsTab"));
 const PaymentTab = lazy(() => import("./PaymentTab/PaymentTab"));
 const OrdersSettingTab = lazy(() => import("./OrderSettingTab/OrderSettingTab"));
 const CustomerSettingTab = lazy(() => import("./CustomerSettingTab/CustomerSettingTab"));
@@ -78,6 +79,13 @@ export const SettingTabRegistry = [
     group: "E-Commerce",
     icon: "M13 16V6a1 1 0 00-1-1H4a1 1 0 00-1 1v10a1 1 0 001 1h1m8-1a1 1 0 01-1 1H9m4-1V8a1 1 0 011-1h2.586a1 1 0 01.707.293l3.414 3.414a1 1 0 01.293.707V16a1 1 0 01-1 1h-1m-6-1a1 1 0 001 1h1M5 17a2 2 0 104 0m-4 0a2 2 0 114 0m6 0a2 2 0 104 0m-4 0a2 2 0 114 0",
     component: DeliveryTab,
+  },
+  {
+    id: "shipmozo-label",
+    label: "Label settings",
+    group: "E-Commerce",
+    icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+    component: LabelSettingsTab,
   },
   {
     id: "payments",

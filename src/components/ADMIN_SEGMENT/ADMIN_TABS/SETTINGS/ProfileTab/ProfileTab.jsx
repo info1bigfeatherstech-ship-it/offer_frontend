@@ -89,7 +89,7 @@ const ProfileTab = () => {
 
   return (
     <div className="bg-gray-50 min-h-screen p-4 md:p-8 font-sans text-gray-800">
-      <div className="max-w-4xl mx-auto space-y-6">
+      <div className="w-full space-y-6">
         <h1 className="text-xl font-bold mb-6 text-gray-900">Profile settings</h1>
 
         <section className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">

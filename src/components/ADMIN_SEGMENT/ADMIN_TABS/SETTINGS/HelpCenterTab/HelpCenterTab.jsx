@@ -39,7 +39,7 @@ const HelpCenterTab = ({ onBack }) => {
         <h1 className="text-xl  text-gray-900">For Your Assistance</h1>
       </header>
 
-      <div className="max-w-4xl mx-auto p-8">
+      <div className="w-full p-8">
         <div className="mb-8">
           <h2 className="text-lg  text-gray-900">Need Help?</h2>
           <p className="text-sm text-gray-400 mt-1">For any issue, support or grievances.</p>

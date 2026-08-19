@@ -30,7 +30,7 @@ const ControlTab = () => {
 
   return (
     <div className="bg-[#f9fafb] min-h-screen p-6 md:p-10 font-sans">
-      <div className="max-w-5xl mx-auto space-y-8">
+      <div className="w-full space-y-8">
         
         <div className="flex items-center justify-between">
           <h1 className="text-2xl  text-gray-900 tracking-tight">Store Controls</h1>
