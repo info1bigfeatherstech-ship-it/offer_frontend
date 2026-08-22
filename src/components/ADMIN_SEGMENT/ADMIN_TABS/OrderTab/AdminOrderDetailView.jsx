@@ -53,6 +53,19 @@ const EXCEPTION_OPS_STATES = new Set([
   "NEEDS_MANUAL_REVIEW",
 ]);
 
+function resolveShippingProviderKey(order) {
+  return String(order?.shippingProvider || order?.shipmentInfo?.provider || "shiprocket").toLowerCase() ===
+    "shipmozo"
+    ? "shipmozo"
+    : "shiprocket";
+}
+
+function removedArchiveBadge(reason) {
+  if (reason === "qty_reduced") return "Qty reduced";
+  if (reason === "order_cancelled_empty") return "Removed — order cancelled";
+  return "Removed — unavailable";
+}
+
 function resolveShiprocketSupportUrl(externalLinks) {
   return (
     externalLinks?.shiprocketSupportUrl ||
@@ -485,6 +498,9 @@ export default function AdminOrderDetailView({
     bulkCancelState.isLoading;
 
   const orderSt = String(order?.orderStatus || "").toLowerCase();
+  const shippingProviderKey = resolveShippingProviderKey(order);
+  const isShipmozoProvider = shippingProviderKey === "shipmozo";
+  const providerDisplayName = isShipmozoProvider ? "Shipmozo" : "Shiprocket";
   const paySt = String(order?.paymentStatus || "").toLowerCase();
   const moneyCaptured =
     (paySt === "paid" || paySt === "partially_paid") && Number(order?.amountPaidInr || 0) > 0.01;
@@ -498,10 +514,10 @@ export default function AdminOrderDetailView({
   const fulfillmentActionsBlocked = unpaidTerminalStatus || isRtoOrder;
   const fulfillmentBlockMessage = fulfillmentActionsBlocked
     ? isRtoOrder
-      ? `Shiprocket reports: ${String(shiprocketProviderStatus || "RTO").trim()}. Forward shipment actions are not available during return-to-origin.`
+      ? `${providerDisplayName} reports: ${String(shiprocketProviderStatus || "RTO").trim()}. Forward shipment actions are not available during return-to-origin.`
       : orderSt === "cancelled"
-      ? "This order was cancelled. Ship now, pickup scheduling, shipping labels, and other Shiprocket shipment actions are not available."
-      : "The customer did not complete payment. Shiprocket fulfilment actions are not available."
+      ? `This order was cancelled. Ship now, pickup scheduling, shipping labels, and other ${providerDisplayName} shipment actions are not available.`
+      : `The customer did not complete payment. ${providerDisplayName} fulfilment actions are not available.`
     : null;
 
   const carrierPaymentReady = carrierFulfilmentPaymentReady(order, fulfillmentPaymentGate);
@@ -512,7 +528,7 @@ export default function AdminOrderDetailView({
       : fulfillmentPaymentGate && fulfillmentPaymentGate.ok === false
         ? fulfillmentPaymentGate.message
         : !carrierPaymentReady
-          ? "Waiting for customer payment (or COD rules) before Shiprocket actions."
+          ? `Waiting for customer payment (or COD rules) before ${providerDisplayName} actions.`
           : null;
 
   useEffect(() => {
@@ -761,13 +777,6 @@ export default function AdminOrderDetailView({
   const blockReasons = ops.blockReasons || {};
   const riskFlags = ops.riskFlags || {};
   const externalLinks = ops.externalLinks || {};
-  const shippingProviderKey =
-    String(order?.shippingProvider || order?.shipmentInfo?.provider || "shiprocket").toLowerCase() ===
-    "shipmozo"
-      ? "shipmozo"
-      : "shiprocket";
-  const isShipmozoProvider = shippingProviderKey === "shipmozo";
-  const providerDisplayName = isShipmozoProvider ? "Shipmozo" : "Shiprocket";
   const hasCarrierAwb = Boolean(ship.awbCode || ship.trackingNumber);
   const shipmozoNeedsManualPickup = ship.shipmozoNeedsManualPickup === true;
   /** Shipmozo default: pickup auto after Ship now — skip forced Schedule → Manifest ladder. */
@@ -927,6 +936,7 @@ export default function AdminOrderDetailView({
   if (!order) return null;
 
   const items = Array.isArray(order.items) ? order.items : [];
+  const removedArchive = Array.isArray(order.removedItemsArchive) ? order.removedItemsArchive : [];
   const weightSnap = order.shippingWeightSnapshot;
   const weightByVariantId = new Map();
   for (const row of weightSnap?.lines || []) {
@@ -1227,7 +1237,7 @@ export default function AdminOrderDetailView({
           >
             <p className="font-semibold">Settlement pending (after Ship Now)</p>
             <p className="mt-0.5 leading-relaxed text-amber-900/90">
-              OOS edit saved without refund. After Ship Now / Refresh Shiprocket, bill uses actual courier shipping
+              OOS edit saved without refund. After Ship Now / Refresh {providerDisplayName}, bill uses actual courier shipping
               (held checkout ship was{" "}
               {formatInr(order.paymentInfo.oosShippingSettlement.heldDeliveryCharges)}; never zero). Excess prepaid is
               refunded; balance due / COD will not increase.
@@ -1279,7 +1289,14 @@ export default function AdminOrderDetailView({
             ) : (
                 <div className="bg-white rounded-md border border-slate-200 shadow-sm overflow-hidden">
                   <div className="px-4 py-2.5 border-b border-slate-100 bg-slate-50/80 flex flex-wrap items-start justify-between gap-2">
-                    <h3 className="text-sm font-bold text-slate-900">Items in this order</h3>
+                    <h3 className="text-sm font-bold text-slate-900">
+                      Items in this order
+                      {removedArchive.length > 0 ? (
+                        <span className="text-xs font-normal text-slate-500 ml-1.5">
+                          ({items.length} active · {removedArchive.length} removed)
+                        </span>
+                      ) : null}
+                    </h3>
                     {weightSnap?.totalWeightKg != null && (
                       <div className="text-right text-[11px] space-y-0.5 text-slate-600">
                         <p>
@@ -1351,6 +1368,54 @@ export default function AdminOrderDetailView({
                         </div>
                       );
                     })}
+                    {removedArchive.length > 0 ? (
+                      <>
+                        <div className="px-4 py-2 bg-slate-50 border-t border-slate-200">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                            Removed (out of stock)
+                          </p>
+                        </div>
+                        {removedArchive.map((line, idx) => {
+                          const name = line?.productName || line?.productId?.name || "Product";
+                          const sku = line?.sku || "—";
+                          const qty = line?.quantity ?? 0;
+                          const lineTotal =
+                            Number(line?.lineTotal ?? line?.priceSnapshot?.total) ||
+                            Number(line?.priceSnapshot?.sale ?? line?.priceSnapshot?.base ?? 0) * qty;
+                          const unitPrice =
+                            line?.priceSnapshot?.sale ?? line?.priceSnapshot?.base ?? null;
+                          return (
+                            <div
+                              key={`removed-${idx}`}
+                              className="px-4 py-3.5 flex gap-4 opacity-75 bg-slate-50/60"
+                            >
+                              <div className="w-20 h-20 sm:w-24 sm:h-24 shrink-0 rounded-md border border-slate-100 bg-slate-100 overflow-hidden flex items-center justify-center text-2xl text-slate-300">
+                                📦
+                              </div>
+                              <div className="flex-1 min-w-0 flex flex-wrap items-start justify-between gap-2">
+                                <div className="min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2">
+                                    <p className="text-sm font-semibold text-slate-400 line-through leading-snug">
+                                      {name}
+                                    </p>
+                                    <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-100">
+                                      {removedArchiveBadge(line?.reason)}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-400 mt-0.5 line-through">
+                                    Qty {qty} · SKU <span className="font-mono">{sku}</span>
+                                    {unitPrice != null ? ` · ${formatInr(unitPrice)} each` : ""}
+                                  </p>
+                                </div>
+                                <p className="text-sm font-bold text-slate-400 line-through shrink-0">
+                                  {formatInr(lineTotal)}
+                                </p>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </>
+                    ) : null}
                   </div>
 
                   <div className="px-4 py-3 bg-slate-50/50 border-t border-slate-100 space-y-1.5 text-sm">

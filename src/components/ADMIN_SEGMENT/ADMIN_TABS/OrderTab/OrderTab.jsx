@@ -196,7 +196,7 @@ const OrderTab = () => {
   const [autoSyncOrderStatuses] = useAdminAutoSyncOrderStatusesMutation();
   const autoSyncBusyRef = useRef(false);
 
-  /** Silent background sync: Shiprocket → DB for stale orders in the active date range. */
+  /** Silent background sync: Shiprocket + Shipmozo → DB for stale orders in the active date range. */
   useEffect(() => {
     let cancelled = false;
     let initialTimer;
