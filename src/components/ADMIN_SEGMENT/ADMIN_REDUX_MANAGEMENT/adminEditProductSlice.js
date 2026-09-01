@@ -35,6 +35,24 @@ const buildInventoryObj = (inv) => ({
   trackInventory: inv?.trackInventory !== false,
 });
 
+const cleanAttributesForApi = (attributes) =>
+  Array.isArray(attributes)
+    ? attributes.filter((a) => a?.key && a?.value).map((a) => ({ key: a.key, value: a.value }))
+    : [];
+
+const buildSoldInfoForApi = (soldInfo) => ({
+  enabled: soldInfo?.enabled === true,
+  count: parseInt(soldInfo?.count, 10) || 0,
+});
+
+const buildFomoForApi = (fomo) => ({
+  enabled: fomo?.enabled === true,
+  type: ["viewing_now", "product_left", "custom"].includes(fomo?.type) ? fomo.type : "viewing_now",
+  viewingNow: parseInt(fomo?.viewingNow, 10) || 0,
+  productLeft: parseInt(fomo?.productLeft, 10) || 0,
+  customMessage: fomo?.customMessage || "",
+});
+
 // Helper to check if variant is wholesale eligible (SINGLE SOURCE OF TRUTH)
 export const isVariantWholesaleEligible = (variant) => {
   if (!variant) return false;
@@ -73,11 +91,10 @@ export const updateProduct = createAsyncThunk(
       };
       fd.append("shipping", JSON.stringify(shippingData));
 
-      if (pd.soldInfo) fd.append("soldInfo", JSON.stringify(pd.soldInfo));
-      if (pd.fomo) fd.append("fomo", JSON.stringify(pd.fomo));
-      // if (pd.attributes?.length) fd.append("attributes", JSON.stringify(pd.attributes));
-      // always send, even empty array — otherwise deleting the last attribute never persists
-      fd.append("attributes", JSON.stringify(pd.attributes || []));
+      if (pd.soldInfo) fd.append("soldInfo", JSON.stringify(buildSoldInfoForApi(pd.soldInfo)));
+      if (pd.fomo) fd.append("fomo", JSON.stringify(buildFomoForApi(pd.fomo)));
+      // Always send, even empty array — otherwise deleting the last attribute never persists
+      fd.append("attributes", JSON.stringify(cleanAttributesForApi(pd.attributes)));
 
       const res = await axiosInstance.put(`/admin/products/${slug}`, fd, {
         headers: { "Content-Type": "multipart/form-data" },
@@ -132,10 +149,7 @@ export const updateVariantByBarcode = createAsyncThunk(
       }
 
       if (attributes !== undefined) {
-        const cleanAttrs = Array.isArray(attributes)
-          ? attributes.filter((a) => a.key && a.value).map((a) => ({ key: a.key, value: a.value }))
-          : [];
-        fd.append("attributes", JSON.stringify(cleanAttrs));
+        fd.append("attributes", JSON.stringify(cleanAttributesForApi(attributes)));
       }
 
       if (isActive !== undefined) fd.append("isActive", String(isActive));
@@ -217,10 +231,7 @@ export const addVariantToProduct = createAsyncThunk(
       }
       fd.append("price", JSON.stringify(pricePayload));
 
-      const cleanAttrs = Array.isArray(variantData.attributes)
-        ? variantData.attributes.filter((a) => a.key && a.value).map((a) => ({ key: a.key, value: a.value }))
-        : [];
-      fd.append("attributes", JSON.stringify(cleanAttrs));
+      fd.append("attributes", JSON.stringify(cleanAttributesForApi(variantData.attributes)));
       fd.append("inventory", JSON.stringify(buildInventoryObj(variantData.inventory || {})));
       fd.append("isActive", variantData.isActive !== false ? "true" : "false");
       fd.append("wholesale", variantData.wholesale ? "true" : "false");
