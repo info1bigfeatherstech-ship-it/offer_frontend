@@ -1736,9 +1736,19 @@ export default function AdminOrderDetailView({
                                   });
                                   return;
                                 }
-                                if (ae?.data?.code === "QUOTED_COURIER_UNAVAILABLE") {
-                                  const suggested = ae?.data?.suggestedCourier;
+                                if (
+                                  ae?.data?.code === "QUOTED_COURIER_UNAVAILABLE" ||
+                                  ae?.data?.code === "NO_ALTERNATE_COURIER"
+                                ) {
                                   const quoted = ae?.data?.quotedCourier;
+                                  let suggested = ae?.data?.suggestedCourier;
+                                  if (
+                                    suggested?.courierId != null &&
+                                    quoted?.courierId != null &&
+                                    Number(suggested.courierId) === Number(quoted.courierId)
+                                  ) {
+                                    suggested = null;
+                                  }
                                   const providerName =
                                     shippingProviderKey === "shipmozo" ? "Shipmozo" : "Shiprocket";
                                   const quotedFreight = ae?.data?.quotedFreightInr;

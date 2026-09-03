@@ -49,7 +49,7 @@ export const BUCKET_KEY_TO_TAB_LABEL = Object.freeze({
   others: 'Cancelled',
 });
 
-/** @typedef {'today'|'last7'|'last30'|'custom'} DatePresetId */
+/** @typedef {'none'|'today'|'last7'|'last30'|'custom'} DatePresetId */
 
 /**
  * `YYYY-MM-DD` → start of that local day as ISO (for API `from`)
@@ -77,6 +77,12 @@ export function localDateStrToEndIso(dateStr) {
   return dt.toISOString();
 }
 
+/** True when admin applied Today / 7d / 30d / Custom (not default "All dates"). */
+export function isOrdersDateFilterActive(datePreset) {
+  const p = String(datePreset || 'none').toLowerCase();
+  return p === 'today' || p === 'last7' || p === 'last30' || p === 'custom';
+}
+
 const initialState = {
   activeTabLabel: DEFAULT_ORDER_TAB_LABEL,
   search: '',
@@ -85,8 +91,12 @@ const initialState = {
   limit: 20,
   sortBy: 'createdAt',
   sortOrder: 'desc',
-  /** @type {DatePresetId} */
-  datePreset: 'last30',
+  /**
+   * Default `none` = no date window (paginated status tabs).
+   * Applying today/last7/last30/custom switches list to mixed statuses for that range.
+   * @type {DatePresetId}
+   */
+  datePreset: 'none',
   /** Custom range — local date inputs `YYYY-MM-DD` */
   customDateFrom: '',
   customDateTo: '',
@@ -132,10 +142,11 @@ const adminOrdersUiSlice = createSlice({
      * @param {import('@reduxjs/toolkit').PayloadAction<DatePresetId>} action
      */
     setDatePreset: (state, { payload }) => {
-      const p = payload || 'last30';
-      state.datePreset = p;
+      const p = payload || 'none';
+      const allowed = new Set(['none', 'today', 'last7', 'last30', 'custom']);
+      state.datePreset = allowed.has(p) ? p : 'none';
       state.page = 1;
-      if (p !== 'custom') {
+      if (state.datePreset !== 'custom') {
         state.customDateFrom = '';
         state.customDateTo = '';
       }
@@ -147,6 +158,13 @@ const adminOrdersUiSlice = createSlice({
       state.customDateFrom = String(payload?.from || '');
       state.customDateTo = String(payload?.to || '');
       state.datePreset = 'custom';
+      state.page = 1;
+    },
+    /** Reset date filter → default paginated status-tab mode. */
+    clearDateFilter: (state) => {
+      state.datePreset = 'none';
+      state.customDateFrom = '';
+      state.customDateTo = '';
       state.page = 1;
     },
     resetAdminOrdersUi: () => ({ ...initialState }),
@@ -163,6 +181,7 @@ export const {
   setSort,
   setDatePreset,
   commitCustomRange,
+  clearDateFilter,
   resetAdminOrdersUi,
 } = adminOrdersUiSlice.actions;
 
@@ -175,12 +194,14 @@ function buildDateQueryArgs(ui) {
     if (fromIso && toIso) {
       return { from: fromIso, to: toIso };
     }
-    return { rangePreset: 'last30' };
+    // Incomplete custom → stay on lifetime (do not silently shrink to 30d).
+    return { rangePreset: 'all' };
   }
   if (ui.datePreset === 'today') return { rangePreset: 'today' };
   if (ui.datePreset === 'last7') return { rangePreset: 'last7' };
   if (ui.datePreset === 'last30') return { rangePreset: 'last30' };
-  return { rangePreset: 'last30' };
+  // Default / none / unknown → no createdAt window (paginated).
+  return { rangePreset: 'all' };
 }
 
 const selectAdminOrdersUi = (state) => state.adminOrdersUi;
@@ -194,7 +215,8 @@ export const selectAdminOrdersListQueryArgs = createSelector([selectAdminOrdersU
     ui.activeTabLabel === 'All' || !ORDER_TAB_LABEL_TO_BUCKET[ui.activeTabLabel]
       ? DEFAULT_ORDER_TAB_LABEL
       : ui.activeTabLabel;
-  const bucket = ORDER_TAB_LABEL_TO_BUCKET[tabLabel];
+  const dateFilterActive = isOrdersDateFilterActive(ui.datePreset);
+  const bucket = dateFilterActive ? 'all' : ORDER_TAB_LABEL_TO_BUCKET[tabLabel];
   const dateArgs = buildDateQueryArgs(ui);
   return {
     page: ui.page,
@@ -204,8 +226,10 @@ export const selectAdminOrdersListQueryArgs = createSelector([selectAdminOrdersU
     /**
      * When search is active:
      * - omit status bucket (match any tab / cancelled)
-     * - use all-time date range so order ID / AWB / name hits are not limited to Last 30 days
-     * Browse without search keeps the selected date preset (default last30).
+     * - use all-time date range so order ID / AWB / name hits are not limited to a date window
+     * When date filter is active (Today/7/30/Custom):
+     * - force bucket=all so all statuses appear in one list for that range
+     * Default (no date filter): status tab bucket + all-time pagination (20/page).
      */
     ...(search ? {} : { bucket }),
     search,
@@ -213,10 +237,18 @@ export const selectAdminOrdersListQueryArgs = createSelector([selectAdminOrdersU
   };
 });
 
-/** Date-range args only — used by list + background auto-sync (not summary cards). */
-export const selectAdminOrdersDateQueryArgs = createSelector([selectAdminOrdersUi], (ui) =>
-  buildDateQueryArgs(ui)
-);
+/**
+ * Finite date window for background auto-sync only.
+ * Auto-sync API rejects all-time; when UI has no date filter, sync last 30 days silently.
+ */
+export const selectAdminOrdersDateQueryArgs = createSelector([selectAdminOrdersUi], (ui) => {
+  if (isOrdersDateFilterActive(ui.datePreset)) {
+    const args = buildDateQueryArgs(ui);
+    if (args.from && args.to) return args;
+    if (args.rangePreset && args.rangePreset !== 'all') return args;
+  }
+  return { rangePreset: 'last30' };
+});
 
 /**
  * Summary cards + tab badge counts: always all-time (ignore date/search filters).

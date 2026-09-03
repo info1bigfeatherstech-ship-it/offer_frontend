@@ -19,6 +19,10 @@ import {
   getWholesaleVisibility,
 } from "../ADMIN_REDUX_MANAGEMENT/adminEditProductSlice";
 import { shippingFormFromVariant } from "../../../utils/variantCatalogForm";
+import {
+  applyVariantMergeToFormData,
+  resolvePrimaryAttributes,
+} from "../../../utils/editProductVariantMerge";
 
 const formatIndianRupee = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -31,6 +35,16 @@ const getDiscountPercentage = (base, sale) => {
   return Math.round(((Number(base) - Number(sale)) / Number(base)) * 100);
 };
 
+const attrId = (a, fallback) => a?.id ?? a?._id ?? fallback;
+
+const normaliseAttributes = (attributes = [], prefix = "attr") =>
+  (Array.isArray(attributes) ? attributes : []).map((a, i) => ({
+    ...a,
+    key: a?.key || "",
+    value: a?.value || "",
+    id: String(attrId(a, `${prefix}-${i}`)),
+  }));
+
 // NORMALIZE: ALWAYS use price.wholesaleBase, NEVER direct wholesaleBase
 const normaliseVariants = (variants = []) =>
   variants.map((v, vIdx) => ({
@@ -41,7 +55,7 @@ const normaliseVariants = (variants = []) =>
       wholesaleBase: v.price?.wholesaleBase ?? "",
       wholesaleSale: v.price?.wholesaleSale ?? ""
     },
-    attributes: v.attributes || [],
+    attributes: normaliseAttributes(v.attributes || [], `v${vIdx}-attr`),
     images: (v.images || [])
       .slice()
       .sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
@@ -63,7 +77,14 @@ const normaliseVariants = (variants = []) =>
   }));
 
 const toFormData = (product) => {
-  const mainVariant = product.variants?.[0] || {};
+  const productAttributes = normaliseAttributes(product.attributes || [], "attr");
+  const variants = normaliseVariants(product.variants || []);
+
+  // Edit UI reads variants[0].attributes — seed from product.attributes for legacy rows
+  if (variants[0] && !(variants[0].attributes || []).length && productAttributes.length) {
+    variants[0] = { ...variants[0], attributes: productAttributes };
+  }
+
   return {
     name: product.name || "",
     title: product.title || "",
@@ -77,9 +98,8 @@ const toFormData = (product) => {
     soldInfo: product.soldInfo || { enabled: false, count: 0 },
     fomo: product.fomo || { enabled: false, type: "viewing_now", viewingNow: 0, productLeft: 0, customMessage: "" },
     images: (product.images || []).map((img, i) => ({ ...img, id: img._id || img.publicId || img.url || `main-img-${i}`, isMain: img.isMain || i === 0 })),
-    // attributes: product.attributes || [],
-    attributes: (product.attributes || []).map((a, i) => ({ ...a, id: a.id ?? a._id ?? `attr-${i}` })),
-    variants: normaliseVariants(product.variants || []),
+    attributes: productAttributes,
+    variants,
     isFeatured: product.isFeatured || false,
     status: product.status || "draft",
   };
@@ -195,8 +215,12 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
           variantUpdatePayload.variantShipping = variantToSave.shipping;
         }
         const result = await dispatch(updateVariantByBarcode(variantUpdatePayload)).unwrap();
-        if (result?.product?.variants)
-          setFormData((prev) => ({ ...prev, variants: normaliseVariants(result.product.variants) }));
+        if (result?.product?.variants) {
+          const savedIdx = editingVariantIndex;
+          setFormData((prev) =>
+            applyVariantMergeToFormData(prev, result.product.variants, normaliseVariants, savedIdx)
+          );
+        }
         closeVariantModal();
       } catch (err) {
         setVariantSaveError(typeof err === "string" ? err : err?.message || "Failed to save variant");
@@ -211,8 +235,11 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
             channelVisibility: channelVisibilityPayload,
           }
         })).unwrap();
-        if (result?.product?.variants)
-          setFormData((prev) => ({ ...prev, variants: normaliseVariants(result.product.variants) }));
+        if (result?.product?.variants) {
+          setFormData((prev) =>
+            applyVariantMergeToFormData(prev, result.product.variants, normaliseVariants, null)
+          );
+        }
         closeVariantModal();
       } catch (err) {
         setVariantSaveError(typeof err === "string" ? err : err?.message || "Failed to add variant");
@@ -241,8 +268,11 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
         isActive: newActiveState,
         channelVisibility: { ecomm: newEcommVisibility },
       })).unwrap();
-      if (result?.product?.variants)
-        setFormData((p) => ({ ...p, variants: normaliseVariants(result.product.variants) }));
+      if (result?.product?.variants) {
+        setFormData((p) =>
+          applyVariantMergeToFormData(p, result.product.variants, normaliseVariants, index)
+        );
+      }
     } catch (err) {
       setFormData((p) => ({ ...p, variants: prevVariants }));
       alert(`Toggle failed: ${typeof err === "string" ? err : err?.message || "Unknown error"}`);
@@ -259,7 +289,11 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
     dispatch(deleteVariantFromProduct({ slug: product.slug, barcode: variant.productCode }))
       .unwrap()
       .then(({ product: updated }) => {
-        if (updated?.variants) setFormData((p) => ({ ...p, variants: normaliseVariants(updated.variants) }));
+        if (updated?.variants) {
+          setFormData((p) =>
+            applyVariantMergeToFormData(p, updated.variants, normaliseVariants, null)
+          );
+        }
       })
       .catch((err) => {
         setFormData((p) => ({ ...p, variants: prevVariants }));
@@ -276,18 +310,25 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
       const v = [...(p.variants || [])];
       if (!v[0]) return p;
       const current = v[0].attributes || [];
+      const editId = a?.id != null ? String(a.id) : editingAttribute ? String(attrId(editingAttribute)) : null;
       const next = editingAttribute
-        ? current.map((x) => (x.id === editingAttribute.id ? { ...x, key: a.key, value: a.value } : x))
-        : [...current, { ...a, id: Date.now() }];
+        ? current.map((x) =>
+            String(attrId(x)) === editId
+              ? { ...x, key: a.key, value: a.value, id: editId }
+              : x
+          )
+        : [...current, { key: a.key, value: a.value, id: String(a.id ?? Date.now()) }];
       v[0] = { ...v[0], attributes: next };
-      return { ...p, variants: v };
+      return { ...p, variants: v, attributes: next };
     });
   const removeAttribute = (id) =>
     setFormData((p) => {
       const v = [...(p.variants || [])];
       if (!v[0]) return p;
-      v[0] = { ...v[0], attributes: (v[0].attributes || []).filter((a) => a.id !== id) };
-      return { ...p, variants: v };
+      const removeId = id != null ? String(id) : null;
+      const next = (v[0].attributes || []).filter((a) => String(attrId(a)) !== removeId);
+      v[0] = { ...v[0], attributes: next };
+      return { ...p, variants: v, attributes: next };
     });
   const handleCustomMessageSave = (msg) => setFormData((p) => ({ ...p, fomo: { ...p.fomo, customMessage: msg } }));
 
@@ -326,8 +367,9 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
         wholesale: wholesaleVisibility,
       };
 
+      const primaryAttributes = resolvePrimaryAttributes(formData);
+
       try {
-        // ONLY update variant, do NOT call updateProduct after this
         const result = await dispatch(updateVariantByBarcode({
           slug: product.slug,
           barcode: mainVariant.productCode,
@@ -338,18 +380,20 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
           wholesale: mainVariant.wholesale,
           minimumOrderQuantity: mainVariant.minimumOrderQuantity,
           channelVisibility: channelVisibilityPayload,
-          attributes: mainVariant.attributes,
+          attributes: primaryAttributes,
         })).unwrap();
-        
+
         if (result?.product?.variants) {
-          setFormData((prev) => ({ ...prev, variants: normaliseVariants(result.product.variants) }));
+          setFormData((prev) =>
+            applyVariantMergeToFormData(prev, result.product.variants, normaliseVariants, 0)
+          );
         }
-        
-        // After variant update, update product-level fields separately
+
         await dispatch(updateProduct({
           slug: product.slug,
           formData: {
             ...formData,
+            attributes: primaryAttributes,
             gstRate: formData.taxRate,
           }
         })).unwrap();

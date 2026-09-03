@@ -1,12 +1,10 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   fetchAllCategories,
   selectHierarchicalCategories,
 } from "../REDUX_FEATURES/REDUX_SLICES/userCategoriesSlice";
-import { useEffect } from "react";
-import { useState } from "react";
 
 // ─── Cloudinary helper ────────────────────────────────────────────────────────
 // Default: c_fill crops to a tight square (good for most category art).
@@ -18,11 +16,41 @@ const CLOUDINARY_TRANSFORM_BY_SLUG = {
   "fashion-world": "c_fit,g_center,w_500,h_500,q_auto,f_auto",
 };
 
+/**
+ * Inject a display transform into a Cloudinary delivery URL.
+ * Leaves non-Cloudinary / empty / already-transformed URLs unchanged.
+ */
 const cloudinaryCrop = (url, slug) => {
-  if (!url || !url.includes("res.cloudinary.com")) return url;
+  if (!url || typeof url !== "string") return url;
+  if (!url.includes("res.cloudinary.com") || !url.includes("/upload/")) {
+    return url;
+  }
+  // Already has a transform segment (e.g. c_fill,... or w_500) — do not double-inject.
+  if (/\/upload\/[^/]*[,_][^/]*\//.test(url)) {
+    return url;
+  }
   const transform =
     (slug && CLOUDINARY_TRANSFORM_BY_SLUG[slug]) || DEFAULT_CLOUDINARY_TRANSFORM;
   return url.replace("/upload/", `/upload/${transform}/`);
+};
+
+/** Safe CSS url(...) value — prevents quote breakage in style attributes. */
+const cssUrl = (url) => {
+  if (!url || typeof url !== "string") return "";
+  return `url("${url.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}")`;
+};
+
+/**
+ * Top Categories tile image from admin `cardImage` only (not banner `image`).
+ * @param {{ cardImage?: { url?: string } | string } | null | undefined} cat
+ */
+const getCategoryCardImageUrl = (cat) => {
+  const raw =
+    typeof cat?.cardImage === "string"
+      ? cat.cardImage
+      : cat?.cardImage?.url;
+  const url = String(raw || "").trim();
+  return url || null;
 };
 
 // Optional per-slug background behavior (default: bg-cover + strong scale).
@@ -32,35 +60,6 @@ const CATEGORY_BG_OVERRIDES = {
     layerClass:
       "absolute inset-0 bg-[center_42%] bg-contain bg-no-repeat bg-white scale-[2.4] group-hover:scale-[2.4] -translate-y-[-3.4%] transition-transform duration-500 ease-in-out",
   },
-};
-
-const CATEGORY_THUMBNAILS = {
-  "home-and-kitchen":
-    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572784/sve/frere/Home_Kitchen.jpg",
-  "smart-life-gadgets":
-    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572772/sve/frere/Smart_Life_Gadget.jpg",
-  "fashion-world":
-    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572775/sve/frere/Fashion.jpg",
-  "sports-and-fitness":
-    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572776/sve/frere/sports_Fitness.jpg",
-  "tours-and-travels":
-    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572778/sve/frere/tours_travels.jpg",
-  stationary:
-    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572785/sve/frere/Stationary.jpg",
-  "baby-items":
-    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572780/sve/frere/Baby_Items.jpg",
-  "cleaning-and-housekeeping-supplies":
-    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572769/sve/frere/Cleaning_housekeeping_supplies.jpg",
-  gifts:
-    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572782/sve/frere/Gift.jpg",
-  "mix-items":
-    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572771/sve/frere/mix_items.jpg",
-  "car-accessories":
-    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1778572774/sve/frere/Car_Accessories.jpg",
-  "beauty-and-personal-care":
-    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1780309616/sve/gh/12.jpg",
-  "home-improvement":
-    "https://res.cloudinary.com/dmjxnhbsi/image/upload/v1780309618/sve/gh/13.jpg",
 };
 
 const Categories = () => {
@@ -78,7 +77,7 @@ const Categories = () => {
         console.error("❌ Categories fetch failed:", err);
       });
     }
-  }, [dispatch]);
+  }, [dispatch, categories.length]);
 
   const handleCategoryClick = (category) => {
     const slug =
@@ -141,13 +140,8 @@ const Categories = () => {
         {/* Grid */}
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 sm:gap-5 md:gap-6 lg:gap-8 max-w-7xl mx-auto">
           {visibleCategories.map((cat, idx) => {
-            const rawUrl =
-              CATEGORY_THUMBNAILS[cat.slug] ||
-              cat.image?.url ||
-              "/placeholder-category.jpg";
-
-            // Cloudinary server-side crop → strips background padding at source
-            const imageUrl = cloudinaryCrop(rawUrl, cat.slug);
+            const rawUrl = getCategoryCardImageUrl(cat);
+            const imageUrl = rawUrl ? cloudinaryCrop(rawUrl, cat.slug) : null;
             const bgLayerClass =
               (cat.slug && CATEGORY_BG_OVERRIDES[cat.slug]?.layerClass) ||
               "absolute inset-0 bg-center bg-cover scale-[1.9] group-hover:scale-[1.9] transition-transform duration-500 ease-in-out";
@@ -161,17 +155,37 @@ const Categories = () => {
                 onKeyDown={(e) => e.key === "Enter" && handleCategoryClick(cat)}
                 className="flex flex-col items-center group cursor-pointer transition-all duration-300 w-full max-w-[180px] mx-auto focus:outline-none focus-visible:ring-2 focus-visible:ring-[#f7a221] rounded-2xl"
               >
-                <div className="w-full aspect-square rounded-2xl sm:rounded-[2rem] md:rounded-[3rem] overflow-hidden relative ring-1 ring-black/5 group-hover:shadow-lg group-hover:-translate-y-1 transition-all duration-300">
+                <div className="w-full aspect-square rounded-2xl sm:rounded-[2rem] md:rounded-[3rem] overflow-hidden relative ring-1 ring-black/5 group-hover:shadow-lg group-hover:-translate-y-1 transition-all duration-300 bg-gray-100">
                   {/*
-                    Default: Cloudinary c_fill + bg-cover + scale for edge-to-edge tiles.
-                    Per-slug overrides (see CATEGORY_BG_OVERRIDES), e.g. fashion-world uses
-                    c_fit + bg-contain so wide lettering stays inside the rounded frame.
+                    Image source: admin category.cardImage.url (Top Categories tile).
+                    Banner stays on category.image for the category page hero.
                   */}
-                  <div
-                    className={bgLayerClass}
-                    style={{ backgroundImage: `url('${imageUrl}')` }}
-                    aria-hidden="true"
-                  />
+                  {imageUrl ? (
+                    <div
+                      className={bgLayerClass}
+                      style={{ backgroundImage: cssUrl(imageUrl) }}
+                      aria-hidden="true"
+                    />
+                  ) : (
+                    <div
+                      className="absolute inset-0 flex items-center justify-center bg-gray-100"
+                      aria-hidden="true"
+                    >
+                      <svg
+                        className="w-10 h-10 text-gray-300"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={1.5}
+                          d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                        />
+                      </svg>
+                    </div>
+                  )}
                   {/* amber tint on hover */}
                   <div className="absolute inset-0 bg-[#f7a221]/0 group-hover:bg-[#f7a221]/10 transition-colors duration-300" />
                 </div>
@@ -202,4 +216,3 @@ const Categories = () => {
 };
 
 export default Categories;
-

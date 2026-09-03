@@ -4,6 +4,7 @@ import adminProductCreateReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMEN
 import adminGetProductsReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminGetProductsSlice";
 import adminArchivedReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminArchivedSlice"
 import adminEditProductReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/adminEditProductSlice";
+import inventoryStockReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/inventoryStockSlice";
 import categoriesReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/categoriesSlice";
 import adminBulkUploadReducer from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/bulkUploadSlice";
 import { userAnalyticsApi } from "../../ADMIN_SEGMENT/ADMIN_REDUX_MANAGEMENT/userAnalyticsApi";
@@ -43,6 +44,7 @@ const store = configureStore({
     adminSelfPassword: adminSelfPasswordReducer,
     adminGetProducts: adminGetProductsReducer,
     adminEditProduct: adminEditProductReducer,
+    inventoryStock: inventoryStockReducer,
     adminArchived: adminArchivedReducer,
     categories: categoriesReducer,
     adminBulkUpload: adminBulkUploadReducer,
