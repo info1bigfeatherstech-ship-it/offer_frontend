@@ -10,6 +10,7 @@ import CategoryModal from "../Shared_components/CategoryModal";
 import StatsCards from "../TOPBAR/StatsCards";
 import ProductModal from "../PRODUCT_MODAL_SEGMENT/ProductModal";
 import EditProductModal from "../PRODUCT_MODAL_SEGMENT/EditProductModal";
+import InventoryStockModal from "../PRODUCT_MODAL_SEGMENT/InventoryStockModal";
 import StatsCardSkeleton from "./SKELLETON_HUB/StatsCardSkeleton";
 import ProductTableSkeleton from "./SKELLETON_HUB/ProductTableSkeleton";
 
@@ -34,6 +35,12 @@ import {
 
 import axiosInstance from "../../../SERVICES/axiosInstance";
 import FlagToggle from "../../Common/FlagToggle";
+import { canManageProductCatalog, isInventoryManagerRole } from "../roles";
+import { selectAdminUser } from "../ADMIN_REDUX_MANAGEMENT/adminAuthSlice";
+import {
+  collectVariantProductCodes,
+  formatProductCodesCompact,
+} from "../../../utils/formatProductCodesCompact";
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 const formatIndianRupee = (amount) =>
@@ -276,6 +283,9 @@ const DateFilterButton = ({ dateFilter, setDateFilter }) => {
 // ── Main ProductsTab ──────────────────────────────────────────────────────────
 const ProductsTab = ({ onSwitchTab }) => {
   const dispatch = useDispatch();
+  const adminUser = useSelector(selectAdminUser);
+  const canManageCatalog = canManageProductCatalog(adminUser?.role);
+  const isInventoryManager = isInventoryManagerRole(adminUser?.role);
   const [todayArrival, setTodayArrival] = useState(false);
   const [onSale, setOnSale] = useState(false);
   const [flagLoading, setFlagLoading] = useState(false);
@@ -404,6 +414,7 @@ const ProductsTab = ({ onSwitchTab }) => {
   const [brands, setBrands] = useState(DEFAULT_BRANDS);
   const [showProductModal, setShowProductModal] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showStockModal, setShowStockModal] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -626,6 +637,11 @@ const ProductsTab = ({ onSwitchTab }) => {
   const openEditModal = (product) => {
     setSelectedProduct(product);
     setShowEditModal(true);
+  };
+
+  const openStockModal = (product) => {
+    setSelectedProduct(product);
+    setShowStockModal(true);
   };
 
   const handleSelectAll = (e) => {
@@ -886,7 +902,7 @@ const ProductsTab = ({ onSwitchTab }) => {
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-        {someSelected ? (
+        {someSelected && canManageCatalog ? (
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-3 flex-1">
               <div className="flex items-center gap-2 bg-blue-50 text-blue-700 px-4 py-2 rounded-xl font-medium text-sm">
@@ -1026,6 +1042,7 @@ const ProductsTab = ({ onSwitchTab }) => {
                   <option key={cat._id} value={cat._id}>{cat.name}</option>
                 ))}
               </select>
+              {canManageCatalog && (
               <button
                 onClick={() => setShowCategoryModal(true)}
                 className="absolute cursor-pointer right-2 top-1/2 -translate-y-1/2 p-1.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-md"
@@ -1035,6 +1052,7 @@ const ProductsTab = ({ onSwitchTab }) => {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                 </svg>
               </button>
+              )}
             </div>
 
             {showLowStockOnly && (
@@ -1049,6 +1067,7 @@ const ProductsTab = ({ onSwitchTab }) => {
               </button>
             )}
 
+            {canManageCatalog && (
             <button
               onClick={() => setShowProductModal(true)}
               className="px-6 cursor-pointer py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all flex items-center space-x-2"
@@ -1058,7 +1077,9 @@ const ProductsTab = ({ onSwitchTab }) => {
               </svg>
               <span>Add Product</span>
             </button>
+            )}
 
+            {canManageCatalog && (
             <button
               id="export-products-csv-btn"
               onClick={handleExportProducts}
@@ -1080,6 +1101,7 @@ const ProductsTab = ({ onSwitchTab }) => {
                 </>
               )}
             </button>
+            )}
           </div>
         )}
       </div>
@@ -1100,6 +1122,7 @@ const ProductsTab = ({ onSwitchTab }) => {
           <table className="w-full min-w-[850px]">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
+                {canManageCatalog && (
                 <th className="px-2 py-3 w-10"> {/* RESPONSIVE FIX */}
                   <input
                     type="checkbox"
@@ -1111,6 +1134,7 @@ const ProductsTab = ({ onSwitchTab }) => {
                     className="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer"
                   />
                 </th>
+                )}
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Product</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Category</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Price (₹)</th>
@@ -1118,7 +1142,9 @@ const ProductsTab = ({ onSwitchTab }) => {
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Inventory Stock</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Ecom Status</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Wholesale Status</th>
+                {canManageCatalog && (
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Featured</th>
+                )}
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Actions</th>
               </tr>
             </thead>
@@ -1147,10 +1173,15 @@ const ProductsTab = ({ onSwitchTab }) => {
                 const isLowStock = product.variants?.some((v) => v.inventory?.quantity < v.inventory?.lowStockThreshold);
                 const v0Images = mainVariant.images || [];
                 const thumbUrl = (v0Images.find((img) => img.isMain) || v0Images[0])?.url || product.images?.[0]?.url || null;
+                const productCodesLine = formatProductCodesCompact(
+                  collectVariantProductCodes(product),
+                  { maxVisible: 4 }
+                );
 
                 return (
                   <tr key={product._id} className={`hover:bg-gray-50 transition-colors group ${isChecked ? "bg-blue-50 hover:bg-blue-50" : ""}`}>
                     {/* { console.log(product.name, product.tags)} */}
+                    {canManageCatalog && (
                     <td className="px-2 py-3"> {/* RESPONSIVE FIX */}
                       <input
                         type="checkbox"
@@ -1159,6 +1190,7 @@ const ProductsTab = ({ onSwitchTab }) => {
                         className="w-4 h-4 rounded border-gray-300 text-blue-600 cursor-pointer"
                       />
                     </td>
+                    )}
                     <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
                       <div className="flex items-center gap-3">
                         {thumbUrl ? (
@@ -1171,10 +1203,17 @@ const ProductsTab = ({ onSwitchTab }) => {
                           </div>
                         )}
                         <div className="min-w-0">
-                          <div className="font-medium text-gray-900 truncate w-32">{product.name}</div>
-                          <div className="text-sm text-gray-500 truncate w-24">{product.title}</div>
-                          {/* <div className="font-medium text-gray-900 truncate">{product.name}</div>
-                          <div className="text-sm text-gray-500 truncate max-w-xs">{product.title}</div> */}
+                          <div className="font-medium text-gray-900 truncate max-w-[11rem]" title={product.name}>
+                            {product.name}
+                          </div>
+                          {productCodesLine.display ? (
+                            <div
+                              className="text-xs font-bold text-blue-600 truncate max-w-[11rem] mt-0.5"
+                              title={productCodesLine.tooltip}
+                            >
+                              {productCodesLine.display}
+                            </div>
+                          ) : null}
                         </div>
                       </div>
                     </td>
@@ -1213,6 +1252,7 @@ const ProductsTab = ({ onSwitchTab }) => {
                     </td>
                     <td className="px-3 py-3"> {/* RESPONSIVE FIX */}{getEcomStatusBadge(product)}</td>
                     <td className="px-3 py-3"> {/* RESPONSIVE FIX */}{getWholesaleStatusBadge(product)}</td>
+                    {canManageCatalog && (
                     <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
                       <button
                         onClick={() => toggleFeatured(product._id)}
@@ -1226,6 +1266,7 @@ const ProductsTab = ({ onSwitchTab }) => {
                         {product.isFeatured ? "⭐ Featured" : "Regular"}
                       </button>
                     </td>
+                    )}
                     <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
                       <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
                         <button
@@ -1238,6 +1279,18 @@ const ProductsTab = ({ onSwitchTab }) => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                           </svg>
                         </button>
+                        {isInventoryManager ? (
+                        <button
+                          onClick={() => openStockModal(product)}
+                          className="p-2 cursor-pointer text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                          title="Update Stock"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+                          </svg>
+                        </button>
+                        ) : (
+                        <>
                         <button
                           onClick={() => openEditModal(product)}
                           className="p-2 cursor-pointer text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
@@ -1256,6 +1309,8 @@ const ProductsTab = ({ onSwitchTab }) => {
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
                           </svg>
                         </button>
+                        </>
+                        )}
                       </div>
                     </td>
                   </tr>
@@ -1350,6 +1405,13 @@ const ProductsTab = ({ onSwitchTab }) => {
       {showProductModal && <ProductModal onClose={() => { setShowProductModal(false); refreshProducts(); }} brands={brands} setBrands={setBrands} />}
       {showEditModal && selectedProduct && (
         <EditProductModal product={selectedProduct} onClose={() => { setShowEditModal(false); setSelectedProduct(null); refreshProducts(); }} brands={brands} setBrands={setBrands} />
+      )}
+      {showStockModal && selectedProduct && (
+        <InventoryStockModal
+          product={selectedProduct}
+          onClose={() => { setShowStockModal(false); setSelectedProduct(null); }}
+          onSaved={refreshProducts}
+        />
       )}
     </div>
   );
