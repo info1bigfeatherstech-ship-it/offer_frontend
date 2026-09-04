@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, useRef } from "react";
-import { useParams, useNavigate, useLocation, Link, useNavigationType, useSearchParams } from "react-router-dom";
+import { useParams, useNavigate, useLocation, Link, useSearchParams } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { IoLogoWhatsapp, IoLogoFacebook, IoLogoInstagram } from "react-icons/io5";
 import { ChevronDown, ClipboardCopy, FileText, Globe, Receipt } from "lucide-react";
@@ -45,6 +45,7 @@ import {
   resolveVariantShipping,
   isPrimaryVariant,
 } from "../../utils/variantCatalogForm";
+import { getReservedScrollMinHeight } from "../../components/ScrollRestoration";
 
 // ─── Skeleton ─────────────────────────────────────────────────────────────────
 const Skeleton = () => (
@@ -308,6 +309,7 @@ const RelatedCard = ({ product, index = 0 }) => {
     <div
       className="group relative flex flex-col cursor-pointer rounded-2xl bg-white border border-zinc-100 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 overflow-hidden"
       style={{ animationDelay: `${index * 50}ms` }}
+      data-owb-scroll-id={product?.slug || undefined}
       onClick={handleCardClick}
     >
       {/* ── IMAGE ── */}
@@ -506,7 +508,6 @@ const RelatedCard = ({ product, index = 0 }) => {
 // ─── Main ProductUI ───────────────────────────────────────────────────────────
 const ProductUI = ({ openAuthModal }) => {
   const { slug } = useParams();
-  const navigationType = useNavigationType();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -575,19 +576,28 @@ const ProductUI = ({ openAuthModal }) => {
   }, []);
 
   // ── fetch ──────────────────────────────────────────────────────────────────
+  // Scroll position is owned solely by <ScrollRestoration /> (location.key).
+  // Never paint the previous product (or null+Footer) for a new slug — that is what
+  // caused the Back footer flash at a deep restored Y.
   useEffect(() => {
-    if (!slug) return;
-    if (navigationType !== "POP") {
-      window.scrollTo({ top: 0, behavior: "smooth" });
-    }
+    if (!slug) return undefined;
+    let cancelled = false;
     dispatch(clearCurrentProduct());
     dispatch(clearRelatedProducts());
     setSelectedAttrs({});
     setActiveThumb(0);
-    dispatch(fetchProductBySlug(slug)).unwrap()
-      .then(() => dispatch(fetchRelatedProducts({ slug, limit: 5 })).unwrap().catch(() => { }))
-      .catch(() => { });
-    return () => { dispatch(clearCurrentProduct()); dispatch(clearRelatedProducts()); };
+    dispatch(fetchProductBySlug(slug))
+      .unwrap()
+      .then(() => {
+        if (cancelled) return;
+        return dispatch(fetchRelatedProducts({ slug, limit: 5 })).unwrap().catch(() => {});
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+      dispatch(clearCurrentProduct());
+      dispatch(clearRelatedProducts());
+    };
   }, [slug, dispatch]);
 
   useEffect(() => {
@@ -1110,18 +1120,38 @@ const ProductUI = ({ openAuthModal }) => {
   };
 
   // ── guards ─────────────────────────────────────────────────────────────────
-  if (isLoading) return <div className="bg-gray-50 min-h-screen"><Skeleton /></div>;
-  if (fetchError) return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">
-      <AlertCircle size={32} className="text-red-400" />
-      <p className="text-gray-600 text-sm text-center max-w-sm">{fetchError?.message || "Product not found."}</p>
-      <div className="flex gap-3">
-        <button onClick={() => dispatch(fetchProductBySlug(slug))} className="flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-5 py-2.5 rounded-xl"><RefreshCw size={14} /> Retry</button>
-        <button onClick={() => navigate(-1)} className="flex items-center gap-2 bg-gray-100 text-gray-700 text-sm font-semibold px-5 py-2.5 rounded-xl"><ArrowLeft size={14} /> Go Back</button>
+  // Slug mismatch / loading / missing product: keep a tall shell so App Footer cannot
+  // sit in the viewport while ScrollRestoration holds a deep history Y.
+  const productSlug = product?.slug || product?.productSlug || null;
+  const awaitingProduct =
+    isLoading ||
+    (!fetchError && (!product || (Boolean(slug) && Boolean(productSlug) && productSlug !== slug)));
+
+  if (fetchError && !isLoading && (!product || (productSlug && productSlug !== slug))) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center gap-4 px-4">
+        <AlertCircle size={32} className="text-red-400" />
+        <p className="text-gray-600 text-sm text-center max-w-sm">{fetchError?.message || "Product not found."}</p>
+        <div className="flex gap-3">
+          <button onClick={() => dispatch(fetchProductBySlug(slug))} className="flex items-center gap-2 bg-gray-900 text-white text-sm font-semibold px-5 py-2.5 rounded-xl"><RefreshCw size={14} /> Retry</button>
+          <button onClick={() => navigate(-1)} className="flex items-center gap-2 bg-gray-100 text-gray-700 text-sm font-semibold px-5 py-2.5 rounded-xl"><ArrowLeft size={14} /> Go Back</button>
+        </div>
       </div>
-    </div>
-  );
-  if (!product) return null;
+    );
+  }
+
+  if (awaitingProduct) {
+    const reservedMinHeight = getReservedScrollMinHeight(location.key);
+    return (
+      <div
+        className="bg-gray-50 min-h-screen"
+        style={reservedMinHeight ? { minHeight: reservedMinHeight } : undefined}
+        aria-busy="true"
+      >
+        <Skeleton />
+      </div>
+    );
+  }
 
   // ── RENDER ─────────────────────────────────────────────────────────────────
   return (

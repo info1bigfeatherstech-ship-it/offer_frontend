@@ -257,7 +257,12 @@ const userProductsSlice = createSlice({
         delete state.categoryFetchedAt[slug];
       }
     },
-    clearCurrentProduct: (state) => { state.currentProduct = null; },
+    clearCurrentProduct: (state) => {
+      state.currentProduct = null;
+      // Avoid a frame where product is null and loading is false (route would return null → Footer flash).
+      state.loading.product = true;
+      state.error.product = null;
+    },
     clearRelatedProducts: (state) => { state.relatedProducts = []; },
     clearErrors: (state) => { state.error = initialState.error; },
     // reducers mein add karo:

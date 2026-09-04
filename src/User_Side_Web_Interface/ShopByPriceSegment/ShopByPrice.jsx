@@ -46,13 +46,6 @@ const ShopByPrice = () => {
   const hasFetched = useRef(false);
   const prevSlug = useRef(null);
 
-    useEffect(() => {
-      window.scrollTo({
-        top: 0,
-        behavior: 'instant'
-      });
-    }, []);
-
   useEffect(() => {
     if (prevSlug.current === slug && hasFetched.current) return;
     prevSlug.current = slug;
@@ -347,7 +340,7 @@ const ShopByPrice = () => {
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 py-8 flex gap-8">
+      <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-8 md:py-12 flex flex-col md:flex-row gap-8 md:gap-10">
         <aside className="hidden md:block w-64 flex-shrink-0">
           <div className="sticky top-50 bg-gray-50 rounded-2xl p-6">
             <div className="mb-5">
@@ -395,7 +388,7 @@ const ShopByPrice = () => {
           </div>
 
           {showLoading && (
-            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-x-4 gap-y-10 md:gap-x-6 lg:gap-x-8">
               {Array.from({ length: 12 }).map((_, i) => (
                 <SkeletonCard key={i} seed={i} />
               ))}
@@ -443,7 +436,7 @@ const ShopByPrice = () => {
 
           {!showLoading && visibleProducts.length > 0 && (
             <div>
-              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-x-4 gap-y-10 md:gap-x-6 lg:gap-x-8">
                 {visibleProducts.map((elem, index) => (
                   <ProductCard
                     key={elem._id ?? elem.id ?? index}

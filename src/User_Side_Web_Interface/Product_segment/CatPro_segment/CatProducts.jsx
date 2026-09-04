@@ -1,5 +1,5 @@
 import React, { useEffect, useCallback, useState, useRef, useMemo, useLayoutEffect } from "react";
-import { useParams, useNavigate, Link, useNavigationType } from "react-router-dom";
+import { useParams, useNavigate, Link } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import {
   ArrowLeft,
@@ -13,7 +13,7 @@ import {
   ChevronDown,
   Home,
 } from "lucide-react";
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { useWindowVirtualizer } from "@tanstack/react-virtual";
 
 import ProductCard from "../ProductCard";
 import SkeletonCard from "../Product_Card_Skelleton/SkeletonCard";
@@ -97,14 +97,31 @@ const isProductTodayDeal = (product) => {
 // Virtualizes rows of a CSS grid.
 // Only rows near the viewport are in the DOM — off-screen rows are unmounted.
 const VirtualizedProductGrid = ({ products, loadingMore }) => {
-  const parentRef = useRef(null);
+  const listRef = useRef(null);
   const [cols, setCols] = useState(getColumnCount);
+  const [scrollMargin, setScrollMargin] = useState(0);
 
   useEffect(() => {
     const onResize = () => setCols(getColumnCount());
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
+  useEffect(() => {
+    const el = listRef.current;
+    if (!el) return undefined;
+    const updateMargin = () => {
+      setScrollMargin(el.getBoundingClientRect().top + window.scrollY);
+    };
+    updateMargin();
+    const ro = new ResizeObserver(updateMargin);
+    ro.observe(document.body);
+    window.addEventListener("resize", updateMargin);
+    return () => {
+      ro.disconnect();
+      window.removeEventListener("resize", updateMargin);
+    };
+  }, [products.length, cols, loadingMore]);
 
   // Chunk flat array into rows
   const rows = useMemo(() => {
@@ -118,17 +135,15 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
   const skeletonRowCount = loadingMore ? Math.ceil(LOAD_MORE_SKELETON_COUNT / cols) : 0;
   const totalRows = rows.length + skeletonRowCount;
 
-  const rowVirtualizer = useVirtualizer({
+  const rowVirtualizer = useWindowVirtualizer({
     count: totalRows,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 420,  // approximate row height — adjust to your card
-    overscan: 3,
+    estimateSize: () => 420,
+    overscan: 4,
+    scrollMargin,
   });
 
-
-
   return (
-    <div ref={parentRef} style={{ width: "100%" }}>
+    <div ref={listRef} style={{ width: "100%" }}>
       <div
         style={{
           height: `${rowVirtualizer.getTotalSize()}px`,
@@ -152,7 +167,7 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
                 top: 0,
                 left: 0,
                 width: "100%",
-                transform: `translateY(${virtualRow.start}px)`,
+                transform: `translateY(${virtualRow.start - scrollMargin}px)`,
               }}
             >
               <div className="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-x-4 gap-y-10 md:gap-x-8 pb-10">
@@ -181,7 +196,6 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
 // ── CatProducts ───────────────────────────────────────────────────────────────
 const CatProducts = () => {
   const { slug } = useParams();
-  const navigationType = useNavigationType();
   const dispatch = useDispatch();
   const navigate = useNavigate();
 
@@ -412,32 +426,8 @@ const CatProducts = () => {
     });
   }, []);
 
-  // ── Scroll to top on category navigation (PUSH), not on browser back (POP) ─
-  // so history scroll restoration can return the user to their previous scroll position.
-  // Must live on CatProducts, not VirtualizedProductGrid — the grid only mounts
-  // after successful load with products; loading/error left the window at footer scroll.
-  // useLayoutEffect runs before paint. Use behavior: "instant" so CSS scroll-behavior: smooth
-  // on html/body cannot turn this into a slow animated scroll; microtask re-runs after any
-  // sync layout churn in the same turn without waiting a full frame (unlike rAF).
-  useLayoutEffect(() => {
-    if (!slug) return;
-    if (navigationType === "POP") return;
-    const toTop = () => {
-      const html = document.documentElement;
-      const prev = html.style.scrollBehavior;
-      html.style.scrollBehavior = "auto";
-      try {
-        window.scrollTo({ top: 0, left: 0, behavior: "instant" });
-      } catch {
-        window.scrollTo(0, 0);
-      }
-      html.scrollTop = 0;
-      document.body.scrollTop = 0;
-      html.style.scrollBehavior = prev;
-    };
-    toTop();
-    queueMicrotask(toTop);
-  }, [slug, navigationType]);
+  // Scroll on category PUSH is owned by <ScrollRestoration /> (history location.key).
+  // Do not scroll here — it fights Back restoration on this route.
 
   // ── Category metadata fetch ────────────────────────────────────────────────
   useEffect(() => {
