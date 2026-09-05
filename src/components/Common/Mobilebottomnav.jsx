@@ -1,6 +1,7 @@
 import React, { memo, useCallback } from 'react';
 import { Heart, Search, User, ShoppingCart, Home } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { scrollWindowToTop } from '../../utils/scrollWindowToTop';
 
 /**
  * MobileBottomNav — floating pill bottom nav (mobile only, lg:hidden)
@@ -24,6 +25,7 @@ const MobileBottomNav = memo(({
   onSearch,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
 
   /**
    * Unified tap handler:
@@ -47,8 +49,12 @@ const MobileBottomNav = memo(({
   // ── Individual action handlers ──────────────────────────────────────────
 
   const handleHome = useCallback(() => {
+    if (location.pathname === '/' && !location.hash) {
+      scrollWindowToTop();
+      return;
+    }
     navigate('/');
-  }, [navigate]);
+  }, [navigate, location.pathname, location.hash]);
 
   // Wishlist: if logged in → navigate; if not → open sidebar (guest items)
   // This matches the onWishlist prop logic already in Navbar.jsx:

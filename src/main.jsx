@@ -2,6 +2,7 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App.jsx'
+import './utils/pwaDeferredPrompt.js'
 import store from './components/REDUX_FEATURES/REDUX_STORE/store.js'
 import { Provider } from 'react-redux'
 import { registerSW } from "virtual:pwa-register"

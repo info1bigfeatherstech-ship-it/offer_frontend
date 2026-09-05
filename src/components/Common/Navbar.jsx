@@ -15,6 +15,7 @@ import {
   MapPin, LogOut, UserCircle, Settings, Sparkles, TrendingUp, Star, Zap
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { scrollWindowToTop } from '../../utils/scrollWindowToTop';
 import homeIcon from "../../assets/home (2).png";
 import audio from "../../assets/headphone.png";
 import WishlistSidebar from './WishlistSidebar';
@@ -293,6 +294,7 @@ const ImageIcon = ({ src, alt, className = "", animation = "animate-bounce-soft"
 const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLoggedIn, user, onOpenAuth }) => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
+  const location = useLocation();
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
   const accountTriggerMobileRef = useRef(null);
   const accountTriggerDesktopRef = useRef(null);
@@ -403,6 +405,13 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
     setIsAccountDropdownOpen(false);
   };
 
+  /** When already on `/`, React Router won't remount — still force top. */
+  const handleHomeClick = useCallback(() => {
+    if (location.pathname === "/" && !location.hash) {
+      scrollWindowToTop();
+    }
+  }, [location.pathname, location.hash]);
+
   const handleAccountClick = () => {
     if (isLoggedIn) setIsAccountDropdownOpen(!isAccountDropdownOpen);
     else onOpenAuth();
@@ -485,6 +494,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
               <Link
                 to="/"
                 aria-label="Offer Wale Baba home"
+                onClick={handleHomeClick}
                 className="relative inline-flex shrink-0 items-center justify-center"
               >
                 <video
@@ -631,6 +641,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
               <Link
                 to="/"
                 aria-label="Offer Wale Baba home"
+                onClick={handleHomeClick}
                 className="relative inline-flex shrink-0 items-center justify-center p-1 top-9 xl:top-11 2xl:top-12"
               >
                 <video
@@ -706,6 +717,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
 
                 <Link
                   to="/"
+                  onClick={handleHomeClick}
                   className="home-nav-btn flex items-center gap-1.5 lg:gap-2 px-2 lg:px-2.5 xl:px-3 py-2 rounded-xl
                              font-bold text-[11px] lg:text-xs uppercase tracking-wide transition-all duration-200
                              hover:bg-[#F7A221]/10 text-gray-700 hover:text-[#F7A221] group whitespace-nowrap"
@@ -836,7 +848,10 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                 {/* Home link in sidebar */}
                 <Link
                   to="/"
-                  onClick={() => setIsMenuOpen(false)}
+                  onClick={() => {
+                    handleHomeClick();
+                    setIsMenuOpen(false);
+                  }}
                   className="flex items-center gap-4 p-3 hover:bg-orange-50 rounded-xl transition-all font-bold text-sm group"
                 >
                   <span className="p-2 bg-gray-50 rounded-lg group-hover:scale-110 transition-transform">

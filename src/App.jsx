@@ -38,6 +38,9 @@ import useWishlistInit from "./components/HOOKS/useWishlistInit";
 import useCartInit from "./components/HOOKS/useCartInit";
 import usePushNotifications from "./components/HOOKS/usePushNotifications";
 import PushNotificationPrompt from "./components/Common/PushNotificationPrompt";
+import InstallAppPrompt from "./components/Common/InstallAppPrompt";
+import { isPwaInstalled } from "./utils/pwaInstallPrompt";
+import { subscribeToWebPush } from "./utils/pushNotifications";
 import Checkout from "./User_Side_Web_Interface/CHECKOUT/Checkout";
 import ContactUs from "./components/Common/Contact";
 import TagProducts from "./User_Side_Web_Interface/User_Dash_Segment/UserSubPages/TagProducts";
@@ -64,6 +67,8 @@ const AppContent = () => {
     const [isMenuOpen,  setIsMenuOpen]    = useState(false);
     const [isAuthOpen,  setIsAuthOpen]    = useState(false);
     const [pushPromptVisible, setPushPromptVisible] = useState(false);
+    // If PWA already installed, never block notifications behind install UI.
+    const [installPromptOpen, setInstallPromptOpen] = useState(() => !isPwaInstalled());
 
     // ── isAdminRoute now also covers /admin/login and /admin/unauthorized ─────
     const isAdminRoute = location.pathname.startsWith('/babapanel') ||
@@ -79,15 +84,48 @@ const AppContent = () => {
     // In App.jsx — also skip wishlist/cart on admin routes
         useWishlistInit(!isAdminRoute);  // pass enabled flag
         useCartInit(!isAdminRoute);
-    const { canPrompt: canShowPushPrompt } = usePushNotifications(isLoggedIn && !isAdminRoute);
+    const { canPrompt: canShowPushPrompt } = usePushNotifications(
+        isLoggedIn && !isAdminRoute,
+        isLoggedIn
+    );
 
+    // After install banner closes (or already installed): show notification prompt.
+    // Login not required to SEE the prompt; Allow will ask login if needed.
     useEffect(() => {
-        if (isLoggedIn && !isAdminRoute && canShowPushPrompt) {
-            setPushPromptVisible(true);
-        } else {
+        if (isAdminRoute || !canShowPushPrompt || installPromptOpen) {
             setPushPromptVisible(false);
+            return undefined;
         }
-    }, [isLoggedIn, isAdminRoute, canShowPushPrompt]);
+        const delayMs = isPwaInstalled() ? 900 : 800;
+        const t = window.setTimeout(() => setPushPromptVisible(true), delayMs);
+        return () => window.clearTimeout(t);
+    }, [isAdminRoute, canShowPushPrompt, installPromptOpen]);
+
+    // If user logged in after tapping Allow while guest, finish subscribe.
+    useEffect(() => {
+        if (!isLoggedIn || isAdminRoute) return undefined;
+        let pending = false;
+        try {
+            pending = sessionStorage.getItem('owb_push_subscribe_after_login') === '1';
+        } catch {
+            // ignore
+        }
+        if (!pending) return undefined;
+        let cancelled = false;
+        (async () => {
+            try {
+                sessionStorage.removeItem('owb_push_subscribe_after_login');
+                if (cancelled) return;
+                await subscribeToWebPush();
+                setPushPromptVisible(false);
+            } catch {
+                // ignore — user can retry from prompt next visit
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [isLoggedIn, isAdminRoute]);
 
     // ── On app load: restore user session silently if token exists ────────────
     // This populates auth.user — UserDashboard sidebar reads from here directly
@@ -156,7 +194,6 @@ const AppContent = () => {
     return (
         <div className="min-h-screen">
             <ScrollRestoration />
-            {/* <ScrollToTop /> */}
 
             {!isAdminRoute && (
                 <Navbar
@@ -173,6 +210,12 @@ const AppContent = () => {
 
             {!isAdminRoute && <WhatsAppFloat />}
 
+            {/*
+              ScrollRestoration may set minHeight on #owb-scroll-shell during POP
+              so <Footer /> (sibling below) cannot sit in the viewport at a deep Y
+              while Home/product content is still short. Cleared when restore finishes.
+            */}
+            <div id="owb-scroll-shell">
             <Suspense fallback={
                 <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 text-gray-500">
                     <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mb-4"></div>
@@ -264,6 +307,7 @@ const AppContent = () => {
                 <Route path="*" element={<Navigate to="/" replace />} />
             </Routes>
             </Suspense>
+            </div>
 
             {!isAdminRoute && <Footer />}
 
@@ -278,9 +322,13 @@ const AppContent = () => {
             {!isAdminRoute && (
                 <PushNotificationPrompt
                     visible={pushPromptVisible}
+                    isLoggedIn={isLoggedIn}
+                    onNeedLogin={() => setIsAuthOpen(true)}
                     onDismiss={() => setPushPromptVisible(false)}
                 />
             )}
+
+            {!isAdminRoute && <InstallAppPrompt enabled={!isAdminRoute} onVisibilityChange={setInstallPromptOpen} />}
            
             {/* <WhatsAppFloat /> */}
         </div>

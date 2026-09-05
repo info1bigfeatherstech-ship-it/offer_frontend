@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, useLayoutEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { ArrowRight, RefreshCw, ChevronRight, Loader2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { useVirtualizer } from '@tanstack/react-virtual';
+import { useWindowVirtualizer } from '@tanstack/react-virtual';
 
 import {
   fetchProductsByCategory,
@@ -39,14 +39,37 @@ const getColumnCount = () => {
 const LOAD_MORE_SKELETON_COUNT = 12; // Changed from 8 to 12 for 6 cards layout (2 rows × 6 cards)
 
 const VirtualizedProductGrid = ({ products, loadingMore }) => {
-  const parentRef   = useRef(null);
+  const listRef = useRef(null);
   const [cols, setCols] = useState(getColumnCount);
+  const [scrollMargin, setScrollMargin] = useState(0);
 
   useEffect(() => {
     const onResize = () => setCols(getColumnCount());
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
   }, []);
+
+  // Window virtualizer needs the list's document offset; measure before paint when possible.
+  useLayoutEffect(() => {
+    const el = listRef.current;
+    if (!el) return undefined;
+
+    const updateMargin = () => {
+      const top = el.getBoundingClientRect().top + window.scrollY;
+      setScrollMargin((prev) => (Math.abs(prev - top) > 1 ? top : prev));
+    };
+
+    updateMargin();
+    const ro = new ResizeObserver(updateMargin);
+    ro.observe(document.body);
+    window.addEventListener('resize', updateMargin);
+    window.addEventListener('scroll', updateMargin, { passive: true });
+    return () => {
+      ro.disconnect();
+      window.removeEventListener('resize', updateMargin);
+      window.removeEventListener('scroll', updateMargin);
+    };
+  }, [products.length, cols, loadingMore]);
 
   const rows = useMemo(() => {
     const result = [];
@@ -59,19 +82,22 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
   const skeletonRowCount = loadingMore ? Math.ceil(LOAD_MORE_SKELETON_COUNT / cols) : 0;
   const totalRows        = rows.length + skeletonRowCount;
 
-  const rowVirtualizer = useVirtualizer({
-    count:            totalRows,
-    getScrollElement: () => parentRef.current,
+  // Must track WINDOW scroll — Home scrolls on window, not an inner overflow container.
+  // The old getScrollElement→parentRef never saw window scrollY, so only the first rows
+  // stayed mounted and Back restoration landed on the wrong visual section.
+  const rowVirtualizer = useWindowVirtualizer({
+    count: totalRows,
     estimateSize: useCallback(() => {
       const w = window.innerWidth;
-      if (w < 1024) return 500; // Mobile + Tablet
-      return 420;               // Desktop
+      if (w < 1024) return 500;
+      return 420;
     }, []),
-    overscan: 3,
+    overscan: 4,
+    scrollMargin,
   });
 
   return (
-    <div ref={parentRef} style={{ width: '100%' }}>
+    <div ref={listRef} style={{ width: '100%' }}>
       <div
         style={{
           height:   `${rowVirtualizer.getTotalSize()}px`,
@@ -95,10 +121,9 @@ const VirtualizedProductGrid = ({ products, loadingMore }) => {
                 top:       0,
                 left:      0,
                 width:     '100%',
-                transform: `translateY(${virtualRow.start}px)`,
+                transform: `translateY(${virtualRow.start - scrollMargin}px)`,
               }}
             >
-              {/* 2 cols mobile, 3 cols tablet/desktop, 6 cols xl — matches Bestseller */}
               <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-x-4 gap-y-10 md:gap-x-6 lg:gap-x-8 pb-4 md:pb-6">
                 {isSkeletonRow
                   ? Array(cols).fill(null).map((_, i) => (
@@ -221,6 +246,7 @@ const CategorySection = ({ slug, title }) => {
     return (
       <div
         ref={sentinelRef}
+        data-owb-section={slug}
         className="w-full bg-white"
         style={{ minHeight: '480px' }}
         aria-hidden="true"
@@ -231,7 +257,7 @@ const CategorySection = ({ slug, title }) => {
   // ── LOADING skeleton ─────────────────────────────────────────────────────────
   if (loading && products.length === 0) {
     return (
-      <div className="w-full bg-white py-8 md:py-16 overflow-hidden">
+      <div data-owb-section={slug} className="w-full bg-white py-8 md:py-16 overflow-hidden">
         <section className="container mx-auto px-4">
 
           {/* Header ghost */}
@@ -255,7 +281,7 @@ const CategorySection = ({ slug, title }) => {
   // ── ERROR (initial load only — never wipe products already on screen) ─────
   if (error && products.length === 0) {
     return (
-      <div className="w-full bg-white py-8 md:py-16 text-center">
+      <div data-owb-section={slug} className="w-full bg-white py-8 md:py-16 text-center">
         <p className="text-red-500 mb-2 font-medium">Failed to load {title}</p>
         <p className="text-gray-400 text-sm mb-4">
           {isRateLimited
@@ -276,7 +302,7 @@ const CategorySection = ({ slug, title }) => {
 
   // ── MAIN ─────────────────────────────────────────────────────────────────────
   return (
-    <div className="w-full bg-white py-8 md:py-16 overflow-hidden">
+    <div data-owb-section={slug} className="w-full bg-white py-8 md:py-16 overflow-hidden">
       <div ref={sentinelRef} aria-hidden="true" />
 
       <section className="container mx-auto px-4">

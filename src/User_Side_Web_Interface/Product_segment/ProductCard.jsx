@@ -223,6 +223,7 @@ const ProductCard = ({ product, index = 0 }) => {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div
+      data-owb-scroll-id={product?.slug || undefined}
       className="group relative flex flex-col cursor-pointer rounded-2xl bg-white border border-zinc-100 hover:shadow-lg hover:-translate-y-0.5 transition-all duration-300 overflow-hidden"
       style={{ animationDelay: `${index * 50}ms` }}
       onClick={handleCardClick}

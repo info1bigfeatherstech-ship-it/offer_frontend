@@ -83,7 +83,7 @@ const BestSellers = () => {
   }
 
   return (
-    <section className="container mx-auto px-4 py-12 md:py-20 font-">
+    <section data-owb-section="just-arrived" className="container mx-auto px-4 py-12 md:py-20 font-">
 
       {/* Header */}
       <div className="flex items-end justify-between mb-10 border-b border-zinc-100 pb-6" id="best-sellers">
