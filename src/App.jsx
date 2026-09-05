@@ -88,6 +88,7 @@ const AppContent = () => {
         isLoggedIn && !isAdminRoute,
         isLoggedIn
     );
+//examples for i
 
     // After install banner closes (or already installed): show notification prompt.
     // Login not required to SEE the prompt; Allow will ask login if needed.
