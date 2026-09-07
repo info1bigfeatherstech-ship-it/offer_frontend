@@ -57,6 +57,12 @@ registerRoute(
   })
 );
 
+function toAbsoluteAssetUrl(url) {
+  if (!url) return `${self.location.origin}/pwa-192x192.png`;
+  if (/^https?:\/\//i.test(url)) return url;
+  return new URL(url, self.location.origin).href;
+}
+
 function parsePushPayload(event) {
   let data = {};
   try {
@@ -69,8 +75,8 @@ function parsePushPayload(event) {
   return {
     title: data.title || 'OfferWaaleBaba',
     body: data.body || '',
-    icon: data.icon || '/pwa-192x192.png',
-    badge: data.badge || '/pwa-192x192.png',
+    icon: toAbsoluteAssetUrl(data.icon || '/pwa-192x192.png'),
+    badge: toAbsoluteAssetUrl(data.badge || data.icon || '/pwa-192x192.png'),
     tag: data.tag || 'offerwalebaba',
     actions: Array.isArray(data.actions) ? data.actions : undefined,
     data: data.data || { url: data.url || '/' },
@@ -112,24 +118,53 @@ self.addEventListener('push', (event) => {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const rawUrl = event.notification?.data?.url || '/';
-  const targetUrl = /^https?:\/\//i.test(rawUrl)
-    ? rawUrl
-    : new URL(rawUrl, self.location.origin).href;
+
+  const resolveTargetUrl = () => {
+    const raw =
+      event.notification?.data?.url ||
+      event.notification?.data?.ctaUrl ||
+      '/';
+    try {
+      if (/^https?:\/\//i.test(raw)) return new URL(raw).href;
+      return new URL(raw, self.location.origin).href;
+    } catch {
+      return `${self.location.origin}/`;
+    }
+  };
+
+  const targetUrl = resolveTargetUrl();
 
   event.waitUntil(
     (async () => {
+      let targetOrigin = self.location.origin;
+      try {
+        targetOrigin = new URL(targetUrl).origin;
+      } catch {
+        // keep SW origin
+      }
+
       const clientList = await self.clients.matchAll({
         type: 'window',
         includeUncontrolled: true,
       });
 
       for (const client of clientList) {
-        if (!client.url.startsWith(self.location.origin)) continue;
-        if ('navigate' in client) {
-          await client.navigate(targetUrl);
+        let clientOrigin = '';
+        try {
+          clientOrigin = new URL(client.url).origin;
+        } catch {
+          continue;
         }
-        if ('focus' in client) {
+        if (clientOrigin !== targetOrigin) continue;
+
+        try {
+          if (typeof client.navigate === 'function') {
+            await client.navigate(targetUrl);
+          }
+        } catch {
+          // navigate can fail for some URL shapes; still try focus
+        }
+        if (typeof client.focus === 'function') {
           return client.focus();
         }
       }

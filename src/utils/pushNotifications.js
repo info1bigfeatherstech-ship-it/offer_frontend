@@ -1,9 +1,12 @@
-import axiosInstance from '../SERVICES/axiosInstance';
+import axiosInstance, { USER_ACCESS_TOKEN_KEY } from '../SERVICES/axiosInstance';
+import { isPwaInstalled } from './pwaInstallPrompt';
 
 const PROMPT_DISMISS_SESSION_KEY = 'owb_push_prompt_dismissed_session';
 const LEGACY_PROMPT_DISMISS_KEY = 'owb_push_prompt_dismissed_at';
 /** Legacy cadence key — cleared so old rate limits do not stick. */
 const LEGACY_PROMPT_CADENCE_KEY = 'owb_push_prompt_cadence';
+const PWA_PENDING_ATTR_KEY = 'owb_pwa_pending_attr';
+const PWA_ATTR_SYNCED_KEY = 'owb_pwa_attr_synced';
 const SW_READY_TIMEOUT_MS = 12000;
 
 function waitForServiceWorkerReady(timeoutMs = SW_READY_TIMEOUT_MS) {
@@ -190,4 +193,68 @@ export async function unsubscribeFromWebPush() {
   await subscription.unsubscribe();
   await axiosInstance.delete('/push/unsubscribe', { data: { endpoint } });
   return { unsubscribed: true };
+}
+
+/** Mark that install happened this session (guest or logged-in). */
+export function markPwaInstallPendingAttribution() {
+  try {
+    sessionStorage.setItem(PWA_PENDING_ATTR_KEY, '1');
+    sessionStorage.removeItem(PWA_ATTR_SYNCED_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+/**
+ * POST /push/pwa-install for logged-in users. Never throws.
+ * Safe to call from appinstalled / standalone open / after login.
+ */
+export async function reportPwaInstall() {
+  try {
+    let token = null;
+    try {
+      token = localStorage.getItem(USER_ACCESS_TOKEN_KEY);
+    } catch {
+      token = null;
+    }
+    if (!token) return false;
+    await axiosInstance.post('/push/pwa-install', {});
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Attribute PWA install when logged in and (standalone OR pending install flag).
+ * Session-deduped after a successful report.
+ */
+export async function syncPwaInstallAttribution({ isLoggedIn } = {}) {
+  if (!isLoggedIn) return false;
+
+  let pending = false;
+  try {
+    pending = sessionStorage.getItem(PWA_PENDING_ATTR_KEY) === '1';
+  } catch {
+    // ignore
+  }
+
+  if (!isPwaInstalled() && !pending) return false;
+
+  try {
+    if (sessionStorage.getItem(PWA_ATTR_SYNCED_KEY) === '1') return true;
+  } catch {
+    // ignore
+  }
+
+  const ok = await reportPwaInstall();
+  if (ok) {
+    try {
+      sessionStorage.setItem(PWA_ATTR_SYNCED_KEY, '1');
+      sessionStorage.removeItem(PWA_PENDING_ATTR_KEY);
+    } catch {
+      // ignore
+    }
+  }
+  return ok;
 }

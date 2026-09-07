@@ -28,10 +28,10 @@ export default defineConfig({
   ],
 
   manifest: {
-    name: "OfferWaleBaba",
-    short_name: "OWB",
+    name: "Offer Wale Baba",
+    short_name: "Offer Wale Baba",
 
-    description: "Wholesale",
+    description: "Shop deals and new arrivals on Offer Wale Baba",
 
     theme_color: "#000000",
 

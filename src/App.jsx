@@ -40,7 +40,7 @@ import usePushNotifications from "./components/HOOKS/usePushNotifications";
 import PushNotificationPrompt from "./components/Common/PushNotificationPrompt";
 import InstallAppPrompt from "./components/Common/InstallAppPrompt";
 import { isPwaInstalled } from "./utils/pwaInstallPrompt";
-import { subscribeToWebPush } from "./utils/pushNotifications";
+import { subscribeToWebPush, syncPwaInstallAttribution } from "./utils/pushNotifications";
 import Checkout from "./User_Side_Web_Interface/CHECKOUT/Checkout";
 import ContactUs from "./components/Common/Contact";
 import TagProducts from "./User_Side_Web_Interface/User_Dash_Segment/UserSubPages/TagProducts";
@@ -120,6 +120,23 @@ const AppContent = () => {
                 setPushPromptVisible(false);
             } catch {
                 // ignore — user can retry from prompt next visit
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [isLoggedIn, isAdminRoute]);
+
+    // Attribute PWA install for logged-in users (standalone or just-installed this session).
+    useEffect(() => {
+        if (!isLoggedIn || isAdminRoute) return undefined;
+        let cancelled = false;
+        (async () => {
+            try {
+                if (cancelled) return;
+                await syncPwaInstallAttribution({ isLoggedIn: true });
+            } catch {
+                // never block app
             }
         })();
         return () => {
