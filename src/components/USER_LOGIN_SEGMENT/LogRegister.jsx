@@ -260,7 +260,7 @@ const LogRegister = ({ isOpen, onClose, onLoginSuccess }) => {
       {/* ── BACKDROP ── */}
       <div
         ref={backdropRef}
-        className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 backdrop-blur-sm lr-fade min-h-0 p-4"
+        className="fixed inset-0 z-[9500] flex items-center justify-center bg-black/95 backdrop-blur-sm lr-fade min-h-0 p-4"
         onClick={handleClose}
         aria-modal="true"
         role="dialog"

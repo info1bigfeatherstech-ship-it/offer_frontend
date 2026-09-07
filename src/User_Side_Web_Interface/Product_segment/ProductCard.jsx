@@ -241,8 +241,8 @@ const ProductCard = ({ product, index = 0 }) => {
 
         {/* Out of stock overlay */}
         {!inStock && (
-          <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-            <span className="text-white text-[10px] md:text-[15px] font-black uppercase tracking-widest bg-black/60 px-3 py-1 rounded-full">
+          <div className="absolute inset-0 bg-black/25 flex items-center justify-center">
+            <span className="text-white text-[8px] md:text-[10px] font-bold uppercase tracking-wide bg-black/45 px-2 py-0.5 rounded-full">
               Out of Stock
             </span>
           </div>

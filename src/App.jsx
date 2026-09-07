@@ -88,19 +88,19 @@ const AppContent = () => {
         isLoggedIn && !isAdminRoute,
         isLoggedIn
     );
-//examples for i
 
     // After install banner closes (or already installed): show notification prompt.
     // Login not required to SEE the prompt; Allow will ask login if needed.
+    // Never stack over the auth modal (login sits at a lower z-index).
     useEffect(() => {
-        if (isAdminRoute || !canShowPushPrompt || installPromptOpen) {
+        if (isAdminRoute || !canShowPushPrompt || installPromptOpen || isAuthOpen) {
             setPushPromptVisible(false);
             return undefined;
         }
         const delayMs = isPwaInstalled() ? 900 : 800;
         const t = window.setTimeout(() => setPushPromptVisible(true), delayMs);
         return () => window.clearTimeout(t);
-    }, [isAdminRoute, canShowPushPrompt, installPromptOpen]);
+    }, [isAdminRoute, canShowPushPrompt, installPromptOpen, isAuthOpen]);
 
     // If user logged in after tapping Allow while guest, finish subscribe.
     useEffect(() => {

@@ -56,6 +56,8 @@ const PushNotificationPrompt = ({
         // ignore
       }
       toast.info('Please login to enable notifications.');
+      // Hide soft prompt so login modal is usable (login z-index is below this overlay).
+      onDismiss?.();
       onNeedLogin?.();
       return;
     }
