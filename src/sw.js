@@ -72,28 +72,50 @@ function parsePushPayload(event) {
     icon: data.icon || '/pwa-192x192.png',
     badge: data.badge || '/pwa-192x192.png',
     tag: data.tag || 'offerwalebaba',
+    actions: Array.isArray(data.actions) ? data.actions : undefined,
     data: data.data || { url: data.url || '/' },
   };
 }
 
 self.addEventListener('push', (event) => {
   const payload = parsePushPayload(event);
+  const options = {
+    body: payload.body,
+    icon: payload.icon,
+    badge: payload.badge,
+    tag: payload.tag || `owb-${Date.now()}`,
+    data: payload.data,
+    renotify: true,
+    requireInteraction: true,
+  };
+  if (payload.actions?.length) {
+    options.actions = payload.actions;
+  }
   event.waitUntil(
-    self.registration.showNotification(payload.title, {
-      body: payload.body,
-      icon: payload.icon,
-      badge: payload.badge,
-      tag: payload.tag,
-      data: payload.data,
-      renotify: true,
-    })
+    (async () => {
+      try {
+        await self.registration.showNotification(payload.title, options);
+      } catch (err) {
+        // Fallback without actions if the browser rejects the payload shape.
+        await self.registration.showNotification(payload.title || 'OfferWaaleBaba', {
+          body: payload.body || 'New update',
+          icon: payload.icon,
+          badge: payload.badge,
+          tag: `owb-fallback-${Date.now()}`,
+          data: payload.data,
+          requireInteraction: true,
+        });
+      }
+    })()
   );
 });
 
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
-  const relativeUrl = event.notification?.data?.url || '/account/usercart';
-  const targetUrl = new URL(relativeUrl, self.location.origin).href;
+  const rawUrl = event.notification?.data?.url || '/';
+  const targetUrl = /^https?:\/\//i.test(rawUrl)
+    ? rawUrl
+    : new URL(rawUrl, self.location.origin).href;
 
   event.waitUntil(
     (async () => {

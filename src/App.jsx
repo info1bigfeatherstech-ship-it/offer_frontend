@@ -89,15 +89,14 @@ const AppContent = () => {
         isLoggedIn
     );
 
-    // After install banner closes (or already installed): show notification prompt.
-    // Login not required to SEE the prompt; Allow will ask login if needed.
-    // Never stack over the auth modal (login sits at a lower z-index).
+    // Install first → wait 1 min after install UI closes (or already installed) → then notifications.
+    // Never stack with install or auth modal.
     useEffect(() => {
         if (isAdminRoute || !canShowPushPrompt || installPromptOpen || isAuthOpen) {
             setPushPromptVisible(false);
             return undefined;
         }
-        const delayMs = isPwaInstalled() ? 900 : 800;
+        const delayMs = 60 * 1000;
         const t = window.setTimeout(() => setPushPromptVisible(true), delayMs);
         return () => window.clearTimeout(t);
     }, [isAdminRoute, canShowPushPrompt, installPromptOpen, isAuthOpen]);
