@@ -72,11 +72,21 @@ function parsePushPayload(event) {
   } catch {
     data = { body: event.data?.text?.() || '' };
   }
+  const imageRaw = typeof data.image === 'string' ? data.image.trim() : '';
+  let image = undefined;
+  if (imageRaw && /^https:\/\//i.test(imageRaw)) {
+    try {
+      image = new URL(imageRaw).href;
+    } catch {
+      image = undefined;
+    }
+  }
   return {
     title: data.title || 'OfferWaaleBaba',
     body: data.body || '',
     icon: toAbsoluteAssetUrl(data.icon || '/pwa-192x192.png'),
     badge: toAbsoluteAssetUrl(data.badge || data.icon || '/pwa-192x192.png'),
+    image,
     tag: data.tag || 'offerwalebaba',
     actions: Array.isArray(data.actions) ? data.actions : undefined,
     data: data.data || { url: data.url || '/' },
@@ -94,6 +104,9 @@ self.addEventListener('push', (event) => {
     renotify: true,
     requireInteraction: true,
   };
+  if (payload.image) {
+    options.image = payload.image;
+  }
   if (payload.actions?.length) {
     options.actions = payload.actions;
   }
@@ -102,7 +115,7 @@ self.addEventListener('push', (event) => {
       try {
         await self.registration.showNotification(payload.title, options);
       } catch (err) {
-        // Fallback without actions if the browser rejects the payload shape.
+        // Fallback without image/actions if the browser rejects the payload shape.
         await self.registration.showNotification(payload.title || 'OfferWaaleBaba', {
           body: payload.body || 'New update',
           icon: payload.icon,
