@@ -44,18 +44,20 @@ function SwitchRow({
 
   return (
     <div
-      className={`flex items-center gap-3 px-3 py-2 rounded-xl border shrink-0 ${
+      className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg border shrink-0 ${
         enabled ? onBg : 'bg-gray-50 border-gray-200'
       } ${!pushConfigured ? 'opacity-60' : ''}`}
       title={
         pushConfigured
-          ? hint
+          ? `${label} — ${enabled ? hint : 'Off'}`
           : 'Configure VAPID keys on server to enable push'
       }
     >
       <div className="min-w-0">
-        <p className="text-xs font-semibold text-gray-800 whitespace-nowrap">{label}</p>
-        <p className="text-[10px] text-gray-500 whitespace-nowrap hidden sm:block">
+        <p className="text-[11px] font-semibold text-gray-800 whitespace-nowrap leading-tight">
+          {label}
+        </p>
+        <p className="text-[9px] text-gray-500 whitespace-nowrap leading-tight">
           {enabled ? hint : 'Off'}
         </p>
       </div>
@@ -66,13 +68,13 @@ function SwitchRow({
         aria-label={`Toggle ${label}`}
         disabled={busy || !pushConfigured}
         onClick={onToggle}
-        className={`relative inline-flex h-6 w-11 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 ${ring} focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 ${
+        className={`relative inline-flex h-5 w-9 flex-shrink-0 rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none focus:ring-2 ${ring} focus:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-50 ${
           enabled ? switchOn : 'bg-gray-300'
         }`}
       >
         <span
-          className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
-            enabled ? 'translate-x-5' : 'translate-x-0'
+          className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ${
+            enabled ? 'translate-x-4' : 'translate-x-0'
           }`}
         />
       </button>
@@ -124,7 +126,7 @@ const LeadsAutoPushToggle = ({ showCart = true, showWishlist = true, showNewProd
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-end gap-2">
+    <div className="flex flex-nowrap items-center gap-2 shrink-0">
       {showCart && (
         <SwitchRow
           label="Cart auto push"

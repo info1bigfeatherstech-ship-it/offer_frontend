@@ -1,11 +1,17 @@
 /**
  * PWA install prompt helpers.
- * Soft banner every visit until installed; exit reminder once per browser session.
+ * Soft banner once per page load until installed; exit reminder once per browser session.
  */
 
 const EXIT_SHOWN_SESSION_KEY = 'owb_pwa_install_exit_shown';
 /** Legacy key — cleared so old 7-day dismiss does not block forever. */
 const LEGACY_DISMISS_KEY = 'owb_pwa_install_dismissed_at';
+
+/**
+ * Survives React StrictMode remounts (useRef resets on remount).
+ * Ensures the open install modal is shown at most once per document load.
+ */
+let openPromptShownForLoad = false;
 
 export function clearLegacyInstallDismiss() {
   try {
@@ -51,4 +57,18 @@ export function wasExitShownThisSession() {
 /** Soft install UI whenever the app is not installed (browser event optional). */
 export function canOfferInstall() {
   return !isPwaInstalled();
+}
+
+/**
+ * Claim the one open-prompt show for this document load.
+ * @returns {boolean} true if caller may show the open prompt
+ */
+export function claimOpenPromptShow() {
+  if (openPromptShownForLoad) return false;
+  openPromptShownForLoad = true;
+  return true;
+}
+
+export function wasOpenPromptShownThisLoad() {
+  return openPromptShownForLoad;
 }

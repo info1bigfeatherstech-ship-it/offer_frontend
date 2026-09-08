@@ -1,7 +1,10 @@
 // ADMIN_TABS/CustomersTab.jsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { toast } from 'react-toastify';
-import { useGetAllUsersQuery } from '../../ADMIN_REDUX_MANAGEMENT/userAnalyticsApi';
+import {
+  useGetAllUsersQuery,
+  useGetEngagementSummaryQuery,
+} from '../../ADMIN_REDUX_MANAGEMENT/userAnalyticsApi';
 import axiosInstance, { AUTH_CONTEXT_ADMIN } from '../../../../SERVICES/axiosInstance';
 import CartDetailsModal from './CartDetailsModal';
 import CartReminderEmailModal from './CartReminderEmailModal';
@@ -11,10 +14,30 @@ import BulkActionsMenu from './BulkActionsMenu';
 import LeadsAutoPushToggle from './LeadsAutoPushToggle';
 import { DateTimeCell } from './adminDateTime';
 
+const ENGAGEMENT_FILTERS = [
+  { id: 'all', label: 'All', hint: 'Everyone in scope', group: 'base' },
+  {
+    id: 'push_and_pwa',
+    label: 'App + Notifications',
+    hint: 'Installed app and notifications on',
+    group: 'combo',
+    featured: true,
+  },
+  { id: 'push_on', label: 'Notifications on', hint: 'Push subscribed', group: 'notify' },
+  { id: 'push_off', label: 'Notifications off', hint: 'No active push', group: 'notify' },
+  { id: 'pwa_on', label: 'App installed', hint: 'PWA attributed', group: 'app' },
+  { id: 'pwa_off', label: 'App not installed', hint: 'No PWA record', group: 'app' },
+];
+
+function engagementFilterLabel(id) {
+  return ENGAGEMENT_FILTERS.find((f) => f.id === id)?.label || 'All';
+}
+
 const CustomersTab = () => {
   const [page, setPage] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
+  const [engagementFilter, setEngagementFilter] = useState('all');
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [selectedUserMeta, setSelectedUserMeta] = useState({});
   const [showUserModal, setShowUserModal] = useState(false);
@@ -37,15 +60,30 @@ const CustomersTab = () => {
     setCartModalUserId(null);
   }, []);
 
-  const { data, isLoading, error, isFetching } = useGetAllUsersQuery({
+  useEffect(() => {
+    setPage(1);
+    setSelectedUsers([]);
+    setSelectedUserMeta({});
+  }, [engagementFilter, roleFilter, searchTerm]);
+
+  const {
+    data: summaryRes,
+    isLoading: summaryLoading,
+    error: summaryError,
+    refetch: refetchSummary,
+  } = useGetEngagementSummaryQuery();
+
+  const { data, isLoading, error, isFetching, refetch } = useGetAllUsersQuery({
     page,
     limit: 10,
     search: searchTerm,
     role: roleFilter,
+    engagement: engagementFilter,
   });
 
   const users = data?.data || [];
   const pagination = data?.pagination || { total: 0, totalPages: 1 };
+  const summary = summaryRes?.data || {};
 
   const snapshotUser = useCallback((user) => ({
     _id: user._id,
@@ -206,68 +244,213 @@ const CustomersTab = () => {
   if (isLoading) return <div className="p-20 text-center animate-pulse">Loading Customers...</div>;
 
   return (
-    <div className="space-y-6">
+    <div className="w-full min-w-0 max-w-full space-y-4 sm:space-y-6">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-slate-900">Customers</h2>
+          <p className="text-sm text-slate-500">
+            Customer list with notification and app-install status. Filter, select, then send offers.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            try {
+              refetchSummary();
+              refetch();
+            } catch {
+              // ignore
+            }
+          }}
+          className="self-start rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Refresh
+        </button>
+      </div>
+
+      {summaryError ? (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Engagement summary could not load. Customer list still works.
+        </div>
+      ) : (
+        <div className="grid w-full min-w-0 grid-cols-2 min-[780px]:grid-cols-5 gap-2">
+          <button
+            type="button"
+            onClick={() => setEngagementFilter('all')}
+            className={`rounded-xl border bg-white p-2.5 sm:p-3 text-left transition hover:border-slate-300 min-w-0 overflow-hidden ${
+              engagementFilter === 'all' ? 'border-slate-900 ring-1 ring-slate-900' : 'border-slate-200'
+            }`}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 truncate">Total</p>
+            <p className="mt-0.5 text-lg sm:text-xl font-bold text-slate-900 tabular-nums">
+              {summaryLoading ? '…' : summary.scopedCustomers ?? 0}
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setEngagementFilter('push_on')}
+            className={`rounded-xl border bg-white p-2.5 sm:p-3 text-left transition hover:border-emerald-300 min-w-0 overflow-hidden ${
+              engagementFilter === 'push_on' ? 'border-emerald-600 ring-1 ring-emerald-600' : 'border-slate-200'
+            }`}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 truncate">Notifications on</p>
+            <p className="mt-0.5 text-lg sm:text-xl font-bold text-slate-900 tabular-nums">
+              {summaryLoading ? '…' : summary.pushNotificationUsers ?? 0}
+            </p>
+            <p className="mt-0.5 text-[10px] text-slate-500 line-clamp-2 leading-snug">
+              {summary.pushNotificationDevices ?? 0} devices · {summary.pushNotificationUsersOff ?? 0} off
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setEngagementFilter('pwa_on')}
+            className={`rounded-xl border bg-white p-2.5 sm:p-3 text-left transition hover:border-indigo-300 min-w-0 overflow-hidden ${
+              engagementFilter === 'pwa_on' ? 'border-indigo-600 ring-1 ring-indigo-600' : 'border-slate-200'
+            }`}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 truncate">App installed</p>
+            <p className="mt-0.5 text-lg sm:text-xl font-bold text-slate-900 tabular-nums">
+              {summaryLoading ? '…' : summary.pwaInstallUsers ?? 0}
+            </p>
+            <p className="mt-0.5 text-[10px] text-slate-500 truncate">
+              {summary.pwaInstallUsersOff ?? 0} not installed
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setEngagementFilter('push_and_pwa')}
+            className={`rounded-xl border bg-white p-2.5 sm:p-3 text-left transition hover:border-violet-300 min-w-0 overflow-hidden ${
+              engagementFilter === 'push_and_pwa'
+                ? 'border-violet-700 ring-1 ring-violet-700'
+                : 'border-slate-200'
+            }`}
+          >
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-violet-500 truncate">
+              App + Notifications
+            </p>
+            <p className="mt-0.5 text-lg sm:text-xl font-bold text-slate-900 tabular-nums">
+              {summaryLoading ? '…' : summary.pushAndPwaUsers ?? 0}
+            </p>
+            <p className="mt-0.5 text-[10px] text-slate-500">Best for promos</p>
+          </button>
+          <div className="rounded-xl border border-slate-200 bg-white p-2.5 sm:p-3 min-w-0 overflow-hidden">
+            <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-400 truncate">In this list</p>
+            <p className="mt-0.5 text-lg sm:text-xl font-bold text-slate-900 tabular-nums">{pagination.total ?? 0}</p>
+            <p className="mt-0.5 text-[10px] text-slate-500 truncate">{engagementFilterLabel(engagementFilter)}</p>
+          </div>
+        </div>
+      )}
+
       {/* Search & Actions Header */}
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-        <div className="flex flex-col md:flex-row justify-between gap-4">
-          <div className="relative flex-1">
-            <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400">
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 sm:p-4 space-y-3">
+        <div className="w-full min-w-0">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+              List filters
+            </p>
+            <p className="text-[11px] text-slate-400">
+              {engagementFilterLabel(engagementFilter)} · {pagination.total ?? 0} shown
+            </p>
+          </div>
+          <div
+            className="flex flex-wrap gap-2"
+            role="tablist"
+            aria-label="Customer list filters"
+          >
+            {ENGAGEMENT_FILTERS.map((f) => {
+              const active = engagementFilter === f.id;
+              const featured = Boolean(f.featured);
+              return (
+                <button
+                  key={f.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  title={f.hint}
+                  onClick={() => setEngagementFilter(f.id)}
+                  className={`rounded-full border px-3 py-1.5 text-xs font-semibold whitespace-nowrap transition ${
+                    active
+                      ? featured
+                        ? 'border-violet-700 bg-violet-700 text-white shadow-sm'
+                        : 'border-slate-900 bg-slate-900 text-white shadow-sm'
+                      : featured
+                        ? 'border-violet-200 bg-violet-50 text-violet-800 hover:border-violet-300'
+                        : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* One toolbar row (matches 80% zoom look at 100% on 14") */}
+        <div className="border-t border-slate-100 pt-3 flex flex-nowrap items-center gap-2 overflow-x-auto">
+          <div className="relative min-w-[200px] max-w-sm flex-1 shrink">
+            <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-400 pointer-events-none">
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
             </span>
-            <input 
-              type="text" 
-              placeholder="Search customers..." 
-              className="w-full pl-10 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none"
+            <input
+              type="text"
+              placeholder="Search name, email, phone…"
+              className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none text-sm"
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
+
           <LeadsAutoPushToggle showWishlist={false} />
-          <div className="flex items-center gap-3 flex-wrap">
-            <select 
-              className="bg-gray-50 border border-gray-200 rounded-xl px-4 py-2.5 text-sm outline-none"
-              onChange={(e) => setRoleFilter(e.target.value)}
-            >
-              <option value="">All Roles</option>
-              <option value="user">Customer</option>
-              <option value="wholesaler">Wholesaler</option>
-            </select>
-            <button
-              type="button"
-              id="export-customers-xlsx-btn"
-              onClick={handleExportCustomers}
-              disabled={exportLoading}
-              className="px-5 cursor-pointer py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-medium rounded-xl hover:from-emerald-600 hover:to-teal-700 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
-              title="Export all customers to Excel"
-            >
-              {exportLoading ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
-                  <span>Exporting…</span>
-                </>
-              ) : (
-                <>
-                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                  </svg>
-                  <span>Export Data</span>
-                </>
-              )}
-            </button>
-            <BulkActionsMenu
-              count={selectedUsers.length}
-              onCartEmail={handleBulkCartEmail}
-              onCartPush={handleBulkCartPush}
-            />
-          </div>
+          <select
+            className="bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none shrink-0"
+            onChange={(e) => setRoleFilter(e.target.value)}
+            value={roleFilter}
+          >
+            <option value="">All Roles</option>
+            <option value="user">Customer</option>
+            <option value="wholesaler">Wholesaler</option>
+          </select>
+          <button
+            type="button"
+            id="export-customers-xlsx-btn"
+            onClick={handleExportCustomers}
+            disabled={exportLoading}
+            className="px-4 cursor-pointer py-2 bg-gradient-to-r from-emerald-500 to-teal-600 text-white text-sm font-medium rounded-xl hover:from-emerald-600 hover:to-teal-700 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2 shrink-0 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+            title="Export all customers to Excel"
+          >
+            {exportLoading ? (
+              <>
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin flex-shrink-0" />
+                <span>Exporting…</span>
+              </>
+            ) : (
+              <>
+                <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                </svg>
+                <span>Export Data</span>
+              </>
+            )}
+          </button>
+          <BulkActionsMenu
+            count={selectedUsers.length}
+            onCartEmail={handleBulkCartEmail}
+            onCartPush={handleBulkCartPush}
+          />
         </div>
+        {error ? (
+          <div className="text-sm text-red-600">Could not load customers. Try refresh.</div>
+        ) : null}
+        {isFetching && !isLoading ? (
+          <div className="text-xs text-slate-400">Updating…</div>
+        ) : null}
       </div>
 
-      {/* Table Desktop */}
-      <div className="hidden lg:block bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <table className="w-full text-left">
+      {/* Table — horizontal scroll on ~12" / narrow admin content */}
+      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-x-auto">
+        <table className="w-full min-w-[880px] text-left">
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
-              <th className="px-6 py-4 w-10">
+              <th className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 w-10">
                 <input 
                   type="checkbox" 
                   className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
@@ -275,21 +458,29 @@ const CustomersTab = () => {
                   checked={selectedUsers.length === users.length && users.length > 0}
                 />
               </th>
-              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
-              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Engagement</th>
-              <th className="px-6 py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Joined</th>
-              <th className="px-6 py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
+              <th className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</th>
+              <th className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Notifications</th>
+              <th className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">App</th>
+              <th className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Cart / Wish</th>
+              <th className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-xs font-semibold text-gray-500 uppercase tracking-wider">Joined</th>
+              <th className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
+            {users.length === 0 ? (
+              <tr>
+                <td colSpan={7} className="px-6 py-12 text-center text-sm text-slate-400">
+                  No customers found for this filter.
+                </td>
+              </tr>
+            ) : null}
             {users.map((user) => (
               <tr
                 key={user._id}
                 onClick={() => openCustomerDetails(user)}
                 className="hover:bg-blue-50/30 transition-colors group cursor-pointer"
               >
-                <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4" onClick={(e) => e.stopPropagation()}>
                   <input 
                     type="checkbox" 
                     className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-4 h-4"
@@ -297,23 +488,57 @@ const CustomersTab = () => {
                     onChange={() => handleSelectUser(user)}
                   />
                 </td>
-                <td className="px-6 py-4">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
-                      {user.name?.[0].toUpperCase()}
+                <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-9 h-9 sm:w-10 sm:h-10 shrink-0 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold">
+                      {user.name?.[0]?.toUpperCase() || '?'}
                     </div>
-                    <div>
-                      <div className="font-semibold text-gray-900">{user.name}</div>
-                      <div className="text-xs text-gray-500">{user.email}</div>
+                    <div className="min-w-0">
+                      <div className="font-semibold text-gray-900 truncate">{user.name}</div>
+                      <div className="text-xs text-gray-500 truncate">{user.email}</div>
+                      {user.phone ? (
+                        <div className="text-xs text-gray-400 truncate">{user.phone}</div>
+                      ) : null}
                     </div>
                   </div>
                 </td>
-                <td className="px-6 py-4">
-                   <span className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase ${user.isVerified ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                    {user.isVerified ? 'Verified' : 'Unverified'}
-                   </span>
+                <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
+                  {user.notificationsEnabled ? (
+                    <div>
+                      <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                        On · {user.pushDeviceCount || 0} device{(user.pushDeviceCount || 0) === 1 ? '' : 's'}
+                      </span>
+                      {user.pushSubscribedAt ? (
+                        <div className="mt-1">
+                          <DateTimeCell iso={user.pushSubscribedAt} />
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+                      Off
+                    </span>
+                  )}
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
+                  {user.pwaInstalled ? (
+                    <div>
+                      <span className="inline-flex rounded-full bg-indigo-50 px-2 py-0.5 text-[11px] font-semibold text-indigo-700">
+                        Installed
+                      </span>
+                      {user.pwaInstalledAt ? (
+                        <div className="mt-1">
+                          <DateTimeCell iso={user.pwaInstalledAt} />
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : (
+                    <span className="inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">
+                      Not installed
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
@@ -329,11 +554,11 @@ const CustomersTab = () => {
                     <span className="text-xs bg-pink-50 text-pink-600 px-2 py-1 rounded-md font-medium">❤️ {user.wishlistCount || 0}</span>
                   </div>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
                   <DateTimeCell iso={user.createdAt} />
                 </td>
-                <td className="px-6 py-4 text-right" onClick={(e) => e.stopPropagation()}>
-                  <div className="flex justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <td className="px-3 sm:px-4 lg:px-6 py-3 sm:py-4 text-right" onClick={(e) => e.stopPropagation()}>
+                  <div className="flex justify-end gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
                     <button
                       type="button"
                       onClick={() => handleSingleCartEmail(user)}
@@ -404,8 +629,10 @@ const CustomersTab = () => {
       />
 
       {/* Pagination */}
-      <div className="flex justify-between items-center bg-white p-4 rounded-2xl border border-gray-200">
-        <span className="text-sm text-gray-500">Page {page} of {pagination.totalPages}</span>
+      <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center bg-white p-4 rounded-2xl border border-gray-200">
+        <span className="text-sm text-gray-500">
+          {pagination.total || 0} total · Page {page} of {pagination.totalPages || 1}
+        </span>
         <div className="flex gap-2">
           <button 
             disabled={page === 1}

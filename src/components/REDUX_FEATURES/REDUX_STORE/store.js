@@ -81,7 +81,15 @@ const store = configureStore({
       // Bulk upload thunks pass File/Blob via meta.arg; those must not live in
       // Redux state, but RTK still inspects action meta — ignore only that path.
       serializableCheck: {
-        ignoredActionPaths: ['meta.arg', 'meta.arg.csvFile', 'meta.arg.zipFile'],
+        // Bulk upload File/Blob in meta.arg; RTK Query attaches Request/Response on meta.baseQueryMeta.
+        ignoredActionPaths: [
+          'meta.arg',
+          'meta.arg.csvFile',
+          'meta.arg.zipFile',
+          'meta.baseQueryMeta',
+          'meta.baseQueryMeta.request',
+          'meta.baseQueryMeta.response',
+        ],
       },
     }).concat(
       searchApi.middleware,

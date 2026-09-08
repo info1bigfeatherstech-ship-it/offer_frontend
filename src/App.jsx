@@ -40,7 +40,7 @@ import usePushNotifications from "./components/HOOKS/usePushNotifications";
 import PushNotificationPrompt from "./components/Common/PushNotificationPrompt";
 import InstallAppPrompt from "./components/Common/InstallAppPrompt";
 import { isPwaInstalled } from "./utils/pwaInstallPrompt";
-import { subscribeToWebPush } from "./utils/pushNotifications";
+import { subscribeToWebPush, syncPwaInstallAttribution } from "./utils/pushNotifications";
 import Checkout from "./User_Side_Web_Interface/CHECKOUT/Checkout";
 import ContactUs from "./components/Common/Contact";
 import TagProducts from "./User_Side_Web_Interface/User_Dash_Segment/UserSubPages/TagProducts";
@@ -88,19 +88,18 @@ const AppContent = () => {
         isLoggedIn && !isAdminRoute,
         isLoggedIn
     );
-//examples for i
 
-    // After install banner closes (or already installed): show notification prompt.
-    // Login not required to SEE the prompt; Allow will ask login if needed.
+    // Install first → wait 1 min after install UI closes (or already installed) → then notifications.
+    // Never stack with install or auth modal.
     useEffect(() => {
-        if (isAdminRoute || !canShowPushPrompt || installPromptOpen) {
+        if (isAdminRoute || !canShowPushPrompt || installPromptOpen || isAuthOpen) {
             setPushPromptVisible(false);
             return undefined;
         }
-        const delayMs = isPwaInstalled() ? 900 : 800;
+        const delayMs = 60 * 1000;
         const t = window.setTimeout(() => setPushPromptVisible(true), delayMs);
         return () => window.clearTimeout(t);
-    }, [isAdminRoute, canShowPushPrompt, installPromptOpen]);
+    }, [isAdminRoute, canShowPushPrompt, installPromptOpen, isAuthOpen]);
 
     // If user logged in after tapping Allow while guest, finish subscribe.
     useEffect(() => {
@@ -121,6 +120,23 @@ const AppContent = () => {
                 setPushPromptVisible(false);
             } catch {
                 // ignore — user can retry from prompt next visit
+            }
+        })();
+        return () => {
+            cancelled = true;
+        };
+    }, [isLoggedIn, isAdminRoute]);
+
+    // Attribute PWA install for logged-in users (standalone or just-installed this session).
+    useEffect(() => {
+        if (!isLoggedIn || isAdminRoute) return undefined;
+        let cancelled = false;
+        (async () => {
+            try {
+                if (cancelled) return;
+                await syncPwaInstallAttribution({ isLoggedIn: true });
+            } catch {
+                // never block app
             }
         })();
         return () => {
