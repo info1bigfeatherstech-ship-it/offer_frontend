@@ -133,12 +133,43 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
   const resolveTargetUrl = () => {
-    const raw =
-      event.notification?.data?.url ||
-      event.notification?.data?.ctaUrl ||
-      '/';
+    const d = event.notification?.data || {};
+    // Restock: prefer same-origin PDP from productSlug so click always lands on this site's detail page.
+    const slug = typeof d.productSlug === 'string' ? d.productSlug.trim() : '';
+    if (
+      (d.type === 'back_in_stock' || d.type === 'oos-restock') &&
+      slug &&
+      !slug.includes('/') &&
+      !slug.includes('\\') &&
+      !slug.includes('..')
+    ) {
+      try {
+        const storefront = d.storefront === 'wholesale' ? 'wholesale' : 'ecomm';
+        // Prefer path from payload when present (already storefront-aware from backend).
+        if (typeof d.url === 'string' && d.url.startsWith('/product')) {
+          return new URL(d.url, self.location.origin).href;
+        }
+        const prefix = storefront === 'wholesale' ? '/product' : '/products';
+        return new URL(`${prefix}/${encodeURIComponent(slug)}`, self.location.origin).href;
+      } catch {
+        // fall through
+      }
+    }
+
+    const raw = d.url || d.ctaUrl || '/';
     try {
-      if (/^https?:\/\//i.test(raw)) return new URL(raw).href;
+      if (/^https?:\/\//i.test(raw)) {
+        const absolute = new URL(raw);
+        // If absolute points at another origin, keep same-origin PDP when we have a product path.
+        if (
+          absolute.origin !== self.location.origin &&
+          /^\/products?\//i.test(absolute.pathname)
+        ) {
+          return new URL(absolute.pathname + absolute.search + absolute.hash, self.location.origin)
+            .href;
+        }
+        return absolute.href;
+      }
       return new URL(raw, self.location.origin).href;
     } catch {
       return `${self.location.origin}/`;
