@@ -12,10 +12,25 @@ export const ADDRESS_LINE1_MIN_LEN = 10;
 /** Per form addressLine field; courier combined cap is the hard shipping limit. */
 export const ADDRESS_LINE_MAX_LEN = 200;
 export const MAX_COURIER_COMBINED_STREET_CHARS = 190;
+/** Align with backend MAX_FULL_NAME_LEN / courier consignee name cap. */
+export const MAX_FULL_NAME_LEN = 80;
 
 function trim(value) {
   if (value == null) return "";
   return String(value).trim();
+}
+
+/**
+ * @returns {string | null} error message for UI, or null if OK
+ */
+export function validateFullNameClient(fullName) {
+  const name = trim(fullName);
+  if (!name) return "Full Name is required";
+  if (name.length < 2) return "Full name must be at least 2 characters.";
+  if (name.length > MAX_FULL_NAME_LEN) {
+    return `Full name is too long (max ${MAX_FULL_NAME_LEN} characters). Enter only the recipient's name — put address and phone in their own fields.`;
+  }
+  return null;
 }
 
 /**

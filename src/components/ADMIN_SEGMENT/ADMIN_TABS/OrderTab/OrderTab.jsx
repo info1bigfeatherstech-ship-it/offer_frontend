@@ -810,11 +810,11 @@ const OrderTab = () => {
   }
 
   return (
-    <div className="p-4 space-y-6 bg-[#F8FAFC] min-h-screen">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+    <div className="p-3 sm:p-4 space-y-3 sm:space-y-4 bg-[#F8FAFC] min-h-screen">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
         <div className="flex flex-col gap-1 min-w-0">
           <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-          <h1 className="text-2xl font-black text-slate-900 tracking-tight">Orders</h1>
+          <h1 className="text-xl font-bold text-slate-900 tracking-tight">Orders</h1>
           <div className="flex flex-wrap items-center gap-2">
             <select
               className="bg-white border border-slate-200 text-xs px-3 py-1.5 rounded-lg shadow-sm outline-none disabled:opacity-50 disabled:cursor-not-allowed"
@@ -941,14 +941,14 @@ const OrderTab = () => {
         <ApiErrorBanner error={summaryError || listError} />
       )}
 
-      {/* ── Stats grid — 2 cols on mobile, 4 on desktop ─────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+      {/* ── Stats — compact for 12–14" ─────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
         {stats.map((stat, i) => (
-          <div key={i} className="bg-white p-4 md:p-6 rounded-xl border border-slate-200 shadow-sm">
-            <span className="text-[11px] font-black text-slate-400 uppercase tracking-widest">
+          <div key={i} className="bg-white px-3 py-2.5 rounded-lg border border-slate-200 shadow-sm">
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">
               {stat.label}
             </span>
-            <h3 className="text-xl md:text-2xl font-black text-slate-900 mt-1">
+            <h3 className="text-lg font-bold text-slate-900 mt-0.5 leading-tight">
               {summaryLoading && !summary ? "…" : stat.value}
             </h3>
           </div>
@@ -956,47 +956,49 @@ const OrderTab = () => {
       </div>
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
-        {/* ── Filter tabs + search ─────────────────────────────────────────── */}
-        <div className="flex flex-col lg:flex-row items-center justify-between p-2 gap-4 border-b border-slate-100">
-          <div className="flex items-center gap-1 overflow-x-auto w-full lg:w-auto">
-            {filters.map((f) => (
-              <button
-                type="button"
-                key={f.label}
-                disabled={dateFilterActive && !searchActive}
-                title={
-                  dateFilterActive && !searchActive
-                    ? "Clear date filter to use status tabs"
-                    : undefined
-                }
-                onClick={() => {
-                  if (dateFilterActive && !searchActive) return;
-                  dispatch(setActiveTabLabel(f.label));
-                }}
-                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs whitespace-nowrap transition-all ${
-                  dateFilterActive && !searchActive
-                    ? "text-slate-400 opacity-60 cursor-not-allowed"
-                    : ui.activeTabLabel === f.label
-                      ? "bg-blue-50 text-blue-600 border border-blue-200"
-                      : "text-slate-500 hover:bg-slate-50"
-                }`}
-              >
-                {f.label}
-                {f.label !== "Cancelled" && (
-                  <span
-                    className={`px-1.5 py-0.5 rounded-md text-[10px] ${
-                      !dateFilterActive && ui.activeTabLabel === f.label
-                        ? "bg-blue-600 text-white"
-                        : "bg-slate-100 text-slate-500"
-                    }`}
-                  >
-                    {summaryFetching && !summary ? "…" : f.count}
-                  </span>
-                )}
-              </button>
-            ))}
-          </div>
-          <div className="flex items-center gap-2 w-full lg:w-auto px-2">
+        {/* ── Status filters — full labels, one row, fit box (no ellipsis) ─── */}
+        <div className="flex w-full min-w-0 flex-nowrap items-center justify-between gap-0.5 p-1.5 sm:p-2 border-b border-slate-100">
+          {filters.map((f) => (
+            <button
+              type="button"
+              key={f.label}
+              disabled={dateFilterActive && !searchActive}
+              title={
+                dateFilterActive && !searchActive
+                  ? "Clear date filter to use status tabs"
+                  : f.label
+              }
+              onClick={() => {
+                if (dateFilterActive && !searchActive) return;
+                dispatch(setActiveTabLabel(f.label));
+              }}
+              className={`flex items-center gap-1 px-1.5 sm:px-2 lg:px-2.5 py-1.5 rounded-lg text-[10px] sm:text-[11px] xl:text-xs whitespace-nowrap shrink-0 transition-all ${
+                dateFilterActive && !searchActive
+                  ? "text-slate-400 opacity-60 cursor-not-allowed"
+                  : ui.activeTabLabel === f.label
+                    ? "bg-blue-50 text-blue-600 border border-blue-200"
+                    : "text-slate-500 hover:bg-slate-50"
+              }`}
+            >
+              {f.label}
+              {f.label !== "Cancelled" && (
+                <span
+                  className={`px-1 sm:px-1.5 py-0.5 rounded-md text-[9px] sm:text-[10px] ${
+                    !dateFilterActive && ui.activeTabLabel === f.label
+                      ? "bg-blue-600 text-white"
+                      : "bg-slate-100 text-slate-500"
+                  }`}
+                >
+                  {summaryFetching && !summary ? "…" : f.count}
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Search + top pagination ──────────────────────────────────────── */}
+        <div className="flex flex-col sm:flex-row sm:items-center gap-2 px-2.5 py-2 border-b border-slate-100">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
             <input
               type="search"
               placeholder="Search orders..."
@@ -1005,16 +1007,41 @@ const OrderTab = () => {
               onKeyDown={(e) => {
                 if (e.key === "Enter") dispatch(commitSearch());
               }}
-              className="w-full lg:w-90 pl-4 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none"
+              className="w-full min-w-0 max-w-sm pl-3 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs outline-none"
             />
             <button
               type="button"
-              className="text-xs text-slate-500 px-2"
+              className="text-xs font-medium text-blue-600 px-2 shrink-0"
               onClick={() => dispatch(clearSearch())}
             >
               Clear
             </button>
           </div>
+          {pagination && pagination.total > 0 ? (
+            <div className="flex flex-wrap items-center justify-between sm:justify-end gap-2 shrink-0">
+              <span className="whitespace-nowrap rounded-md bg-blue-50 border border-blue-200 px-2.5 py-1 text-[11px] font-bold text-blue-900">
+                Page {pagination.page} of {pagination.totalPages || 1} · {pagination.total} orders
+              </span>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  disabled={!pagination.hasPrevPage}
+                  onClick={() => dispatch(setPage(pagination.page - 1))}
+                  className="px-2.5 py-1 rounded-md border border-blue-400 bg-white text-[11px] font-bold text-blue-700 hover:bg-blue-50 disabled:border-slate-300 disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  disabled={!pagination.hasNextPage}
+                  onClick={() => dispatch(setPage(pagination.page + 1))}
+                  className="px-2.5 py-1 rounded-md border border-blue-600 bg-blue-600 text-[11px] font-bold text-white hover:bg-blue-700 disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {dateFilterActive && !searchActive && (
@@ -1626,16 +1653,16 @@ const OrderTab = () => {
         {/* ── End mobile cards ─────────────────────────────────────────────── */}
 
         {pagination && pagination.total > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 border-t border-slate-100 text-xs text-slate-600">
-            <span>
+          <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2.5 border-t border-slate-100">
+            <span className="rounded-md bg-blue-50 border border-blue-200 px-2.5 py-1 text-[11px] font-bold text-blue-900">
               Page {pagination.page} of {pagination.totalPages || 1} · {pagination.total} orders
             </span>
-            <div className="flex gap-2">
+            <div className="flex gap-1.5">
               <button
                 type="button"
                 disabled={!pagination.hasPrevPage}
                 onClick={() => dispatch(setPage(pagination.page - 1))}
-                className="px-3 py-1 rounded border border-slate-200 bg-white disabled:opacity-40"
+                className="px-2.5 py-1 rounded-md border border-blue-400 bg-white text-[11px] font-bold text-blue-700 hover:bg-blue-50 disabled:border-slate-300 disabled:bg-slate-50 disabled:text-slate-500 disabled:cursor-not-allowed"
               >
                 Previous
               </button>
@@ -1643,7 +1670,7 @@ const OrderTab = () => {
                 type="button"
                 disabled={!pagination.hasNextPage}
                 onClick={() => dispatch(setPage(pagination.page + 1))}
-                className="px-3 py-1 rounded border border-slate-200 bg-white disabled:opacity-40"
+                className="px-2.5 py-1 rounded-md border border-blue-600 bg-blue-600 text-[11px] font-bold text-white hover:bg-blue-700 disabled:border-slate-300 disabled:bg-slate-200 disabled:text-slate-500 disabled:cursor-not-allowed"
               >
                 Next
               </button>

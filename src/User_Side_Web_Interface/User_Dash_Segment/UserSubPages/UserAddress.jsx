@@ -22,6 +22,8 @@ import {
   validateAddressFormStep2,
   ADDRESS_LINE1_MIN_LEN,
   ADDRESS_LINE_MAX_LEN,
+  MAX_FULL_NAME_LEN,
+  validateFullNameClient,
   getCourierStreetUsage,
 } from "../../../utils/addressValidation";
 
@@ -590,7 +592,8 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
   // Validation (pure — callers set formError / step)
   const validateStep = (s) => {
     if (s === 1) {
-      if (!form.fullName.trim()) return "Full Name is required";
+      const nameErr = validateFullNameClient(form.fullName);
+      if (nameErr) return nameErr;
       const digits = String(form.phone || "").replace(/\D/g, "");
       if (digits.length !== 10) return "Phone must be exactly 10 digits";
       if (!/^\d{6}$/.test(form.postalCode)) return "Pincode must be 6 digits";
@@ -684,7 +687,11 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
                 <Field
                   label="Full Name" name="fullName" value={form.fullName}
                   onChange={handleChange} required placeholder="Ravi Kumar"
+                  maxLength={MAX_FULL_NAME_LEN}
                 />
+                <p className="text-[10px] text-gray-400 -mt-3 px-1">
+                  Recipient name only (max {MAX_FULL_NAME_LEN} characters). Do not paste the full address here.
+                </p>
                 <Field
                   label="Phone Number" name="phone" value={form.phone}
                   onChange={handleChange} required type="tel"

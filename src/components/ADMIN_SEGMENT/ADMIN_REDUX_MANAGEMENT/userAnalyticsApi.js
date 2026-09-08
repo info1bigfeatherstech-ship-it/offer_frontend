@@ -45,10 +45,10 @@ export const userAnalyticsApi = createApi({
     
     // Get all users (paginated, searchable)
     getAllUsers: builder.query({
-      query: ({ page = 1, limit = 20, search = '', role = '' }) => ({
+      query: ({ page = 1, limit = 20, search = '', role = '', engagement = 'all' }) => ({
         url: '/admin/analytics/users',
         method: 'GET',
-        params: { page, limit, search, role },
+        params: { page, limit, search, role, engagement },
       }),
       providesTags: (result) => 
         result?.data 
