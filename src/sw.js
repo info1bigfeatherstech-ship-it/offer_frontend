@@ -58,9 +58,26 @@ registerRoute(
 );
 
 function toAbsoluteAssetUrl(url) {
-  if (!url) return `${self.location.origin}/pwa-192x192.png`;
-  if (/^https?:\/\//i.test(url)) return url;
-  return new URL(url, self.location.origin).href;
+  const fallback = `${self.location.origin}/pwa-192x192.png`;
+  if (!url) return fallback;
+  try {
+    if (/^https?:\/\//i.test(url)) {
+      const parsed = new URL(url);
+      // Brand PWA / favicon assets: always load from this SW origin so local
+      // Vite public/ and production each serve their own file. Avoids broken
+      // cross-origin hosts causing Chrome to reuse the large product `image`.
+      if (
+        /\/pwa-\d+x\d+\.(png|webp|jpe?g)$/i.test(parsed.pathname) ||
+        /\/favicon\.(ico|png)$/i.test(parsed.pathname)
+      ) {
+        return `${self.location.origin}${parsed.pathname}`;
+      }
+      return parsed.href;
+    }
+    return new URL(url, self.location.origin).href;
+  } catch {
+    return fallback;
+  }
 }
 
 function parsePushPayload(event) {
@@ -81,11 +98,23 @@ function parsePushPayload(event) {
       image = undefined;
     }
   }
+
+  let icon = toAbsoluteAssetUrl(data.icon || '/pwa-192x192.png');
+  let badge = toAbsoluteAssetUrl(data.badge || '/pwa-192x192.png');
+  const brandFallback = `${self.location.origin}/pwa-192x192.png`;
+
+  // Restock (and any payload with a large product image): never let the small
+  // icon/badge collapse to the same URL as the hero image.
+  if (image && (icon === image || badge === image)) {
+    if (icon === image) icon = brandFallback;
+    if (badge === image) badge = brandFallback;
+  }
+
   return {
     title: data.title || 'OfferWaaleBaba',
     body: data.body || '',
-    icon: toAbsoluteAssetUrl(data.icon || '/pwa-192x192.png'),
-    badge: toAbsoluteAssetUrl(data.badge || data.icon || '/pwa-192x192.png'),
+    icon,
+    badge,
     image,
     tag: data.tag || 'offerwalebaba',
     actions: Array.isArray(data.actions) ? data.actions : undefined,
