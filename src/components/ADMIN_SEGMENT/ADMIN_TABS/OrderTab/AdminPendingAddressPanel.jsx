@@ -7,6 +7,8 @@ import {
 import {
   getCourierStreetUsage,
   validateCourierStreetClient,
+  validateFullNameClient,
+  MAX_FULL_NAME_LEN,
 } from "../../../../utils/addressValidation";
 
 function formatInr(n) {
@@ -20,6 +22,7 @@ function formatInr(n) {
 }
 
 const EDITABLE_FIELDS = [
+  { key: "fullName", label: "Full name", maxLength: MAX_FULL_NAME_LEN },
   { key: "houseNumber", label: "House / flat" },
   { key: "building", label: "Building" },
   { key: "floor", label: "Floor" },
@@ -126,7 +129,16 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
     setPreview(null);
     setLocalMsg(null);
     setEditing(false);
-  }, [orderId, addr.postalCode, addr.addressLine1, addr.city, addr.state, addr.houseNumber, addr.area]);
+  }, [
+    orderId,
+    addr.fullName,
+    addr.postalCode,
+    addr.addressLine1,
+    addr.city,
+    addr.state,
+    addr.houseNumber,
+    addr.area,
+  ]);
 
   const addressPatch = useMemo(() => {
     const patch = {};
@@ -139,11 +151,16 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
   }, [draft, addr]);
 
   const hasChanges = Object.keys(addressPatch).length > 0;
+  const isNameOnlyChange =
+    hasChanges &&
+    Object.keys(addressPatch).length === 1 &&
+    Object.prototype.hasOwnProperty.call(addressPatch, "fullName");
   const busy = previewState.isLoading || applyState.isLoading || disabled;
   const primary = intelRes?.data?.primary || null;
   const shiprocketIntel = intelRes?.data?.shiprocket || null;
   const intelLoadingAny = intelLoading || intelFetching;
   const courierUsage = useMemo(() => getCourierStreetUsage(draft), [draft]);
+  const streetLengthBlocks = !isNameOnlyChange && courierUsage.overLimit;
 
   const addressRisk =
     normalizeRiskLevel(primary?.risk) || normalizeRiskLevel(shiprocketIntel?.risk);
@@ -153,11 +170,18 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
     shiprocketIntel?.available || primary?.source === "shiprocket"
   );
 
-  const guardCourierStreetLength = () => {
-    const err = validateCourierStreetClient(draft);
-    if (err) {
-      setLocalMsg({ type: "err", text: err });
+  const guardEditableFields = () => {
+    const draftNameErr = validateFullNameClient(draft.fullName);
+    if (draftNameErr) {
+      setLocalMsg({ type: "err", text: draftNameErr });
       return false;
+    }
+    if (!isNameOnlyChange) {
+      const streetErr = validateCourierStreetClient(draft);
+      if (streetErr) {
+        setLocalMsg({ type: "err", text: streetErr });
+        return false;
+      }
     }
     return true;
   };
@@ -165,7 +189,7 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
   const runPreview = async () => {
     setLocalMsg(null);
     setPreview(null);
-    if (!guardCourierStreetLength()) return;
+    if (!guardEditableFields()) return;
     try {
       const res = await previewEdit({
         orderId,
@@ -182,12 +206,11 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
   };
 
   const runApply = async () => {
-    if (!guardCourierStreetLength()) return;
-    if (
-      !window.confirm(
-        "Update delivery address on this order? Name and phone stay unchanged. Shipping will be re-quoted (customer never charged more)."
-      )
-    ) {
+    if (!guardEditableFields()) return;
+    const confirmMsg = isNameOnlyChange
+      ? "Update recipient name on this order only? Phone, shipping, and order totals stay unchanged."
+      : "Update delivery address on this order? Phone stays unchanged. Shipping will be re-quoted (customer never charged more).";
+    if (!window.confirm(confirmMsg)) {
       return;
     }
     setLocalMsg(null);
@@ -352,7 +375,8 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
         {isPending && editing && (
           <div className="rounded-md border border-slate-200 bg-slate-50/60 p-3 space-y-3">
             <p className="text-[11px] text-slate-600">
-              Name and phone stay locked. Street fields update this order&apos;s snapshot for Shiprocket.
+              Phone stays locked. Name-only edits do not change shipping or totals. Street / pin
+              changes still re-quote shipping for Shiprocket.
             </p>
             <div
               className={`rounded-md border px-2.5 py-2 text-[11px] font-semibold ${
@@ -373,7 +397,10 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
                 <label
                   key={f.key}
                   className={`block text-xs ${
-                    f.key === "addressLine1" || f.key === "addressLine2" || f.key === "landmark"
+                    f.key === "fullName" ||
+                    f.key === "addressLine1" ||
+                    f.key === "addressLine2" ||
+                    f.key === "landmark"
                       ? "sm:col-span-2"
                       : ""
                   }`}
@@ -383,9 +410,16 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
                     type="text"
                     disabled={busy}
                     value={draft[f.key] ?? ""}
+                    maxLength={f.maxLength || undefined}
                     onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
                     className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                   />
+                  {f.key === "fullName" && (
+                    <span className="mt-0.5 block text-[10px] text-slate-500">
+                      Recipient name only — not the full address ({String(draft.fullName || "").length}/
+                      {MAX_FULL_NAME_LEN})
+                    </span>
+                  )}
                 </label>
               ))}
             </div>
@@ -404,7 +438,7 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
             <div className="flex flex-wrap gap-2">
               <button
                 type="button"
-                disabled={busy || !hasChanges || courierUsage.overLimit}
+                disabled={busy || !hasChanges || streetLengthBlocks}
                 onClick={runPreview}
                 className="rounded-md border border-slate-300 bg-white px-3 py-1.5 text-[11px] font-semibold text-slate-800 hover:bg-slate-50 disabled:opacity-50"
               >
@@ -412,7 +446,7 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
               </button>
               <button
                 type="button"
-                disabled={busy || !hasChanges || !preview || courierUsage.overLimit}
+                disabled={busy || !hasChanges || !preview || streetLengthBlocks}
                 onClick={runApply}
                 className="rounded-md bg-blue-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
               >
@@ -422,17 +456,31 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
 
             {preview && (
               <div className="rounded-md border border-blue-100 bg-blue-50/70 px-2.5 py-2 text-[11px] text-slate-800 space-y-0.5">
-                <p>
-                  Shipping: {formatInr(preview.shipping?.oldDelivery)} →{" "}
-                  {formatInr(preview.shipping?.customerDelivery)}
-                  {preview.shipping?.courierName ? ` · ${preview.shipping.courierName}` : ""}
-                </p>
-                <p>
-                  New total: {formatInr(preview.after?.totalAmount)}
-                  {Number(preview.refundInr) > 0.005
-                    ? ` · Refund ${formatInr(preview.refundInr)}`
-                    : " · No refund"}
-                </p>
+                {preview.nameOnly ? (
+                  <>
+                    <p className="font-semibold text-slate-900">
+                      Name only — shipping and totals unchanged
+                    </p>
+                    <p>
+                      {preview.before?.contact?.fullName || "—"} →{" "}
+                      {preview.after?.contact?.fullName || "—"}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p>
+                      Shipping: {formatInr(preview.shipping?.oldDelivery)} →{" "}
+                      {formatInr(preview.shipping?.customerDelivery)}
+                      {preview.shipping?.courierName ? ` · ${preview.shipping.courierName}` : ""}
+                    </p>
+                    <p>
+                      New total: {formatInr(preview.after?.totalAmount)}
+                      {Number(preview.refundInr) > 0.005
+                        ? ` · Refund ${formatInr(preview.refundInr)}`
+                        : " · No refund"}
+                    </p>
+                  </>
+                )}
               </div>
             )}
           </div>
