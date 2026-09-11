@@ -255,18 +255,18 @@ const CategoryRow = ({
         <Icon d={ICONS.pencil} size={15} />
       </button>
 
-      {/* Delete */}
+      {/* Delete — hard delete only when already inactive */}
       {isConfirmDelete ? (
         <div className="flex items-center gap-1 flex-shrink-0">
           <button
             type="button"
             onClick={() => onDeleteConfirm(cat._id)}
-            disabled={deleteLoading}
+            disabled={deleteLoading || !isHidden}
             className="px-2.5 py-1 text-xs font-medium bg-red-600 text-white rounded-md hover:bg-red-700 disabled:opacity-50 flex items-center gap-1 transition-colors"
           >
             {deleteLoading
               ? <span className="w-3 h-3 border border-white border-t-transparent rounded-full animate-spin" />
-              : "Delete"
+              : "Delete forever"
             }
           </button>
           <button
@@ -280,9 +280,22 @@ const CategoryRow = ({
       ) : (
         <button
           type="button"
-          onClick={() => onDeleteRequest(cat._id)}
-          title="Delete category"
-          className="p-1.5 rounded-lg cursor-pointer text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors flex-shrink-0"
+          onClick={() => {
+            if (!isHidden) return;
+            onDeleteRequest(cat._id);
+          }}
+          disabled={!isHidden}
+          title={
+            isHidden
+              ? "Permanently delete category"
+              : "Pehle inactive karein (eye icon), phir delete"
+          }
+          className={[
+            "p-1.5 rounded-lg transition-colors flex-shrink-0",
+            isHidden
+              ? "cursor-pointer text-gray-400 hover:text-red-600 hover:bg-red-50"
+              : "cursor-not-allowed text-gray-300 opacity-40",
+          ].join(" ")}
         >
           <Icon d={ICONS.trash} size={15} />
         </button>
@@ -572,6 +585,12 @@ const CategoryModal = ({ onSelect, onClose }) => {
   };
 
   const handleDelete = async (id) => {
+    const target = orderedCategories.find((c) => c._id === id)
+      || categories.find((c) => c._id === id);
+    if (!target || target.status !== "inactive") {
+      setConfirmDeleteId(null);
+      return;
+    }
     const result = await dispatch(deleteCategory(id));
     if (deleteCategory.fulfilled.match(result)) {
       setConfirmDeleteId(null);
@@ -583,6 +602,8 @@ const CategoryModal = ({ onSelect, onClose }) => {
   // ── Visibility toggle — optimistic + server rollback ──────────
   const handleToggleVisibility = useCallback(async (cat) => {
     const wasHidden = cat.status === "inactive";
+    // Drop any pending hard-delete confirm for this row
+    setConfirmDeleteId((prev) => (prev === cat._id ? null : prev));
     setOrderedCategories((prev) =>
       prev.map((c) =>
         c._id === cat._id

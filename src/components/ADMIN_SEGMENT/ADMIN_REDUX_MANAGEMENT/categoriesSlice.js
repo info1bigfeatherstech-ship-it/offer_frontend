@@ -83,7 +83,7 @@ export const updateCategory = createAsyncThunk(
   }
 );
 
-// 4. Delete category (admin) — soft delete
+// 4. Delete category (admin) — hard delete (API allows only inactive categories)
 export const deleteCategory = createAsyncThunk(
   "categories/delete",
   async (id, { rejectWithValue }) => {

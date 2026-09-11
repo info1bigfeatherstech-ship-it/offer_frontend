@@ -12,8 +12,8 @@ export const ADDRESS_LINE1_MIN_LEN = 10;
 /** Per form addressLine field; courier combined cap is the hard shipping limit. */
 export const ADDRESS_LINE_MAX_LEN = 200;
 export const MAX_COURIER_COMBINED_STREET_CHARS = 190;
-/** Align with backend MAX_FULL_NAME_LEN / courier consignee name cap. */
-export const MAX_FULL_NAME_LEN = 80;
+/** Align with backend MAX_FULL_NAME_LEN / Shipmozo consignee name cap (50). */
+export const MAX_FULL_NAME_LEN = 50;
 
 function trim(value) {
   if (value == null) return "";
