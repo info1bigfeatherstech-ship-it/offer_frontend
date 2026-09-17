@@ -42,8 +42,19 @@ export default function OrderPaymentSummaryCard({
   const balanceDue = Number(orderSafe.balanceDueInr) || 0;
   const amountPaid = Number(orderSafe.amountPaidInr) || 0;
   const billTotal = Number(orderSafe.totalAmount) || 0;
+  const lockedCollectableRaw = orderSafe?.shipmentInfo?.courierCollectableInr;
+  const hasLockedCollectable =
+    lockedCollectableRaw != null && Number.isFinite(Number(lockedCollectableRaw));
+  const courierCollectable = hasLockedCollectable
+    ? Number(lockedCollectableRaw) || 0
+    : balanceDue;
   const isPaid = payStatus === "paid";
-  const hasDue = balanceDue > 0.01;
+  /** Customer / courier facing: prefer locked COD after push. */
+  const hasDue = hasLockedCollectable
+    ? courierCollectable > 0.01
+    : balanceDue > 0.01;
+  const internalDueDiffers =
+    hasLockedCollectable && Math.abs(balanceDue - courierCollectable) > 0.05;
 
   const statusTone = isPaid
     ? "bg-blue-50 text-blue-800 border-blue-200"
@@ -97,8 +108,14 @@ export default function OrderPaymentSummaryCard({
           </div>
           {hasDue ? (
             <div className="flex justify-between items-baseline gap-3 rounded-md bg-amber-50 border border-amber-100 px-2.5 py-2 -mx-0.5">
-              <span className="text-xs font-semibold text-amber-900">Still due (COD / balance)</span>
-              <span className="text-sm font-black text-amber-800 tabular-nums">{fmt(balanceDue)}</span>
+              <span className="text-xs font-semibold text-amber-900">
+                {hasLockedCollectable
+                  ? "Courier collectable (locked at push)"
+                  : "Still due (COD / balance)"}
+              </span>
+              <span className="text-sm font-black text-amber-800 tabular-nums">
+                {fmt(hasLockedCollectable ? courierCollectable : balanceDue)}
+              </span>
             </div>
           ) : (
             <div className="flex justify-between items-baseline gap-3 pt-1 border-t border-slate-100">
@@ -106,6 +123,14 @@ export default function OrderPaymentSummaryCard({
               <span className="text-xs font-bold text-blue-700">Nothing left to collect</span>
             </div>
           )}
+          {internalDueDiffers ? (
+            <div className="flex justify-between items-baseline gap-3 text-[11px] text-slate-500 pt-0.5">
+              <span title="Internal settlement after Ship Now freight — not shown to customer as COD">
+                Internal balance due (admin)
+              </span>
+              <span className="tabular-nums font-medium">{fmt(balanceDue)}</span>
+            </div>
+          ) : null}
         </div>
 
         <div className="flex justify-between items-baseline gap-3 pt-1">

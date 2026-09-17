@@ -229,7 +229,9 @@ function normalizeTrackingEvents(rawEvents = []) {
       status: event?.status || "Shipment update",
       description: event?.description || null,
       location: event?.location || null,
-      timestamp: event?.timestamp || event?.at || null,
+      // Shipmozo scans use `date`/`time`; Shiprocket often uses `at`/`timestamp`
+      timestamp:
+        event?.timestamp || event?.at || event?.time || event?.date || event?.datetime || null,
     }))
     .filter((event) => event.status || event.description || event.timestamp);
 }

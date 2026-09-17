@@ -394,8 +394,13 @@ function AmountCell({ row, breakdown: breakdownProp, expanded, onToggle }) {
           Paid {fmtInr(paid)} · COD due {fmtInr(codDue || Math.max(0, Number(row.amountInr) - paid))}
         </div>
       )}
-      {isNoRefundPayment(row) && (
+      {isNoRefundPayment(row) && !row.canFullAmountRefund && (
         <div className="text-[10px] text-slate-500 mt-0.5">No refund — close case when done</div>
+      )}
+      {row.canFullAmountRefund && (
+        <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">
+          Full amount refund: {fmtInrDetail(Number(row.fullAmountRefundInr) || Number(row.amountPaidInr) || 0)}
+        </div>
       )}
       {rtoShip > 0 && (
         <div className="text-[10px] text-slate-700 font-semibold mt-0.5">
@@ -436,6 +441,14 @@ function AmountCell({ row, breakdown: breakdownProp, expanded, onToggle }) {
 
 function buildRowActionItems(row) {
   const items = [];
+
+  if (row.canFullAmountRefund) {
+    items.push({
+      key: "refund_full_amount",
+      label: "Refund full amount",
+      tone: "primary",
+    });
+  }
 
   if (row.canRefund) {
     items.push({
@@ -599,6 +612,16 @@ function RtoActionModal({ modal, note, onNoteChange, onClose, onConfirm, loading
       "This will initiate a real Razorpay refund to the customer. Use only when delivery/logistics was at fault — not for customer refusal.";
     confirmLabel = loading ? "Processing…" : `Refund ${netRefund > 0 ? fmtInrDetail(netRefund) : ""}`.trim();
     confirmClass = BTN_REFUND;
+  } else if (modal.type === "refund_full_amount") {
+    const paid =
+      Number(row?.fullAmountRefundInr) > 0
+        ? Number(row.fullAmountRefundInr)
+        : Number(row?.amountPaidInr) || 0;
+    title = "Refund full amount paid";
+    description =
+      "Tracking shows no delivery attempt / no customer fault. This refunds the full amount the customer paid online — no forward shipping, RTO shipping, or platform fee deductions.";
+    confirmLabel = loading ? "Processing…" : `Refund ${paid > 0 ? fmtInrDetail(paid) : ""}`.trim();
+    confirmClass = BTN_REFUND;
   } else if (modal.type === "close") {
     title = "Close RTO case";
     description =
@@ -655,6 +678,24 @@ function RtoActionModal({ modal, note, onNoteChange, onClose, onConfirm, loading
         )}
         {modal.type === "refund" && breakdown && !breakdown.infoOnly && (
           <RefundBreakdownPanel breakdown={breakdown} variant="modal" />
+        )}
+        {modal.type === "refund_full_amount" && row && (
+          <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 p-3 text-xs space-y-1.5">
+            <p className="font-semibold text-emerald-900">Full amount refund (no deductions)</p>
+            <p>
+              <span className="text-slate-500">Amount paid online:</span>{" "}
+              <span className="font-semibold text-slate-900">
+                {fmtInrDetail(
+                  Number(row.fullAmountRefundInr) > 0
+                    ? Number(row.fullAmountRefundInr)
+                    : Number(row.amountPaidInr) || 0
+                )}
+              </span>
+            </p>
+            <p className="text-slate-600 leading-relaxed">
+              Forward shipping, RTO shipping, and platform fee will not be deducted.
+            </p>
+          </div>
         )}
         {modal.type === "close" && breakdown?.infoOnly && (
           <RefundBreakdownPanel breakdown={breakdown} variant="modal" />
@@ -831,6 +872,13 @@ export default function RtoTab() {
     setModal({ type: "refund", row });
   };
 
+  const openFullAmountRefundModal = (row) => {
+    setActionErr(null);
+    setActionMsg(null);
+    setModalNote("");
+    setModal({ type: "refund_full_amount", row });
+  };
+
   const openRejectModal = (row) => {
     setActionErr(null);
     setActionMsg(null);
@@ -855,6 +903,10 @@ export default function RtoTab() {
 
   const handleRowAction = useCallback(
     (actionKey, row) => {
+      if (actionKey === "refund_full_amount") {
+        openFullAmountRefundModal(row);
+        return;
+      }
       if (actionKey === "refund") {
         openRefundModal(row);
         return;
@@ -884,6 +936,12 @@ export default function RtoTab() {
       if (modal.type === "refund") {
         const res = await refundOrder({ orderId: modal.row.orderId }).unwrap();
         setActionMsg(res.message || "Refund initiated");
+      } else if (modal.type === "refund_full_amount") {
+        const res = await refundOrder({
+          orderId: modal.row.orderId,
+          refundMode: "full_paid_amount",
+        }).unwrap();
+        setActionMsg(res.message || "Full amount refund initiated");
       } else if (modal.type === "reject" || modal.type === "close") {
         const res = await rejectOrder({
           orderId: modal.row.orderId,
