@@ -640,17 +640,49 @@ const OrderDetail = ({ orderId, onBack }) => {
           { label: "Subtotal", value: fmt(order.subtotal) },
           {
             label: "Delivery",
-            value:
-              order.deliveryCharges === 0
-                ? "FREE"
-                : fmt(order.deliveryCharges),
+            value: (() => {
+              const locked = order?.shipmentInfo?.courierCollectableInr;
+              const hasLock = locked != null && Number.isFinite(Number(locked));
+              const frozenDel = order?.shipmentInfo?.courierDeliveryInr;
+              const delivery =
+                hasLock && frozenDel != null && Number.isFinite(Number(frozenDel))
+                  ? Number(frozenDel)
+                  : hasLock &&
+                      order?.paymentInfo?.oosShippingSettlement?.heldDeliveryCharges != null
+                    ? Number(order.paymentInfo.oosShippingSettlement.heldDeliveryCharges)
+                    : Number(order.deliveryCharges) || 0;
+              return delivery === 0 ? "FREE" : fmt(delivery);
+            })(),
           },
           { label: "Tax", value: fmt(order.tax) },
           {
             label: "Total",
-            value: fmt(order.totalAmount),
+            value: (() => {
+              const locked = order?.shipmentInfo?.courierCollectableInr;
+              const hasLock = locked != null && Number.isFinite(Number(locked));
+              const frozenTotal = order?.shipmentInfo?.courierFacingTotalInr;
+              if (hasLock && frozenTotal != null && Number.isFinite(Number(frozenTotal))) {
+                return fmt(Number(frozenTotal));
+              }
+              return fmt(order.totalAmount);
+            })(),
             bold: true,
           },
+          ...(function () {
+            const locked = order?.shipmentInfo?.courierCollectableInr;
+            const hasLock = locked != null && Number.isFinite(Number(locked));
+            const due = hasLock
+              ? Number(locked) || 0
+              : Number(order.balanceDueInr) || 0;
+            if (!(due > 0.01)) return [];
+            return [
+              {
+                label: hasLock ? "Pay to courier" : "Balance due",
+                value: fmt(due),
+                bold: true,
+              },
+            ];
+          })(),
         ].map(({ label, value, bold }) => (
           <div key={label} className="min-w-0">
 
