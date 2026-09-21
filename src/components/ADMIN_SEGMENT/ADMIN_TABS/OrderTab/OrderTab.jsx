@@ -44,6 +44,11 @@ import AdminOrderDetailView from "./AdminOrderDetailView";
 import AdminOrderRowActions from "./AdminOrderRowActions";
 import axiosInstance from "../../../../SERVICES/axiosInstance";
 import { useSearchParams } from "react-router-dom";
+import { selectAdminUser } from "../../ADMIN_REDUX_MANAGEMENT/adminAuthSlice";
+import {
+  isPackingViewerRole,
+  PACKING_VIEWER_ORDER_TABS,
+} from "../../roles";
 
 const TAB_ORDER = [
   // "All" — intentionally hidden; summary cards still exclude cancelled via backend totals.
@@ -57,6 +62,8 @@ const TAB_ORDER = [
   "Cancelled",
   "Pickup Exception",
 ];
+
+const PACKING_VIEWER_DEFAULT_TAB = "Confirmed";
 
 function formatInr(amount) {
   const n = Number(amount);
@@ -155,6 +162,9 @@ const OrderTab = () => {
   const summaryArgs = useSelector(selectAdminOrdersSummaryQueryArgs);
   const dateArgs = useSelector(selectAdminOrdersDateQueryArgs);
   const ui = useSelector((s) => s.adminOrdersUi);
+  const adminUser = useSelector(selectAdminUser);
+  const isPackingViewer = isPackingViewerRole(adminUser?.role);
+  const visibleTabOrder = isPackingViewer ? PACKING_VIEWER_ORDER_TABS : TAB_ORDER;
   const dateFilterActive = isOrdersDateFilterActive(ui.datePreset);
   const searchActive = Boolean(String(ui.search || "").trim());
 
@@ -202,6 +212,7 @@ const OrderTab = () => {
 
   /** Silent background sync: Shiprocket + Shipmozo → DB for stale orders in the active date range. */
   useEffect(() => {
+    if (isPackingViewer) return undefined;
     let cancelled = false;
     let initialTimer;
     let intervalId;
@@ -244,7 +255,7 @@ const OrderTab = () => {
       clearInterval(intervalId);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [dateArgs, autoSyncOrderStatuses]);
+  }, [dateArgs, autoSyncOrderStatuses, isPackingViewer]);
 
   const {
     data: detailRes,
@@ -355,9 +366,6 @@ const OrderTab = () => {
     [eligibleBulkInvoiceIds, orderById]
   );
 
-  const showBulkTaxInvoicesZip = dateFilterActive || ui.activeTabLabel === "Confirmed";
-  const showBulkFulfillmentActions = selectedOrders.length > 0;
-
   /** Any pending row — cancel does not require payment capture. */
   const eligibleBulkPendingIds = useMemo(
     () =>
@@ -377,8 +385,6 @@ const OrderTab = () => {
       }),
     [selectedOrders, orderById]
   );
-
-  const showBulkPendingActions = dateFilterActive || ui.activeTabLabel === "Pending";
 
   const eligibleBulkShipIds = useMemo(
     () =>
@@ -424,9 +430,17 @@ const OrderTab = () => {
   /** Legacy "All" tab removed from UI — normalize any stale Redux state once. */
   useEffect(() => {
     if (ui.activeTabLabel === "All") {
-      dispatch(setActiveTabLabel(DEFAULT_ORDER_TAB_LABEL));
+      dispatch(setActiveTabLabel(isPackingViewer ? PACKING_VIEWER_DEFAULT_TAB : DEFAULT_ORDER_TAB_LABEL));
     }
-  }, [ui.activeTabLabel, dispatch]);
+  }, [ui.activeTabLabel, dispatch, isPackingViewer]);
+
+  /** Packing viewer: only Confirmed + Ready to Ship. */
+  useEffect(() => {
+    if (!isPackingViewer) return;
+    if (!PACKING_VIEWER_ORDER_TABS.includes(ui.activeTabLabel)) {
+      dispatch(setActiveTabLabel(PACKING_VIEWER_DEFAULT_TAB));
+    }
+  }, [isPackingViewer, ui.activeTabLabel, dispatch]);
 
   /** Draft dates for Custom range — committed via Apply only */
   const [draftDateFrom, setDraftDateFrom] = useState("");
@@ -466,11 +480,17 @@ const OrderTab = () => {
 
   const filters = useMemo(() => {
     const c = summary?.countsByBucket || {};
-    return TAB_ORDER.map((label) => {
+    return visibleTabOrder.map((label) => {
       const key = ORDER_TAB_LABEL_TO_BUCKET[label];
       return { label, count: c[key] ?? 0 };
     });
-  }, [summary]);
+  }, [summary, visibleTabOrder]);
+
+  const showBulkTaxInvoicesZip =
+    !isPackingViewer && (dateFilterActive || ui.activeTabLabel === "Confirmed");
+  const showBulkFulfillmentActions = !isPackingViewer && selectedOrders.length > 0;
+  const showBulkPendingActions =
+    !isPackingViewer && (dateFilterActive || ui.activeTabLabel === "Pending");
 
   const handleDownloadReport = useCallback(() => {
     const rows = orders.map((o) => ({
@@ -797,6 +817,7 @@ const OrderTab = () => {
         orderId={selectedOrderId}
         order={detailOrder}
         fulfillmentPaymentGate={fulfillmentPaymentGate}
+        packingViewer={isPackingViewer}
         loading={detailLoading}
         error={detailIsError ? detailError : null}
         tracking={tracking}
@@ -957,7 +978,13 @@ const OrderTab = () => {
 
       <div className="bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden">
         {/* ── Status filters — full labels, one row, fit box (no ellipsis) ─── */}
-        <div className="flex w-full min-w-0 flex-nowrap items-center justify-between gap-0.5 p-1.5 sm:p-2 border-b border-slate-100">
+        <div
+          className={`flex w-full min-w-0 flex-nowrap items-center p-1.5 sm:p-2 border-b border-slate-100 ${
+            isPackingViewer
+              ? "justify-start gap-2 sm:gap-3"
+              : "justify-between gap-0.5"
+          }`}
+        >
           {filters.map((f) => (
             <button
               type="button"
@@ -1085,7 +1112,7 @@ const OrderTab = () => {
         ) : null}
 
         {/* ── Bulk selection bar ───────────────────────────────────────────── */}
-        {selectedOrders.length > 0 && (
+        {selectedOrders.length > 0 && !isPackingViewer && (
           <div className="flex flex-col gap-2 bg-blue-50 p-3 border-b border-blue-100">
             <div className="flex flex-wrap items-center gap-3">
               <div className="relative shrink-0">
@@ -1411,6 +1438,7 @@ const OrderTab = () => {
           <table className="w-full text-left border-collapse">
             <thead className="bg-[#F8FAFC] border-b border-slate-200">
               <tr className="text-[11px] text-slate-900 uppercase tracking-tight">
+                {!isPackingViewer ? (
                 <th className="px-4 py-4 w-10">
                   <input
                     type="checkbox"
@@ -1419,6 +1447,7 @@ const OrderTab = () => {
                     checked={orders.length > 0 && selectedOrders.length === orders.length}
                   />
                 </th>
+                ) : null}
                 <th className="px-4 py-4 text-[#2563eb]">Order ID</th>
                 <th className="px-4 py-4 text-[#2563eb]">Contact</th>
                 <th className="px-4 py-4 text-[#2563eb]">Date</th>
@@ -1439,6 +1468,7 @@ const OrderTab = () => {
                     selectedOrders.includes(order.orderId) ? "bg-blue-50/40" : ""
                   }`}
                 >
+                  {!isPackingViewer ? (
                   <td className="px-4 py-4" onClick={(e) => e.stopPropagation()}>
                     <input
                       type="checkbox"
@@ -1447,6 +1477,7 @@ const OrderTab = () => {
                       onChange={() => toggleSelectOrder(order.orderId)}
                     />
                   </td>
+                  ) : null}
                   <td className="px-4 py-4 text-slate-900 font-medium">
                     <div>{order.orderIdDisplay || order.orderId}</div>
                     <span
@@ -1501,6 +1532,7 @@ const OrderTab = () => {
                   <td className="px-4 py-4 text-center relative overflow-visible">
                     <AdminOrderRowActions
                       order={order}
+                      packingViewer={isPackingViewer}
                       onOpenDetail={setSelectedOrderId}
                       onFeedback={(fb) => {
                         if (fb?.type === "err" && fb.text) {
@@ -1529,7 +1561,7 @@ const OrderTab = () => {
         {/* ── MOBILE: order cards — hidden on desktop ──────────────────────── */}
         <div className="block md:hidden divide-y divide-slate-100">
           {/* Mobile select-all bar */}
-          {orders.length > 0 && (
+          {orders.length > 0 && !isPackingViewer && (
             <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 border-b border-slate-100">
               <input
                 type="checkbox"
@@ -1554,6 +1586,7 @@ const OrderTab = () => {
               {/* Card header: checkbox + order id + status */}
               <div className="flex items-start justify-between gap-3 mb-3">
                 <div className="flex items-start gap-3 min-w-0">
+                  {!isPackingViewer ? (
                   <div onClick={(e) => e.stopPropagation()} className="mt-0.5 shrink-0">
                     <input
                       type="checkbox"
@@ -1562,6 +1595,7 @@ const OrderTab = () => {
                       onChange={() => toggleSelectOrder(order.orderId)}
                     />
                   </div>
+                  ) : null}
                   <div className="min-w-0">
                     <p className="text-xs font-semibold text-slate-900 truncate">
                       {order.orderIdDisplay || order.orderId}
@@ -1632,6 +1666,7 @@ const OrderTab = () => {
                 </span>
                 <AdminOrderRowActions
                   order={order}
+                  packingViewer={isPackingViewer}
                   onOpenDetail={setSelectedOrderId}
                   onFeedback={(fb) => {
                     if (fb?.type === "err" && fb.text) {

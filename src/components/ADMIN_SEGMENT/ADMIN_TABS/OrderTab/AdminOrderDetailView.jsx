@@ -18,6 +18,7 @@ import AdminPendingOrderEditPanel from "./AdminPendingOrderEditPanel";
 import AdminPendingAddressPanel from "./AdminPendingAddressPanel";
 import OrderShipmentTrackingPanel from "./OrderShipmentTrackingPanel";
 import OrderPaymentSummaryCard from "./OrderPaymentSummaryCard";
+import { filterCapsForPackingViewer } from "../../roles";
 
 /** @deprecated Prefer shipmentOps.opsState — kept for legacy sync heuristics only. */
 function isPickupBookedOnOrder(ship, opsState) {
@@ -430,6 +431,7 @@ export default function AdminOrderDetailView({
   order,
   /** From staff GET /orders/items/:id — server-evaluated payment gate for Shiprocket */
   fulfillmentPaymentGate,
+  packingViewer = false,
   tracking,
   trackingLoading,
   trackingError,
@@ -523,7 +525,8 @@ export default function AdminOrderDetailView({
     : null;
 
   const carrierPaymentReady = carrierFulfilmentPaymentReady(order, fulfillmentPaymentGate);
-  const canRunFulfillmentActions = !fulfillmentActionsBlocked && carrierPaymentReady;
+  const canRunFulfillmentActions =
+    !packingViewer && !fulfillmentActionsBlocked && carrierPaymentReady;
   const carrierPaymentHint =
     fulfillmentActionsBlocked
       ? null
@@ -534,6 +537,7 @@ export default function AdminOrderDetailView({
           : null;
 
   useEffect(() => {
+    if (packingViewer) return;
     if (!orderId || !order || loading) return;
     const srId = order?.shipmentInfo?.shiprocketOrderId;
     if (!srId || fulfillmentActionsBlocked) return;
@@ -579,6 +583,7 @@ export default function AdminOrderDetailView({
     syncShiprocket,
     refreshOrder,
     onRefreshTracking,
+    packingViewer,
   ]);
 
   const fetchInvoiceObjectUrl = useCallback(async () => {
@@ -775,8 +780,12 @@ export default function AdminOrderDetailView({
 
   const ship = order?.shipmentInfo || {};
   const ops = order?.shipmentOps || {};
-  const caps = ops.actionCapabilities || {};
+  const capsRaw = ops.actionCapabilities || {};
+  const caps = packingViewer ? filterCapsForPackingViewer(capsRaw) : capsRaw;
   const blockReasons = ops.blockReasons || {};
+  /** Packing viewer: label download only (no Ship now / schedule / cancel). */
+  const canPackingViewerDownloadLabel =
+    packingViewer && !fulfillmentActionsBlocked && Boolean(caps.downloadLabel);
   const riskFlags = ops.riskFlags || {};
   const externalLinks = ops.externalLinks || {};
   const hasCarrierAwb = Boolean(ship.awbCode || ship.trackingNumber);
@@ -1135,7 +1144,7 @@ export default function AdminOrderDetailView({
               <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Pay</span>
               {labelPaymentStatus(order.paymentStatus)}
             </span>
-            {isPendingOrder ? (
+            {isPendingOrder && !packingViewer ? (
               <>
                 <button
                   type="button"
@@ -1203,7 +1212,7 @@ export default function AdminOrderDetailView({
                 </button>
               </>
             ) : null}
-            {showInvoiceAndLogistics ? (
+            {showInvoiceAndLogistics && !packingViewer ? (
               <button
                 type="button"
                 onClick={printTaxInvoice}
@@ -1278,7 +1287,7 @@ export default function AdminOrderDetailView({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
           {/* Left — items, logistics (not full page), tracking */}
           <div className="lg:col-span-2 space-y-4">
-            {isPendingOrder ? (
+            {isPendingOrder && !packingViewer ? (
               <AdminPendingOrderEditPanel
                 order={order}
                 orderId={orderId}
@@ -2294,7 +2303,7 @@ export default function AdminOrderDetailView({
             <AdminPendingAddressPanel
               order={order}
               orderId={orderId}
-              disabled={fulfillmentBusy}
+              disabled={fulfillmentBusy || packingViewer}
               onApplied={async () => {
                 setActionMsg({ type: "ok", text: "Delivery address updated on this order." });
                 await refreshOrder();
