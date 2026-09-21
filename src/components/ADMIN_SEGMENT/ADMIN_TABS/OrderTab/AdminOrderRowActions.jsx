@@ -13,6 +13,7 @@ import {
   useGetAdminPickupCalendarQuery,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 import axiosInstance from "../../../../SERVICES/axiosInstance";
+import { filterCapsForPackingViewer } from "../../roles";
 
 const ACTION_LABELS = {
   accept: "Accept",
@@ -290,13 +291,24 @@ async function executeAction(key, ctx) {
 /**
  * Per-row fulfillment actions (list view) — driven by backend shipment ops capabilities.
  */
-export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback }) {
+export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback, packingViewer = false }) {
   const orderId = order?.orderId;
-  const caps = order?.actionCapabilities || {};
+  const capsRaw = order?.actionCapabilities || {};
+  const caps = packingViewer ? filterCapsForPackingViewer(capsRaw) : capsRaw;
   const blockReasons = order?.blockReasons || {};
   const externalLinks = order?.externalLinks || {};
-  const primaryKey = order?.primaryAction || "openDetail";
-  const primaryLabel = order?.primaryActionLabel || ACTION_LABELS[primaryKey] || "Open";
+  const primaryKeyRaw = order?.primaryAction || "openDetail";
+  const primaryKey = packingViewer
+    ? caps.downloadLabel
+      ? "downloadLabel"
+      : "openDetail"
+    : primaryKeyRaw;
+  const primaryLabel =
+    packingViewer && primaryKey === "downloadLabel"
+      ? "Download label"
+      : packingViewer
+        ? "Open order"
+        : order?.primaryActionLabel || ACTION_LABELS[primaryKey] || "Open";
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [scheduleOpen, setScheduleOpen] = useState(false);
