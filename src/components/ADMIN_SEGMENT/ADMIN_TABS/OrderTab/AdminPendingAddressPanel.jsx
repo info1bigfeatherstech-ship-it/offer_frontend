@@ -8,6 +8,7 @@ import {
   getCourierStreetUsage,
   validateCourierStreetClient,
   validateFullNameClient,
+  sanitizeFullNameTyping,
   MAX_FULL_NAME_LEN,
 } from "../../../../utils/addressValidation";
 
@@ -411,15 +412,29 @@ export default function AdminPendingAddressPanel({ order, orderId, disabled, onA
                     disabled={busy}
                     value={draft[f.key] ?? ""}
                     maxLength={f.maxLength || undefined}
-                    onChange={(e) => setDraft((d) => ({ ...d, [f.key]: e.target.value }))}
+                    onChange={(e) => {
+                      const raw = e.target.value;
+                      const next =
+                        f.key === "fullName"
+                          ? sanitizeFullNameTyping(raw)
+                          : raw;
+                      setDraft((d) => ({ ...d, [f.key]: next }));
+                    }}
                     className="mt-1 w-full rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500/30"
                   />
                   {f.key === "fullName" && (
                     <span className="mt-0.5 block text-[10px] text-slate-500">
-                      Recipient name only — not the full address ({String(draft.fullName || "").length}/
-                      {MAX_FULL_NAME_LEN})
+                      English letters only — 1 to 3 words (first, middle, last). No numbers or
+                      symbols ({String(draft.fullName || "").length}/{MAX_FULL_NAME_LEN})
                     </span>
                   )}
+                  {f.key === "fullName" &&
+                  String(draft.fullName || "").trim() &&
+                  validateFullNameClient(draft.fullName) ? (
+                    <span className="mt-0.5 block text-[10px] font-semibold text-red-600" role="alert">
+                      {validateFullNameClient(draft.fullName)}
+                    </span>
+                  ) : null}
                 </label>
               ))}
             </div>

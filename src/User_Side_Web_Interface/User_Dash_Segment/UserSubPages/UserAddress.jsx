@@ -23,7 +23,9 @@ import {
   ADDRESS_LINE1_MIN_LEN,
   ADDRESS_LINE_MAX_LEN,
   MAX_FULL_NAME_LEN,
+  MAX_FULL_NAME_WORDS,
   validateFullNameClient,
+  sanitizeFullNameTyping,
   getCourierStreetUsage,
 } from "../../../utils/addressValidation";
 
@@ -103,6 +105,7 @@ const Field = ({
   label, name, value, onChange, required,
   type = "text", placeholder, maxLength,
   readOnly = false, loading = false,
+  error = null,
 }) => (
   <div className="flex flex-col gap-1.5 w-full">
     <label className="text-[10px] font-black uppercase tracking-widest text-gray-400 ml-1">
@@ -118,10 +121,13 @@ const Field = ({
         placeholder={placeholder}
         maxLength={maxLength}
         readOnly={readOnly}
-        className={`border-2 border-transparent rounded-2xl px-5 py-3.5 text-sm font-bold outline-none transition-all w-full
+        aria-invalid={Boolean(error)}
+        className={`border-2 rounded-2xl px-5 py-3.5 text-sm font-bold outline-none transition-all w-full
           ${readOnly
-            ? "bg-gray-100 text-gray-500 cursor-not-allowed"
-            : "bg-gray-50 focus:border-black focus:bg-white"
+            ? "border-transparent bg-gray-100 text-gray-500 cursor-not-allowed"
+            : error
+              ? "border-red-400 bg-red-50 focus:border-red-500 focus:bg-white"
+              : "border-transparent bg-gray-50 focus:border-black focus:bg-white"
           }
           ${loading ? "pr-10" : ""}
         `}
@@ -132,6 +138,11 @@ const Field = ({
         </div>
       )}
     </div>
+    {error ? (
+      <p className="text-[11px] font-semibold text-red-600 px-1 leading-snug" role="alert">
+        {error}
+      </p>
+    ) : null}
   </div>
 );
 
@@ -465,6 +476,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
   const [form, setForm] = useState({ ...EMPTY_FORM, ...initial });
   const [step, setStep] = useState(1);
   const [formError, setFormError] = useState(null);
+  const [fullNameFieldError, setFullNameFieldError] = useState(null);
   const [pincodeLoading, setPincodeLoading] = useState(false);
   const [areaOptions, setAreaOptions] = useState([]);
   const [savedCustomAreas, setSavedCustomAreas] = useState([]);
@@ -553,6 +565,13 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
       return;
     }
 
+    if (name === "fullName") {
+      const v = sanitizeFullNameTyping(value);
+      setForm((p) => ({ ...p, fullName: v }));
+      setFullNameFieldError(v.trim() ? validateFullNameClient(v) : null);
+      return;
+    }
+
     setForm((p) => ({ ...p, [name]: value }));
   }, []);
 
@@ -610,9 +629,13 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
     const err = validateStep(step);
     if (err) {
       setFormError(err);
+      if (step === 1) {
+        setFullNameFieldError(validateFullNameClient(form.fullName));
+      }
       return;
     }
     setFormError(null);
+    setFullNameFieldError(null);
     setStep((prev) => prev + 1);
   };
 
@@ -621,6 +644,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
     const err1 = validateStep(1);
     if (err1) {
       setFormError(err1);
+      setFullNameFieldError(validateFullNameClient(form.fullName));
       setStep(1);
       return;
     }
@@ -631,6 +655,7 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
       return;
     }
     setFormError(null);
+    setFullNameFieldError(null);
 
     const payload = { ...form };
     Object.keys(payload).forEach((k) => {
@@ -688,9 +713,10 @@ const AddressFormModal = ({ initial, onSubmit, onClose, isSaving, error }) => {
                   label="Full Name" name="fullName" value={form.fullName}
                   onChange={handleChange} required placeholder="Ravi Kumar"
                   maxLength={MAX_FULL_NAME_LEN}
+                  error={fullNameFieldError}
                 />
-                <p className="text-[10px] text-gray-400 -mt-3 px-1">
-                  Recipient name only (max {MAX_FULL_NAME_LEN} characters). Do not paste the full address here.
+                <p className={`text-[10px] -mt-3 px-1 ${fullNameFieldError ? "text-red-500" : "text-gray-400"}`}>
+                  English letters only — 1 to {MAX_FULL_NAME_WORDS} words (first, middle, last). No numbers or symbols.
                 </p>
                 <Field
                   label="Phone Number" name="phone" value={form.phone}

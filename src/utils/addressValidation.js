@@ -14,6 +14,10 @@ export const ADDRESS_LINE_MAX_LEN = 200;
 export const MAX_COURIER_COMBINED_STREET_CHARS = 190;
 /** Align with backend MAX_FULL_NAME_LEN / Shipmozo consignee name cap (50). */
 export const MAX_FULL_NAME_LEN = 50;
+/** First / optional middle / optional last. */
+export const MAX_FULL_NAME_WORDS = 3;
+
+const PERSON_NAME_WORD_RE = /^[A-Za-z]+$/;
 
 function trim(value) {
   if (value == null) return "";
@@ -21,14 +25,51 @@ function trim(value) {
 }
 
 /**
+ * While typing: English letters + spaces only; hard-cap at MAX_FULL_NAME_WORDS.
+ * Allows a trailing space after word 1 or 2 so the next name can be typed;
+ * after 3 words, no further space / characters.
+ */
+export function sanitizeFullNameTyping(raw) {
+  let s = String(raw ?? "")
+    .replace(/[^A-Za-z\s]/g, "")
+    .replace(/^\s+/, "")
+    .replace(/\s{2,}/g, " ");
+
+  const endsWithSpace = /\s$/.test(s);
+  const words = s.trim().split(/\s+/).filter(Boolean);
+
+  if (words.length > MAX_FULL_NAME_WORDS) {
+    s = words.slice(0, MAX_FULL_NAME_WORDS).join(" ");
+  } else if (words.length === MAX_FULL_NAME_WORDS) {
+    // 3 words complete — do not allow a trailing space (blocks starting a 4th word).
+    s = words.join(" ");
+  } else if (endsWithSpace && words.length > 0 && words.length < MAX_FULL_NAME_WORDS) {
+    s = `${words.join(" ")} `;
+  } else {
+    s = words.join(" ");
+  }
+
+  return s.slice(0, MAX_FULL_NAME_LEN);
+}
+
+/**
  * @returns {string | null} error message for UI, or null if OK
  */
 export function validateFullNameClient(fullName) {
-  const name = trim(fullName);
+  const name = trim(fullName).replace(/\s+/g, " ");
   if (!name) return "Full Name is required";
   if (name.length < 2) return "Full name must be at least 2 characters.";
   if (name.length > MAX_FULL_NAME_LEN) {
     return `Full name is too long (max ${MAX_FULL_NAME_LEN} characters). Enter only the recipient's name — put address and phone in their own fields.`;
+  }
+  const words = name.split(" ").filter(Boolean);
+  if (words.length > MAX_FULL_NAME_WORDS) {
+    return `Enter at most ${MAX_FULL_NAME_WORDS} words (first, middle, last name).`;
+  }
+  for (const w of words) {
+    if (!PERSON_NAME_WORD_RE.test(w)) {
+      return "Name can only use English letters (A–Z). No numbers or special characters.";
+    }
   }
   return null;
 }
