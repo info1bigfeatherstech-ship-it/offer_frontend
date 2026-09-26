@@ -79,7 +79,7 @@ const Footer = () => {
       icon: "fa-whatsapp",
       color: "bg-[#25D366]",
       iconColor: "text-[#25D366]",
-      link: "https://wa.me/message/72BTQZMTQU2AG1" // replace with your number
+      link: "https://wa.me/919320001717"
     },
     // {
     //   icon: "fa-telegram",
@@ -309,8 +309,8 @@ const Footer = () => {
                 <p className="text-[#f7a221] font-black text-[20px] tracking-widest uppercase mb-2">
                   Support
                 </p>
-                <a href="tel:+919370686008" className="text-white font-bold text-lg mb-1 hover:text-[#f7a221] transition-colors">
-                  +91 93706 86008
+                <a href="tel:+919320001717" className="text-white font-bold text-lg mb-1 hover:text-[#f7a221] transition-colors">
+                  +91 93200 01717
                 </a>
                 <a
                   href="mailto:support.offerwalebaba@gmail.com"

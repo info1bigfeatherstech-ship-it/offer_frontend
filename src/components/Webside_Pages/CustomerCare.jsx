@@ -58,7 +58,7 @@ useEffect(() => {
       action: "Chat Now",
       // This version includes the pre-filled message: 
 // "Hello Offer Wale Baba Team! I need some help with my order."
-    link: `https://wa.me/919370686008?text=${encodeURIComponent("Hello Offer Wale Baba Team! I need some help with my order.")}`,
+    link: `https://wa.me/919320001717?text=${encodeURIComponent("Hello Offer Wale Baba Team! I need some help with my order.")}`,
       isExternal: true,
       bgColor: "bg-[#25D366]/10",
       borderColor: "border-green-100"

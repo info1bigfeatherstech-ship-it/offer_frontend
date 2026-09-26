@@ -16,11 +16,11 @@ const policiesData = [
       },
       {
         "heading": "Return Request Window & Mandatory Proofs",
-        "content": "Return requests must be raised within 24 hours from the date and time of delivery. Requests raised after this period may be rejected.\n\nTo process a return, the customer must submit all required evidence:\n• 1 video proof (mandatory)\n• 1 to 3 image proofs (mandatory)\n• A brief message describing the issue\n\nIf sufficient proof is not provided, the request may be rejected."
+        "content": "Return requests must be raised within 24 hours from the date and time of delivery. Requests raised after this period may be rejected.\n\nRequired evidence:\n• Unboxing video (mandatory): required for every return request\n- Start with the sealed / packed parcel as received\n- Record continuously start → end (no cuts or edits)\n- Clearly show the damaged or wrong item\n- Random, edited, partial, or unrelated videos are not accepted\n• Image proofs (mandatory): 1 to 3 clear photos of the issue\n• Issue message: briefly describe what is damaged or wrong\n\nIf sufficient or valid proof is not provided, the request may be rejected."
       },
       {
         "heading": "Review Process & Reverse Pickup",
-        "content": "Every return request is reviewed by our support/admin team. After review, the request will be either approved or rejected (with a rejection reason). OfferWaleBaba reserves the right to request additional information before a final decision.\n\nOnce approved, a reverse pickup is initiated through our logistics partner (Shiprocket and its courier network). Customer must ensure the product is packed securely and ready for pickup. Pickup timelines depend on courier serviceability and local operations."
+        "content": "Every return request is reviewed by our support/admin team. After review, the request will be either approved or rejected (with a rejection reason). OfferWaleBaba reserves the right to request additional information before a final decision.\n\nOnce approved, a reverse pickup is initiated through our courier partner. Customer must ensure the product is packed securely and ready for pickup. Pickup timelines depend on courier serviceability and local operations."
       },
       {
         "heading": "Refund Eligibility & Processing",
@@ -32,7 +32,7 @@ const policiesData = [
       },
       {
         "heading": "Non-Returnable / Rejection Conditions",
-        "content": "Return request may be rejected in cases including but not limited to:\n• Incorrect or insufficient proof\n• Request outside allowed return window (24 hours from delivery)\n• Product tampered/misused after delivery\n• Reason not covered under eligible return reasons\n• Item not matching the originally delivered product\n\nFor approved damaged/wrong-item cases, reverse pickup is arranged by OfferWaleBaba. Any exceptional charges (if applicable) will be communicated at the time of resolution.\n\nFailed delivery / RTO cases are not processed under the customer return flow and are handled as per the RTO / Failed Delivery section above."
+        "content": "Return request may be rejected in cases including but not limited to:\n• Incorrect or insufficient proof\n• Video is not a complete start-to-end unboxing of the delivered sealed parcel\n• Damage or wrong item is not clearly visible in the unboxing video\n• Random, edited, partial, or unrelated video submitted as proof\n• Request outside allowed return window (24 hours from delivery)\n• Product tampered/misused after delivery\n• Reason not covered under eligible return reasons\n• Item not matching the originally delivered product\n\nFor approved damaged/wrong-item cases, reverse pickup is arranged by OfferWaleBaba. Any exceptional charges (if applicable) will be communicated at the time of resolution.\n\nFailed delivery / RTO cases are not processed under the customer return flow and are handled as per the RTO / Failed Delivery section above."
       },
       {
         "heading": "Cancellation vs Return vs RTO & Policy Updates",
@@ -199,7 +199,7 @@ const policiesData = [
     "sections": [
       {
         "heading": "1) Order Processing",
-        "content": "Orders are processed after successful order confirmation.\n\nDepending on selected payment mode, confirmation may happen:\n• Immediately (e.g., eligible COD flow), or\n• After payment verification (online/advance payment flows).\n\nOnce confirmed, shipment is initiated through our logistics integration (Shiprocket and partner couriers), subject to serviceability and operational checks."
+        "content": "Orders are processed after successful order confirmation.\n\nDepending on selected payment mode, confirmation may happen:\n• Immediately (e.g., eligible COD flow), or\n• After payment verification (online/advance payment flows).\n\nOnce confirmed, shipment is initiated through our courier partner, subject to serviceability and operational checks."
       },
       {
         "heading": "2) Shipping Coverage & Serviceability",
@@ -243,7 +243,7 @@ const policiesData = [
       },
       {
         "heading": "12) Damaged/Wrong Item on Delivery",
-        "content": "If delivered item is damaged or wrong:\nCustomer should raise a return request as per Return & Refund Policy.\nRequired proof (video/images) and timeline conditions apply."
+        "content": "If delivered item is damaged or wrong:\nCustomer should raise a return request as per Return & Refund Policy.\nRequired proof (start-to-end sealed-parcel unboxing video + images) and timeline conditions apply."
       },
       {
         "heading": "13) Policy Updates",
@@ -263,8 +263,12 @@ function getPolicyBySlug(slug) {
 
 const POLICY_PARA_CLASS =
   "text-[#2a2010]/75 leading-[1.88] text-base sm:text-[1.02rem] font-light";
+const POLICY_BULLET_CLASS =
+  "text-zinc-900 leading-[1.75] text-base sm:text-[1.02rem] font-medium";
+const POLICY_NESTED_BULLET_CLASS =
+  "text-zinc-900 leading-snug text-[0.95rem] sm:text-base font-medium";
 const POLICY_SUBHEADING_CLASS =
-  "font-semibold text-zinc-800 leading-[1.88] text-base sm:text-[1.02rem]";
+  "font-semibold text-zinc-900 leading-[1.88] text-base sm:text-[1.02rem]";
 
 function formatInlineImportant(text) {
   if (text.startsWith("Important:")) {
@@ -295,13 +299,13 @@ function renderBulletLabel(raw) {
   const inlineLabel = colonIdx > 0 && colonIdx < raw.length - 1;
 
   if (endsWithColon) {
-    return <span className="font-semibold text-zinc-800">{raw}</span>;
+    return <span className="font-semibold text-zinc-900">{raw}</span>;
   }
   if (inlineLabel) {
     return (
       <>
-        <span className="font-semibold text-zinc-800">{raw.slice(0, colonIdx + 1)}</span>
-        {raw.slice(colonIdx + 1)}
+        <span className="font-semibold text-zinc-900">{raw.slice(0, colonIdx + 1)}</span>
+        <span>{raw.slice(colonIdx + 1)}</span>
       </>
     );
   }
@@ -317,23 +321,19 @@ function parseBulletSection(lines, startIdx) {
     i++;
 
     const bodyParagraphs = [];
-    while (i < lines.length && !lines[i].startsWith("•")) {
-      bodyParagraphs.push(lines[i]);
-      i++;
-    }
-
     let nestedBullets = null;
-    if (i < lines.length && lines[i].startsWith("•")) {
-      const lastBody = bodyParagraphs[bodyParagraphs.length - 1] || "";
-      const isNested = raw.endsWith(":") || lastBody.endsWith(":");
 
-      if (isNested) {
-        nestedBullets = [];
-        while (i < lines.length && lines[i].startsWith("•")) {
-          nestedBullets.push(lines[i].replace(/^•\s*/, ""));
-          i++;
-        }
+    // Sub-steps use "- " so siblings under the same list stay top-level "•"
+    while (i < lines.length && !lines[i].startsWith("•")) {
+      const line = lines[i];
+      if (line.startsWith("-")) {
+        if (!nestedBullets) nestedBullets = [];
+        nestedBullets.push(line.replace(/^-\s*/, ""));
+        i++;
+        continue;
       }
+      bodyParagraphs.push(line);
+      i++;
     }
 
     items.push({ raw, bodyParagraphs, nestedBullets });
@@ -342,20 +342,27 @@ function parseBulletSection(lines, startIdx) {
   const node = (
     <ul
       key={`bullets-${startIdx}`}
-      className="list-disc pl-5 sm:pl-6 space-y-3 marker:text-[#C8973A]"
+      className="list-disc pl-5 sm:pl-6 space-y-4 marker:text-[#C8973A]"
     >
       {items.map((item, idx) => (
-        <li key={idx} className={POLICY_PARA_CLASS}>
+        <li key={idx} className={POLICY_BULLET_CLASS}>
           {renderBulletLabel(item.raw)}
           {item.bodyParagraphs.map((para, pi) => (
-            <p key={pi} className={pi === 0 ? "mt-1.5" : "mt-2"}>
-              {formatInlineImportant(para)}
+            <p
+              key={pi}
+              className={`${pi === 0 ? "mt-2" : "mt-1"} text-zinc-800 font-medium leading-relaxed`}
+            >
+              {String(para).startsWith("Important:")
+                ? formatInlineImportant(para)
+                : para}
             </p>
           ))}
           {item.nestedBullets?.length > 0 && (
-            <ul className="list-disc pl-5 mt-2 space-y-1.5 marker:text-[#C8973A]">
+            <ul className="list-disc pl-5 mt-2.5 space-y-2 marker:text-[#C8973A]">
               {item.nestedBullets.map((nb, ni) => (
-                <li key={ni}>{nb}</li>
+                <li key={ni} className={POLICY_NESTED_BULLET_CLASS}>
+                  {nb}
+                </li>
               ))}
             </ul>
           )}
@@ -439,7 +446,7 @@ function PolicySection({ section, index, isActive, onVisible }) {
   return (
     <div ref={ref} id={`section-${index}`} className="scroll-mt-8 mb-16 lg:mb-24">
       <div className="animate-section-fade-up">
-        <h2 className="text-2xl sm:text-3xl lg:text-[2rem] font- text-zinc-800 mb-6 leading-tight">
+        <h2 className="text-2xl sm:text-3xl lg:text-[2rem] font-bold text-zinc-800 mb-6 leading-tight">
           {section.heading}
         </h2>
         <div className="h-[2px] w-12 bg-[#C8973A] mb-8 rounded-full animate-gold-rule" />
