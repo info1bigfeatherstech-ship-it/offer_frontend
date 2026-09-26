@@ -195,7 +195,7 @@ export default function ContactUs() {
                 </p>
 
                 <div className="space-y-1 mb-6">
-                  <InfoRow icon={Phone} label="Call us" value="+91 93706 86008" href="tel:+919370686008" />
+                  <InfoRow icon={Phone} label="Call us" value="+91 93200 01717" href="tel:+919320001717" />
                   <InfoRow icon={Mail} label="Email" value="support.offerwalebaba@gmail.com" href="mailto:support.offerwalebaba@gmail.com" />
                   <InfoRow icon={Globe} label="Website" value="www.offerwalebaba.com" href="https://offerwalebaba.com/" />
                   <InfoRow icon={MapPin} label="Address" value="Sambhaji Chowk, Opp. Tipcy-Topcy Society, Babasai Nagar, Ulhasnagar, Mumbai - 421004, Maharashtra, India" href="https://maps.google.com/?q=Ulhasnagar,Maharashtra" />
@@ -208,7 +208,7 @@ export default function ContactUs() {
                 </div>
 
                 <a
-                  href="https://wa.me/919370686008"
+                  href="https://wa.me/919320001717"
                   target="_blank"
                   rel="noreferrer"
                   className="mt-5 flex items-center justify-center gap-2.5 bg-green-500 hover:bg-green-400 active:scale-[0.98] text-white font-bold py-3 rounded-xl sm:rounded-2xl transition-all duration-200 text-sm"

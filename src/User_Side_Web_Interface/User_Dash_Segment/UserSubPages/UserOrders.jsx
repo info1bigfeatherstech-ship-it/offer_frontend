@@ -33,6 +33,7 @@ import {
   XCircle, Clock, AlertCircle, ArrowLeft, MapPin,
   Loader2, ShoppingBag, CreditCard,
   MessageSquare, Send, X, Star,
+  Upload, Image as ImageIcon, Video,
 } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { formatInr as fmt } from "../../../utils/formatInr";
@@ -1275,19 +1276,22 @@ const OrderDetail = ({ orderId, onBack }) => {
     </div>
 
     {canRaiseReturn ? (
-      <div className="mt-4 space-y-4">
+      <div className="mt-4 space-y-3 sm:space-y-4">
 
-        <p
-          className="
-            text-xs
-            text-gray-500
-            font-medium
-            leading-relaxed
-          "
-        >
-          Returns are available only for damaged or wrong item deliveries.
-          Please provide one unboxing video and at least one image.
-        </p>
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-3 sm:px-4 sm:py-3.5">
+          <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-amber-900 mb-2.5">
+            Before you raise a return — mandatory unboxing video
+          </p>
+          <ul className="space-y-2 text-[11px] sm:text-xs font-semibold text-gray-800 leading-snug list-disc pl-4 marker:text-amber-700">
+            <li>Start with the <span className="font-black text-gray-900">sealed / packed parcel</span> as received</li>
+            <li>Record <span className="font-black text-gray-900">continuously start → end</span> (no cuts or edits)</li>
+            <li>Clearly show the <span className="font-black text-gray-900">damaged or wrong item</span></li>
+            <li>Also keep ready <span className="font-black text-gray-900">1–3 clear proof photos</span></li>
+          </ul>
+          <p className="mt-2.5 text-[10px] sm:text-[11px] font-medium text-amber-900/80 leading-snug">
+            Random, edited, partial, or unrelated videos may be rejected. Returns are only for damaged or wrong item deliveries.
+          </p>
+        </div>
 
         {!showReturnForm ? (
           <button
@@ -1297,7 +1301,7 @@ const OrderDetail = ({ orderId, onBack }) => {
               w-full sm:w-auto
               inline-flex items-center justify-center gap-2
               bg-black text-white
-              text-xs
+              text-[11px] sm:text-xs
               font-black
               uppercase tracking-widest
               px-5 py-3
@@ -1310,7 +1314,7 @@ const OrderDetail = ({ orderId, onBack }) => {
             Raise Return Request
           </button>
         ) : (
-          <div className="space-y-3 pt-2">
+          <div className="space-y-3 sm:space-y-3.5 pt-1">
 
             <select
               value={returnReasonType}
@@ -1320,7 +1324,8 @@ const OrderDetail = ({ orderId, onBack }) => {
                 border border-gray-200
                 rounded-xl
                 px-3 py-3
-                text-sm
+                text-sm font-semibold text-gray-900
+                bg-white
               "
             >
               <option value="damaged">
@@ -1345,44 +1350,127 @@ const OrderDetail = ({ orderId, onBack }) => {
                 border border-gray-200
                 rounded-xl
                 px-3 py-3
-                text-sm
+                text-sm font-medium text-gray-900
+                placeholder:text-gray-400
                 resize-none
               "
             />
 
             <div>
-              <p className="text-[11px] font-bold text-gray-500 uppercase mb-1">
-                Submit Unboxing Video
-              </p>
-
-              <input
-                type="file"
-                accept="video/*"
-                onChange={(e) =>
-                  setReturnProofVideo(
-                    e.target.files?.[0] || null
-                  )
-                }
-                className="text-xs w-full"
-              />
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-gray-500">
+                  Unboxing video
+                </p>
+                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-red-600">
+                  Required
+                </span>
+              </div>
+              <label
+                htmlFor={`return-video-${order.orderId}`}
+                className={`
+                  flex flex-col items-center justify-center gap-1.5
+                  w-full min-h-[84px] sm:min-h-[96px] px-3 py-3.5 sm:py-4
+                  rounded-2xl border-2 border-dashed cursor-pointer
+                  transition-colors
+                  ${returnProofVideo
+                    ? "border-emerald-300 bg-emerald-50/60"
+                    : "border-gray-300 bg-gray-50 hover:border-[#F7A221] hover:bg-amber-50/40"}
+                `}
+              >
+                <input
+                  id={`return-video-${order.orderId}`}
+                  type="file"
+                  accept="video/*"
+                  className="sr-only"
+                  onChange={(e) =>
+                    setReturnProofVideo(
+                      e.target.files?.[0] || null
+                    )
+                  }
+                />
+                {returnProofVideo ? (
+                  <>
+                    <Video size={18} className="text-emerald-700 shrink-0" />
+                    <span className="text-[11px] sm:text-xs font-black text-emerald-900 text-center break-all px-1 max-w-full">
+                      {returnProofVideo.name}
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+                      Tap to replace
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Upload size={18} className="text-gray-500 shrink-0" />
+                    <span className="text-[11px] sm:text-xs font-black text-gray-900 text-center">
+                      Tap to upload unboxing video
+                    </span>
+                    <span className="text-[10px] font-medium text-gray-500 text-center px-1 leading-snug">
+                      Sealed pack → full open, continuous, no edits
+                    </span>
+                  </>
+                )}
+              </label>
             </div>
 
             <div>
-              <p className="text-[11px] font-bold text-gray-500 uppercase mb-1">
-                Proof Images (1-3)
-              </p>
-
-              <input
-                type="file"
-                accept="image/*"
-                multiple
-                onChange={(e) =>
-                  setReturnProofImages(
-                    Array.from(e.target.files || []).slice(0, 3)
-                  )
-                }
-                className="text-xs w-full"
-              />
+              <div className="flex items-center justify-between gap-2 mb-1.5">
+                <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest text-gray-500">
+                  Proof images (1–3)
+                </p>
+                <span className="text-[9px] sm:text-[10px] font-black uppercase tracking-widest text-red-600">
+                  Required
+                </span>
+              </div>
+              <label
+                htmlFor={`return-images-${order.orderId}`}
+                className={`
+                  flex flex-col items-center justify-center gap-1.5
+                  w-full min-h-[76px] sm:min-h-[88px] px-3 py-3.5 sm:py-4
+                  rounded-2xl border-2 border-dashed cursor-pointer
+                  transition-colors
+                  ${returnProofImages.length
+                    ? "border-emerald-300 bg-emerald-50/60"
+                    : "border-gray-300 bg-gray-50 hover:border-[#F7A221] hover:bg-amber-50/40"}
+                `}
+              >
+                <input
+                  id={`return-images-${order.orderId}`}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  className="sr-only"
+                  onChange={(e) =>
+                    setReturnProofImages(
+                      Array.from(e.target.files || []).slice(0, 3)
+                    )
+                  }
+                />
+                {returnProofImages.length ? (
+                  <>
+                    <ImageIcon size={18} className="text-emerald-700 shrink-0" />
+                    <span className="text-[11px] sm:text-xs font-black text-emerald-900">
+                      {returnProofImages.length}/3 image
+                      {returnProofImages.length > 1 ? "s" : ""} selected
+                    </span>
+                    <span className="text-[10px] font-medium text-emerald-800 text-center break-all px-1 max-w-full leading-snug">
+                      {returnProofImages.map((f) => f.name).join(", ")}
+                    </span>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-700">
+                      Tap to replace
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <ImageIcon size={18} className="text-gray-500 shrink-0" />
+                    <span className="text-[11px] sm:text-xs font-black text-gray-900 text-center">
+                      Tap to upload proof photos
+                    </span>
+                    <span className="text-[10px] font-medium text-gray-500 text-center leading-snug">
+                      Up to 3 clear images of damage / wrong item
+                    </span>
+                  </>
+                )}
+              </label>
             </div>
 
             {returnRequestError?.message && (
