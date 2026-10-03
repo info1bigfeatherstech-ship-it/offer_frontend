@@ -240,21 +240,53 @@ export const verifyRazorpayPayment = createAsyncThunk(
   }
 );
 
+function buildDeliveryCheckItems(cartState, itemsOverride) {
+  const source = Array.isArray(itemsOverride) && itemsOverride.length
+    ? itemsOverride
+    : Array.isArray(cartState?.guestItems) && cartState.guestItems.length
+      ? cartState.guestItems
+      : Array.isArray(cartState?.items)
+        ? cartState.items
+        : [];
+
+  return source
+    .map((it) => {
+      const productId = it?.productId?._id || it?.productId || null;
+      if (!productId) return null;
+      const variantRaw = it?.variantId?._id || it?.variantId;
+      return {
+        productId: String(productId),
+        variantId: variantRaw != null && variantRaw !== "" ? String(variantRaw) : null,
+        quantity: Math.max(1, Math.floor(Number(it?.quantity) || 1)),
+      };
+    })
+    .filter(Boolean);
+}
+
 /**
  * POST /api/delivery/check-delivery
- * Checks if a pincode is serviceable (used by DeliveryChecker component)
+ * Guest-safe: no auth required. Sends cart line ids for accurate weight/dims.
+ * skipAuthRefresh avoids treating missing tokens as "not deliverable".
  */
 export const checkDelivery = createAsyncThunk(
   "checkout/checkDelivery",
-  async ({ pincode }, { rejectWithValue }) => {
+  async ({ pincode, items: itemsOverride } = {}, { getState, rejectWithValue }) => {
     try {
-      const res = await axiosInstance.post("/delivery/check-delivery", { pincode });
+      const cartState = getState()?.userCart;
+      const items = buildDeliveryCheckItems(cartState, itemsOverride);
+      const body = { pincode };
+      if (items.length) body.items = items;
+
+      const res = await axiosInstance.post("/delivery/check-delivery", body, {
+        skipAuthRefresh: true,
+      });
       if (!res.data.success) throw new Error(res.data.message || "Delivery check failed");
       return res.data;
     } catch (err) {
       return rejectWithValue({
         message: err.response?.data?.message || err.message || "Delivery check failed",
         status: err.response?.status,
+        code: err.response?.data?.code,
       });
     }
   }
@@ -483,7 +515,13 @@ const checkoutSlice = createSlice({
       .addCase(checkDelivery.rejected, (state, action) => {
         state.loading.delivery = false;
         state.error.delivery = action.payload || { message: "Delivery check failed" };
-        state.delivery.isDeliverable = false;
+        // Keep null on transport/auth glitches so UI shows error text, not a false "N/A pin".
+        const status = action.payload?.status;
+        if (status === 401 || status === 403) {
+          state.delivery.isDeliverable = null;
+        } else {
+          state.delivery.isDeliverable = false;
+        }
       })
 
       // ── fetchAvailableCoupons ──────────────────────────────────────────────
