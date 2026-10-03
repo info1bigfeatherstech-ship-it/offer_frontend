@@ -2,17 +2,22 @@
 
 import React, { useState } from 'react';
 import VariantCatalogFieldsSection from './VariantCatalogFieldsSection';
+import DropshipControls from './DropshipControls';
+import OptionalDropshipFields from './OptionalDropshipFields';
 import { emptyVariantShippingForm } from '../../../utils/variantCatalogForm';
 import { displayNumericInput, normalizeNumericTyping, selectAllOnFocus } from '../../../utils/numericFormInput';
 
 export const defaultVariant = {
   attributes: [{ key: '', value: '' }],
-  price: { base: '', sale: '', wholesaleBase: '', wholesaleSale: '' },
+  price: { base: '', sale: '', wholesaleBase: '', wholesaleSale: '', dropshipBase: '' },
   inventory: { quantity: '', lowStockThreshold: '', trackInventory: true },
   images: [],
   isActive: true,
   ProductCode: '',
   wholesale: false,
+  dropship: false,
+  pendingDropshipBase: '',
+  pendingDropshipEnable: false,
   minimumOrderQuantity: '',
   channelVisibility: { ecomm: 'active', wholesale: 'draft' },
   title: '',
@@ -29,6 +34,8 @@ const VariantModal = ({
   getDiscountPercentage,
   isSaving = false,
   saveError = null,
+  productSlug = null,
+  onDropshipUpdated = null,
 }) => {
   const [variantImageDragging, setVariantImageDragging] = useState(false);
   const isEditing = editingVariantIndex !== null;
@@ -145,7 +152,12 @@ const VariantModal = ({
 
     const validAttributes = variantForm.attributes.filter(a => a.key.trim() && a.value.trim());
 
+    const pendingDropshipBase = String(variantForm.pendingDropshipBase ?? '').trim();
+    const pendingDropshipEnable =
+      pendingDropshipBase !== '' && variantForm.pendingDropshipEnable === true;
+
     // CRITICAL: Pass price object with wholesaleBase INSIDE, NOT at root level
+    // pendingDropship* is FE-only intent — never sent in product create/update price payload
     onSave({
       ...variantForm,
       ProductCode: ProductCode,
@@ -161,6 +173,8 @@ const VariantModal = ({
         ecomm: variantForm.channelVisibility?.ecomm || 'active',
         wholesale: isWholesaleEligible() ? 'active' : 'draft',
       },
+      pendingDropshipBase,
+      pendingDropshipEnable,
     });
   };
 
@@ -289,6 +303,55 @@ const VariantModal = ({
                   </p>
                 )}
               </div>
+            )}
+          </div>
+
+          {/* Dropship: edit = live APIs; add = optional intent applied after create */}
+          <div className="border-t border-gray-200 pt-4">
+            {isEditing ? (
+              <DropshipControls
+                compact
+                slug={productSlug}
+                productCode={variantForm.ProductCode || variantForm.productCode}
+                variant={variantForm}
+                disabled={isSaving}
+                onVariantUpdated={(patch) => {
+                  if (typeof onDropshipUpdated === 'function') onDropshipUpdated(patch);
+                  else {
+                    setVariantForm((prev) => ({
+                      ...prev,
+                      dropship: patch.dropship,
+                      price: { ...prev.price, ...patch.price },
+                      channelVisibility: {
+                        ...(prev.channelVisibility || {}),
+                        ...patch.channelVisibility,
+                      },
+                    }));
+                  }
+                }}
+              />
+            ) : (
+              <OptionalDropshipFields
+                dropshipBase={variantForm.pendingDropshipBase || ''}
+                dropshipEnable={variantForm.pendingDropshipEnable === true}
+                disabled={isSaving}
+                onBaseChange={(value) =>
+                  setVariantForm((prev) => ({
+                    ...prev,
+                    pendingDropshipBase: value,
+                    pendingDropshipEnable:
+                      String(value || '').trim() === ''
+                        ? false
+                        : prev.pendingDropshipEnable === true,
+                  }))
+                }
+                onEnableChange={(checked) =>
+                  setVariantForm((prev) => ({
+                    ...prev,
+                    pendingDropshipEnable: checked === true,
+                  }))
+                }
+              />
             )}
           </div>
 

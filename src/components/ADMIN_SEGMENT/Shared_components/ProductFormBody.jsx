@@ -1,7 +1,10 @@
 // Shared_components/ProductFormBody.jsx
 
-import React, { useState } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { displayNumericInput, normalizeNumericTyping, selectAllOnFocus } from "../../../utils/numericFormInput";
+import DropshipControls from "./DropshipControls";
+import OptionalDropshipFields from "./OptionalDropshipFields";
+import { getDropshipStatusMeta } from "../../../SERVICES/adminDropshipperApi";
 const TAX_RATE_OPTIONS = [
   { value: 0, label: "0% (Nil Rated)" },
   { value: 5, label: "5% (GST)" },
@@ -34,6 +37,30 @@ const ProductFormBody = ({
   const isEditMode = !!productSlug;
   const [draggedIdx, setDraggedIdx] = useState(null);
   const [isDraggingZone, setIsDraggingZone] = useState(false);
+  /** Which additional-variant index has dropship panel open (realIndex). */
+  const [openDropshipVariantIndex, setOpenDropshipVariantIndex] = useState(null);
+
+  const applyDropshipPatchToVariant = useCallback((variantIndex, patch) => {
+    setFormData((p) => {
+      const v = [...(p.variants || [])];
+      if (!v[variantIndex]) return p;
+      v[variantIndex] = {
+        ...v[variantIndex],
+        dropship: patch.dropship,
+        price: { ...(v[variantIndex].price || {}), ...(patch.price || {}) },
+        channelVisibility: {
+          ...(v[variantIndex].channelVisibility || {}),
+          ...(patch.channelVisibility || {}),
+        },
+      };
+      return { ...p, variants: v };
+    });
+  }, [setFormData]);
+
+  // Close expanded dropship panel when switching products
+  useEffect(() => {
+    setOpenDropshipVariantIndex(null);
+  }, [productSlug]);
 
   const galleryImages = isEditMode ? (formData.variants?.[0]?.images || []) : (formData.images || []);
 
@@ -392,6 +419,32 @@ const ProductFormBody = ({
                 )}
               </div>
 
+              {/* Dropship — dedicated APIs only (does not use Save Changes) */}
+              <div className="border-t border-gray-200 pt-4">
+                <DropshipControls
+                  slug={productSlug}
+                  productCode={primaryVariant.productCode}
+                  variant={primaryVariant}
+                  disabled={actionLoading}
+                  onVariantUpdated={(patch) => {
+                    setFormData((p) => {
+                      const v = [...(p.variants || [])];
+                      if (!v[0]) return p;
+                      v[0] = {
+                        ...v[0],
+                        dropship: patch.dropship,
+                        price: { ...v[0].price, ...patch.price },
+                        channelVisibility: {
+                          ...(v[0].channelVisibility || {}),
+                          ...patch.channelVisibility,
+                        },
+                      };
+                      return { ...p, variants: v };
+                    });
+                  }}
+                />
+              </div>
+
               {/* Inventory */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -410,7 +463,7 @@ const ProductFormBody = ({
 
             </div>
             <p className="text-xs text-indigo-600 bg-indigo-50 border border-indigo-100 rounded-lg p-2">
-              💡 Images for main variant are managed in the <strong>Product Gallery</strong> panel →. All changes here are saved when you click <strong>Save Changes</strong>.
+              💡 Images for main variant are managed in the <strong>Product Gallery</strong> panel →. Ecom/wholesale changes save with <strong>Save Changes</strong>. Dropship saves immediately via its own buttons.
             </p>
           </div>
         )}
@@ -476,6 +529,28 @@ const ProductFormBody = ({
                     </div>
                   </div>
                 )}
+              </div>
+
+              {/* Optional dropship on create — applied after product is created */}
+              <div className="border-t border-gray-200 pt-4">
+                <OptionalDropshipFields
+                  dropshipBase={formData.dropshipBase || ""}
+                  dropshipEnable={formData.dropshipEnable === true}
+                  disabled={actionLoading}
+                  onBaseChange={(value) =>
+                    setFormData((p) => ({
+                      ...p,
+                      dropshipBase: value,
+                      dropshipEnable:
+                        String(value || "").trim() === ""
+                          ? false
+                          : p.dropshipEnable === true,
+                    }))
+                  }
+                  onEnableChange={(checked) =>
+                    setFormData((p) => ({ ...p, dropshipEnable: checked === true }))
+                  }
+                />
               </div>
 
               <div className="pt-2 border-t border-gray-100">
@@ -585,7 +660,7 @@ const ProductFormBody = ({
           <div className="p-4 border-b border-gray-100 bg-gray-50 flex justify-between items-center">
             <div>
               <h3 className="font-semibold text-gray-900">{isEditMode ? "Additional Variants" : "Product Variants"}</h3>
-              <p className="text-xs text-gray-500 mt-0.5">{isEditMode ? "variants[1+] · each has its own ProductCode, price, images" : "e.g., different colors or sizes — each needs a unique ProductCode"}</p>
+              <p className="text-xs text-gray-500 mt-0.5">{isEditMode ? "variants[1+] · each has its own ProductCode, price, images & dropship settings" : "e.g., different colors or sizes — each needs a unique ProductCode"}</p>
             </div>
             <button type="button" onClick={onOpenAddVariant} disabled={actionLoading && isEditMode} className="px-3 py-1.5 bg-indigo-500 text-white text-sm rounded-lg hover:bg-indigo-600 flex items-center gap-1.5 disabled:opacity-60">
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
@@ -609,10 +684,13 @@ const ProductFormBody = ({
                   const ecommBadge = getEcommVisibilityBadge(variant);
                   const wholesaleBadge = getWholesaleVisibilityBadge(variant);
                   const isEligibleForWholesale = isWholesaleEligible(variant);
+                  const dropshipMeta = getDropshipStatusMeta(variant);
+                  const dropshipPanelOpen = openDropshipVariantIndex === realIndex;
+                  const hasProductCode = Boolean(String(variant.productCode || "").trim());
 
                   return (
-                    <div key={variant._id || variant.productCode || `v-${realIndex}`} className={`rounded-lg border-2 p-3 transition-all ${ecommBadge.text === "Active" ? "border-indigo-200 bg-indigo-50" : "border-gray-200 bg-gray-50 opacity-60"}`}>
-                      <div className="flex items-start justify-between gap-3">
+                    <div key={variant._id || variant.productCode || `v-${realIndex}`} className={`rounded-lg border-2 p-3 transition-all ${ecommBadge.text === "Active" ? "border-indigo-200 bg-indigo-50" : "border-gray-200 bg-gray-50"}`}>
+                      <div className={`flex items-start justify-between gap-3 ${ecommBadge.text === "Active" ? "" : "opacity-60"}`}>
                         <div className="flex items-start gap-3 flex-1 min-w-0">
                           {variantThumb ? (
                             <img src={variantThumb} alt="" className="w-10 h-10 rounded-lg object-cover border border-indigo-200 flex-shrink-0" />
@@ -651,6 +729,29 @@ const ProductFormBody = ({
                               {isEligibleForWholesale && (
                                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${wholesaleBadge.color}`}>Wholesale: {wholesaleBadge.text}</span>
                               )}
+                              {/* Dropship status — edit: live; create: pending intent badge */}
+                              {isEditMode ? (
+                                <span
+                                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${dropshipMeta.className}`}
+                                  title="Dropship channel status for this variant"
+                                >
+                                  Dropship: {dropshipMeta.label}
+                                  {dropshipMeta.priceLabel ? ` · ${dropshipMeta.priceLabel}` : ""}
+                                </span>
+                              ) : String(variant.pendingDropshipBase || "").trim() ? (
+                                <span
+                                  className="px-2 py-0.5 rounded-full text-xs font-medium bg-teal-100 text-teal-800"
+                                  title="Will apply after product is created"
+                                >
+                                  Dropship pending
+                                  {variant.pendingDropshipEnable ? " · enable" : ""}
+                                  {` · ₹${variant.pendingDropshipBase}`}
+                                </span>
+                              ) : (
+                                <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-gray-100 text-gray-500">
+                                  Dropship: Off
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -666,6 +767,37 @@ const ProductFormBody = ({
                           </button>
                         </div>
                       </div>
+
+                      {/* Per-variant dropship — edit mode only; dedicated APIs; does not use Save Changes */}
+                      {isEditMode && hasProductCode && (
+                        <div className="mt-3 pt-3 border-t border-teal-100/80">
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setOpenDropshipVariantIndex((prev) =>
+                                prev === realIndex ? null : realIndex
+                              )
+                            }
+                            className="text-xs font-semibold text-teal-700 hover:text-teal-900 underline underline-offset-2"
+                          >
+                            {dropshipPanelOpen ? "Hide dropship controls" : "Manage dropship for this variant"}
+                          </button>
+                          {dropshipPanelOpen && (
+                            <div className="mt-2">
+                              <DropshipControls
+                                compact
+                                slug={productSlug}
+                                productCode={variant.productCode}
+                                variant={variant}
+                                disabled={actionLoading}
+                                onVariantUpdated={(patch) =>
+                                  applyDropshipPatchToVariant(realIndex, patch)
+                                }
+                              />
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
                   );
                 })}

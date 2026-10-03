@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { toast } from "react-toastify";
 import ProductFormBody from "../Shared_components/ProductFormBody";
 import VariantModal, { defaultVariant } from "../Shared_components/VariantModal";
 import CategoryModal from "../Shared_components/CategoryModal";
@@ -23,6 +24,7 @@ import {
   applyVariantMergeToFormData,
   resolvePrimaryAttributes,
 } from "../../../utils/editProductVariantMerge";
+import { applyOptionalDropshipAfterSave } from "../../../SERVICES/adminDropshipperApi";
 
 const formatIndianRupee = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -46,6 +48,7 @@ const normaliseAttributes = (attributes = [], prefix = "attr") =>
   }));
 
 // NORMALIZE: ALWAYS use price.wholesaleBase, NEVER direct wholesaleBase
+// dropshipBase is display-only here — persisted via /admin/dropshipper APIs
 const normaliseVariants = (variants = []) =>
   variants.map((v, vIdx) => ({
     ...v,
@@ -53,7 +56,11 @@ const normaliseVariants = (variants = []) =>
       base: v.price?.base ?? "",
       sale: v.price?.sale ?? "",
       wholesaleBase: v.price?.wholesaleBase ?? "",
-      wholesaleSale: v.price?.wholesaleSale ?? ""
+      wholesaleSale: v.price?.wholesaleSale ?? "",
+      dropshipBase:
+        v.price?.dropshipBase != null && v.price?.dropshipBase !== ""
+          ? v.price.dropshipBase
+          : "",
     },
     attributes: normaliseAttributes(v.attributes || [], `v${vIdx}-attr`),
     images: (v.images || [])
@@ -69,6 +76,7 @@ const normaliseVariants = (variants = []) =>
         ? v.channelVisibility.ecomm === "active"
         : v.isActive !== false,
     wholesale: v.wholesale || false,
+    dropship: v.dropship === true,
     minimumOrderQuantity: v.minimumOrderQuantity || 1,
     channelVisibility: v.channelVisibility || { ecomm: "active", wholesale: "draft" },
     title: v.title || "",
@@ -149,7 +157,8 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
         base: v.price?.base ?? "", 
         sale: v.price?.sale ?? "", 
         wholesaleBase: v.price?.wholesaleBase ?? "", 
-        wholesaleSale: v.price?.wholesaleSale ?? "" 
+        wholesaleSale: v.price?.wholesaleSale ?? "",
+        dropshipBase: v.price?.dropshipBase ?? "",
       },
       inventory: {
         quantity: v.inventory?.quantity ?? 0,
@@ -159,6 +168,7 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
       images: v.images || [],
       isActive: v.isActive !== false,
       wholesale: v.wholesale || false,
+      dropship: v.dropship === true,
       minimumOrderQuantity: v.minimumOrderQuantity || 1,
       channelVisibility: v.channelVisibility || { ecomm: "active", wholesale: "draft" },
       title: v.title || "",
@@ -240,6 +250,61 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
             applyVariantMergeToFormData(prev, result.product.variants, normaliseVariants, null)
           );
         }
+
+        // Optional dropship after variant create — does not fail variant add
+        const pendingBase = variantToSave.pendingDropshipBase;
+        if (String(pendingBase || "").trim()) {
+          const code =
+            result?.product?.variants?.find(
+              (v) =>
+                String(v.productCode || "").toUpperCase() ===
+                String(variantToSave.ProductCode || variantToSave.productCode || "").toUpperCase()
+            )?.productCode ||
+            variantToSave.ProductCode ||
+            variantToSave.productCode;
+
+          const dropshipResult = await applyOptionalDropshipAfterSave({
+            slug: product.slug,
+            productCode: code,
+            dropshipBase: pendingBase,
+            enable: variantToSave.pendingDropshipEnable === true,
+          });
+
+          if (dropshipResult.applied) {
+            toast.success("Variant added. Dropship price applied.");
+            const apiVariant = dropshipResult.variant;
+            if (apiVariant?.productCode) {
+              setFormData((prev) => {
+                const variants = [...(prev.variants || [])];
+                const idx = variants.findIndex(
+                  (v) =>
+                    String(v.productCode || "").toUpperCase() ===
+                    String(apiVariant.productCode).toUpperCase()
+                );
+                if (idx < 0) return prev;
+                variants[idx] = {
+                  ...variants[idx],
+                  dropship: apiVariant.dropship === true,
+                  price: {
+                    ...(variants[idx].price || {}),
+                    dropshipBase:
+                      apiVariant.dropshipBase != null
+                        ? String(apiVariant.dropshipBase)
+                        : variants[idx].price?.dropshipBase,
+                  },
+                  channelVisibility: {
+                    ...(variants[idx].channelVisibility || {}),
+                    dropship: apiVariant.channelVisibility?.dropship || "draft",
+                  },
+                };
+                return { ...prev, variants };
+              });
+            }
+          } else if (dropshipResult.warning) {
+            toast.warn(`Variant added. ${dropshipResult.warning}`);
+          }
+        }
+
         closeVariantModal();
       } catch (err) {
         setVariantSaveError(typeof err === "string" ? err : err?.message || "Failed to add variant");
@@ -490,6 +555,34 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
           getDiscountPercentage={getDiscountPercentage}
           isSaving={variantLoading || updateLoading}
           saveError={variantSaveError || variantError}
+          productSlug={product.slug}
+          onDropshipUpdated={(patch) => {
+            if (editingVariantIndex == null) return;
+            setVariantForm((prev) => ({
+              ...prev,
+              dropship: patch.dropship,
+              price: { ...prev.price, ...patch.price },
+              channelVisibility: {
+                ...(prev.channelVisibility || {}),
+                ...patch.channelVisibility,
+              },
+            }));
+            setFormData((prev) => {
+              const v = [...(prev.variants || [])];
+              const idx = editingVariantIndex;
+              if (!v[idx]) return prev;
+              v[idx] = {
+                ...v[idx],
+                dropship: patch.dropship,
+                price: { ...v[idx].price, ...patch.price },
+                channelVisibility: {
+                  ...(v[idx].channelVisibility || {}),
+                  ...patch.channelVisibility,
+                },
+              };
+              return { ...prev, variants: v };
+            });
+          }}
         />
       )}
     </div>
