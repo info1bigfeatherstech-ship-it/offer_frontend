@@ -114,7 +114,8 @@ const CartDeliverySection = ({ isLoggedIn, userPincode }) => {
     );
   }
 
-  if (isLoggedIn && userPincode && !isEditing && hasResult) {
+  // Guest + logged-in: show the same result card once a pin has been checked.
+  if (!isEditing && hasResult) {
     return (
       <div className="flex flex-col gap-2">
         <div
