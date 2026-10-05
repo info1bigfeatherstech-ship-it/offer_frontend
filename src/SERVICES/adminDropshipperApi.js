@@ -248,3 +248,14 @@ export function getProductDropshipStatusMeta(product) {
   }
   return { key: 'off', label: 'Off', className: 'bg-gray-100 text-gray-500' };
 }
+
+/** Admin list of dropship orders (does not touch ecomm/wholesale order panels). */
+export async function listAdminDropshipOrders(params = {}) {
+  const res = await axiosInstance.get(`${BASE}/orders`, { params });
+  return res.data;
+}
+
+export async function getAdminDropshipOrder(orderId) {
+  const res = await axiosInstance.get(`${BASE}/orders/${encodeURIComponent(orderId)}`);
+  return res.data;
+}
