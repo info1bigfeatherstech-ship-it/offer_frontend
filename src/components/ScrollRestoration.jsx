@@ -280,6 +280,8 @@ const ScrollRestoration = () => {
   useLayoutEffect(() => {
     disconnectObservers();
     const gen = ++genRef.current;
+    /** Cleared on finish / abandon / effect teardown (timers + gesture listeners). */
+    let cleanupExtras = () => {};
 
     const prevKey = prevKeyRef.current;
     if (prevKey && prevKey !== key) {
@@ -305,6 +307,32 @@ const ScrollRestoration = () => {
       let lastHeight = measureRealShellHeight();
       let stableHits = 0;
       let finished = false;
+      let safetyTimer = null;
+
+      const endRestoreSideEffects = () => {
+        if (safetyTimer != null) {
+          window.clearTimeout(safetyTimer);
+          safetyTimer = null;
+        }
+        window.removeEventListener("wheel", onUserGesture, true);
+        window.removeEventListener("touchmove", onUserGesture, true);
+      };
+
+      cleanupExtras = endRestoreSideEffects;
+
+      /** Drop protection and stop observing — leave viewport where the user is. */
+      const abandonForUserGesture = () => {
+        if (gen !== genRef.current || finished) return;
+        finished = true;
+        endRestoreSideEffects();
+        disconnectObservers();
+        clearShellHeight();
+        restoreBodyMinHeight();
+      };
+
+      const onUserGesture = () => {
+        abandonForUserGesture();
+      };
 
       const finish = () => {
         if (gen !== genRef.current || finished) return;
@@ -313,6 +341,7 @@ const ScrollRestoration = () => {
         if (record.anchorId && !foundAnchor) return;
 
         finished = true;
+        endRestoreSideEffects();
         disconnectObservers();
 
         const latest = readHistoryScrollRecord(key) || record;
@@ -336,6 +365,18 @@ const ScrollRestoration = () => {
         clearShellHeight();
         restoreBodyMinHeight();
         setWindowScrollY(finalY);
+      };
+
+      /** Soft deadline: stop yanking scroll if restore never stabilizes. */
+      const forceComplete = () => {
+        if (gen !== genRef.current || finished) return;
+        finished = true;
+        endRestoreSideEffects();
+        disconnectObservers();
+        const latest = readHistoryScrollRecord(key) || record;
+        applyRecord(latest);
+        clearShellHeight();
+        restoreBodyMinHeight();
       };
 
       const tick = () => {
@@ -375,9 +416,20 @@ const ScrollRestoration = () => {
       if (shell) ro.observe(shell);
       observersRef.current.push(ro);
 
+      // Observe route shell only — body-level modals (install prompt, auth) must not
+      // re-trigger applyRecord and yank the viewport mid-browse.
       const mo = new MutationObserver(() => tick());
-      mo.observe(document.body, { childList: true, subtree: true });
+      if (shell) {
+        mo.observe(shell, { childList: true, subtree: true });
+      } else {
+        mo.observe(document.body, { childList: true, subtree: true });
+      }
       observersRef.current.push(mo);
+
+      window.addEventListener("wheel", onUserGesture, { capture: true, passive: true });
+      window.addEventListener("touchmove", onUserGesture, { capture: true, passive: true });
+
+      safetyTimer = window.setTimeout(forceComplete, 2500);
     } else if (hash) {
       clearShellHeight();
       restoreBodyMinHeight();
@@ -400,7 +452,12 @@ const ScrollRestoration = () => {
       };
       toHash();
       const mo = new MutationObserver(() => toHash());
-      mo.observe(document.body, { childList: true, subtree: true });
+      const shell = document.getElementById(SHELL_ID);
+      if (shell) {
+        mo.observe(shell, { childList: true, subtree: true });
+      } else {
+        mo.observe(document.body, { childList: true, subtree: true });
+      }
       observersRef.current.push(mo);
     } else {
       clearShellHeight();
@@ -418,6 +475,7 @@ const ScrollRestoration = () => {
 
     return () => {
       genRef.current += 1;
+      cleanupExtras();
       disconnectObservers();
     };
   }, [key, pathname, search, hash, navigationType]);
