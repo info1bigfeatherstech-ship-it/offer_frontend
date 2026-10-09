@@ -37,6 +37,8 @@ function isAdminApiPath(url) {
   if (!u) return false;
   if (u.startsWith("/admin") || u.includes("/admin/")) return true;
   if (u.startsWith("/staff") || u.includes("/staff/")) return true;
+  // Temporary staff JWT gate for dropshipper catalog/orders until dropshipper auth lands
+  if (u.startsWith("/dropshipper") || u.includes("/dropshipper/")) return true;
   if (u.includes("/orders/admin/")) return true;
   if (u.includes("/checkout/admin/")) return true;
   return false;

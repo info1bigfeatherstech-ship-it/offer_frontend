@@ -21,6 +21,7 @@ import {
   markPwaInstallPendingAttribution,
   reportPwaInstall,
 } from '../../utils/pushNotifications';
+import { getWindowScrollY, setWindowScrollY } from '../../utils/scrollWindowToTop';
 
 const OPEN_DELAY_MS = 1200;
 
@@ -111,14 +112,27 @@ const InstallAppPrompt = ({
 
   useEffect(() => {
     if (!visible) return undefined;
+
+    // Capture before overflow lock — mobile browsers (esp. iOS) can reset scrollY.
+    const lockedY = getWindowScrollY();
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    if (Math.abs(getWindowScrollY() - lockedY) > 1) {
+      setWindowScrollY(lockedY);
+    }
+
+    // Programmatic focus only — never native autoFocus (it ignores preventScroll).
     const t = window.setTimeout(() => {
       installBtnRef.current?.focus({ preventScroll: true });
+      if (Math.abs(getWindowScrollY() - lockedY) > 1) {
+        setWindowScrollY(lockedY);
+      }
     }, 280);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+
     return () => {
       window.clearTimeout(t);
-      document.body.style.overflow = prev;
+      document.body.style.overflow = prevOverflow;
+      setWindowScrollY(lockedY);
     };
   }, [visible]);
 
@@ -176,7 +190,7 @@ const InstallAppPrompt = ({
           <button
             type="button"
             aria-label="Dismiss"
-            className="absolute inset-0 bg-black/55 backdrop-blur-[6px] sm:backdrop-blur-[8px]"
+            className="absolute inset-0 touch-none bg-black/55 backdrop-blur-[6px] sm:backdrop-blur-[8px]"
             onClick={handleDismiss}
           />
 
@@ -272,7 +286,6 @@ const InstallAppPrompt = ({
                     type="button"
                     onClick={handleInstall}
                     disabled={installing}
-                    autoFocus
                     className="group relative inline-flex min-h-[48px] w-full items-center justify-center gap-2 overflow-hidden rounded-xl bg-[#F7A221] px-4 py-3 text-sm font-bold text-black outline-none transition hover:bg-[#ffb03a] focus-visible:ring-4 focus-visible:ring-[#F7A221]/40 active:scale-[0.98] disabled:opacity-60 sm:py-3.5"
                     style={{ boxShadow: '0 8px 22px rgba(247,162,33,.38)' }}
                   >

@@ -34,6 +34,12 @@ import {
 } from "../ADMIN_REDUX_MANAGEMENT/adminEditProductSlice";
 
 import axiosInstance from "../../../SERVICES/axiosInstance";
+import {
+  bulkEnableDropship,
+  bulkSetDropshipPrice,
+  disableDropship,
+  getProductDropshipStatusMeta,
+} from "../../../SERVICES/adminDropshipperApi";
 import FlagToggle from "../../Common/FlagToggle";
 import { canManageProductCatalog, isInventoryManagerRole } from "../roles";
 import { selectAdminUser } from "../ADMIN_REDUX_MANAGEMENT/adminAuthSlice";
@@ -817,6 +823,172 @@ const ProductsTab = ({ onSwitchTab }) => {
     return <span className={`px-2 py-1 rounded-full text-xs font-medium ${colors[status] || colors.draft}`}>{status === "active" ? "Active" : "Inactive"}</span>;
   };
 
+  const getDropshipStatusBadge = (product) => {
+    const meta = getProductDropshipStatusMeta(product);
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${meta.className}`}>
+        {meta.label}
+      </span>
+    );
+  };
+
+  /** Build { slug, productCode } items for all variants of selected products */
+  const collectSelectedDropshipItems = () => {
+    const selected = normalizedProducts.filter((p) => selectedSlugs.has(p.slug));
+    const items = [];
+    for (const product of selected) {
+      const variants = Array.isArray(product.variants) ? product.variants : [];
+      for (const v of variants) {
+        const code = String(v?.productCode || "").trim();
+        if (!code) continue;
+        items.push({ slug: product.slug, productCode: code });
+      }
+    }
+    return items;
+  };
+
+  const handleBulkDropshipSetPrice = async (enableAfter = false) => {
+    if (selectedSlugs.size === 0) return;
+    const items = collectSelectedDropshipItems();
+    if (!items.length) {
+      toast.error("No variant product codes found on selected products");
+      return;
+    }
+    const raw = window.prompt(
+      `Enter dropship price (₹) for ${items.length} variant(s) across ${selectedSlugs.size} product(s)${enableAfter ? " and ENABLE dropship" : ""}:`
+    );
+    if (raw == null) return;
+    const price = Number(String(raw).replace(/[^0-9.]/g, ""));
+    if (!Number.isFinite(price) || price <= 0) {
+      toast.error("Enter a valid dropship price greater than 0");
+      return;
+    }
+    if (
+      !window.confirm(
+        `${enableAfter ? "Set price & enable" : "Set dropship price"} ₹${price} on ${items.length} variant(s)?`
+      )
+    ) {
+      return;
+    }
+
+    setBulkLoading(true);
+    setBulkActionType("dropship-price");
+    try {
+      const data = await bulkSetDropshipPrice(
+        items.map((it) => ({
+          ...it,
+          dropshipBase: price,
+          enable: enableAfter,
+        }))
+      );
+      const updated = data.updatedCount ?? 0;
+      const skipped = data.skippedCount ?? 0;
+      const failed = data.failedCount ?? 0;
+      if (updated > 0) {
+        toast.success(
+          `Dropship price updated on ${updated} variant(s)${skipped || failed ? ` · skipped ${skipped}, failed ${failed}` : ""}`
+        );
+      } else {
+        toast.error(
+          data.message ||
+            `No variants updated (skipped ${skipped}, failed ${failed})`
+        );
+      }
+      if (Array.isArray(data.skipped) && data.skipped.length > 0) {
+        console.warn("[dropship bulk-set-price] skipped:", data.skipped);
+      }
+      setSelectedSlugs(new Set());
+      refreshProducts();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err.message || "Bulk dropship price failed");
+    } finally {
+      setBulkLoading(false);
+      setBulkActionType(null);
+    }
+  };
+
+  const handleBulkDropshipEnable = async () => {
+    if (selectedSlugs.size === 0) return;
+    const items = collectSelectedDropshipItems();
+    if (!items.length) {
+      toast.error("No variant product codes found on selected products");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Enable dropship on ${items.length} variant(s)? Variants without a dropship price will be skipped.`
+      )
+    ) {
+      return;
+    }
+
+    setBulkLoading(true);
+    setBulkActionType("dropship-enable");
+    try {
+      const data = await bulkEnableDropship(items);
+      const enabled = data.enabledCount ?? 0;
+      const skipped = data.skippedCount ?? 0;
+      const failed = data.failedCount ?? 0;
+      if (enabled > 0) {
+        toast.success(
+          `Dropship enabled on ${enabled} variant(s)${skipped || failed ? ` · skipped ${skipped}, failed ${failed}` : ""}`
+        );
+      } else {
+        toast.error(
+          `None enabled — set dropship price first (skipped ${skipped}, failed ${failed})`
+        );
+      }
+      if (Array.isArray(data.skipped) && data.skipped.length > 0) {
+        console.warn("[dropship bulk-enable] skipped:", data.skipped);
+      }
+      setSelectedSlugs(new Set());
+      refreshProducts();
+    } catch (err) {
+      toast.error(err?.response?.data?.message || err.message || "Bulk dropship enable failed");
+    } finally {
+      setBulkLoading(false);
+      setBulkActionType(null);
+    }
+  };
+
+  const handleBulkDropshipDisable = async () => {
+    if (selectedSlugs.size === 0) return;
+    const items = collectSelectedDropshipItems();
+    if (!items.length) {
+      toast.error("No variant product codes found on selected products");
+      return;
+    }
+    if (
+      !window.confirm(
+        `Disable dropship listing on ${items.length} variant(s)? Prices will be kept.`
+      )
+    ) {
+      return;
+    }
+
+    setBulkLoading(true);
+    setBulkActionType("dropship-disable");
+    let ok = 0;
+    let fail = 0;
+    try {
+      for (const it of items) {
+        try {
+          await disableDropship({ ...it, clearPrice: false });
+          ok += 1;
+        } catch {
+          fail += 1;
+        }
+      }
+      if (ok > 0) toast.success(`Dropship disabled on ${ok} variant(s)${fail ? ` · failed ${fail}` : ""}`);
+      else toast.error("Failed to disable dropship on selected variants");
+      setSelectedSlugs(new Set());
+      refreshProducts();
+    } finally {
+      setBulkLoading(false);
+      setBulkActionType(null);
+    }
+  };
+
   return (
     <div className="space-y-6">
       {(actionLoading || deleteLoading || bulkLoading) && (
@@ -1002,6 +1174,53 @@ const ProductsTab = ({ onSwitchTab }) => {
                 </button>
               </div>
             </div>
+
+            {/* DROPSHIP BULK — dedicated /admin/dropshipper APIs */}
+            <div className="relative group">
+              <button
+                type="button"
+                className="flex items-center justify-between gap-3 px-4 py-2 bg-white border border-teal-500 rounded-xl text-sm font-medium hover:border-teal-600 transition-all min-w-[160px] cursor-pointer"
+              >
+                <span className="text-teal-700">Dropship</span>
+                <svg className="w-4 h-4 text-teal-500 group-hover:rotate-180 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+              <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-100 rounded-2xl shadow-xl z-50 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 p-1.5 flex flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => handleBulkDropshipSetPrice(false)}
+                  disabled={bulkLoading}
+                  className="flex items-center gap-2 px-3 py-2 bg-teal-50 text-teal-800 rounded-xl text-sm font-medium hover:bg-teal-100 transition-colors disabled:opacity-50 cursor-pointer text-left"
+                >
+                  Set price
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleBulkDropshipSetPrice(true)}
+                  disabled={bulkLoading}
+                  className="flex items-center gap-2 px-3 py-2 bg-teal-600 text-white rounded-xl text-sm font-medium hover:bg-teal-700 transition-colors disabled:opacity-50 cursor-pointer text-left"
+                >
+                  Set price & enable
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkDropshipEnable}
+                  disabled={bulkLoading}
+                  className="flex items-center gap-2 px-3 py-2 bg-teal-50 text-teal-800 rounded-xl text-sm font-medium hover:bg-teal-100 transition-colors disabled:opacity-50 cursor-pointer text-left"
+                >
+                  Enable (priced only)
+                </button>
+                <button
+                  type="button"
+                  onClick={handleBulkDropshipDisable}
+                  disabled={bulkLoading}
+                  className="flex items-center gap-2 px-3 py-2 bg-gray-50 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-100 transition-colors disabled:opacity-50 cursor-pointer text-left"
+                >
+                  Disable listing
+                </button>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="flex gap-2 xl:gap-4 flex-wrap"> {/* RESPONSIVE FIX */}
@@ -1142,6 +1361,7 @@ const ProductsTab = ({ onSwitchTab }) => {
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Inventory Stock</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Ecom Status</th>
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Wholesale Status</th>
+                <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Dropship</th>
                 {canManageCatalog && (
                 <th className="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap /* RESPONSIVE FIX */">Featured</th>
                 )}
@@ -1252,6 +1472,7 @@ const ProductsTab = ({ onSwitchTab }) => {
                     </td>
                     <td className="px-3 py-3"> {/* RESPONSIVE FIX */}{getEcomStatusBadge(product)}</td>
                     <td className="px-3 py-3"> {/* RESPONSIVE FIX */}{getWholesaleStatusBadge(product)}</td>
+                    <td className="px-3 py-3"> {/* RESPONSIVE FIX */}{getDropshipStatusBadge(product)}</td>
                     {canManageCatalog && (
                     <td className="px-3 py-3"> {/* RESPONSIVE FIX */}
                       <button

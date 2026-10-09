@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useDispatch, useSelector } from "react-redux";
+import { toast } from "react-toastify";
 import ProductFormBody from "../Shared_components/ProductFormBody";
 import VariantModal, { defaultVariant } from "../Shared_components/VariantModal";
 import { shippingFormFromVariant } from "../../../utils/variantCatalogForm";
@@ -18,6 +19,7 @@ import {
   validateCreateProductForm,
   scrollToProductShippingSection,
 } from "../../../utils/validateProductCreateForm";
+import { applyPendingDropshipForCreatedProduct } from "../../../SERVICES/adminDropshipperApi";
 
 const formatIndianRupee = (amount) =>
   new Intl.NumberFormat("en-IN", {
@@ -43,6 +45,8 @@ const emptyForm = () => ({
   wholesaleBase: "",
   wholesaleSale: "",
   minimumOrderQuantity: "",
+  dropshipBase: "",
+  dropshipEnable: false,
   soldInfo: { enabled: false, count: "" },
   fomo: { enabled: false, type: "viewing_now", viewingNow: "", productLeft: "", customMessage: "" },
   isFeatured: false, status: "active",
@@ -50,7 +54,7 @@ const emptyForm = () => ({
 
 const ProductModal = ({ onClose, brands, setBrands }) => {
   const dispatch = useDispatch();
-  const { loading: createLoading, error: createError, success: createSuccess } =
+  const { loading: createLoading, error: createError } =
     useSelector((s) => s.adminProductCreate);
   const { categories } = useSelector((s) => s.categories);
 
@@ -63,6 +67,7 @@ const ProductModal = ({ onClose, brands, setBrands }) => {
   const [showCustomMessageModal, setShowCustomMessageModal] = useState(false);
   const [showVariantModal, setShowVariantModal] = useState(false);
   const [submitError, setSubmitError] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const footerErrorRef = useRef(null);
 
   const scrollToFooterError = useCallback(() => {
@@ -72,10 +77,6 @@ const ProductModal = ({ onClose, brands, setBrands }) => {
       /* ignore */
     }
   }, []);
-
-  useEffect(() => {
-    if (createSuccess) { dispatch(resetCreateSuccess()); setFormData(emptyForm); setSubmitError(null); onClose(); }
-  }, [createSuccess, dispatch, onClose]);
 
   useEffect(() => {
     if (createError) scrollToFooterError();
@@ -94,7 +95,13 @@ const ProductModal = ({ onClose, brands, setBrands }) => {
     setVariantForm({
       ProductCode: v.ProductCode != null ? String(v.ProductCode) : "",
       attributes: v.attributes?.length > 0 ? v.attributes : [{ key: "", value: "" }],
-      price: { base: v.price?.base ?? "", sale: v.price?.sale ?? "" },
+      price: {
+        base: v.price?.base ?? "",
+        sale: v.price?.sale ?? "",
+        wholesaleBase: v.price?.wholesaleBase ?? v.wholesaleBase ?? "",
+        wholesaleSale: v.price?.wholesaleSale ?? v.wholesaleSale ?? "",
+        dropshipBase: "",
+      },
       inventory: { ...v.inventory },
       images: v.images || [],
       isActive: v.isActive !== false,
@@ -106,6 +113,8 @@ const ProductModal = ({ onClose, brands, setBrands }) => {
       title: v.title || "",
       description: v.description || "",
       shipping: shippingFormFromVariant(v, formData.shipping, formData),
+      pendingDropshipBase: v.pendingDropshipBase || "",
+      pendingDropshipEnable: v.pendingDropshipEnable === true,
     });
     setEditingVariantIndex(index);
     setShowVariantModal(true);
@@ -131,7 +140,7 @@ const ProductModal = ({ onClose, brands, setBrands }) => {
   const removeAttribute = (id) => setFormData((p) => ({ ...p, attributes: p.attributes.filter((a) => a.id !== id) }));
   const handleCustomMessageSave = (msg) => setFormData((p) => ({ ...p, fomo: { ...p.fomo, customMessage: msg } }));
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     setSubmitError(null);
     dispatch(resetCreateError());
@@ -144,9 +153,43 @@ const ProductModal = ({ onClose, brands, setBrands }) => {
       return;
     }
 
-    dispatch(createProduct(formData));
+    setSubmitting(true);
+    const snapshot = formData;
+    try {
+      const product = await dispatch(createProduct(snapshot)).unwrap();
+
+      // Optional dropship — never fails product create; warnings only
+      try {
+        const dropshipResult = await applyPendingDropshipForCreatedProduct(product, snapshot);
+        if (dropshipResult.warnings?.length) {
+          toast.warn(
+            `Product created. Dropship: ${dropshipResult.warnings.slice(0, 2).join(" · ")}`
+          );
+        } else if (dropshipResult.appliedCount > 0) {
+          toast.success(
+            `Product created. Dropship set on ${dropshipResult.appliedCount} variant(s).`
+          );
+        } else {
+          toast.success("Product created successfully");
+        }
+      } catch (dropshipErr) {
+        console.warn("[dropship] post-create apply failed", dropshipErr);
+        toast.warn("Product created, but dropship could not be applied. Set it from Edit product.");
+      }
+
+      dispatch(resetCreateSuccess());
+      setFormData(emptyForm());
+      onClose();
+    } catch (err) {
+      const msg = typeof err === "string" ? err : err?.message || "Failed to create product";
+      setSubmitError(msg);
+      scrollToFooterError();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
+  const isBusy = createLoading || submitting;
   const displayError = submitError || createError;
 
   return (
@@ -159,7 +202,7 @@ const ProductModal = ({ onClose, brands, setBrands }) => {
               Top fields = main variant (variants[0]) · "Add Variant" = extra variants
             </p>
           </div>
-          <button type="button" onClick={onClose} disabled={createLoading} className="p-2 hover:bg-gray-100 rounded-xl disabled:opacity-50">
+          <button type="button" onClick={onClose} disabled={isBusy} className="p-2 hover:bg-gray-100 rounded-xl disabled:opacity-50">
             <svg className="w-6 h-6 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
@@ -181,6 +224,7 @@ const ProductModal = ({ onClose, brands, setBrands }) => {
             onToggleVariantActive={toggleVariantActive}
             formatIndianRupee={formatIndianRupee}
             getDiscountPercentage={getDiscountPercentage}
+            actionLoading={isBusy}
           />
 
           {displayError && (
@@ -194,9 +238,9 @@ const ProductModal = ({ onClose, brands, setBrands }) => {
           )}
 
           <div className="flex gap-3 mt-4">
-            <button type="button" onClick={onClose} disabled={createLoading} className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 disabled:opacity-60">Cancel</button>
-            <button type="submit" disabled={createLoading} className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-60 flex items-center justify-center gap-2">
-              {createLoading ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Creating…</> : "Create Product"}
+            <button type="button" onClick={onClose} disabled={isBusy} className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 font-medium rounded-lg hover:bg-gray-50 disabled:opacity-60">Cancel</button>
+            <button type="submit" disabled={isBusy} className="flex-1 px-4 py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-lg hover:from-blue-700 hover:to-indigo-700 disabled:opacity-60 flex items-center justify-center gap-2">
+              {isBusy ? <><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Creating…</> : "Create Product"}
             </button>
           </div>
         </form>
@@ -221,4 +265,3 @@ const ProductModal = ({ onClose, brands, setBrands }) => {
 };
 
 export default ProductModal;
-
