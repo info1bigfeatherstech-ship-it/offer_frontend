@@ -553,6 +553,32 @@ export const adminOrdersApi = createApi({
       ],
     }),
 
+    /**
+     * Warehouse self-pickup: cancel courier booking if any, mark delivered + fulfillmentMode=self_pickup.
+     * POST /api/orders/admin/items/:orderId/fulfillment/self-pickup
+     */
+    adminFulfillmentSelfPickup: builder.mutation({
+      query: ({ orderId, note } = {}) => ({
+        url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/self-pickup`,
+        method: 'POST',
+        data: note ? { note } : {},
+      }),
+      invalidatesTags: (result, error, arg) => {
+        if (error) return [];
+        const id = arg?.orderId;
+        return [
+          { type: 'AdminOrdersList', id: 'PARTIAL' },
+          { type: 'AdminOrdersSummary', id: 'SUMMARY' },
+          ...(id
+            ? [
+                { type: 'AdminOrdersList', id },
+                { type: 'AdminOrderTracking', id },
+              ]
+            : []),
+        ];
+      },
+    }),
+
     adminFulfillmentRetryPickup: builder.mutation({
       query: (orderId) => ({
         url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/retry-pickup`,
@@ -728,6 +754,7 @@ export const {
   useAdminFulfillmentManifestMutation,
   useAdminFulfillmentShippingLabelMutation,
   useAdminFulfillmentCancelShipmentMutation,
+  useAdminFulfillmentSelfPickupMutation,
   useAdminFulfillmentRetryPickupMutation,
   useAdminBulkApprovalConfirmMutation,
   useAdminBulkApprovalCancelMutation,

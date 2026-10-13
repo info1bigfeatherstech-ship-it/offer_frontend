@@ -141,6 +141,8 @@ function trackLinkLabel(providerKey) {
  * @param {object} props.ship
  * @param {object|null} [props.ops]
  * @param {string} [props.orderStatus]
+ * @param {string|null} [props.fulfillmentMode]
+ * @param {object|null} [props.selfPickup]
  * @param {string|null} props.carrierStatusDisplay
  * @param {string|null} [props.carrierStatusSecondary]
  * @param {string|null} props.lastSyncedAt
@@ -158,6 +160,8 @@ export default function OrderShipmentTrackingPanel({
   ship = {},
   ops = null,
   orderStatus = "",
+  fulfillmentMode = null,
+  selfPickup = null,
   carrierStatusDisplay = null,
   carrierStatusSecondary = null,
   lastSyncedAt = null,
@@ -172,15 +176,101 @@ export default function OrderShipmentTrackingPanel({
   onRefreshTracking,
 }) {
   const formatFn = typeof formatDateTime === "function" ? formatDateTime : () => "—";
-  const trackHref = buildTrackHref({ ship, trackingUrl, providerKey });
+  const isSelfPickup =
+    String(fulfillmentMode || "").toLowerCase() === "self_pickup" ||
+    String(ship?.providerStatus || "").toUpperCase() === "SELF_PICKUP";
+  const trackHref = isSelfPickup ? null : buildTrackHref({ ship, trackingUrl, providerKey });
   const timeline = Array.isArray(carrierTimeline) ? carrierTimeline : [];
   const hasAnyShipmentSignal = Boolean(
     ship?.trackingNumber ||
       ship?.awbCode ||
       ship?.courier ||
       carrierStatusDisplay ||
-      timeline.length > 0
+      timeline.length > 0 ||
+      isSelfPickup
   );
+
+  if (isSelfPickup) {
+    const collectedAt = selfPickup?.completedAt || ship?.deliveredAt || null;
+    const providerCancelled = Boolean(selfPickup?.providerCancelled);
+    return (
+      <div className="bg-white rounded-md border border-emerald-200 shadow-sm overflow-hidden">
+        <div className="px-4 py-3 border-b border-emerald-100 bg-emerald-50/80">
+          <h3 className="text-sm font-bold text-emerald-950">Self pickup</h3>
+          <p className="text-[11px] text-emerald-800 mt-0.5">Customer collected from warehouse — no courier journey</p>
+        </div>
+        <div className="p-4 space-y-4">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-3">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Status</p>
+              <p className="text-sm font-semibold text-emerald-800 mt-0.5">Self pickup</p>
+            </div>
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Collected on</p>
+              <p className="text-sm font-semibold text-slate-900 mt-0.5">{formatFn(collectedAt)}</p>
+            </div>
+            <div className="min-w-0 col-span-2">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Courier booking</p>
+              <p className="text-sm font-semibold text-slate-900 mt-0.5">
+                {providerCancelled
+                  ? "Cancelled on provider before self pickup"
+                  : "No active courier booking"}
+              </p>
+            </div>
+            {selfPickup?.note ? (
+              <div className="min-w-0 col-span-2">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400">Note</p>
+                <p className="text-sm text-slate-700 mt-0.5 whitespace-pre-wrap">{selfPickup.note}</p>
+              </div>
+            ) : null}
+          </div>
+
+          {timeline.length > 0 ? (
+            <div className="border-t border-slate-100 pt-3">
+              <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 mb-2">
+                Fulfillment timeline
+              </p>
+              <div className="rounded-md border border-slate-200 bg-slate-50/60 px-3 py-2.5">
+                <ol className="relative space-y-0">
+                  {timeline.map((event, idx) => {
+                    const isLatest = idx === timeline.length - 1;
+                    const title = safeText(event?.description || event?.status, "Update");
+                    const when = formatFn(event?.timestamp);
+                    return (
+                      <li key={event?.id || `${idx}-${title}`} className="relative flex gap-3 pb-3 last:pb-0">
+                        {idx < timeline.length - 1 ? (
+                          <span
+                            className="absolute left-[5px] top-3 bottom-0 w-px bg-slate-200"
+                            aria-hidden
+                          />
+                        ) : null}
+                        <span
+                          className={`relative z-[1] mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full ${
+                            isLatest ? "bg-emerald-600" : "bg-emerald-200"
+                          }`}
+                          aria-hidden
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p
+                            className={`text-sm leading-snug ${
+                              isLatest ? "font-semibold text-slate-900" : "font-medium text-slate-800"
+                            }`}
+                          >
+                            {title}
+                          </p>
+                          <p className="text-xs text-slate-500 mt-0.5">{when}</p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   if (hideStaleTracking) {
     return (

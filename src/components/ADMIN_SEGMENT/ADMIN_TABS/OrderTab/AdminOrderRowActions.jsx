@@ -9,6 +9,7 @@ import {
   useAdminFulfillmentManifestMutation,
   useAdminFulfillmentRetryPickupMutation,
   useAdminFulfillmentSchedulePickupMutation,
+  useAdminFulfillmentSelfPickupMutation,
   useAdminFulfillmentSyncShiprocketMutation,
   useGetAdminPickupCalendarQuery,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
@@ -28,6 +29,7 @@ const ACTION_LABELS = {
   refreshTracking: "Refresh tracking",
   retryPickup: "Retry pickup",
   cancelShipment: "Cancel on Shiprocket",
+  selfPickup: "Self pickup",
   openShiprocketSupport: "Open Shiprocket support",
   openShiprocket: "Open on Shiprocket",
   track: "Track",
@@ -276,6 +278,16 @@ async function executeAction(key, ctx) {
       }
       await ctx.cancelShipment(id).unwrap();
       return;
+    case "selfPickup":
+      if (
+        !window.confirm(
+          "Mark as Self pickup?\n\nUse this only if the customer collected the order from your warehouse.\n\nIf a courier booking exists on Shiprocket/Shipmozo, it will be cancelled via API first. The order will move to Delivered (Self pickup)."
+        )
+      ) {
+        throw new Error("Cancelled");
+      }
+      await ctx.selfPickup({ orderId: id }).unwrap();
+      return;
     case "openShiprocketSupport":
     case "openShiprocket": {
       window.open(resolveSupportUrl(ctx.externalLinks), "_blank", "noopener,noreferrer");
@@ -353,6 +365,7 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback, 
   const [syncShiprocketMut] = useAdminFulfillmentSyncShiprocketMutation();
   const [retryPickupMut] = useAdminFulfillmentRetryPickupMutation();
   const [cancelShipmentMut] = useAdminFulfillmentCancelShipmentMutation();
+  const [selfPickupMut] = useAdminFulfillmentSelfPickupMutation();
 
   const { data: pickupCalendarRes } = useGetAdminPickupCalendarQuery(
     { daysAhead: 45 },
@@ -389,6 +402,7 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback, 
       syncShiprocket: syncShiprocketMut,
       retryPickup: retryPickupMut,
       cancelShipment: cancelShipmentMut,
+      selfPickup: selfPickupMut,
       externalLinks,
       pickupDate,
       onOpenDetail,
@@ -405,6 +419,7 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback, 
       syncShiprocketMut,
       retryPickupMut,
       cancelShipmentMut,
+      selfPickupMut,
       externalLinks,
       pickupDate,
       onOpenDetail,
@@ -445,6 +460,7 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback, 
       "openShiprocketSupport",
       "openShiprocket",
       "cancelShipment",
+      "selfPickup",
       "track",
       "openDetail",
     ];

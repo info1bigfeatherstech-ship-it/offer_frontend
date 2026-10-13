@@ -14,6 +14,7 @@ export const ORDER_TAB_LABEL_TO_BUCKET = Object.freeze({
   RTO: 'rto',
   Cancelled: 'others',
   'Pickup Exception': 'pickup_exception',
+  'Self pickup': 'self_pickup',
 });
 
 /** @type {keyof typeof ORDER_TAB_LABEL_TO_BUCKET} */
@@ -42,6 +43,7 @@ export const BUCKET_KEY_TO_TAB_LABEL = Object.freeze({
   bill_sent: 'Confirmed',
   ready_to_ship: 'Ready to Ship',
   pickup_exception: 'Pickup Exception',
+  self_pickup: 'Self pickup',
   ready_to_pick: 'Processing',
   in_transit: 'In transit',
   completed: 'Delivered',

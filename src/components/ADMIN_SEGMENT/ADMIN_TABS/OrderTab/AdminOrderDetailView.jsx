@@ -9,6 +9,7 @@ import {
   useAdminFulfillmentManifestMutation,
   useAdminFulfillmentRetryPickupMutation,
   useAdminFulfillmentSchedulePickupMutation,
+  useAdminFulfillmentSelfPickupMutation,
   useAdminFulfillmentSyncShiprocketMutation,
   useAdminFulfillmentShippingLabelMutation,
   useGetAdminPickupCalendarQuery,
@@ -46,6 +47,7 @@ const FULFILLMENT_PRIMARY_ACTION_LABELS = {
   refreshTracking: "Refresh tracking",
   retryPickup: "Retry pickup",
   cancelShipment: "Cancel on Shiprocket",
+  selfPickup: "Self pickup",
 };
 
 const EXCEPTION_OPS_STATES = new Set([
@@ -178,7 +180,13 @@ function isShiprocketRtoStatus(orderStatus, providerStatus) {
   return /\brto\b/i.test(ps) || /return to origin/i.test(ps);
 }
 
-function labelOrderStatus(raw, providerStatus) {
+function labelOrderStatus(raw, providerStatus, fulfillmentMode) {
+  if (
+    String(fulfillmentMode || "").toLowerCase() === "self_pickup" ||
+    String(providerStatus || "").toUpperCase() === "SELF_PICKUP"
+  ) {
+    return "Self pickup";
+  }
   if (isShiprocketRtoStatus(raw, providerStatus)) {
     const ps = String(providerStatus || "").trim();
     return ps || "RTO";
@@ -462,6 +470,7 @@ export default function AdminOrderDetailView({
   const [fulfillmentManifest, manifestState] = useAdminFulfillmentManifestMutation();
   const [shippingLabel, labelState] = useAdminFulfillmentShippingLabelMutation();
   const [cancelShipment, cancelState] = useAdminFulfillmentCancelShipmentMutation();
+  const [selfPickup, selfPickupState] = useAdminFulfillmentSelfPickupMutation();
   const [retryPickup, retryPickupState] = useAdminFulfillmentRetryPickupMutation();
   const [bulkConfirm, bulkConfirmState] = useAdminBulkApprovalConfirmMutation();
   const [bulkCancel, bulkCancelState] = useAdminBulkApprovalCancelMutation();
@@ -497,6 +506,7 @@ export default function AdminOrderDetailView({
     syncShiprocketState.isLoading ||
     labelState.isLoading ||
     cancelState.isLoading ||
+    selfPickupState.isLoading ||
     retryPickupState.isLoading ||
     bulkConfirmState.isLoading ||
     bulkCancelState.isLoading;
@@ -865,6 +875,32 @@ export default function AdminOrderDetailView({
     }
   }, [cancelShipment, orderId, refreshOrder, providerDisplayName]);
 
+  const runSelfPickup = useCallback(async () => {
+    if (
+      !window.confirm(
+        "Mark as Self pickup?\n\nUse only if the customer collected this order from your warehouse.\n\nIf a courier booking exists, it will be cancelled via API first. Order will move to Delivered (Self pickup)."
+      )
+    ) {
+      return;
+    }
+    setActionMsg(null);
+    try {
+      const r = await selfPickup({ orderId }).unwrap();
+      setActionMsg({
+        type: "ok",
+        surface: "ops",
+        text: r?.message || "Marked as self pickup.",
+      });
+      await refreshOrder();
+    } catch (e) {
+      setActionMsg({
+        type: "err",
+        surface: "ops",
+        text: fulfillmentActionErrorText(e, "Self pickup failed."),
+      });
+    }
+  }, [selfPickup, orderId, refreshOrder]);
+
   useEffect(() => {
     if (!orderId || !hasCarrierAwb || !ship.shiprocketOrderId) return;
     const needsSync =
@@ -1131,12 +1167,33 @@ export default function AdminOrderDetailView({
           </div>
           <div className="flex flex-wrap gap-2 items-center lg:justify-end">
             <span
-              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border ${statusBadgeClass(order.orderStatus, order.shipmentInfo?.providerStatus)}`}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border ${
+                String(order.fulfillmentMode || "").toLowerCase() === "self_pickup"
+                  ? "bg-teal-50 text-teal-800 border-teal-200"
+                  : statusBadgeClass(order.orderStatus, order.shipmentInfo?.providerStatus)
+              }`}
               title="Order status"
             >
               <span className="text-[10px] text-slate-500 font-medium uppercase tracking-wide">Status</span>
-              {labelOrderStatus(order.orderStatus, order.shipmentInfo?.providerStatus)}
+              {labelOrderStatus(
+                order.orderStatus,
+                order.shipmentInfo?.providerStatus,
+                order.fulfillmentMode
+              )}
             </span>
+            {caps.selfPickup && !packingViewer ? (
+              <button
+                type="button"
+                disabled={fulfillmentBusy}
+                title={blockReasons.selfPickup || "Customer collected from warehouse"}
+                onClick={() => {
+                  void runSelfPickup();
+                }}
+                className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-teal-300 text-teal-800 bg-teal-50 hover:bg-teal-100 disabled:opacity-50"
+              >
+                {selfPickupState.isLoading ? "Saving…" : "Self pickup"}
+              </button>
+            ) : null}
             <span
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold border ${paymentBadgeClass(order.paymentStatus)}`}
               title="Payment status"
@@ -2283,6 +2340,8 @@ export default function AdminOrderDetailView({
               ship={ship}
               ops={ops}
               orderStatus={order.orderStatus}
+              fulfillmentMode={order.fulfillmentMode}
+              selfPickup={order.selfPickup || null}
               carrierStatusDisplay={carrierStatusDisplay || (isPendingOrder ? "Awaiting approval" : null)}
               carrierStatusSecondary={carrierStatusSecondary}
               lastSyncedAt={lastSyncedAt}
@@ -2294,7 +2353,11 @@ export default function AdminOrderDetailView({
               providerKey={shippingProviderKey}
               trackingUrl={tracking?.trackingUrl || ship?.trackingUrl || null}
               formatDateTime={formatDateHeader}
-              onRefreshTracking={onRefreshTracking}
+              onRefreshTracking={
+                String(order.fulfillmentMode || "").toLowerCase() === "self_pickup"
+                  ? undefined
+                  : onRefreshTracking
+              }
             />
           </div>
 
