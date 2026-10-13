@@ -61,6 +61,7 @@ const TAB_ORDER = [
   "RTO",
   "Cancelled",
   "Pickup Exception",
+  "Self pickup",
 ];
 
 const PACKING_VIEWER_DEFAULT_TAB = "Confirmed";
