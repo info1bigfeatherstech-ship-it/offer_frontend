@@ -4,6 +4,9 @@ import {
   useAdminPreviewPendingOrderEditMutation,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 
+/** Same divisor as AdminOrderDetailView / backend shippingWeightSnapshot. */
+const DIM_WEIGHT_DIVISOR = 5000;
+
 function formatInr(n) {
   const v = Number(n);
   if (!Number.isFinite(v)) return "—";
@@ -12,6 +15,36 @@ function formatInr(n) {
     currency: "INR",
     maximumFractionDigits: 2,
   }).format(v);
+}
+
+function formatKg(kg) {
+  const n = Number(kg);
+  if (!Number.isFinite(n)) return "—";
+  return `${n.toFixed(2)} kg`;
+}
+
+function formatPackageDims(dims) {
+  if (!dims || typeof dims !== "object") return null;
+  const l = Number(dims.lengthCm);
+  const w = Number(dims.widthCm);
+  const h = Number(dims.heightCm);
+  if (![l, w, h].every((n) => Number.isFinite(n) && n > 0)) return null;
+  return `${l} × ${w} × ${h} cm`;
+}
+
+function dimWeightKgFromDims(dims) {
+  if (!dims || typeof dims !== "object") return null;
+  const l = Number(dims.lengthCm);
+  const w = Number(dims.widthCm);
+  const h = Number(dims.heightCm);
+  if (![l, w, h].every((n) => Number.isFinite(n) && n > 0)) return null;
+  return Math.round(((l * w * h) / DIM_WEIGHT_DIVISOR) * 100) / 100;
+}
+
+function roundKg(n) {
+  const v = Number(n);
+  if (!Number.isFinite(v)) return null;
+  return Math.round(v * 100) / 100;
 }
 
 function lineIds(line) {
@@ -30,6 +63,44 @@ function lineImage(line) {
 }
 
 /**
+ * Display metrics for a pending line from shippingWeightSnapshot (read-only).
+ * Scales line weight / dim weight to the draft qty when unit values exist.
+ */
+function buildLineWeightDisplay(weightRow, draftQty) {
+  if (!weightRow) {
+    return { dimsLabel: null, lineWeightKg: null, lineDimWeightKg: null };
+  }
+  const qty = Math.max(0, Math.floor(Number(draftQty) || 0));
+  const dimsLabel = formatPackageDims(weightRow);
+  const unitWeight =
+    weightRow.unitWeightKg != null
+      ? Number(weightRow.unitWeightKg)
+      : weightRow.lineWeightKg != null && Number(weightRow.quantity) > 0
+        ? Number(weightRow.lineWeightKg) / Number(weightRow.quantity)
+        : null;
+  const unitDim =
+    weightRow.unitDimWeightKg != null
+      ? Number(weightRow.unitDimWeightKg)
+      : dimWeightKgFromDims(weightRow);
+
+  let lineWeightKg = null;
+  if (Number.isFinite(unitWeight) && unitWeight > 0) {
+    lineWeightKg = roundKg(unitWeight * qty);
+  } else if (qty === Number(weightRow.quantity) && weightRow.lineWeightKg != null) {
+    lineWeightKg = roundKg(weightRow.lineWeightKg);
+  }
+
+  let lineDimWeightKg = null;
+  if (Number.isFinite(unitDim) && unitDim > 0) {
+    lineDimWeightKg = roundKg(unitDim * qty);
+  } else if (qty === Number(weightRow.quantity) && weightRow.lineDimWeightKg != null) {
+    lineDimWeightKg = roundKg(weightRow.lineDimWeightKg);
+  }
+
+  return { dimsLabel, lineWeightKg, lineDimWeightKg };
+}
+
+/**
  * Pending-order item editor: reduce qty / remove lines before Confirm.
  * Single items surface with thumbnails — parent must not render a second items list.
  */
@@ -41,6 +112,16 @@ export default function AdminPendingOrderEditPanel({ order, orderId, disabled, o
 
   const [previewEdit, previewState] = useAdminPreviewPendingOrderEditMutation();
   const [applyEdit, applyState] = useAdminApplyPendingOrderEditMutation();
+
+  /** Same source as accepted "Items in this order" — display only, no API change. */
+  const weightSnap = order?.shippingWeightSnapshot;
+  const weightByVariantId = useMemo(() => {
+    const map = new Map();
+    for (const row of weightSnap?.lines || []) {
+      if (row?.variantId != null) map.set(String(row.variantId), row);
+    }
+    return map;
+  }, [weightSnap]);
 
   useEffect(() => {
     const next = {};
@@ -74,6 +155,37 @@ export default function AdminPendingOrderEditPanel({ order, orderId, disabled, o
       return Number(draftQty[key]) !== Number(line.quantity);
     });
   }, [items, draftQty]);
+
+  /** Header totals follow draft qty so admin sees weight change before Apply. */
+  const draftWeightSummary = useMemo(() => {
+    let totalWeightKg = 0;
+    let hasWeight = false;
+    for (const line of items) {
+      const { productId, variantId } = lineIds(line);
+      if (!productId || !variantId) continue;
+      const key = `${productId}:${variantId}`;
+      const qty = Number(draftQty[key]);
+      if (!Number.isFinite(qty) || qty <= 0) continue;
+      const display = buildLineWeightDisplay(weightByVariantId.get(variantId), qty);
+      if (display.lineWeightKg != null) {
+        totalWeightKg += display.lineWeightKg;
+        hasWeight = true;
+      }
+    }
+    const packageDimsLabel = formatPackageDims(weightSnap?.dims);
+    // Prefer live draft sum; fall back to stored snapshot when no unit weights available.
+    const snapshotTotal =
+      weightSnap?.totalWeightKg != null ? Number(weightSnap.totalWeightKg) : null;
+    return {
+      totalWeightKg: hasWeight
+        ? roundKg(totalWeightKg)
+        : !hasChanges && Number.isFinite(snapshotTotal)
+          ? roundKg(snapshotTotal)
+          : null,
+      packageDimsLabel,
+      sourceCatalogFallback: String(weightSnap?.source || "") === "catalog_fallback",
+    };
+  }, [items, draftQty, weightByVariantId, weightSnap, hasChanges]);
 
   const busy = previewState.isLoading || applyState.isLoading || disabled;
 
@@ -155,6 +267,30 @@ export default function AdminPendingOrderEditPanel({ order, orderId, disabled, o
             correct.
           </p>
         </div>
+        {draftWeightSummary.totalWeightKg != null && (
+          <div className="text-right text-[11px] space-y-0.5 text-slate-600 shrink-0">
+            <p>
+              Weight{" "}
+              <span className="font-semibold text-slate-900">
+                {formatKg(draftWeightSummary.totalWeightKg)}
+              </span>
+              {draftWeightSummary.packageDimsLabel ? (
+                <>
+                  {" · "}
+                  <span className="font-semibold text-slate-900">
+                    {draftWeightSummary.packageDimsLabel}
+                  </span>
+                </>
+              ) : null}
+            </p>
+            {draftWeightSummary.sourceCatalogFallback && (
+              <p className="text-amber-700">Estimated from catalog (legacy order)</p>
+            )}
+            {hasChanges && (
+              <p className="text-slate-500">Updates after Apply / Confirm</p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="divide-y divide-slate-100">
@@ -168,6 +304,11 @@ export default function AdminPendingOrderEditPanel({ order, orderId, disabled, o
           const img = lineImage(line);
           const lineTotal = Number(line?.lineTotal ?? line?.priceSnapshot?.total) || 0;
           const removed = qty === 0;
+          const weightRow = weightByVariantId.get(String(variantId || ""));
+          const { dimsLabel, lineWeightKg, lineDimWeightKg } = buildLineWeightDisplay(
+            weightRow,
+            qty
+          );
           return (
             <div
               key={key || idx}
@@ -184,6 +325,14 @@ export default function AdminPendingOrderEditPanel({ order, orderId, disabled, o
                 <p className="text-sm font-semibold text-slate-900 leading-snug">{name}</p>
                 <p className="text-[11px] text-slate-500 mt-0.5">
                   SKU <span className="font-mono">{sku}</span>
+                  {!removed && lineWeightKg != null ? (
+                    <>
+                      {" · "}
+                      {formatKg(lineWeightKg)}
+                    </>
+                  ) : null}
+                  {!removed && dimsLabel ? ` · ${dimsLabel}` : null}
+                  {!removed && lineDimWeightKg != null ? ` · dim ${formatKg(lineDimWeightKg)}` : null}
                   {removed ? <span className="ml-2 font-semibold text-red-600">Will be removed</span> : null}
                 </p>
               </div>
