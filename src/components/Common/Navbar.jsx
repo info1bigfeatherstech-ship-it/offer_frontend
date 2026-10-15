@@ -90,7 +90,7 @@ const FabuniqoJewelleryPromo = memo(function FabuniqoJewelleryPromo({ compact = 
     </>
   );
 
-  /* Mobile-only: content-sized pill matching icon-column height — no fixed width */
+  /* Mobile-only: compact pill — fits after Menu without clipping */
   if (compact) {
     return (
       <a
@@ -98,17 +98,16 @@ const FabuniqoJewelleryPromo = memo(function FabuniqoJewelleryPromo({ compact = 
         target="_blank"
         rel="noopener noreferrer"
         aria-label={`Artificial Jewellery — get 10% extra discount with coupon ${FABUNIQO_COUPON_CODE}`}
-        className="group relative inline-flex shrink-0 items-center gap-1 rounded-2xl border-2 border-[#C9A84C] bg-gradient-to-br from-[#FFF8E7] via-white to-[#FCE7F0] px-[7px] py-[4px] shadow-[0_2px_12px_rgba(201,168,76,0.35)] transition-transform duration-150 active:scale-[0.96] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E11D68]"
+        className="group relative inline-flex shrink-0 items-center gap-0.5 rounded-xl border border-[#C9A84C] bg-gradient-to-br from-[#FFF8E7] via-white to-[#FCE7F0] px-1.5 py-1 shadow-[0_1px_6px_rgba(201,168,76,0.28)] transition-transform duration-150 active:scale-[0.96] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E11D68]"
       >
-        <span className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#C9A84C] via-[#E11D68] to-[#C9A84C] text-white shadow-md ring-2 ring-white">
-          <span className="absolute inset-0 rounded-full animate-ping bg-[#E11D68]/40 opacity-50" aria-hidden />
-          <Gem className="relative h-3 w-3" aria-hidden strokeWidth={2.5} />
+        <span className="relative inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#C9A84C] via-[#E11D68] to-[#C9A84C] text-white shadow-sm ring-1 ring-white">
+          <Gem className="relative h-2 w-2" aria-hidden strokeWidth={2.5} />
         </span>
         <span className="relative flex flex-col items-start justify-center leading-none">
-          <span className="font-bold uppercase  text-[8px] text-slate-900">
+          <span className="font-bold uppercase tracking-tight text-[6px] text-slate-900">
             Artificial
           </span>
-          <span className="mt-0.5 font-bold uppercase text-[8px] text-[#E11D68]">
+          <span className="mt-px font-bold uppercase tracking-tight text-[6px] text-[#E11D68]">
             Jewellery
           </span>
         </span>
@@ -643,14 +642,14 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
       </div>
 
       {/* ── Sticky Header ───────────────────────────────────────────────────── */}
-      <header data-owb-site-nav="true" className="bg-white sticky top-0 z-50 shadow-lg">
-        <div className="container mx-auto px-4">
+      <header data-owb-site-nav="true" className="bg-white sticky top-0 z-50 shadow-lg overflow-x-clip">
+        <div className="container mx-auto px-3 sm:px-4">
 
           {/* ══ MOBILE LAYOUT (lg:hidden) ════════════════════════════════════ */}
           <div className="lg:hidden">
-            <div className="relative flex flex-nowrap items-center justify-between gap-1 py-2.5 sm:py-3 md:py-4 border-b border-gray-100">
+            <div className="relative flex min-w-0 flex-nowrap items-center gap-1.5 py-2.5 sm:gap-2 sm:py-3 md:py-4 border-b border-gray-100">
 
-              {/* Logo — slightly tighter on phones so jewellery CTA fits the row */}
+              {/* Logo */}
               <Link
                 to="/"
                 aria-label="Offer Wale Baba home"
@@ -658,7 +657,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                 className="relative inline-flex shrink-0 items-center justify-center z-[1]"
               >
                 <video
-                  className="relative z-10 block h-auto w-auto max-w-[96px] shrink-0 object-contain sm:max-w-[130px] md:max-w-[170px] pointer-events-none"
+                  className="relative z-10 block h-auto w-auto max-w-[92px] shrink-0 object-contain sm:max-w-[130px] md:max-w-[170px] pointer-events-none"
                   src={navLogoVideo}
                   autoPlay
                   loop
@@ -668,9 +667,26 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                 />
               </Link>
 
-              {/* Jewellery promo — phones only, same row/height as icon actions */}
-              <div className="md:hidden flex items-center justify-center px-0.5">
-                <FabuniqoJewelleryPromo compact />
+              {/* Search — phones: centered between logo and right actions */}
+              <div className="md:hidden relative flex flex-1 flex-col items-center justify-center min-w-0">
+                {showSearchTooltip && (
+                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full bg-black/80 text-white text-[9px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap z-20 backdrop-blur-sm pointer-events-none">
+                    🔍 Tap to search
+                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-black/80 rotate-45" />
+                  </div>
+                )}
+                <button
+                  onClick={handleSearchFocus}
+                  type="button"
+                  className="flex flex-col items-center justify-center cursor-pointer group active:scale-95 transition-transform duration-200 bg-transparent border-0 p-0"
+                >
+                  <div className="p-1 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
+                    <Search size={20} className="w-5 h-5 sm:w-[22px] sm:h-[22px] text-gray-700 group-hover:text-[#F7A221] transition-colors" strokeWidth={2} />
+                  </div>
+                  <span className="text-[9px] sm:text-[10px] font-bold mt-0.5 uppercase tracking-tighter text-gray-600 group-hover:text-[#F7A221] transition-colors leading-none">
+                    Search
+                  </span>
+                </button>
               </div>
 
               {/* Inline search bar — tablet only (md → lg) */}
@@ -692,30 +708,8 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                 </button>
               </div>
 
-              {/* Right actions — Search + Login/Cart/Menu */}
-              <div className="flex items-center gap-3 sm:gap-4 md:gap-5 relative z-[500] shrink-0">
-                {/* Search — phones only (tablet uses inline bar above) */}
-                <div className="md:hidden relative flex flex-col items-center">
-                  {showSearchTooltip && (
-                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full bg-black/80 text-white text-[9px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap z-20 backdrop-blur-sm pointer-events-none">
-                      🔍 Tap to search
-                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-black/80 rotate-45" />
-                    </div>
-                  )}
-                  <button
-                    onClick={handleSearchFocus}
-                    type="button"
-                    className="flex flex-col items-center justify-center cursor-pointer group active:scale-95 transition-transform duration-200 bg-transparent border-0 p-0"
-                  >
-                    <div className="p-1 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
-                      <Search size={20} className="w-5 h-5 sm:w-[22px] sm:h-[22px] text-gray-700 group-hover:text-[#F7A221] transition-colors" strokeWidth={2} />
-                    </div>
-                    <span className="text-[9px] sm:text-[10px] font-bold mt-0.5 uppercase tracking-tighter text-gray-600 group-hover:text-[#F7A221] transition-colors leading-none">
-                      Search
-                    </span>
-                  </button>
-                </div>
-
+              {/* Right actions — Login / Cart / Menu + jewellery (phones) */}
+              <div className="flex items-center gap-2.5 sm:gap-3.5 md:gap-5 relative z-[500] shrink-0">
                 {/* User */}
                 <div ref={accountTriggerMobileRef} onClick={handleAccountClick} className="relative flex flex-col items-center cursor-pointer group">
                   <div className="p-1 md:p-1.5 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
@@ -764,6 +758,11 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                     <span className="text-[9px] sm:text-[10px] md:text-[11px] font-bold mt-0.5 uppercase tracking-tighter text-gray-600 group-hover:text-[#F7A221]">Menu</span>
                   </button>
                 )}
+
+                {/* Jewellery promo — phones only, after Menu (last in row) */}
+                <div className="md:hidden flex items-center self-center">
+                  <FabuniqoJewelleryPromo compact />
+                </div>
 
                 {/* Account dropdown — mobile */}
                 {isLoggedIn && isAccountDropdownOpen && (
