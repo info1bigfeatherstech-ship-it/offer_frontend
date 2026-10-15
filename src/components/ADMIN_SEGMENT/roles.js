@@ -48,6 +48,11 @@ export function isPackingViewerRole(role) {
   return String(role || "").toLowerCase() === ROLES.PACKING_VIEWER;
 }
 
+/** Orders tab "Total revenue" card — admin only (order_manager / packing_viewer see "—"). */
+export function canViewOrdersRevenue(role) {
+  return String(role || "").toLowerCase() === ROLES.ADMIN;
+}
+
 /** Confirmed + Ready to Ship + Processing (until courier pickup / In transit). */
 export const PACKING_VIEWER_ORDER_TABS = Object.freeze([
   "Confirmed",

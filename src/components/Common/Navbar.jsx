@@ -9,10 +9,10 @@ import { fetchAllCategories, selectHierarchicalCategories } from "../REDUX_FEATU
 import { selectDisplayCartCount } from '../REDUX_FEATURES/REDUX_SLICES/userCartSlice';
 import CartSidebar from './CartSidebar';
 import {
-  Search, User, Heart, ShoppingCart, Menu, X, Phone, Mail, Clock, Bell,
+  Search, User, Heart, ShoppingCart, Menu, X, Mail, Clock, Bell,
   ChevronRight, Home, Flame, Package, Tag, Ticket, HeadphonesIcon,
   Smartphone, ChefHat, Shirt, Dumbbell, Plane, Book, Baby, Car, Box, Gift,
-  MapPin, LogOut, UserCircle, Settings, Sparkles, TrendingUp, Star, Zap
+  MapPin, LogOut, UserCircle, Settings, Sparkles, Gem, TrendingUp, Star, Zap
 } from 'lucide-react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { scrollWindowToTop } from '../../utils/scrollWindowToTop';
@@ -35,7 +35,170 @@ import { useGetUnreadNotificationCountQuery } from '../REDUX_FEATURES/REDUX_SLIC
 const navLogoVideo = 'https://res.cloudinary.com/dnm8cfawi/video/upload/f_auto,q_auto,w_200/v1749996338/Video2_nnoxmg.mp4';
 const arrivals = 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_80/Product_5_ofatmo.webp';
 const SaleIcon = 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_80/Shopping_bag_wsaywj.webp';
-const deal = 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_80/Discount_fldhac.webp'
+const deal = 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_80/Discount_fldhac.webp';
+
+const FABUNIQO_PROMO_URL = 'https://fabuniqo.com';
+const FABUNIQO_COUPON_CODE = 'BABA10';
+
+/**
+ * Fabuniqo jewellery promo — pill + clickable coupon popover.
+ * Hover/focus keeps the panel open (with a short leave delay) so users can
+ * move onto it and click through to fabuniqo.com.
+ */
+const FabuniqoJewelleryPromo = memo(function FabuniqoJewelleryPromo({ compact = false }) {
+  const [open, setOpen] = useState(false);
+  const closeTimerRef = useRef(null);
+
+  const clearCloseTimer = useCallback(() => {
+    if (closeTimerRef.current) {
+      clearTimeout(closeTimerRef.current);
+      closeTimerRef.current = null;
+    }
+  }, []);
+
+  const showPanel = useCallback(() => {
+    clearCloseTimer();
+    setOpen(true);
+  }, [clearCloseTimer]);
+
+  const hidePanelSoon = useCallback(() => {
+    clearCloseTimer();
+    closeTimerRef.current = setTimeout(() => setOpen(false), 180);
+  }, [clearCloseTimer]);
+
+  useEffect(() => () => clearCloseTimer(), [clearCloseTimer]);
+
+  useEffect(() => {
+    if (!open || compact) return undefined;
+    const onKey = (e) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, compact]);
+
+  const pillClass = `inline-flex items-center shrink-0 cursor-pointer rounded-full border border-[#C9A84C]/55 bg-gradient-to-r from-[#FBF6E8] via-white to-[#FDF0F5] text-slate-900 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#C9A84C] hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E11D68] whitespace-nowrap gap-1 px-2 py-0.5 xl:gap-1.5 xl:px-2.5 xl:py-1`;
+
+  const pillInner = (
+    <>
+      <span className="inline-flex items-center justify-center rounded-full bg-gradient-to-br from-[#C9A84C] to-[#E11D68] text-white shrink-0 h-4 w-4 xl:h-5 xl:w-5">
+        <Gem size={10} aria-hidden strokeWidth={2.25} />
+      </span>
+      <span className="font-extrabold uppercase tracking-tight leading-none text-slate-900 text-[9px] xl:text-[10px]">
+        Artificial Jewellery
+      </span>
+    </>
+  );
+
+  /* Mobile-only: content-sized pill matching icon-column height — no fixed width */
+  if (compact) {
+    return (
+      <a
+        href={FABUNIQO_PROMO_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label={`Artificial Jewellery — get 10% extra discount with coupon ${FABUNIQO_COUPON_CODE}`}
+        className="group relative inline-flex shrink-0 items-center gap-1 rounded-2xl border-2 border-[#C9A84C] bg-gradient-to-br from-[#FFF8E7] via-white to-[#FCE7F0] px-[7px] py-[4px] shadow-[0_2px_12px_rgba(201,168,76,0.35)] transition-transform duration-150 active:scale-[0.96] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E11D68]"
+      >
+        <span className="relative inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#C9A84C] via-[#E11D68] to-[#C9A84C] text-white shadow-md ring-2 ring-white">
+          <span className="absolute inset-0 rounded-full animate-ping bg-[#E11D68]/40 opacity-50" aria-hidden />
+          <Gem className="relative h-3 w-3" aria-hidden strokeWidth={2.5} />
+        </span>
+        <span className="relative flex flex-col items-start justify-center leading-none">
+          <span className="font-bold uppercase  text-[8px] text-slate-900">
+            Artificial
+          </span>
+          <span className="mt-0.5 font-bold uppercase text-[8px] text-[#E11D68]">
+            Jewellery
+          </span>
+        </span>
+      </a>
+    );
+  }
+
+  return (
+    <div
+      className="relative inline-flex shrink-0"
+      onMouseEnter={showPanel}
+      onMouseLeave={hidePanelSoon}
+    >
+      <a
+        href={FABUNIQO_PROMO_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-label={`Artificial Jewellery — open Fabuniqo (coupon ${FABUNIQO_COUPON_CODE})`}
+        onFocus={showPanel}
+        className={pillClass}
+      >
+        {pillInner}
+      </a>
+
+      {/* Invisible bridge so cursor can travel from pill → panel without closing */}
+      <div
+        className={`absolute right-0 top-full z-[69] h-3 w-full min-w-[17rem] ${open ? 'block' : 'hidden'}`}
+        aria-hidden
+      />
+
+      <a
+        href={FABUNIQO_PROMO_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        role="dialog"
+        aria-label={`Open Fabuniqo — use coupon ${FABUNIQO_COUPON_CODE}`}
+        onMouseEnter={showPanel}
+        onMouseLeave={hidePanelSoon}
+        className={`absolute right-0 top-full z-[70] mt-2 w-[17rem] cursor-pointer rounded-2xl border border-[#C9A84C]/35 bg-white p-3.5 text-left shadow-2xl transition-all duration-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E11D68] ${
+          open
+            ? 'visible opacity-100 translate-y-0 pointer-events-auto'
+            : 'invisible opacity-0 translate-y-1 pointer-events-none'
+        }`}
+      >
+        <span className="absolute -top-1.5 right-10 h-3 w-3 rotate-45 border-l border-t border-[#C9A84C]/35 bg-white" aria-hidden />
+        <span className="block text-[10px] font-bold uppercase tracking-widest text-[#C9A84C] mb-1">
+          Fabuniqo partner
+        </span>
+        <span className="block text-[13px] font-semibold text-slate-800 leading-snug">
+          Get 10% extra discount with coupon
+        </span>
+        <span className="mt-2.5 flex items-center justify-center rounded-xl border border-[#C9A84C]/40 bg-[#FBF6E8] px-3 py-2">
+          <span className="font-black text-lg tracking-[0.18em] text-slate-900">{FABUNIQO_COUPON_CODE}</span>
+        </span>
+        <span className="mt-2 block text-[11px] font-semibold text-[#E11D68]">
+          Click to visit fabuniqo.com →
+        </span>
+      </a>
+    </div>
+  );
+});
+
+/** Contact us — sits right after Search in the main header row */
+const HeaderContactLink = memo(function HeaderContactLink() {
+  return (
+    <Link
+      to="/contact"
+      className="group relative flex items-center gap-1.5 xl:gap-2 shrink-0 px-2 xl:px-3 py-2 rounded-2xl transition-all duration-200 hover:bg-gray-50 whitespace-nowrap"
+    >
+      <div className="flex-shrink-0 w-8 h-8 xl:w-9 xl:h-9 flex items-center justify-center rounded-xl bg-gray-50 group-hover:bg-white group-hover:scale-105 transition-all duration-200">
+        <img src={audio} alt="Contact" className="w-5 h-5 xl:w-7 xl:h-7 object-contain" />
+      </div>
+      <span className="hidden xl:inline font-semibold text-zinc-900 group-hover:text-[#F7A221] text-xs xl:text-sm tracking-wide transition-colors">
+        Contact us
+      </span>
+      <svg
+        className="hidden xl:block w-3 h-3 text-zinc-500 group-hover:translate-x-0.5 transition-transform shrink-0"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+        strokeWidth={2.5}
+        aria-hidden
+      >
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+      </svg>
+    </Link>
+  );
+});
 
 const ActionIcon = memo(({ item, onClick, isLoggedIn }) => (
   <div
@@ -464,12 +627,9 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
       <div className="bg-black text-white py-2 lg:py-3 px-4 hidden md:block border-b border-white/10">
         <div className="container mx-auto flex justify-between items-center text-[10px] lg:text-[11px] font-bold uppercase tracking-wider">
           <div className="flex items-center gap-4 lg:gap-8 z-99">
-            <a href="tel:+919320001717" className="flex items-center gap-2 hover:text-[#F7A221] cursor-pointer transition- group">
-              <Phone size={12} className="text-[#F7A221] group-hover:animate-" />  +91 93200 01717
-            </a>
             <a
               href="mailto:support.offerwalebaba@gmail.com"
-              className="hidden lg:flex items-center gap-2 hover:text-[#F7A221] cursor-pointer transition-colors group"
+              className="flex items-center gap-2 hover:text-[#F7A221] cursor-pointer transition-colors group"
             >
               <Mail size={12} className="text-[#F7A221] group-hover:scale-110" /> support.offerwalebaba@gmail.com
             </a>
@@ -483,22 +643,22 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
       </div>
 
       {/* ── Sticky Header ───────────────────────────────────────────────────── */}
-      <header className="bg-white sticky top-0 z-50 shadow-lg">
+      <header data-owb-site-nav="true" className="bg-white sticky top-0 z-50 shadow-lg">
         <div className="container mx-auto px-4">
 
           {/* ══ MOBILE LAYOUT (lg:hidden) ════════════════════════════════════ */}
-          <div className="lg:hidden relative">
-            <div className="flex items-center justify-between py-3 md:py-4 border-b border-gray-100">
+          <div className="lg:hidden">
+            <div className="relative flex flex-nowrap items-center justify-between gap-1 py-2.5 sm:py-3 md:py-4 border-b border-gray-100">
 
-              {/* Logo */}
+              {/* Logo — slightly tighter on phones so jewellery CTA fits the row */}
               <Link
                 to="/"
                 aria-label="Offer Wale Baba home"
                 onClick={handleHomeClick}
-                className="relative inline-flex shrink-0 items-center justify-center"
+                className="relative inline-flex shrink-0 items-center justify-center z-[1]"
               >
                 <video
-                  className="relative z-10 block h-auto w-auto max-w-[120px] shrink-0 object-contain sm:max-w-[140px] md:max-w-[170px] pointer-events-none"
+                  className="relative z-10 block h-auto w-auto max-w-[96px] shrink-0 object-contain sm:max-w-[130px] md:max-w-[170px] pointer-events-none"
                   src={navLogoVideo}
                   autoPlay
                   loop
@@ -508,17 +668,23 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                 />
               </Link>
 
+              {/* Jewellery promo — phones only, same row/height as icon actions */}
+              <div className="md:hidden flex items-center justify-center px-0.5">
+                <FabuniqoJewelleryPromo compact />
+              </div>
+
               {/* Inline search bar — tablet only (md → lg) */}
               <div className="hidden md:flex flex-1 items-center relative max-w-md mx-2">
                 <input
                   type="text"
-                  placeholder="Search products, brands and more..."
+                  placeholder="Search products, brands & more..."
                   onClick={handleSearchFocus}
                   readOnly
-                  className="w-full py-2.5 pl-10 pr-20 rounded-xl text-black focus:outline-none bg-gray-100 border-2 border-transparent focus:border-[#F7A221] focus:bg-white transition-all font-bold text-xs cursor-pointer"
+                  className="w-full py-2.5 pl-10 pr-[5.5rem] rounded-xl text-black focus:outline-none bg-gray-100 border-2 border-transparent focus:border-[#F7A221] focus:bg-white transition-all font-bold text-xs cursor-pointer truncate placeholder:text-gray-400 placeholder:font-semibold"
                 />
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
                 <button
+                  type="button"
                   onClick={handleSearchFocus}
                   className="absolute right-1.5 top-1/2 -translate-y-1/2 bg-black text-white py-1.5 px-3 rounded-lg hover:bg-[#F7A221] transition-all shadow-md font-bold text-[10px] uppercase tracking-wider"
                 >
@@ -526,29 +692,30 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                 </button>
               </div>
 
-              {/* Centered search trigger — phones only */}
-              <div className="md:hidden absolute left-1/2 -translate-x-1/2 top-1/2 -translate-y-1/2 z-10">
-                {showSearchTooltip && (
-                  <div className="absolute -top-10 left-1/2 -translate-x-1/2 bg-black/80 text-white text-[9px] md:text-[10px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap z-20 backdrop-blur-sm">
-                    🔍 Tap to search
-                    <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-black/80 rotate-45" />
-                  </div>
-                )}
-                <button
-                  onClick={handleSearchFocus}
-                  className="flex flex-col items-center cursor-pointer group hover:scale-105 active:scale-95 transition-transform duration-200 animate-float-slow"
-                >
-                  <div className="p-1 md:p-1.5 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300 animate-spin-3d">
-                    <Search size={20} className="w-5 h-5 sm:w-[22px] sm:h-[22px] md:w-6 md:h-6 text-gray-700 group-hover:text-[#F7A221] transition-colors" strokeWidth={2} />
-                  </div>
-                  <span className="text-[9px] sm:text-[10px] md:text-[11px] font-bold mt-0.5 uppercase tracking-tighter text-gray-600 group-hover:text-[#F7A221] transition-colors">
-                    Search
-                  </span>                           
-                </button>
-              </div>
+              {/* Right actions — Search + Login/Cart/Menu */}
+              <div className="flex items-center gap-3 sm:gap-4 md:gap-5 relative z-[500] shrink-0">
+                {/* Search — phones only (tablet uses inline bar above) */}
+                <div className="md:hidden relative flex flex-col items-center">
+                  {showSearchTooltip && (
+                    <div className="absolute -top-2 left-1/2 -translate-x-1/2 -translate-y-full bg-black/80 text-white text-[9px] font-bold px-2.5 py-1 rounded-full whitespace-nowrap z-20 backdrop-blur-sm pointer-events-none">
+                      🔍 Tap to search
+                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-black/80 rotate-45" />
+                    </div>
+                  )}
+                  <button
+                    onClick={handleSearchFocus}
+                    type="button"
+                    className="flex flex-col items-center justify-center cursor-pointer group active:scale-95 transition-transform duration-200 bg-transparent border-0 p-0"
+                  >
+                    <div className="p-1 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
+                      <Search size={20} className="w-5 h-5 sm:w-[22px] sm:h-[22px] text-gray-700 group-hover:text-[#F7A221] transition-colors" strokeWidth={2} />
+                    </div>
+                    <span className="text-[9px] sm:text-[10px] font-bold mt-0.5 uppercase tracking-tighter text-gray-600 group-hover:text-[#F7A221] transition-colors leading-none">
+                      Search
+                    </span>
+                  </button>
+                </div>
 
-              {/* Right actions */}
-              <div className="flex items-center gap-3 sm:gap-4 md:gap-5 relative z-[500]">
                 {/* User */}
                 <div ref={accountTriggerMobileRef} onClick={handleAccountClick} className="relative flex flex-col items-center cursor-pointer group">
                   <div className="p-1 md:p-1.5 rounded-xl group-hover:bg-gray-50 group-hover:scale-110 transition-all duration-300">
@@ -633,7 +800,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
             )} */}
           </div>
 
-          {/* ══ DESKTOP LAYOUT (lg:flex) ══════════════════════════════════════ */}
+          {/* ══ DESKTOP LAYOUT (lg:flex) — original + Contact after Search ══ */}
           <div className="hidden lg:flex items-center justify-between lg:gap-3 xl:gap-6 2xl:gap-8 h-24 overflow-visible">
 
             {/* Logo */}
@@ -659,20 +826,27 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
             {/* Location */}
             <LocationDisplay isLoggedIn={isLoggedIn} onOpenAuth={onOpenAuth} userAddress={userAddress} />
 
-            {/* Search bar */}
-            <div className="flex-1 lg:max-w-sm xl:max-w-lg 2xl:max-w-xl relative">
+            {/* Search bar — extra right padding so placeholder never crowds the button */}
+            <div className="flex-1 lg:max-w-sm xl:max-w-lg 2xl:max-w-xl relative min-w-0">
               <input
                 type="text"
-                placeholder="Search products, brands and more..."
-                className="w-full lg:py-3 xl:py-3.5 lg:px-10 xl:px-14 rounded-2xl text-black focus:outline-none bg-gray-100 border-2 border-transparent focus:border-[#F7A221] focus:bg-white transition-all font-bold lg:text-xs xl:text-sm"
+                placeholder="Search products, brands & more..."
+                className="w-full lg:py-3 xl:py-3.5 pl-10 xl:pl-12 pr-[5.75rem] xl:pr-[6.75rem] 2xl:pr-28 rounded-2xl text-black focus:outline-none bg-gray-100 border-2 border-transparent focus:border-[#F7A221] focus:bg-white transition-all font-bold lg:text-xs xl:text-sm truncate placeholder:text-gray-400 placeholder:font-semibold"
                 onClick={handleSearchFocus}
                 readOnly
               />
-              <Search className="absolute lg:left-3 xl:left-5 top-1/2 -translate-y-1/2 text-gray-400" size={18} />
-              <button className="absolute right-1.5 lg:right-1 xl:right-2 top-1/2 -translate-y-1/2 bg-black text-white lg:py-1.5 lg:px-3 xl:py-2 xl:px-5 rounded-xl hover:bg-[#F7A221] transition-all shadow-md font-bold text-[10px] xl:text-xs uppercase hover:tracking-widest duration-300">
+              <Search className="absolute left-3 xl:left-4 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" size={18} />
+              <button
+                type="button"
+                onClick={handleSearchFocus}
+                className="absolute right-1.5 xl:right-2 top-1/2 -translate-y-1/2 bg-black text-white py-1.5 px-3 xl:py-2 xl:px-4 2xl:px-5 rounded-xl hover:bg-[#F7A221] transition-all shadow-md font-bold text-[10px] xl:text-xs uppercase tracking-wide"
+              >
                 Search
               </button>
             </div>
+
+            {/* Contact us — right after search */}
+            <HeaderContactLink />
 
             {/* Action icons */}
             <div className="flex items-center lg:gap-3 xl:gap-5 2xl:gap-8 relative z-[500]">
@@ -704,7 +878,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
           </div>
         </div>
 
-        {/* ══ DESKTOP BOTTOM NAV ════════════════════════════════════════════════ */}
+        {/* ══ DESKTOP BOTTOM NAV — jewellery promo in old Contact slot ══ */}
         <nav className="hidden lg:block w-full">
           <div className="container mx-auto px-4">
             <div className="flex items-center justify-between lg:gap-3 xl:gap-6 2xl:gap-8 py-2">
@@ -739,7 +913,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                 />
               </div>
 
-              {/* Center Zone: Deal/Arrived/Sale */}
+              {/* Center Zone: Deal/Arrived/Sale — aligns with search column */}
               <div className="flex-1 lg:max-w-sm xl:max-w-lg 2xl:max-w-xl flex items-center justify-start gap-1 lg:gap-2 xl:gap-4 min-w-0">
                 {bottomNavLinks.map((link, idx) => (
                   <Link
@@ -763,30 +937,9 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                 ))}
               </div>
 
-              {/* Right Zone: Contact us */}
-              <div className="hidden lg:flex items-center shrink-0 min-w-0">
-                <Link
-                  to="/contact"
-                  className="group relative flex items-center gap-2 lg:gap-2.5 xl:gap-3 px-2.5 lg:px-3 xl:px-4 py-2 lg:py-2.5 xl:py-3 rounded-2xl overflow-hidden transition-all duration-300 hover:bg-white/10 whitespace-nowrap"
-                >
-                  <span className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 bg-gradient-to-r from-white/5 to-white/10 blur-sm" />
-                  <div className="relative z-10 flex-shrink-0 w-8 h-8 lg:w-9 lg:h-9 xl:w-10 xl:h-10 flex items-center justify-center rounded-xl bg-white/5 group-hover:bg-white/10 transition-all duration-300 group-hover:scale-110 group-hover:-rotate-6">
-                    <ImageIcon
-                      className="w-4 h-4 lg:w-8 lg:h-8 object-cover text-zinc-300 group-hover:text-white transition-colors duration-300"
-                      src={audio}
-                      alt="Contact"
-                    />
-                  </div>
-                  <span className="relative z-10 font-semibold text-zinc-900 group-hover:text-yellow-500 text-[11px] lg:text-xs xl:text-sm tracking-wide transition-colors duration-300 whitespace-nowrap">
-                    Contact us
-                  </span>
-                  <svg
-                    className="relative z-10 w-3 h-3 lg:w-3.5 lg:h-3.5 text-zinc-600 group-hover:text-zinc-300 group-hover:translate-x-1 transition-all duration-300 ml-1 shrink-0"
-                    fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
-                  >
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                  </svg>
-                </Link>
+              {/* Right Zone: Artificial Jewellery promo (was Contact us) */}
+              <div className="hidden lg:flex items-center justify-end shrink-0 min-w-0 relative z-[60]">
+                <FabuniqoJewelleryPromo />
               </div>
 
             </div>
@@ -913,8 +1066,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                       <HeadphonesIcon size={10} /> Need Help?
                     </p>
                     <div className="flex flex-col gap-1">
-                      <a href="tel:+919320001717" className="text-sm font-black">+91 93200 01717</a>
-                      <a href="mailto:support.offerwalebaba@gmail.com" className="text-[11px] opacity-80">
+                      <a href="mailto:support.offerwalebaba@gmail.com" className="text-sm font-black break-all">
                         support.offerwalebaba@gmail.com
                       </a>
                     </div>

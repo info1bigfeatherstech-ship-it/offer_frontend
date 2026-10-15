@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
+﻿import React, { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
 import { toast } from "react-toastify";//karan
@@ -319,21 +319,74 @@ const CheckoutStepBackButton = ({ onClick, children = "Back" }) => (
   </button>
 );
 
-/** Payment step only � label + payable total. */
-const CartSummaryCompact = ({ quote }) => (
-  <div className="flex items-center justify-between px-4 py-3.5"
-    style={{ background: "#fff", border: "1px solid #f0e8d8", borderRadius: 18 }}>
-    <div className="flex items-center gap-2">
-      <ShoppingBag size={15} style={{ color: "#F7A221" }} />
-      <span className="font-black text-sm" style={{ color: "#111" }}>
-        Cart Summary
-      </span>
+/**
+ * Payment-step cart strip (display-only). Parent controls sticky positioning.
+ */
+const CartSummaryCompact = ({
+  quote,
+  quoteLoading = false,
+  showPartial = false,
+  payNow = null,
+  balanceCod = null,
+  partialPercentLabel = null,
+}) => {
+  const total = quote?.amountPayable ?? 0;
+  const hasPartial =
+    showPartial &&
+    payNow != null &&
+    Number.isFinite(Number(payNow)) &&
+    balanceCod != null &&
+    Number.isFinite(Number(balanceCod));
+
+  return (
+    <div
+      className="px-4 py-3"
+      style={{
+        background: "#fff",
+        border: "1px solid #f0e8d8",
+        borderRadius: 16,
+        boxShadow: "0 6px 18px -10px rgba(0,0,0,0.2)",
+      }}
+      aria-live="polite"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <ShoppingBag size={15} style={{ color: "#F7A221" }} className="shrink-0" />
+          <span className="font-black text-sm" style={{ color: "#111" }}>
+            Cart Summary
+          </span>
+          {quoteLoading ? (
+            <Loader2 size={12} className="animate-spin shrink-0" style={{ color: "#9ca3af" }} />
+          ) : null}
+        </div>
+        <span className="font-black shrink-0" style={{ fontSize: 14, color: "#111" }}>
+          {fmt(total)}
+        </span>
+      </div>
+
+      {hasPartial ? (
+        <div className="mt-2 pt-2 space-y-1" style={{ borderTop: "1px dashed #e8dfd0" }}>
+          <div className="flex items-center justify-between gap-2">
+            <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 700 }}>
+              Pay now{partialPercentLabel ? ` (${partialPercentLabel}%)` : ""}
+            </span>
+            <span className="font-black" style={{ fontSize: 12, color: "#F7A221" }}>
+              {fmt(payNow)}
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 700 }}>
+              Balance COD on delivery
+            </span>
+            <span className="font-black" style={{ fontSize: 12, color: "#111" }}>
+              {fmt(balanceCod)}
+            </span>
+          </div>
+        </div>
+      ) : null}
     </div>
-    <span className="font-black" style={{ fontSize: 14, color: "#111" }}>
-      {fmt(quote?.amountPayable ?? 0)}
-    </span>
-  </div>
-);
+  );
+};
 
 const PrepaidSavingsPopup = ({ savingsAmount, onSwitchToPrepaid, onContinueCod, onClose }) => {
   const totalSavings = Math.max(0, Number(savingsAmount) || 0);
@@ -901,7 +954,10 @@ const Checkout = () => {
   const [paymentOptionActivated, setPaymentOptionActivated] = useState(false);
   const activePaymentQuoteIdRef = useRef(null);
   const lastKnownOnlineAmountRef = useRef(null);
+  const checkoutHeaderRef = useRef(null);
   const [onlineFullDisplayAmount, setOnlineFullDisplayAmount] = useState(null);
+  /** Sticky offset under site navbar so cart bar is never hidden behind it. */
+  const [checkoutStickyTop, setCheckoutStickyTop] = useState(0);
 
   // Derived
   const allAddresses = [...(defaultAddr ? [defaultAddr] : []), ...otherAddrs];
@@ -960,9 +1016,50 @@ const Checkout = () => {
       ? (codStylePayableForPartialPreview * policyPartialPercent) / 100
       : 0;
 
+  /** Display-only figures for partial option (no pricing logic change). */
+  const partialOrderTotalDisplay =
+    checkoutMode === "advance_cod" && Number.isFinite(Number(quote?.amountPayable))
+      ? Number(quote.amountPayable)
+      : Number.isFinite(codStylePayableForPartialPreview)
+        ? codStylePayableForPartialPreview
+        : null;
+  const partialPayNowDisplay =
+    checkoutMode === "advance_cod" && paymentPlan !== "full"
+      ? Number(advanceAmount)
+      : Number.isFinite(advancePreviewNow)
+        ? advancePreviewNow
+        : null;
+  const partialBalanceDisplay =
+    partialOrderTotalDisplay != null && partialPayNowDisplay != null
+      ? Math.max(0, partialOrderTotalDisplay - partialPayNowDisplay)
+      : null;
+
   // -- Scroll to top on mount and step change ---------------------------------
   useEffect(() => {
     window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [step]);
+
+  // Site navbar is sticky z-50; checkout chrome sticks below it so Cart Summary stays visible.
+  useLayoutEffect(() => {
+    const siteNav = document.querySelector('[data-owb-site-nav="true"]');
+    const measureSiteNav = () => {
+      if (!siteNav) {
+        setCheckoutStickyTop(0);
+        return;
+      }
+      setCheckoutStickyTop(Math.max(0, Math.round(siteNav.getBoundingClientRect().height)));
+    };
+    measureSiteNav();
+    window.addEventListener("resize", measureSiteNav);
+    let ro = null;
+    if (siteNav && typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(measureSiteNav);
+      ro.observe(siteNav);
+    }
+    return () => {
+      window.removeEventListener("resize", measureSiteNav);
+      if (ro) ro.disconnect();
+    };
   }, [step]);
 
   useEffect(() => {
@@ -1776,9 +1873,12 @@ const Checkout = () => {
   return (
     <div className="min-h-screen" style={{ background: "#FFFBF4" }}>
 
-      {/* -- Sticky Header -- */}
-      <header className="sticky top-0  flex items-center justify-between px-4"
-        style={{ background: "#fff", borderBottom: "1px solid #f0e8d8", height: 56 }}>
+      {/* BACK header — scrolls away (not sticky) */}
+      <header
+        ref={checkoutHeaderRef}
+        className="flex items-center justify-between px-4"
+        style={{ background: "#fff", borderBottom: "1px solid #f0e8d8", height: 56 }}
+      >
         <button
           onClick={() => {
             if (step === 1) navigate(-1);
@@ -1795,24 +1895,51 @@ const Checkout = () => {
           </span>
         </button>
 
-        {/* Logo */}
         <span className="font-black text-lg select-none" style={{ letterSpacing: "-0.02em" }}>
           <span style={{ color: "#111" }}>Offer</span>
           <span style={{ color: "#F7A221" }}>Wale</span>
           <span style={{ color: "#111" }}>Baba</span>
         </span>
 
-        {/* Spacer */}
         <div style={{ width: 72 }} />
       </header>
 
-      {/* -- Step Indicator -- */}
       <StepIndicator
         step={step}
         onGoToStep={(n) => {
           if (n < step) setStep(n);
         }}
       />
+
+      {/* Only Cart Summary sticks under site navbar — not the BACK header */}
+      {step === 3 ? (
+        <div
+          className="sticky z-40 px-4 pt-2 pb-2.5"
+          style={{
+            top: checkoutStickyTop,
+            background: "#FFFBF4",
+            borderBottom: "1px solid #f0e8d8",
+          }}
+        >
+          <div style={{ maxWidth: 520, margin: "0 auto", width: "100%" }}>
+            <CartSummaryCompact
+              quote={quote}
+              quoteLoading={loading.quote}
+              showPartial={
+                checkoutMode === "advance_cod" &&
+                !loading.quote &&
+                partialPayNowDisplay != null &&
+                partialBalanceDisplay != null
+              }
+              payNow={partialPayNowDisplay}
+              balanceCod={partialBalanceDisplay}
+              partialPercentLabel={
+                policyPartialPercent != null ? formatPercentLabel(policyPartialPercent) : null
+              }
+            />
+          </div>
+        </div>
+      ) : null}
 
       {/* -- Body -- */}
       <div className="px-4 py-5 space-y-4" style={{ maxWidth: 520, margin: "0 auto" }}>
@@ -1977,8 +2104,6 @@ const Checkout = () => {
                 }
               }
             `}</style>
-
-            <CartSummaryCompact quote={quote} />
 
             {/* -- Address done summary -- */}
             {selectedAddress && (
@@ -2164,65 +2289,66 @@ const Checkout = () => {
                   )}
 
                   {partialPlanEnabled && policyPartialPercent != null && (
-                    <button
-                      type="button"
-                      disabled={isRecoveringCheckout}
-                      onClick={() => selectCheckoutPaymentMode("advance_cod")}
-                      className="w-full text-left cursor-pointer transition-all active:scale-[0.98]"
-                      style={{
-                        padding: 14,
-                        borderRadius: 16,
-                        border: `2px solid ${checkoutMode === "advance_cod" ? "#111" : "#f0e8d8"}`,
-                        background: checkoutMode === "advance_cod" ? "#111" : "#fff",
-                        color: checkoutMode === "advance_cod" ? "#F7A221" : "#111",
-                        transition: "all 0.2s",
-                      }}
-                    >
-                      <div className="flex items-center gap-3">
-                        <div
-                          className="flex items-center justify-center shrink-0"
-                          style={{
-                            width: 20,
-                            height: 20,
-                            borderRadius: "50%",
-                            border: `2px solid ${checkoutMode === "advance_cod" ? "#F7A221" : "#d1d5db"}`,
-                          }}
-                        >
-                          {checkoutMode === "advance_cod" && (
-                            <div
-                              style={{
-                                width: 8,
-                                height: 8,
-                                borderRadius: "50%",
-                                background: "#F7A221",
-                              }}
-                            />
-                          )}
+                    <div className="space-y-2">
+                      <button
+                        type="button"
+                        disabled={isRecoveringCheckout}
+                        onClick={() => selectCheckoutPaymentMode("advance_cod")}
+                        className="w-full text-left cursor-pointer transition-all active:scale-[0.98]"
+                        style={{
+                          padding: 14,
+                          borderRadius: 16,
+                          border: `2px solid ${checkoutMode === "advance_cod" ? "#111" : "#f0e8d8"}`,
+                          background: checkoutMode === "advance_cod" ? "#111" : "#fff",
+                          color: checkoutMode === "advance_cod" ? "#F7A221" : "#111",
+                          transition: "all 0.2s",
+                        }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <div
+                            className="flex items-center justify-center shrink-0"
+                            style={{
+                              width: 20,
+                              height: 20,
+                              borderRadius: "50%",
+                              border: `2px solid ${checkoutMode === "advance_cod" ? "#F7A221" : "#d1d5db"}`,
+                            }}
+                          >
+                            {checkoutMode === "advance_cod" && (
+                              <div
+                                style={{
+                                  width: 8,
+                                  height: 8,
+                                  borderRadius: "50%",
+                                  background: "#F7A221",
+                                }}
+                              />
+                            )}
+                          </div>
+                          <div
+                            className="flex items-center justify-center shrink-0"
+                            style={{ width: 38, height: 38, borderRadius: 10, background: "#FEF3E2" }}
+                          >
+                            <Banknote size={17} style={{ color: "#b45309" }} />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-black text-sm">
+                              Pay {formatPercentLabel(policyPartialPercent)}% Online Now
+                            </p>
+                            <p className="text-[11px] opacity-80 mt-0.5 leading-snug">
+                              {partialPayNowDisplay != null && partialBalanceDisplay != null ? (
+                                <>
+                                  Pay {fmt(partialPayNowDisplay)} now · Balance {fmt(partialBalanceDisplay)} COD on delivery
+                                </>
+                              ) : (
+                                <>Pay a part online now · remaining as COD on delivery</>
+                              )}
+                            </p>
+                          </div>
                         </div>
-                        <div
-                          className="flex items-center justify-center shrink-0"
-                          style={{ width: 38, height: 38, borderRadius: 10, background: "#FEF3E2" }}
-                        >
-                          <Banknote size={17} style={{ color: "#b45309" }} />
-                        </div>
-                        <div className="flex-1">
-                          <p className="font-black text-sm">
-                            Pay {formatPercentLabel(policyPartialPercent)}% Online Now
-                          </p>
-                          <p className="text-[11px] opacity-80 mt-0.5">
-                            Balance On delivery (COD) {fmt(advancePreviewNow)} Pay Online Now
-                          </p>
-                        </div>
-                      </div>
-                    </button>
+                      </button>
+                    </div>
                   )}
-
-                  {/* {checkoutMode === "advance_cod" && quote?.amountPayable != null && (
-                    <p className="text-center px-1" style={{ fontSize: 10, color: "#3b82f6" }}>
-                      {formatPercentLabel(policyPartialPercent)}% charged online now; remaining{" "}
-                      {fmt(quote.amountPayable - advanceAmount)} is collected as cash on delivery.
-                    </p>
-                  )} */}
 
                   {showCodOption && (
                     <button
@@ -2467,6 +2593,15 @@ const Checkout = () => {
                   </>
                 )}
               </button>
+
+              {checkoutMode === "advance_cod" &&
+                partialOrderTotalDisplay != null &&
+                partialPayNowDisplay != null &&
+                !loading.quote && (
+                <p className="text-center" style={{ fontSize: 10, color: "#6b7280", marginTop: -4 }}>
+                  Paying {fmt(partialPayNowDisplay)} now of {fmt(partialOrderTotalDisplay)} total
+                </p>
+              )}
 
               {/* Security line */}
               <p className="text-center flex items-center justify-center gap-1"

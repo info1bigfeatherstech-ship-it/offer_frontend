@@ -6,7 +6,6 @@ import "react-toastify/dist/ReactToastify.css";
 
 import Navbar from "./components/Common/Navbar";
 import Footer from "./components/Common/Footer";
-import WhatsAppFloat from "./components/WHATSAPP_FLOAT/WhatsAppFloat";
 import LogRegister from "./components/USER_LOGIN_SEGMENT/LogRegister";
 
 
@@ -225,8 +224,6 @@ const AppContent = () => {
                 />
             )}
 
-            {!isAdminRoute && <WhatsAppFloat />}
-
             {/*
               ScrollRestoration may set minHeight on #owb-scroll-shell during POP
               so <Footer /> (sibling below) cannot sit in the viewport at a deep Y
@@ -347,7 +344,6 @@ const AppContent = () => {
 
             {!isAdminRoute && <InstallAppPrompt enabled={!isAdminRoute} onVisibilityChange={setInstallPromptOpen} />}
            
-            {/* <WhatsAppFloat /> */}
         </div>
     );
 };

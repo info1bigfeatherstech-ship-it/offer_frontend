@@ -47,6 +47,7 @@ import { useSearchParams } from "react-router-dom";
 import { selectAdminUser } from "../../ADMIN_REDUX_MANAGEMENT/adminAuthSlice";
 import {
   isPackingViewerRole,
+  canViewOrdersRevenue,
   PACKING_VIEWER_ORDER_TABS,
 } from "../../roles";
 
@@ -165,6 +166,7 @@ const OrderTab = () => {
   const ui = useSelector((s) => s.adminOrdersUi);
   const adminUser = useSelector(selectAdminUser);
   const isPackingViewer = isPackingViewerRole(adminUser?.role);
+  const showOrdersRevenue = canViewOrdersRevenue(adminUser?.role);
   const visibleTabOrder = isPackingViewer ? PACKING_VIEWER_ORDER_TABS : TAB_ORDER;
   const dateFilterActive = isOrdersDateFilterActive(ui.datePreset);
   const searchActive = Boolean(String(ui.search || "").trim());
@@ -473,11 +475,14 @@ const OrderTab = () => {
     }
     return [
       { label: "Total orders", value: String(t.totalOrders ?? 0) },
-      { label: "Total revenue", value: formatInr(t.totalRevenueInr) },
+      {
+        label: "Total revenue",
+        value: showOrdersRevenue ? formatInr(t.totalRevenueInr) : "—",
+      },
       { label: "Total pending orders", value: String(t.totalPendingOrders ?? 0) },
       { label: "Total completed orders", value: String(t.totalCompletedOrders ?? 0) },
     ];
-  }, [summary]);
+  }, [summary, showOrdersRevenue]);
 
   const filters = useMemo(() => {
     const c = summary?.countsByBucket || {};
