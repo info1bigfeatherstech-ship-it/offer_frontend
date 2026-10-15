@@ -147,7 +147,9 @@ export const sendReturnChatMessage = createAsyncThunk(
         orderId,
         chat: res.data.chat,
         userLastRead: res.data.userLastRead,
-        adminLastRead: res.data.adminLastRead
+        adminLastRead: res.data.adminLastRead,
+        chatClosedAt: res.data.chatClosedAt ?? null,
+        isChatActive: res.data.isChatActive !== false,
       };
     } catch (err) {
       return rejectWithValue({
@@ -171,7 +173,9 @@ export const fetchReturnChat = createAsyncThunk(
         orderId,
         chat: res.data.chat,
         userLastRead: res.data.userLastRead,
-        adminLastRead: res.data.adminLastRead
+        adminLastRead: res.data.adminLastRead,
+        chatClosedAt: res.data.chatClosedAt ?? null,
+        isChatActive: Boolean(res.data.isChatActive),
       };
     } catch (err) {
       return rejectWithValue({
@@ -342,6 +346,8 @@ const orderSlice = createSlice({
           state.activeOrder.returnInfo.chat = action.payload.chat;
           state.activeOrder.returnInfo.userLastRead = action.payload.userLastRead;
           state.activeOrder.returnInfo.adminLastRead = action.payload.adminLastRead;
+          state.activeOrder.returnInfo.chatClosedAt = action.payload.chatClosedAt ?? null;
+          state.activeOrder.returnInfo.isChatActive = action.payload.isChatActive !== false;
         }
       })
       .addCase(sendReturnChatMessage.rejected, (state, action) => {
@@ -359,6 +365,8 @@ const orderSlice = createSlice({
           state.activeOrder.returnInfo.chat = action.payload.chat;
           state.activeOrder.returnInfo.userLastRead = action.payload.userLastRead;
           state.activeOrder.returnInfo.adminLastRead = action.payload.adminLastRead;
+          state.activeOrder.returnInfo.chatClosedAt = action.payload.chatClosedAt ?? null;
+          state.activeOrder.returnInfo.isChatActive = Boolean(action.payload.isChatActive);
         }
       })
       .addCase(fetchReturnChat.rejected, (state) => {

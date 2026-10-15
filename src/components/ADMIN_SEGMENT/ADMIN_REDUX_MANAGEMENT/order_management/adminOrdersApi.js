@@ -245,6 +245,12 @@ export const adminOrdersApi = createApi({
                   draft.order.returnInfo.adminLastRead = data.adminLastRead;
                   draft.order.returnInfo.userLastRead = data.userLastRead;
                   draft.order.returnInfo.chat = data.chat;
+                  if (data.chatClosedAt !== undefined) {
+                    draft.order.returnInfo.chatClosedAt = data.chatClosedAt;
+                  }
+                  if (data.isChatActive !== undefined) {
+                    draft.order.returnInfo.isChatActive = data.isChatActive;
+                  }
                 }
               }
             )
@@ -265,6 +271,18 @@ export const adminOrdersApi = createApi({
         { type: 'AdminOrderTracking', id: `RETURN_CHAT_${arg.orderId}` },
         { type: 'AdminOrderTracking', id: `RETURN_${arg.orderId}` },
         { type: 'AdminOrdersList', id: arg.orderId },
+      ],
+    }),
+
+    closeAdminReturnChatSession: builder.mutation({
+      query: (orderId) => ({
+        url: `/orders/admin/returns/requests/${encodeURIComponent(String(orderId))}/chat/close`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, orderId) => [
+        { type: 'AdminOrderTracking', id: `RETURN_CHAT_${orderId}` },
+        { type: 'AdminOrderTracking', id: `RETURN_${orderId}` },
+        { type: 'AdminOrdersList', id: orderId },
       ],
     }),
 
@@ -746,6 +764,7 @@ export const {
   useAdminReturnReversePickupRetryMutation,
   useGetAdminReturnChatQuery,
   useSendAdminReturnChatMessageMutation,
+  useCloseAdminReturnChatSessionMutation,
   useAdminFulfillmentEnsureShipmentMutation,
   useAdminFulfillmentAssignShipMutation,
   useGetAdminPickupCalendarQuery,

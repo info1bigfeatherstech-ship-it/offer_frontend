@@ -75,37 +75,7 @@ const Footer = () => {
   ];
   // { title: "Solutions", items: ["Brand Drop Shipping", "Shopify Website", "B2B Drop Shipping", "Reseller Plan"] }
   const socialLinks = [
-    {
-      icon: "fa-whatsapp",
-      color: "bg-[#25D366]",
-      iconColor: "text-[#25D366]",
-      link: "https://wa.me/919320001717"
-    },
-    // {
-    //   icon: "fa-telegram",
-    //   color: "hover:bg-[#0088cc]",
-    //   link: "https://t.me/OfferWaleBabaRetail"
-    // },
-    // {
-    //   icon: "fa-instagram",
-    //   color: "hover:bg-gradient-to-tr hover:from-[#f9ce34] hover:via-[#ee2a7b] hover:to-[#6228d7]",
-    //   link: " hhttps://www.instagram.com/offer_wale_baba?igsh=Mjd6aG84bXV5dmRn"
-    // },
-    // {
-    //   icon: "fa-facebook",
-    //   color: "hover:bg-[#1877F2]",
-    //   link: "https://www.facebook.com/share/1Eej9auTBB"
-    // },
-    // {
-    //   icon: "fa-youtube",
-    //   color: "hover:bg-[#FF0000]",
-    //   link: "https://youtube.com/@offerwalebabaa?si=dyfMK956fnjZhZ1O"
-    // },
-    // {
-    //   icon: "fa-threads",
-    //   color: "hover:bg-black border-white/20",
-    //   link: "https://www.threads.net/@yourusername"
-    // },
+    // WhatsApp support link removed from ecomm — product share WhatsApp stays on PDP
     {
       icon: "fa-google",
       color: "bg-[#4285F4]",
@@ -309,12 +279,9 @@ const Footer = () => {
                 <p className="text-[#f7a221] font-black text-[20px] tracking-widest uppercase mb-2">
                   Support
                 </p>
-                <a href="tel:+919320001717" className="text-white font-bold text-lg mb-1 hover:text-[#f7a221] transition-colors">
-                  +91 93200 01717
-                </a>
                 <a
                   href="mailto:support.offerwalebaba@gmail.com"
-                  className="text-white text-sm break-all lg:break-normal block hover:text-[#f7a221] transition-colors"
+                  className="text-white font-bold text-base sm:text-lg mb-1 break-all lg:break-normal block hover:text-[#f7a221] transition-colors"
                 >
                   support.offerwalebaba@gmail.com
                 </a>

@@ -8,6 +8,7 @@ import {
   useAdminReturnReversePickupRetryMutation,
   useGetAdminReturnChatQuery,
   useSendAdminReturnChatMessageMutation,
+  useCloseAdminReturnChatSessionMutation,
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 
 function fmtDate(v) {
@@ -48,6 +49,7 @@ export default function ReturnsRefundsTab() {
   });
 
   const [sendChatMessage, sendChatState] = useSendAdminReturnChatMessageMutation();
+  const [closeChatSession, closeChatState] = useCloseAdminReturnChatSessionMutation();
 
   const handleSendAdminChatMessage = async (e) => {
     e.preventDefault();
@@ -57,6 +59,19 @@ export default function ReturnsRefundsTab() {
       setChatMessage("");
     } catch (err) {
       alert(err.data?.message || err.message || "Failed to send message");
+    }
+  };
+
+  const handleCloseChatSession = async () => {
+    if (!selectedOrderId) return;
+    const ok = window.confirm(
+      "Close this support chat session? Customer and admin will both be unable to send new messages. Past messages stay visible."
+    );
+    if (!ok) return;
+    try {
+      await closeChatSession(selectedOrderId).unwrap();
+    } catch (err) {
+      alert(err.data?.message || err.message || "Failed to close chat session");
     }
   };
 
@@ -98,8 +113,9 @@ export default function ReturnsRefundsTab() {
       decideState.error?.data?.message ||
       refundState.error?.data?.message ||
       retryReverseState.error?.data?.message ||
+      closeChatState.error?.data?.message ||
       null,
-    [error, detail.error, decideState.error, refundState.error, retryReverseState.error]
+    [error, detail.error, decideState.error, refundState.error, retryReverseState.error, closeChatState.error]
   );
 
   return (
@@ -170,7 +186,7 @@ export default function ReturnsRefundsTab() {
                     Requested: {fmtDate(selected.returnInfo?.requestedAt)} · Status: {selected.returnInfo?.status || "—"}
                   </p>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   {selected?.returnInfo?.requestedAt && (
                     <div className="relative inline-block">
                       <button
@@ -178,7 +194,6 @@ export default function ReturnsRefundsTab() {
                         onClick={() => setIsChatOpen(true)}
                         className="flex items-center gap-1.5 px-3 py-1.5 border border-slate-200 text-xs font-semibold rounded-lg bg-white hover:bg-slate-50 transition-colors shadow-xs cursor-pointer text-slate-700"
                       >
-                        {/* Using HTML bubble character as simple clean fallback if icons not loaded, but styling is extremely clean */}
                         💬 Chat with Customer
                       </button>
                       {adminUnreadCount > 0 && (
@@ -190,6 +205,22 @@ export default function ReturnsRefundsTab() {
                         </span>
                       )}
                     </div>
+                  )}
+                  {selected?.returnInfo?.requestedAt &&
+                    (selected.returnInfo.isChatActive !== false && !selected.returnInfo.chatClosedAt) && (
+                    <button
+                      type="button"
+                      onClick={handleCloseChatSession}
+                      disabled={closeChatState.isLoading}
+                      className="px-3 py-1.5 border border-red-200 text-xs font-semibold rounded-lg bg-red-50 text-red-700 hover:bg-red-100 transition-colors cursor-pointer disabled:opacity-50"
+                    >
+                      {closeChatState.isLoading ? "Closing…" : "Close chat session"}
+                    </button>
+                  )}
+                  {selected?.returnInfo?.chatClosedAt && (
+                    <span className="text-[10px] font-bold uppercase tracking-wide px-2 py-1.5 rounded bg-slate-200 text-slate-600">
+                      Chat closed
+                    </span>
                   )}
                   <span className="text-xs px-2 py-1.5 rounded bg-slate-100 text-slate-700 font-semibold">
                     Payment: {selected.paymentStatus || "—"}
@@ -356,24 +387,32 @@ export default function ReturnsRefundsTab() {
             {/* Messages Feed */}
             <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
               {selected.returnInfo?.requestedAt && (() => {
-                const reqAt = new Date(selected.returnInfo.requestedAt);
-                const windowDays = selected.returnInfo?.windowDays ?? 2;
-                const deadline = new Date(reqAt.getTime() + windowDays * 24 * 60 * 60 * 1000);
-                const remainingMs = deadline.getTime() - Date.now();
-                const isExpired = remainingMs <= 0;
+                const isChatActive =
+                  chatData?.isChatActive !== undefined
+                    ? Boolean(chatData.isChatActive)
+                    : selected.returnInfo.isChatActive !== undefined
+                      ? Boolean(selected.returnInfo.isChatActive)
+                      : !selected.returnInfo.chatClosedAt;
 
-                if (isExpired) {
+                if (!isChatActive) {
                   return (
                     <div className="bg-red-50 border border-red-100 rounded-lg p-2.5 text-center text-[11px] text-red-700 font-medium">
-                      This support chat session is closed (expired after {windowDays} days).
+                      Chat session closed. Messaging locked for customer and admin.
                     </div>
                   );
                 }
 
-                const hoursLeft = Math.ceil(remainingMs / (1000 * 60 * 60));
                 return (
-                  <div className="bg-amber-50 border border-amber-100 rounded-lg p-2.5 text-center text-[11px] text-amber-800 font-medium">
-                    Support chat is active. Window closes in {hoursLeft} hours.
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-2.5 text-center text-[11px] text-emerald-800 font-medium flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                    <span>Support chat is active (no auto-expiry).</span>
+                    <button
+                      type="button"
+                      onClick={handleCloseChatSession}
+                      disabled={closeChatState.isLoading}
+                      className="shrink-0 px-2.5 py-1 rounded-md bg-red-600 text-white text-[10px] font-bold uppercase tracking-wide hover:bg-red-700 disabled:opacity-50 cursor-pointer"
+                    >
+                      {closeChatState.isLoading ? "Closing…" : "Close session"}
+                    </button>
                   </div>
                 );
               })()}
@@ -409,16 +448,19 @@ export default function ReturnsRefundsTab() {
               <div ref={chatEndRef} />
             </div>
 
-            {/* Footer Input */}
+            {/* Footer Input — locked when session closed by admin */}
             {(() => {
-              const reqAt = selected.returnInfo?.requestedAt ? new Date(selected.returnInfo.requestedAt) : null;
-              const windowDays = selected.returnInfo?.windowDays ?? 2;
-              const isExpired = reqAt ? (Date.now() > reqAt.getTime() + windowDays * 24 * 60 * 60 * 1000) : true;
+              const isChatActive =
+                chatData?.isChatActive !== undefined
+                  ? Boolean(chatData.isChatActive)
+                  : selected.returnInfo?.isChatActive !== undefined
+                    ? Boolean(selected.returnInfo.isChatActive)
+                    : !selected.returnInfo?.chatClosedAt;
 
-              if (isExpired) {
+              if (!isChatActive) {
                 return (
                   <div className="p-4 border-t border-slate-100 bg-slate-100 text-center text-xs font-semibold text-slate-500">
-                    Chat disabled (support window expired)
+                    Chat session closed — messaging disabled on both sides
                   </div>
                 );
               }

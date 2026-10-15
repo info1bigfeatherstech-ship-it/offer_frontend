@@ -1767,24 +1767,22 @@ const OrderDetail = ({ orderId, onBack }) => {
           {/* Messages Feed */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
             {order?.returnInfo?.requestedAt && (() => {
-              const reqAt = new Date(order.returnInfo.requestedAt);
-              const windowDays = order?.returnInfo?.windowDays ?? 2;
-              const deadline = new Date(reqAt.getTime() + windowDays * 24 * 60 * 60 * 1000);
-              const remainingMs = deadline.getTime() - Date.now();
-              const isExpired = remainingMs <= 0;
-              
-              if (isExpired) {
+              const isChatActive =
+                order.returnInfo.isChatActive !== undefined
+                  ? Boolean(order.returnInfo.isChatActive)
+                  : !order.returnInfo.chatClosedAt;
+
+              if (!isChatActive) {
                 return (
                   <div className="bg-red-50 border border-red-100 rounded-lg p-2.5 text-center text-[11px] text-red-700 font-medium">
-                    This support chat session is closed (expired after {windowDays} days).
+                    This support chat session is closed. You can still read past messages.
                   </div>
                 );
               }
 
-              const hoursLeft = Math.ceil(remainingMs / (1000 * 60 * 60));
               return (
-                <div className="bg-amber-50 border border-amber-100 rounded-lg p-2.5 text-center text-[11px] text-amber-800 font-medium">
-                  Support chat is active. Window closes in {hoursLeft} hours.
+                <div className="bg-emerald-50 border border-emerald-100 rounded-lg p-2.5 text-center text-[11px] text-emerald-800 font-medium">
+                  Support chat is active. Our team will respond here.
                 </div>
               );
             })()}
@@ -1821,16 +1819,19 @@ const OrderDetail = ({ orderId, onBack }) => {
             <div ref={chatEndRef} />
           </div>
 
-          {/* Footer Input */}
+          {/* Footer Input — locked when admin closed the session */}
           {(() => {
-            const reqAt = order?.returnInfo?.requestedAt ? new Date(order.returnInfo.requestedAt) : null;
-            const windowDays = order?.returnInfo?.windowDays ?? 2;
-            const isExpired = reqAt ? (Date.now() > reqAt.getTime() + windowDays * 24 * 60 * 60 * 1000) : true;
+            const hasReturn = Boolean(order?.returnInfo?.requestedAt);
+            const isChatActive = hasReturn
+              ? (order.returnInfo.isChatActive !== undefined
+                  ? Boolean(order.returnInfo.isChatActive)
+                  : !order.returnInfo.chatClosedAt)
+              : false;
 
-            if (isExpired) {
+            if (!isChatActive) {
               return (
                 <div className="p-4 border-t border-slate-100 bg-slate-100 text-center text-xs font-semibold text-slate-500">
-                  Chat disabled (support window expired)
+                  Chat session closed — messaging disabled
                 </div>
               );
             }
