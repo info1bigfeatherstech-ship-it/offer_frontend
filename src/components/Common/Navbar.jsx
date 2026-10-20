@@ -18,6 +18,10 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { scrollWindowToTop } from '../../utils/scrollWindowToTop';
 import homeIcon from "../../assets/home (2).png";
 import audio from "../../assets/headphone.png";
+import navLogo from "../../assets/nav-logo.jpg";
+import arrivals from "../../assets/nav-arrived.svg";
+import SaleIcon from "../../assets/nav-sale.svg";
+import deal from "../../assets/nav-deal.svg";
 import WishlistSidebar from './WishlistSidebar';
 import { selectDefaultAddress, fetchAddresses } from '../REDUX_FEATURES/REDUX_SLICES/Useraddressslice';
 import { USER_ACCESS_TOKEN_KEY } from '../../SERVICES/axiosInstance';
@@ -31,11 +35,6 @@ import { useGetUnreadNotificationCountQuery } from '../REDUX_FEATURES/REDUX_SLIC
 // ─────────────────────────────────────────────────────────────────────────────
 // Sub-Components
 // ─────────────────────────────────────────────────────────────────────────────
-
-const navLogoVideo = 'https://res.cloudinary.com/dnm8cfawi/video/upload/f_auto,q_auto,w_200/v1749996338/Video2_nnoxmg.mp4';
-const arrivals = 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_80/Product_5_ofatmo.webp';
-const SaleIcon = 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_80/Shopping_bag_wsaywj.webp';
-const deal = 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_80/Discount_fldhac.webp';
 
 const FABUNIQO_PROMO_URL = 'https://fabuniqo.com';
 const FABUNIQO_COUPON_CODE = 'BABA10';
@@ -450,6 +449,10 @@ const ImageIcon = ({ src, alt, className = "", animation = "animate-bounce-soft"
   />
 );
 
+const NavLogo = ({ className }) => (
+  <img src={navLogo} alt="Offer Wale Baba" className={className} />
+);
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Navbar
 // ─────────────────────────────────────────────────────────────────────────────
@@ -614,9 +617,9 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
       ),
     },
     {
-      label: "Sale",
+      label: "Festival Sale is Live",
       path: "/on-sale#tagProducts-top",
-      icon: <ImageIcon src={SaleIcon} alt="Sale" animation="animate-flicker" />,
+      icon: <ImageIcon src={SaleIcon} alt="Festival Sale is Live" animation="animate-flicker" />,
     },
   ];
 
@@ -642,7 +645,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
       </div>
 
       {/* ── Sticky Header ───────────────────────────────────────────────────── */}
-      <header data-owb-site-nav="true" className="bg-white sticky top-0 z-50 shadow-lg overflow-x-clip">
+      <header data-owb-site-nav="true" className="bg-white sticky top-0 z-50 shadow-lg overflow-x-clip relative">
         <div className="container mx-auto px-3 sm:px-4">
 
           {/* ══ MOBILE LAYOUT (lg:hidden) ════════════════════════════════════ */}
@@ -654,17 +657,9 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                 to="/"
                 aria-label="Offer Wale Baba home"
                 onClick={handleHomeClick}
-                className="relative inline-flex shrink-0 items-center justify-center z-[1]"
+                className="inline-flex h-14 w-14 sm:h-16 sm:w-16 md:h-[4.5rem] md:w-[4.5rem] shrink-0 items-center justify-center self-center z-[1]"
               >
-                <video
-                  className="relative z-10 block h-auto w-auto max-w-[92px] shrink-0 object-contain sm:max-w-[130px] md:max-w-[170px] pointer-events-none"
-                  src={navLogoVideo}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  preload="auto"
-                />
+                <NavLogo className="block max-h-[88%] max-w-[88%] h-auto w-auto object-contain object-center pointer-events-none" />
               </Link>
 
               {/* Search — phones: centered between logo and right actions */}
@@ -800,27 +795,10 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
           </div>
 
           {/* ══ DESKTOP LAYOUT (lg:flex) — original + Contact after Search ══ */}
-          <div className="hidden lg:flex items-center justify-between lg:gap-3 xl:gap-6 2xl:gap-8 h-24 overflow-visible">
+          <div className="hidden lg:flex items-center justify-between lg:gap-3 xl:gap-6 2xl:gap-8 h-24">
 
-            {/* Logo */}
-            <div className="flex items-end gap-2 self-end overflow-visible">
-              <Link
-                to="/"
-                aria-label="Offer Wale Baba home"
-                onClick={handleHomeClick}
-                className="relative inline-flex shrink-0 items-center justify-center p-1 top-9 xl:top-11 2xl:top-12"
-              >
-                <video
-                  className="relative z-10 block h-auto w-auto max-w-[130px] shrink-0 object-contain xl:max-w-[160px] 2xl:max-w-[175px] pointer-events-none"
-                  src={navLogoVideo}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  preload="auto"
-                />
-              </Link>
-            </div>
+            {/* Keeps first-row layout; actual logo is overlaid across both header rows */}
+            <div className="w-[110px] xl:w-[140px] 2xl:w-[175px] shrink-0" aria-hidden="true" />
 
             {/* Location */}
             <LocationDisplay isLoggedIn={isLoggedIn} onOpenAuth={onOpenAuth} userAddress={userAddress} />
@@ -880,9 +858,9 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
         {/* ══ DESKTOP BOTTOM NAV — jewellery promo in old Contact slot ══ */}
         <nav className="hidden lg:block w-full">
           <div className="container mx-auto px-4">
-            <div className="flex items-center justify-between lg:gap-3 xl:gap-6 2xl:gap-8 py-2">
+            <div className="flex items-center justify-between lg:gap-2 xl:gap-4 2xl:gap-6 py-2 min-w-0">
 
-              {/* Logo Spacer */}
+              {/* Matches live: keep Home off the far left, under the logo column */}
               <div className="w-[110px] xl:w-[140px] 2xl:w-[175px] shrink-0" aria-hidden="true" />
 
               {/* Left Zone: Home + All Categories */}
@@ -912,38 +890,52 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                 />
               </div>
 
-              {/* Center Zone: Deal/Arrived/Sale — aligns with search column */}
-              <div className="flex-1 lg:max-w-sm xl:max-w-lg 2xl:max-w-xl flex items-center justify-start gap-1 lg:gap-2 xl:gap-4 min-w-0">
+              {/* Center Zone: Deal/Arrived/Sale — same size, one line, jewellery stays on-page */}
+              <div className="flex-1 flex items-center justify-start gap-0 lg:gap-0.5 xl:gap-2 min-w-0">
                 {bottomNavLinks.map((link, idx) => (
                   <Link
                     key={idx}
                     to={link.path}
-                    className="shrink-0 text-center justify-center flex items-center px-1 lg:px-1.5 xl:px-3 py-2 lg:py-2.5 gap-1 lg:gap-1.5 xl:gap-2 hover:bg-gray-50 rounded-xl transition-all duration-200 group whitespace-nowrap"
+                    className="shrink-0 text-center justify-center flex items-center px-0.5 lg:px-1 xl:px-2 py-2 lg:py-2.5 gap-1 lg:gap-1.5 xl:gap-2 hover:bg-gray-50 rounded-xl transition-all duration-200 group whitespace-nowrap"
                   >
                     <div
                       className={
                         link.label === "Just Arrived"
                           ? "transition-transform duration-300 group-hover:scale-125 shrink-0 [&_img]:!w-10 [&_img]:!h-10 lg:[&_img]:!w-[44px] lg:[&_img]:!h-[44px] xl:[&_img]:!w-14 xl:[&_img]:!h-14"
-                          : "transition-transform duration-300 group-hover:scale-125 shrink-0 [&_img]:w-6! [&_img]:h-6! lg:[&_img]:w-7! lg:[&_img]:h-7! xl:[&_img]:w-9! xl:[&_img]:h-9! 2xl:[&_img]:w-10! 2xl:[&_img]:h-10!"
+                          : "transition-transform duration-300 group-hover:scale-125 shrink-0"
                       }
                     >
                       {link.icon}
                     </div>
-                    <span className="font-bold text-black text-[11px] lg:text-xs xl:text-[0.85rem] relative z-10">
+                    <span className="font-bold text-black text-[11px] lg:text-xs xl:text-[0.85rem] relative z-10 whitespace-nowrap">
                       {link.label}
                     </span>
                   </Link>
                 ))}
               </div>
 
-              {/* Right Zone: Artificial Jewellery promo (was Contact us) */}
-              <div className="hidden lg:flex items-center justify-end shrink-0 min-w-0 relative z-[60]">
+              {/* Right Zone: Artificial Jewellery promo — never shrink off the page */}
+              <div className="hidden lg:flex items-center justify-end shrink-0 relative z-[60]">
                 <FabuniqoJewelleryPromo />
               </div>
 
             </div>
           </div>
         </nav>
+
+        {/* Desktop logo: centered in the full header (search row + Home row) */}
+        <div className="pointer-events-none absolute inset-0 z-[2] hidden lg:block">
+          <div className="container mx-auto flex h-full px-4">
+            <Link
+              to="/"
+              aria-label="Offer Wale Baba home"
+              onClick={handleHomeClick}
+              className="pointer-events-auto flex h-full w-[110px] xl:w-[140px] 2xl:w-[175px] shrink-0 items-center justify-center"
+            >
+              <NavLogo className="block h-auto w-auto max-h-[72%] max-w-[90%] -translate-y-3 xl:-translate-y-4 object-contain object-center" />
+            </Link>
+          </div>
+        </div>
       </header>
 
       {/* ── Mobile Sidebar Overlay ───────────────────────────────────────────── */}

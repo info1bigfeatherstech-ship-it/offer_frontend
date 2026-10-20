@@ -40,7 +40,6 @@ import {
   disableDropship,
   getProductDropshipStatusMeta,
 } from "../../../SERVICES/adminDropshipperApi";
-import FlagToggle from "../../Common/FlagToggle";
 import { canManageProductCatalog, isInventoryManagerRole } from "../roles";
 import { selectAdminUser } from "../ADMIN_REDUX_MANAGEMENT/adminAuthSlice";
 import {
@@ -65,6 +64,11 @@ const getDiscountPercentage = (base, sale) => {
 const DEFAULT_BRANDS = ["Sony", "Samsung", "Apple", "Nike", "Adidas", "Generic"];
 const PRODUCTS_PAGE_LIMIT = 15;
 const SEARCH_DEBOUNCE_MS = 500;
+const PRODUCT_TAG_ON_SALE = "on-sale";
+const PRODUCT_TAG_TODAY_ARRIVAL = "today-arrival";
+
+const productHasTag = (product, tag) =>
+  Array.isArray(product?.tags) && product.tags.includes(tag);
 
 // ── Date filter presets ───────────────────────────────────────────────────────
 const DATE_PRESETS = [
@@ -153,7 +157,7 @@ const DateFilterButton = ({ dateFilter, setDateFilter }) => {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`flex cursor-pointer items-center gap-2 px-4 py-3 rounded-xl border font-medium text-sm transition-all ${isActive
+        className={`flex cursor-pointer items-center gap-2 px-3 py-2.5 rounded-xl border font-medium text-sm shrink-0 transition-all ${isActive}
           ? "bg-blue-600 text-white border-blue-600 shadow-md"
           : "bg-gray-50 text-gray-700 border-gray-200 hover:border-blue-400 hover:bg-blue-50"
           }`}
@@ -292,80 +296,8 @@ const ProductsTab = ({ onSwitchTab }) => {
   const adminUser = useSelector(selectAdminUser);
   const canManageCatalog = canManageProductCatalog(adminUser?.role);
   const isInventoryManager = isInventoryManagerRole(adminUser?.role);
-  const [todayArrival, setTodayArrival] = useState(false);
-  const [onSale, setOnSale] = useState(false);
   const [flagLoading, setFlagLoading] = useState(false);
-
-  const handleBulkFlagUpdate = async (flagType) => {
-    if (selectedSlugs.size === 0) {
-      toast.error("No products selected");
-      return;
-    }
-    const slugs = Array.from(selectedSlugs);
-
-    if (flagLoading) return;
-
-    const stateMap = {
-      "today-arrival": [todayArrival, setTodayArrival],
-      "on-sale": [onSale, setOnSale],
-    };
-
-    const stateEntry = stateMap[flagType];
-
-    if (!stateEntry) {
-      console.error("Invalid flagType:", flagType);
-      return;
-    }
-
-    const [currentValue, setValue] = stateEntry;
-
-    const isIndeterminate =
-      flagType === "today-arrival"
-        ? todayIndeterminate
-        : saleIndeterminate;
-
-    let newValue = isIndeterminate ? true : !currentValue;
-
-    setFlagLoading(true);
-
-    // optimistic UI
-    setValue(newValue);
-    dispatch(optimisticBulkTagUpdate({
-      slugs,
-      flagType,
-      value: newValue
-    }));
-
-    try {
-      const res = await axiosInstance.put(`/admin/products/updateFlags`, {
-        slugs,
-        flagType,
-        value: newValue,
-      });
-
-      if (!res?.data?.success) {
-        throw new Error(res?.data?.message || "Update failed");
-      }
-
-      toast.success("Products updated successfully");
-      setTimeout(() => {
-        setSelectedSlugs(new Set());
-      }, 400);
-
-    } catch (err) {
-      setValue(currentValue);
-      dispatch(optimisticBulkTagUpdate({
-        slugs,
-        flagType,
-        value: !newValue
-      }));
-      toast.error(err?.response?.data?.message || "Failed to update flags");
-
-      // rollback
-    } finally {
-      setFlagLoading(false);
-    }
-  };
+  const [tagFilter, setTagFilter] = useState("");
 
   const {
     products,
@@ -375,6 +307,9 @@ const ProductsTab = ({ onSwitchTab }) => {
     realActiveCount,
     realFeaturedCount,
     realLowStockCount,
+    catalogTotalProducts,
+    onSaleCount,
+    todayArrivalCount,
     loading: productsLoading,
     isFetching: productsFetching,
     hasLoadedOnce: productsHasLoadedOnce,
@@ -508,45 +443,16 @@ const ProductsTab = ({ onSwitchTab }) => {
       dispatch(fetchLowStockProducts({ page: 1, limit: PRODUCTS_PAGE_LIMIT }));
     } else {
       dispatch(
-        fetchProducts({ page: 1, limit: PRODUCTS_PAGE_LIMIT, search: debouncedSearch })
+        fetchProducts({
+          page: 1,
+          limit: PRODUCTS_PAGE_LIMIT,
+          search: debouncedSearch,
+          tags: tagFilter || undefined,
+          includeTagCounts: true,
+        })
       );
     }
-  }, [dispatch, debouncedSearch, showLowStockOnly]);
-  const [todayIndeterminate, setTodayIndeterminate] = useState(false);
-  const [saleIndeterminate, setSaleIndeterminate] = useState(false);
-
-  useEffect(() => {
-    if (selectedSlugs.size === 0) {
-      setTodayArrival(false);
-      setOnSale(false);
-      setTodayIndeterminate(false);
-      setSaleIndeterminate(false);
-      return;
-    }
-
-    const selected = normalizedProducts.filter(p =>
-      selectedSlugs.has(p.slug)
-    );
-
-    const total = selected.length;
-
-    const todayCount = selected.filter(p =>
-      p.tags?.includes("today-arrival")
-    ).length;
-
-    const saleCount = selected.filter(p =>
-      p.tags?.includes("on-sale")
-    ).length;
-
-    // today arrival
-    setTodayArrival(todayCount === total);
-    setTodayIndeterminate(todayCount > 0 && todayCount < total);
-
-    // on sale
-    setOnSale(saleCount === total);
-    setSaleIndeterminate(saleCount > 0 && saleCount < total);
-
-  }, [selectedSlugs, normalizedProducts]);
+  }, [dispatch, debouncedSearch, showLowStockOnly, tagFilter]);
 
   useEffect(() => {
     setSelectedSlugs(new Set());
@@ -580,11 +486,13 @@ const ProductsTab = ({ onSwitchTab }) => {
           page: currentPage,
           limit: PRODUCTS_PAGE_LIMIT,
           search: debouncedSearch,
+          tags: tagFilter || undefined,
+          includeTagCounts: true,
         })
       );
       dispatch(fetchLowStockProducts({ page: 1, limit: PRODUCTS_PAGE_LIMIT }));
     }
-  }, [dispatch, currentPage, debouncedSearch, showLowStockOnly, lowStockPage]);
+  }, [dispatch, currentPage, debouncedSearch, showLowStockOnly, lowStockPage, tagFilter]);
 
   const handlePageChange = (newPage) => {
     if (newPage >= 1 && newPage <= totalPagesCount) {
@@ -596,9 +504,84 @@ const ProductsTab = ({ onSwitchTab }) => {
             page: newPage,
             limit: PRODUCTS_PAGE_LIMIT,
             search: debouncedSearch,
+            tags: tagFilter || undefined,
+            includeTagCounts: true,
           })
         );
       }
+    }
+  };
+
+  const applyTagFilter = (nextTag) => {
+    setShowLowStockOnly(false);
+    setSelectedSlugs(new Set());
+    setTagFilter((prev) => (prev === nextTag ? "" : nextTag));
+  };
+
+  const applyLowStockFilter = () => {
+    setTagFilter("");
+    setSelectedSlugs(new Set());
+    setShowLowStockOnly((prev) => !prev);
+  };
+
+  const handleBulkFlagUpdate = async (flagType, value, slugsOverride = null) => {
+    const slugs = Array.isArray(slugsOverride) ? slugsOverride : Array.from(selectedSlugs);
+    if (slugs.length === 0) {
+      toast.error("No products selected");
+      return;
+    }
+    if (flagLoading) return;
+    if (flagType !== PRODUCT_TAG_ON_SALE && flagType !== PRODUCT_TAG_TODAY_ARRIVAL) {
+      return;
+    }
+
+    const enabled = Boolean(value);
+    const snapshot = normalizedProducts
+      .filter((p) => slugs.includes(p.slug))
+      .map((p) => ({ slug: p.slug, tags: Array.isArray(p.tags) ? [...p.tags] : [] }));
+
+    setFlagLoading(true);
+    dispatch(optimisticBulkTagUpdate({
+      slugs,
+      flagType,
+      value: enabled,
+    }));
+
+    try {
+      const res = await axiosInstance.put(`/admin/products/updateFlags`, {
+        slugs,
+        flagType,
+        value: enabled,
+      });
+
+      if (!res?.data?.success) {
+        throw new Error(res?.data?.message || "Update failed");
+      }
+
+      const label = flagType === PRODUCT_TAG_ON_SALE ? "On Sale" : "Today's Deal";
+      toast.success(enabled ? `Added to ${label}` : `Removed from ${label}`);
+      if (!slugsOverride) {
+        setSelectedSlugs(new Set());
+      } else if (tagFilter && !enabled && flagType === tagFilter) {
+        setSelectedSlugs((prev) => {
+          const next = new Set(prev);
+          slugs.forEach((slug) => next.delete(slug));
+          return next;
+        });
+      }
+      refreshProducts();
+    } catch (err) {
+      snapshot.forEach((item) => {
+        const hadTag = item.tags.includes(flagType);
+        dispatch(optimisticBulkTagUpdate({
+          slugs: [item.slug],
+          flagType,
+          value: hadTag,
+        }));
+      });
+      toast.error(err?.response?.data?.message || "Failed to update flags");
+    } finally {
+      setFlagLoading(false);
     }
   };
 
@@ -785,6 +768,20 @@ const ProductsTab = ({ onSwitchTab }) => {
   const allOnPageSelected = filteredProducts.length > 0 && filteredProducts.every((p) => selectedSlugs.has(p.slug));
   const someSelected = selectedSlugs.size > 0;
   const isIndeterminate = someSelected && !filteredProducts.every((p) => selectedSlugs.has(p.slug));
+
+  const selectedTagSummary = useMemo(() => {
+    const selected = normalizedProducts.filter((p) => selectedSlugs.has(p.slug));
+    const total = selected.length;
+    const onSale = selected.filter((p) => productHasTag(p, PRODUCT_TAG_ON_SALE)).length;
+    const todayDeal = selected.filter((p) => productHasTag(p, PRODUCT_TAG_TODAY_ARRIVAL)).length;
+    return { total, onSale, todayDeal };
+  }, [normalizedProducts, selectedSlugs]);
+
+  const handleProductTagToggle = (product, flagType) => {
+    if (!product?.slug || flagLoading) return;
+    const nextValue = !productHasTag(product, flagType);
+    handleBulkFlagUpdate(flagType, nextValue, [product.slug]);
+  };
 
   const isInitialLoad =
     !productsHasLoadedOnce && (productsLoading || lowStockLoading);
@@ -1010,64 +1007,100 @@ const ProductsTab = ({ onSwitchTab }) => {
         onViewArchived={() => onSwitchTab("archived")}
       />
 
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 xl:gap-6"> {/* RESPONSIVE FIX */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 xl:p-5" /* RESPONSIVE FIX */>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Total Products</p>
-              <p className="text-2xl xl:text-3xl font-bold text-gray-900 /* RESPONSIVE FIX */">{totalProducts}</p>
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 mb-1 truncate">Total Products</p>
+              <p className="text-xl font-bold text-gray-900">{catalogTotalProducts || totalProducts}</p>
             </div>
-            <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
               </svg>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 xl:p-5" /* RESPONSIVE FIX */>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Active Products (Ecom)</p>
-              <p className="text-2xl xl:text-3xl font-bold text-gray-900 /* RESPONSIVE FIX */">{activeProducts}</p>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 mb-1 truncate">Active (Ecom)</p>
+              <p className="text-xl font-bold text-gray-900">{activeProducts}</p>
             </div>
-            <div className="w-12 h-12 bg-green-100 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="w-9 h-9 bg-green-100 rounded-xl flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
           </div>
         </div>
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 xl:p-5" /* RESPONSIVE FIX */>
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Featured (Ecom)</p>
-              <p className="text-2xl xl:text-3xl font-bold text-gray-900 /* RESPONSIVE FIX */">{featuredProducts}</p>
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 p-3 min-w-0">
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 mb-1 truncate">Featured (Ecom)</p>
+              <p className="text-xl font-bold text-gray-900">{featuredProducts}</p>
             </div>
-            <div className="w-12 h-12 bg-yellow-100 rounded-xl flex items-center justify-center">
-              <svg className="w-6 h-6 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
+            <div className="w-9 h-9 bg-yellow-100 rounded-xl flex items-center justify-center shrink-0">
+              <svg className="w-5 h-5 text-yellow-600" fill="currentColor" viewBox="0 0 20 20">
                 <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
               </svg>
             </div>
           </div>
         </div>
         <div
-          className={`bg-white rounded-2xl shadow-sm border p-3 xl:p-5 cursor-pointer /* RESPONSIVE FIX */ transition-all ${showLowStockOnly ? "border-red-500 ring-2 ring-red-200" : "border-gray-200 hover:border-red-300"
-            }`}
-          onClick={() => setShowLowStockOnly(!showLowStockOnly)}
+          className={`bg-white rounded-2xl shadow-sm border p-3 min-w-0 cursor-pointer transition-all ${
+            tagFilter === PRODUCT_TAG_ON_SALE ? "border-orange-500 ring-2 ring-orange-200" : "border-gray-200 hover:border-orange-300"
+          }`}
+          onClick={() => applyTagFilter(PRODUCT_TAG_ON_SALE)}
+          title="Click to show all On Sale products"
         >
-          <div className="flex items-center justify-between relative cursor-pointer group">
-            <div>
-              <p className="text-sm text-gray-500 mb-1">Low Stock</p>
-              <p className="text-2xl xl:text-3xl font-bold text-gray-900 /* RESPONSIVE FIX */">{lowStockCount}</p>
-              {showLowStockOnly && <p className="text-xs text-red-600 mt-1">Filter active</p>}
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 mb-1 truncate">On Sale</p>
+              <p className="text-xl font-bold text-gray-900">{onSaleCount || 0}</p>
             </div>
-            <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${showLowStockOnly ? "bg-red-200" : "bg-red-100"}`}>
-              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${tagFilter === PRODUCT_TAG_ON_SALE ? "bg-orange-200" : "bg-orange-100"}`}>
+              <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 1c-1.11 0-2.08-.402-2.599-1M12 8c-1.11 0-2.08.402-2.599 1" />
               </svg>
             </div>
-            <div className="absolute -top-8 left-0 opacity-0 group-hover:opacity-100 transition text-xs bg-black text-white px-2 py-1 rounded">
-              Click to filter low stock items
+          </div>
+        </div>
+        <div
+          className={`bg-white rounded-2xl shadow-sm border p-3 min-w-0 cursor-pointer transition-all ${
+            tagFilter === PRODUCT_TAG_TODAY_ARRIVAL ? "border-emerald-500 ring-2 ring-emerald-200" : "border-gray-200 hover:border-emerald-300"
+          }`}
+          onClick={() => applyTagFilter(PRODUCT_TAG_TODAY_ARRIVAL)}
+          title="Click to show all Today's Deal products"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 mb-1 truncate">Today's Deal</p>
+              <p className="text-xl font-bold text-gray-900">{todayArrivalCount || 0}</p>
+            </div>
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${tagFilter === PRODUCT_TAG_TODAY_ARRIVAL ? "bg-emerald-200" : "bg-emerald-100"}`}>
+              <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+        <div
+          className={`bg-white rounded-2xl shadow-sm border p-3 min-w-0 cursor-pointer transition-all ${
+            showLowStockOnly ? "border-red-500 ring-2 ring-red-200" : "border-gray-200 hover:border-red-300"
+          }`}
+          onClick={applyLowStockFilter}
+          title="Click to filter low stock items"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="min-w-0">
+              <p className="text-xs text-gray-500 mb-1 truncate">Low Stock</p>
+              <p className="text-xl font-bold text-gray-900">{lowStockCount}</p>
+            </div>
+            <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${showLowStockOnly ? "bg-red-200" : "bg-red-100"}`}>
+              <svg className="w-5 h-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
             </div>
           </div>
         </div>
@@ -1090,21 +1123,42 @@ const ProductsTab = ({ onSwitchTab }) => {
                 Clear selection
               </button>
             </div>
-            <div className="flex items-center gap-3">
-              <FlagToggle
-                label="Today Deals"
-                checked={todayArrival}
-                indeterminate={todayIndeterminate}
-                loading={flagLoading}
-                onChange={() => handleBulkFlagUpdate("today-arrival")}
-              />
-              <FlagToggle
-                label="On Sale"
-                checked={onSale}
-                indeterminate={saleIndeterminate}
-                loading={flagLoading}
-                onChange={() => handleBulkFlagUpdate("on-sale")}
-              />
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs text-gray-500 whitespace-nowrap">
+                {selectedTagSummary.onSale}/{selectedTagSummary.total} on sale · {selectedTagSummary.todayDeal}/{selectedTagSummary.total} today's deal
+              </span>
+              <button
+                type="button"
+                disabled={flagLoading || selectedTagSummary.onSale === selectedTagSummary.total}
+                onClick={() => handleBulkFlagUpdate(PRODUCT_TAG_ON_SALE, true)}
+                className="px-3 py-2 text-sm font-medium rounded-xl border border-orange-300 text-orange-700 bg-orange-50 hover:bg-orange-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add to On Sale
+              </button>
+              <button
+                type="button"
+                disabled={flagLoading || selectedTagSummary.onSale === 0}
+                onClick={() => handleBulkFlagUpdate(PRODUCT_TAG_ON_SALE, false)}
+                className="px-3 py-2 text-sm font-medium rounded-xl border border-gray-200 text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Remove from On Sale
+              </button>
+              <button
+                type="button"
+                disabled={flagLoading || selectedTagSummary.todayDeal === selectedTagSummary.total}
+                onClick={() => handleBulkFlagUpdate(PRODUCT_TAG_TODAY_ARRIVAL, true)}
+                className="px-3 py-2 text-sm font-medium rounded-xl border border-emerald-300 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Add to Today's Deal
+              </button>
+              <button
+                type="button"
+                disabled={flagLoading || selectedTagSummary.todayDeal === 0}
+                onClick={() => handleBulkFlagUpdate(PRODUCT_TAG_TODAY_ARRIVAL, false)}
+                className="px-3 py-2 text-sm font-medium rounded-xl border border-gray-200 text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Remove from Today's Deal
+              </button>
             </div>
 
             {/* SET AS ECOM BUTTON */}
@@ -1223,9 +1277,10 @@ const ProductsTab = ({ onSwitchTab }) => {
             </div>
           </div>
         ) : (
-          <div className="flex gap-2 xl:gap-4 flex-wrap"> {/* RESPONSIVE FIX */}
-            <div className="flex-1 relative">
-              <svg className="w-5 h-5 text-gray-400 absolute left-4 top-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="flex flex-col gap-3">
+            <div className="flex items-center gap-2 min-w-0">
+            <div className="relative flex-1 min-w-0">
+              <svg className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
               <input
@@ -1233,7 +1288,7 @@ const ProductsTab = ({ onSwitchTab }) => {
                 placeholder="Search products..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-12 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+                className="w-full pl-12 pr-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
               />
             </div>
 
@@ -1242,7 +1297,7 @@ const ProductsTab = ({ onSwitchTab }) => {
             <select
               value={filterStatus}
               onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-4 cursor-pointer py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500"
+              className="px-3 cursor-pointer py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 shrink-0"
             >
               <option value="all">All Status (Ecom)</option>
               <option value="draft">Inactive</option>
@@ -1250,11 +1305,11 @@ const ProductsTab = ({ onSwitchTab }) => {
               <option value="archived">Archived</option>
             </select>
 
-            <div className="relative">
+            <div className="relative shrink-0">
               <select
                 value={filterCategory}
                 onChange={(e) => setFilterCategory(e.target.value)}
-                className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 pr-12 appearance-none cursor-pointer"
+                className="px-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 pr-11 appearance-none cursor-pointer"
               >
                 <option value="all">All Categories</option>
                 {categories.map((cat) => (
@@ -1273,23 +1328,40 @@ const ProductsTab = ({ onSwitchTab }) => {
               </button>
               )}
             </div>
+            </div>
 
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+            <div className="flex items-center gap-2">
             {showLowStockOnly && (
               <button
                 onClick={() => setShowLowStockOnly(false)}
-                className="px-4 py-3 bg-red-100 text-red-700 rounded-xl hover:bg-red-200 font-medium flex items-center gap-2"
+                className="px-3 py-2 bg-red-100 text-red-700 rounded-xl hover:bg-red-200 font-medium text-sm flex items-center gap-2"
               >
-                <span>Clear Low Stock Filter</span>
+                <span>Clear Low Stock</span>
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             )}
 
+            {tagFilter && (
+              <button
+                onClick={() => applyTagFilter(tagFilter)}
+                className="px-3 py-2 bg-orange-100 text-orange-700 rounded-xl hover:bg-orange-200 font-medium text-sm flex items-center gap-2"
+              >
+                <span>Clear {tagFilter === PRODUCT_TAG_ON_SALE ? "On Sale" : "Today's Deal"}</span>
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            )}
+            </div>
+
+            <div className="flex items-center gap-2 ml-auto">
             {canManageCatalog && (
             <button
               onClick={() => setShowProductModal(true)}
-              className="px-6 cursor-pointer py-3 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all flex items-center space-x-2"
+              className="px-5 cursor-pointer py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-indigo-700 shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all flex items-center space-x-2"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
@@ -1303,7 +1375,7 @@ const ProductsTab = ({ onSwitchTab }) => {
               id="export-products-csv-btn"
               onClick={handleExportProducts}
               disabled={exportLoading}
-              className="px-5 cursor-pointer py-3 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-medium rounded-xl hover:from-emerald-600 hover:to-teal-700 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+              className="px-5 cursor-pointer py-2.5 bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-medium rounded-xl hover:from-emerald-600 hover:to-teal-700 shadow-md hover:shadow-lg transform hover:-translate-y-0.5 transition-all flex items-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
               title="Export all products (active + inactive) to CSV"
             >
               {exportLoading ? (
@@ -1321,6 +1393,8 @@ const ProductsTab = ({ onSwitchTab }) => {
               )}
             </button>
             )}
+            </div>
+            </div>
           </div>
         )}
       </div>
@@ -1434,6 +1508,59 @@ const ProductsTab = ({ onSwitchTab }) => {
                               {productCodesLine.display}
                             </div>
                           ) : null}
+                          <div className="flex flex-wrap gap-1 mt-1.5">
+                            {canManageCatalog ? (
+                              <>
+                                <button
+                                  type="button"
+                                  disabled={flagLoading}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleProductTagToggle(product, PRODUCT_TAG_ON_SALE);
+                                  }}
+                                  className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border transition-colors disabled:opacity-50 ${
+                                    productHasTag(product, PRODUCT_TAG_ON_SALE)
+                                      ? "bg-orange-100 text-orange-700 border-orange-200"
+                                      : "bg-white text-gray-500 border-gray-200 hover:border-orange-300 hover:text-orange-600"
+                                  }`}
+                                  title={productHasTag(product, PRODUCT_TAG_ON_SALE) ? "Remove from On Sale" : "Add to On Sale"}
+                                >
+                                  On Sale
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={flagLoading}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    handleProductTagToggle(product, PRODUCT_TAG_TODAY_ARRIVAL);
+                                  }}
+                                  className={`px-2 py-0.5 text-[10px] font-semibold rounded-full border transition-colors disabled:opacity-50 ${
+                                    productHasTag(product, PRODUCT_TAG_TODAY_ARRIVAL)
+                                      ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                                      : "bg-white text-gray-500 border-gray-200 hover:border-emerald-300 hover:text-emerald-600"
+                                  }`}
+                                  title={productHasTag(product, PRODUCT_TAG_TODAY_ARRIVAL) ? "Remove from Today's Deal" : "Add to Today's Deal"}
+                                >
+                                  Today's Deal
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                {productHasTag(product, PRODUCT_TAG_ON_SALE) && (
+                                  <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-orange-100 text-orange-700 border border-orange-200">
+                                    On Sale
+                                  </span>
+                                )}
+                                {productHasTag(product, PRODUCT_TAG_TODAY_ARRIVAL) && (
+                                  <span className="px-2 py-0.5 text-[10px] font-semibold rounded-full bg-emerald-100 text-emerald-700 border border-emerald-200">
+                                    Today's Deal
+                                  </span>
+                                )}
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
                     </td>
@@ -1549,11 +1676,15 @@ const ProductsTab = ({ onSwitchTab }) => {
               <p className="text-gray-500">
                 {debouncedSearch
                   ? `No products match "${debouncedSearch}"`
-                  : showLowStockOnly
-                    ? "No low stock products at the moment"
-                    : dateFilter.preset
-                      ? "No products match the selected date range"
-                      : `Click "Add Product" to create your first product`}
+                  : tagFilter === PRODUCT_TAG_ON_SALE
+                    ? "No products are currently On Sale"
+                    : tagFilter === PRODUCT_TAG_TODAY_ARRIVAL
+                      ? "No products are currently in Today's Deal"
+                      : showLowStockOnly
+                        ? "No low stock products at the moment"
+                        : dateFilter.preset
+                          ? "No products match the selected date range"
+                          : `Click "Add Product" to create your first product`}
               </p>
             </div>
           )}
@@ -1566,6 +1697,7 @@ const ProductsTab = ({ onSwitchTab }) => {
               Showing {(pageNum - 1) * PRODUCTS_PAGE_LIMIT + 1}–
               {Math.min(pageNum * PRODUCTS_PAGE_LIMIT, currentTotal)} of {currentTotal} products
               {debouncedSearch ? ` matching "${debouncedSearch}"` : ""}
+              {tagFilter === PRODUCT_TAG_ON_SALE ? " in On Sale" : tagFilter === PRODUCT_TAG_TODAY_ARRIVAL ? " in Today's Deal" : ""}
             </p>
             <div className="flex items-center gap-2">
               <button

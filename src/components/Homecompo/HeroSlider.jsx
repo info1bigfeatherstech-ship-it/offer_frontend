@@ -22,24 +22,19 @@ import 'swiper/css';
 import 'swiper/css/navigation';
 import 'swiper/css/pagination';
 
+import hero1 from '../../assets/hero/hero-1.webp';
+import hero2 from '../../assets/hero/hero-2.webp';
+import hero3 from '../../assets/hero/hero-3.webp';
+import hero4 from '../../assets/hero/hero-4.webp';
+import hero5 from '../../assets/hero/hero-5.webp';
 
-
-/* ─── Slide data ───────────────────────────────────────────── */
-// const slides = [
-//   { id: 1, image: offer1, alt: 'Offer 1' },
-//   { id: 2, image: offer2, alt: 'Offer 2' },
-//   { id: 3, image: offer3, alt: 'Offer 3' },
-//   { id: 4, image: offer4, alt: 'Offer 4' },
-//   { id: 5, image: offer5, alt: 'Offer 5' },
-// ];
-
-
+/* Same artwork as OWB/banners (1)→(5), served locally so Cloudinary 401 cannot blank the hero. */
 const slides = [
-  { id: 1, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_1000/v1780920784/offerwalebaba-1_tkhraz.jpg', alt: 'Offer 1' },
-  { id: 2, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_1000/v1780920808/offerwalebaba-5_wrhktc.jpg', alt: 'Offer 2' },
-  { id: 3, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_1000/v1780920808/offerwalebaba-3_h3txig.jpg', alt: 'Offer 3' },
-  { id: 4, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_1000/v1780920808/offerwalebaba-2_wdtxth.jpg', alt: 'Offer 4' },
-  { id: 5, image: 'https://res.cloudinary.com/dnm8cfawi/image/upload/f_auto,q_auto,w_1000/v1780920808/offerwalebaba-4_jvsqnp.jpg', alt: 'Offer 5' },
+  { id: 1, image: hero1, alt: 'Offer 1' },
+  { id: 2, image: hero2, alt: 'Offer 2' },
+  { id: 3, image: hero3, alt: 'Offer 3' },
+  { id: 4, image: hero4, alt: 'Offer 4' },
+  { id: 5, image: hero5, alt: 'Offer 5' },
 ];
 /* ─── Responsive breakpoints ───────────────────────────────── */
 const breakpoints = {
@@ -134,8 +129,11 @@ const HeroSlider = () => {
                   src={slide.image}
                   alt={slide.alt}
                   className="hs-img"
+                  width={1400}
+                  height={933}
                   loading={slide.id <= 3 ? "eager" : "lazy"}
                   fetchPriority={slide.id === 1 ? "high" : undefined}
+                  decoding={slide.id === 1 ? "sync" : "async"}
                   draggable={false}
                 />
                 <div className="hs-overlay" aria-hidden="true" />
@@ -215,11 +213,8 @@ const HeroSlider = () => {
         .hs-card {
           position: relative;
           width: 100%;
-          /*
-           * 16:9 on desktop / tablet.
-           * 4:3 on small phones (taller = more impact on narrow screens).
-           */
-          aspect-ratio: 10 / 6;
+          /* Match local banners (1400×933 ≈ 3:2) so cover does not crop. */
+          aspect-ratio: 3 / 2;
           border-radius: 12px;
           overflow: hidden;
           background: #0d0d20;
@@ -243,7 +238,6 @@ const HeroSlider = () => {
 
         @media (max-width: 479px) {
           .hs-card {
-            aspect-ratio: 4 / 3;
             border-radius: 8px;
           }
         }
@@ -254,7 +248,7 @@ const HeroSlider = () => {
           inset: 0;
           width: 100%;
           height: 100%;
-          object-fit: cover;
+          object-fit: contain;
           object-position: center;
           display: block;
           /* Remove space under img (inline default) */

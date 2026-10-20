@@ -11,14 +11,20 @@ import {
 // Existing thunk for fetching all products - NOW RETURNS FULL RESPONSE
 export const fetchProducts = createAsyncThunk(
   "adminGetProducts/fetchProducts",
-  async ({ page = 1, limit = 15, search = "" } = {}, { rejectWithValue }) => {
+  async (
+    { page = 1, limit = 15, search = "", tags = "", includeTagCounts = false } = {},
+    { rejectWithValue }
+  ) => {
     try {
       const trimmedSearch = typeof search === "string" ? search.trim() : "";
+      const trimmedTags = typeof tags === "string" ? tags.trim() : "";
       const response = await axiosInstance.get("/admin/products/all", {
         params: {
           page,
           limit,
           ...(trimmedSearch ? { search: trimmedSearch } : {}),
+          ...(trimmedTags ? { tags: trimmedTags } : {}),
+          ...(includeTagCounts ? { includeTagCounts: "1" } : {}),
         },
       });      
       if (response.data.success) return response.data; // ✅ FIXED: return full response, not just products
@@ -115,6 +121,9 @@ const adminGetProductsSlice = createSlice({
     realActiveCount: 0,     // Real active products count from backend
     realFeaturedCount: 0,   // Real featured products count from backend
     realLowStockCount: 0,   // Real low stock count from backend
+    catalogTotalProducts: 0, // Unfiltered catalog total for the Total Products card
+    onSaleCount: 0,
+    todayArrivalCount: 0,
     
     // Low stock products state
     lowStockProducts: {
@@ -130,20 +139,31 @@ const adminGetProductsSlice = createSlice({
   reducers: {
     optimisticBulkTagUpdate: (state, action) => {
       const { slugs, flagType, value } = action.payload;
+      let delta = 0;
 
       state.products = state.products.map(p => {
         if (!slugs.includes(p.slug)) return p;
 
-        let tags = p.tags || [];
+        let tags = Array.isArray(p.tags) ? p.tags : [];
+        const hasTag = tags.includes(flagType);
 
-        if (value) {
-          if (!tags.includes(flagType)) tags.push(flagType);
-        } else {
+        if (value && !hasTag) {
+          tags = [...tags, flagType];
+          delta += 1;
+        } else if (!value && hasTag) {
           tags = tags.filter(t => t !== flagType);
+          delta -= 1;
         }
 
         return { ...p, tags };
       });
+
+      if (flagType === "on-sale") {
+        state.onSaleCount = Math.max(0, (state.onSaleCount || 0) + delta);
+      }
+      if (flagType === "today-arrival") {
+        state.todayArrivalCount = Math.max(0, (state.todayArrivalCount || 0) + delta);
+      }
     },
     // Optimistic in-place update — called BEFORE API for zero-latency UI
     optimisticUpdateProduct: (state, { payload }) => {
@@ -212,11 +232,21 @@ const adminGetProductsSlice = createSlice({
         state.isFetching = false;
         state.hasLoadedOnce = true;
         const { payload } = action;
+        const list = Array.isArray(payload.products) ? payload.products : [];
         // Filter out archived products from the products tab
-        state.products = payload.products.filter((p) => p.status !== "archived");
-        state.totalProducts = payload.totalProducts || payload.products.length;
+        state.products = list.filter((p) => p.status !== "archived");
+        state.totalProducts = payload.totalProducts || list.length;
         state.currentPage = payload.currentPage || 1;
         state.totalPages = payload.totalPages || 1;
+        if (!action.meta.arg?.tags) {
+          state.catalogTotalProducts = payload.totalProducts || list.length;
+        }
+        if (typeof payload.onSaleCount === "number") {
+          state.onSaleCount = payload.onSaleCount;
+        }
+        if (typeof payload.todayArrivalCount === "number") {
+          state.todayArrivalCount = payload.todayArrivalCount;
+        }
       })
       .addCase(fetchProducts.rejected, (state, action) => {
         if (action.meta.requestId !== state.productsFetchRequestId) return;
