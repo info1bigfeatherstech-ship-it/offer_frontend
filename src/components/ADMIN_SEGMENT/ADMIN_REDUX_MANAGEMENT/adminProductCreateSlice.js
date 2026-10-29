@@ -155,10 +155,16 @@ export const createProduct = createAsyncThunk(
           sale: productData.price?.sale
         };
         if (productData.wholesale) {
-          priceData.wholesaleBase = productData.wholesaleBase;
-          priceData.wholesaleSale = productData.wholesaleSale;
+          priceData.wholesaleBase = productData.price?.wholesaleBase ?? productData.wholesaleBase;
+          priceData.wholesaleSale = productData.price?.wholesaleSale ?? productData.wholesaleSale;
         }
         primaryPrice = buildPriceObj(priceData, "Main variant base price");
+        if (productData.wholesale) {
+          const wb = toNum(primaryPrice.wholesaleBase);
+          if (wb == null || wb <= 0) {
+            throw new Error("Main variant wholesale base price is required and must be greater than 0");
+          }
+        }
       } catch (priceErr) {
         return rejectWithValue(priceErr.message);
       }
@@ -174,15 +180,21 @@ export const createProduct = createAsyncThunk(
             sale: v.price?.sale
           };
           if (v.wholesale) {
-            variantPriceData.wholesaleBase = v.wholesaleBase;
-            variantPriceData.wholesaleSale = v.wholesaleSale;
+            variantPriceData.wholesaleBase = v.price?.wholesaleBase ?? v.wholesaleBase;
+            variantPriceData.wholesaleSale = v.price?.wholesaleSale ?? v.wholesaleSale;
           }
           vPrice = buildPriceObj(variantPriceData, `Variant ${i + 1} base price`);
+          if (v.wholesale) {
+            const wb = toNum(vPrice.wholesaleBase);
+            if (wb == null || wb <= 0) {
+              throw new Error(`Variant ${i + 1} wholesale base price is required and must be greater than 0`);
+            }
+          }
         } catch (priceErr) {
           return rejectWithValue(priceErr.message);
         }
 
-        const wholesaleEligible = v.wholesale && (v.wholesaleBase > 0);
+        const wholesaleEligible = v.wholesale && (Number(v.price?.wholesaleBase ?? v.wholesaleBase) > 0);
         const wholesaleVisibility = wholesaleEligible ? "active" : "draft";
 
         let normalizedVariantProductCode;
@@ -213,7 +225,8 @@ export const createProduct = createAsyncThunk(
         });
       }
 
-      const primaryWholesaleEligible = productData.wholesale && (productData.wholesaleBase > 0);
+      const primaryWholesaleEligible =
+        productData.wholesale && Number(productData.price?.wholesaleBase ?? productData.wholesaleBase) > 0;
       const primaryWholesaleVisibility = primaryWholesaleEligible ? "active" : "draft";
 
       let normalizedMainProductCode;
