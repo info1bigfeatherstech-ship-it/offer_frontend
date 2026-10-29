@@ -157,10 +157,11 @@ const DateFilterButton = ({ dateFilter, setDateFilter }) => {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen((o) => !o)}
-        className={`flex cursor-pointer items-center gap-2 px-3 py-2.5 rounded-xl border font-medium text-sm shrink-0 transition-all ${isActive}
-          ? "bg-blue-600 text-white border-blue-600 shadow-md"
-          : "bg-gray-50 text-gray-700 border-gray-200 hover:border-blue-400 hover:bg-blue-50"
-          }`}
+        className={`flex cursor-pointer items-center gap-2 px-3 py-2.5 rounded-xl border font-medium text-sm shrink-0 transition-all ${
+          isActive
+            ? "bg-blue-600 text-white border-blue-600 shadow-md"
+            : "bg-gray-50 text-gray-700 border-gray-200 hover:border-blue-400 hover:bg-blue-50"
+        }`}
       >
         <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}

@@ -1108,15 +1108,78 @@ const ProductUI = ({ openAuthModal }) => {
     finally { setL("wishlist", false); }
   };
 
-  const share = (type) => {
-    const url = window.location.href;
-    const map = {
-      whatsapp: `https://wa.me/?text=${encodeURIComponent(url)}`,
+  const copyProductLink = async (successMessage) => {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    if (!url) {
+      toast.error("Unable to copy link");
+      return false;
+    }
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success(successMessage);
+      return true;
+    } catch (error) {
+      logError("copyProductLink", error);
+      toast.error("Unable to copy link");
+      return false;
+    }
+  };
+
+  const share = async (type) => {
+    const url = typeof window !== "undefined" ? window.location.href : "";
+    if (!url) {
+      toast.error("Unable to share this product");
+      return;
+    }
+
+    const text = `Check out this product: ${title}\n${url}`;
+    const shareUrls = {
+      whatsapp: `https://wa.me/?text=${encodeURIComponent(text)}`,
       facebook: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
-      telegram: `https://t.me/share/url?url=${encodeURIComponent(url)}`,
+      telegram: `https://t.me/share/url?url=${encodeURIComponent(url)}&text=${encodeURIComponent(text)}`,
     };
-    if (map[type]) window.open(map[type], "_blank");
-    if (type === "instagram") { navigator?.clipboard?.writeText(url); alert("Link copied!"); }
+
+    if (type === "copy") {
+      await copyProductLink("Link copied!");
+      setShareOpen(false);
+      return;
+    }
+
+    // Instagram has no web sharer URL. Use the OS share sheet (Instagram appears
+    // there on mobile / modern desktop). Fallback: copy + open Instagram to paste.
+    if (type === "instagram") {
+      setShareOpen(false);
+      const payload = { title: title || "Product", text, url };
+      const canNativeShare =
+        typeof navigator.share === "function" &&
+        (!navigator.canShare || navigator.canShare(payload));
+
+      if (canNativeShare) {
+        try {
+          await navigator.share(payload);
+          return;
+        } catch (error) {
+          if (error?.name === "AbortError") return;
+          logError("shareInstagramNative", error);
+        }
+      }
+
+      await copyProductLink("Link copied! Opening Instagram — paste it to share this product.");
+      const igWindow = window.open("https://www.instagram.com/", "_blank", "noopener,noreferrer");
+      if (!igWindow) {
+        toast.error("Allow popups to open Instagram, then paste the copied link.");
+      }
+      return;
+    }
+
+    const shareUrl = shareUrls[type];
+    if (!shareUrl) return;
+
+    const popup = window.open(shareUrl, "_blank", "noopener,noreferrer");
+    if (!popup) {
+      await copyProductLink("Popup blocked. Product link copied instead.");
+    }
+    setShareOpen(false);
   };
 
   // ── guards ─────────────────────────────────────────────────────────────────
@@ -1734,31 +1797,43 @@ const ProductUI = ({ openAuthModal }) => {
 
                                 {/* SHARE POPUP */}
                                 {shareOpen && (
-                                  <div className="absolute bottom-[calc(100%+10px)] right-0 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-lg z-50 flex gap-3">
+                                  <div
+                                    className="absolute bottom-[calc(100%+10px)] right-0 bg-white border border-gray-200 rounded-2xl px-4 py-3 shadow-lg z-50 flex gap-3"
+                                    onClick={(e) => e.stopPropagation()}
+                                  >
                                     {[
-                                      // { type: "whatsapp", Icon: IoLogoWhatsapp, cls: "bg-green-500 hover:bg-green-600", link: "https://wa.me/message/72BTQZMTQU2AG1" },
-                                      { type: "whatsapp", Icon: IoLogoWhatsapp, cls: "bg-green-500 hover:bg-green-600", link: `https://wa.me/?text=${encodeURIComponent(`Check out this product: ${title}\n${window.location.href}`)}` },
-                                      { type: "facebook", Icon: IoLogoFacebook, cls: "bg-blue-600 hover:bg-blue-700", link: "https://www.facebook.com/share/1Eej9auTBB/" },
-                                      { type: "instagram", Icon: IoLogoInstagram, cls: "bg-gradient-to-br from-yellow-400 via-pink-500 to-purple-600", link: "https://www.instagram.com/offer_wale_baba?igsh=Mjd6aG84bXV5dmRn" },
-                                      { type: "telegram", Icon: FaTelegram, cls: "bg-sky-500 hover:bg-sky-600", link: "https://t.me/OfferWaleBabaRetail" },
-                                    ].map(({ type, Icon, cls, link }) => (
-                                      <a key={type} onClick={() => { window.open(link, "_blank"); setShareOpen(false); }}
-                                          className={`w-9 h-9 rounded-full ${cls} text-white flex items-center cursor-pointer justify-center hover:scale-110 active:scale-95 transition-all duration-150 shadow-sm`}>
-                                      <Icon size={16} />
-                                      </a>
-                                      ))}
-                                       
-                                      {/* Copy Link button */}
+                                      { type: "whatsapp", Icon: IoLogoWhatsapp, cls: "bg-green-500 hover:bg-green-600", label: "Share on WhatsApp" },
+                                      { type: "facebook", Icon: IoLogoFacebook, cls: "bg-blue-600 hover:bg-blue-700", label: "Share on Facebook" },
+                                      { type: "instagram", Icon: IoLogoInstagram, cls: "bg-gradient-to-br from-yellow-400 via-pink-500 to-purple-600", label: "Copy link for Instagram" },
+                                      { type: "telegram", Icon: FaTelegram, cls: "bg-sky-500 hover:bg-sky-600", label: "Share on Telegram" },
+                                    ].map(({ type, Icon, cls, label }) => (
                                       <button
-                                        onClick={() => {
-                                          navigator.clipboard.writeText(window.location.href);
-                                          toast.success("Link copied!");
-                                          setShareOpen(false);
+                                        key={type}
+                                        type="button"
+                                        aria-label={label}
+                                        title={label}
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          share(type);
                                         }}
-                                        className="w-9 h-9 rounded-full bg-gray-700 hover:bg-gray-900 text-white flex items-center cursor-pointer justify-center hover:scale-110 active:scale-95 transition-all duration-150 shadow-sm"
+                                        className={`w-9 h-9 rounded-full ${cls} text-white flex items-center cursor-pointer justify-center hover:scale-110 active:scale-95 transition-all duration-150 shadow-sm`}
                                       >
-                                      <ClipboardCopy  size={16} />
+                                        <Icon size={16} />
                                       </button>
+                                    ))}
+
+                                    <button
+                                      type="button"
+                                      aria-label="Copy product link"
+                                      title="Copy product link"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        share("copy");
+                                      }}
+                                      className="w-9 h-9 rounded-full bg-gray-700 hover:bg-gray-900 text-white flex items-center cursor-pointer justify-center hover:scale-110 active:scale-95 transition-all duration-150 shadow-sm"
+                                    >
+                                      <ClipboardCopy size={16} />
+                                    </button>
                                   </div>
                                 )}
                               </div>
