@@ -222,7 +222,7 @@ const EditProductModal = ({ product, onClose, brands, setBrands }) => {
         if (editingVariantIndex > 0) {
           variantUpdatePayload.variantTitle = variantToSave.title;
           variantUpdatePayload.variantDescription = variantToSave.description;
-          variantUpdatePayload.variantShipping = variantToSave.shipping;
+          variantUpdatePayload.shipping = variantToSave.shipping;
         }
         const result = await dispatch(updateVariantByBarcode(variantUpdatePayload)).unwrap();
         if (result?.product?.variants) {

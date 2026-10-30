@@ -125,13 +125,15 @@ export const updateVariantByBarcode = createAsyncThunk(
       channelVisibility,
       variantTitle,
       variantDescription,
-      shipping: variantShipping,
+      shipping,
+      variantShipping,
     },
     { rejectWithValue }
   ) => {
     try {
       const fd = new FormData();
       fd.append("productCode", String(barcode));
+      const shippingInput = shipping ?? variantShipping;
 
       // Price - MUST be complete object with wholesale fields inside
       if (price !== undefined) {
@@ -164,7 +166,7 @@ export const updateVariantByBarcode = createAsyncThunk(
       const catalogPayload = buildVariantCatalogApiPayload({
         title: variantTitle,
         description: variantDescription,
-        shipping: variantShipping,
+        shipping: shippingInput,
       });
       if (catalogPayload.title) fd.append("variantTitle", catalogPayload.title);
       if (catalogPayload.description) fd.append("variantDescription", catalogPayload.description);
