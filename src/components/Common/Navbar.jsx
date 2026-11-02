@@ -10,7 +10,7 @@ import { selectDisplayCartCount } from '../REDUX_FEATURES/REDUX_SLICES/userCartS
 import CartSidebar from './CartSidebar';
 import {
   Search, User, Heart, ShoppingCart, Menu, X, Mail, Clock, Bell,
-  ChevronRight, Home, Flame, Package, Tag, Ticket, HeadphonesIcon,
+  ChevronRight, ChevronDown, LayoutGrid, Home, Flame, Package, Tag, Ticket, HeadphonesIcon,
   Smartphone, ChefHat, Shirt, Dumbbell, Plane, Book, Baby, Car, Box, Gift,
   MapPin, LogOut, UserCircle, Settings, Sparkles, Gem, TrendingUp, Star, Zap
 } from 'lucide-react';
@@ -22,6 +22,8 @@ import navLogo from "../../assets/nav-logo.jpg";
 import arrivals from "../../assets/nav-arrived.svg";
 import SaleIcon from "../../assets/nav-sale.svg";
 import deal from "../../assets/nav-deal.svg";
+import bulkIcon from "../../assets/nav-bulk.svg";
+import giftIcon from "../../assets/nav-gift.svg";
 import WishlistSidebar from './WishlistSidebar';
 import { selectDefaultAddress, fetchAddresses } from '../REDUX_FEATURES/REDUX_SLICES/Useraddressslice';
 import { USER_ACCESS_TOKEN_KEY } from '../../SERVICES/axiosInstance';
@@ -76,15 +78,16 @@ const FabuniqoJewelleryPromo = memo(function FabuniqoJewelleryPromo({ compact = 
     return () => document.removeEventListener('keydown', onKey);
   }, [open, compact]);
 
-  const pillClass = `inline-flex items-center shrink-0 cursor-pointer rounded-full border border-[#C9A84C]/55 bg-gradient-to-r from-[#FBF6E8] via-white to-[#FDF0F5] text-slate-900 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#C9A84C] hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E11D68] whitespace-nowrap gap-1 px-2 py-0.5 xl:gap-1.5 xl:px-2.5 xl:py-1`;
+  const pillClass = `inline-flex items-center shrink-0 cursor-pointer rounded-full border border-[#C9A84C]/55 bg-gradient-to-r from-[#FBF6E8] via-white to-[#FDF0F5] text-slate-900 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-[#C9A84C] hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-[#E11D68] gap-1 px-1.5 py-0.5 xl:gap-1.5 xl:px-2 xl:py-1 2xl:px-2.5`;
 
   const pillInner = (
     <>
-      <span className="inline-flex items-center justify-center rounded-full bg-gradient-to-br from-[#C9A84C] to-[#E11D68] text-white shrink-0 h-4 w-4 xl:h-5 xl:w-5">
+      <span className="inline-flex items-center justify-center rounded-full bg-gradient-to-br from-[#C9A84C] to-[#E11D68] text-white shrink-0 h-3.5 w-3.5 xl:h-4 xl:w-4 2xl:h-5 2xl:w-5">
         <Gem size={10} aria-hidden strokeWidth={2.25} />
       </span>
-      <span className="font-extrabold uppercase tracking-tight leading-none text-slate-900 text-[9px] xl:text-[10px]">
-        Artificial Jewellery
+      <span className="font-extrabold uppercase tracking-tight leading-[1.1] text-slate-900 text-[8px] xl:text-[9px] 2xl:text-[10px]">
+        <span className="block 2xl:inline">Artificial</span>
+        <span className="block 2xl:inline 2xl:ml-0.5">Jewellery</span>
       </span>
     </>
   );
@@ -413,18 +416,23 @@ const NavItemWithDropdown = ({ link, topCategories, bottomCategories }) => {
     >
       <div
         className={`
-          all-cat-btn flex items-center gap-2 cursor-pointer px-4 py-2 rounded-xl
-          font-bold text-xs uppercase tracking-wide transition-all duration-200
+          all-cat-btn flex items-center gap-0.5 xl:gap-1.5 2xl:gap-2 cursor-pointer
+          px-1.5 xl:px-2.5 2xl:px-4 py-1.5 xl:py-2 rounded-lg xl:rounded-xl
+          font-bold text-[9px] xl:text-[11px] 2xl:text-xs uppercase tracking-wide
+          transition-all duration-200
           ${isOpen
             ? 'bg-[#F7A221] text-white'
             : 'bg-[#F7A221]/10 text-[#c27c00] hover:bg-[#F7A221] hover:text-white'
           }
         `}
       >
-        <span>{link.label}</span>
+        <span className="leading-tight text-center xl:whitespace-nowrap">
+          <span className="xl:hidden">All<br />Categories</span>
+          <span className="hidden xl:inline">{link.label}</span>
+        </span>
         <ChevronRight
           size={14}
-          className={`transition-transform duration-300 flex-shrink-0 ${isOpen ? 'rotate-90' : ''}`}
+          className={`transition-transform duration-300 flex-shrink-0 hidden xl:block ${isOpen ? 'rotate-90' : ''}`}
         />
       </div>
 
@@ -440,11 +448,11 @@ const NavItemWithDropdown = ({ link, topCategories, bottomCategories }) => {
 };
 
 // ── Image icon helper ─────────────────────────────────────────────────────────
-const ImageIcon = ({ src, alt, className = "", animation = "animate-bounce-soft" }) => (
+const ImageIcon = ({ src, alt, className = "w-10 h-10", animation = "animate-bounce-soft" }) => (
   <img
     src={src}
     alt={alt}
-    className={`w-[40px] h-[40px] object-contain ${animation} ${className}`}
+    className={`object-contain ${animation} ${className}`}
     style={{ filter: 'drop-shadow(0 4px 6px rgba(0,0,0,0.1))' }}
   />
 );
@@ -461,6 +469,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
   const navigate = useNavigate();
   const location = useLocation();
   const [isAccountDropdownOpen, setIsAccountDropdownOpen] = useState(false);
+  const [isMobileCategoriesOpen, setIsMobileCategoriesOpen] = useState(false);
   const accountTriggerMobileRef = useRef(null);
   const accountTriggerDesktopRef = useRef(null);
   const accountDropdownMobileRef = useRef(null);
@@ -618,8 +627,19 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
     },
     {
       label: "Festival Sale is Live",
+      shortLabel: "Festive Sale is Live",
       path: "/on-sale#tagProducts-top",
       icon: <ImageIcon src={SaleIcon} alt="Festival Sale is Live" animation="animate-flicker" />,
+    },
+    {
+      label: "Bulk",
+      path: "/bulk",
+      icon: <ImageIcon src={bulkIcon} alt="Bulk" animation="animate-bounce-soft" />,
+    },
+    {
+      label: "Customize Gift",
+      path: "/customize-gift",
+      icon: <ImageIcon src={giftIcon} alt="Customize Gift" animation="animate-float" />,
     },
   ];
 
@@ -857,31 +877,33 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
 
         {/* ══ DESKTOP BOTTOM NAV — jewellery promo in old Contact slot ══ */}
         <nav className="hidden lg:block w-full">
-          <div className="container mx-auto px-4">
-            <div className="flex items-center justify-between lg:gap-2 xl:gap-4 2xl:gap-6 py-2 min-w-0">
+          <div className="container mx-auto px-3 xl:px-4">
+            <div className="flex items-center gap-1 xl:gap-2 2xl:gap-4 py-1.5 xl:py-2 min-w-0">
 
               {/* Matches live: keep Home off the far left, under the logo column */}
-              <div className="w-[110px] xl:w-[140px] 2xl:w-[175px] shrink-0" aria-hidden="true" />
+              <div className="w-[96px] xl:w-[128px] 2xl:w-[175px] shrink-0" aria-hidden="true" />
 
               {/* Left Zone: Home + All Categories */}
-              <div className="flex items-center gap-1 xl:gap-2 shrink-0 min-w-0">
+              <div className="flex items-center gap-0.5 xl:gap-2 shrink-0 min-w-0">
 
                 <Link
                   to="/"
                   onClick={handleHomeClick}
-                  className="home-nav-btn flex items-center gap-1.5 lg:gap-2 px-2 lg:px-2.5 xl:px-3 py-2 rounded-xl
-                             font-bold text-[11px] lg:text-xs uppercase tracking-wide transition-all duration-200
-                             hover:bg-[#F7A221]/10 text-gray-700 hover:text-[#F7A221] group whitespace-nowrap"
+                  className="home-nav-btn flex flex-col xl:flex-row items-center gap-0.5 xl:gap-2
+                             px-1 xl:px-2.5 2xl:px-3 py-1 xl:py-2 rounded-lg xl:rounded-xl
+                             font-bold text-[9px] xl:text-[11px] 2xl:text-xs uppercase tracking-wide
+                             transition-all duration-200 hover:bg-[#F7A221]/10 text-gray-700
+                             hover:text-[#F7A221] group"
                 >
                   <img
                     src={homeIcon}
                     alt="Home"
-                    className="w-4 h-4 lg:w-5 lg:h-5 object-cover animate-bounce-soft group-hover:scale-110 transition-transform shrink-0"
+                    className="w-4 h-4 xl:w-[18px] xl:h-[18px] 2xl:w-5 2xl:h-5 object-cover animate-bounce-soft group-hover:scale-110 transition-transform shrink-0"
                   />
                   <span>Home</span>
                 </Link>
 
-                <div className="h-6 w-[1px] bg-gray-200 mx-0.5 lg:mx-1 shrink-0" />
+                <div className="h-5 xl:h-6 w-px bg-gray-200 mx-0.5 xl:mx-1 shrink-0 hidden xl:block" />
 
                 <NavItemWithDropdown
                   link={{ label: "All Categories" }}
@@ -890,32 +912,47 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                 />
               </div>
 
-              {/* Center Zone: Deal/Arrived/Sale — same size, one line, jewellery stays on-page */}
-              <div className="flex-1 flex items-center justify-start gap-0 lg:gap-0.5 xl:gap-2 min-w-0">
+              {/* Center Zone: Deal/Arrived/Sale — scales down on small laptops so jewellery never overlaps */}
+              <div className="flex-1 flex items-stretch justify-evenly min-w-0 overflow-hidden">
                 {bottomNavLinks.map((link, idx) => (
                   <Link
                     key={idx}
                     to={link.path}
-                    className="shrink-0 text-center justify-center flex items-center px-0.5 lg:px-1 xl:px-2 py-2 lg:py-2.5 gap-1 lg:gap-1.5 xl:gap-2 hover:bg-gray-50 rounded-xl transition-all duration-200 group whitespace-nowrap"
+                    title={link.label}
+                    className="min-w-0 flex-1 xl:flex-none max-w-[4.85rem] xl:max-w-none
+                               flex flex-col xl:flex-row items-center justify-center
+                               px-0.5 xl:px-1 2xl:px-2 py-1 xl:py-1.5 2xl:py-2
+                               gap-0 xl:gap-1 2xl:gap-1.5
+                               hover:bg-gray-50 rounded-lg xl:rounded-xl transition-all duration-200 group"
                   >
                     <div
                       className={
                         link.label === "Just Arrived"
-                          ? "transition-transform duration-300 group-hover:scale-125 shrink-0 [&_img]:!w-10 [&_img]:!h-10 lg:[&_img]:!w-[44px] lg:[&_img]:!h-[44px] xl:[&_img]:!w-14 xl:[&_img]:!h-14"
-                          : "transition-transform duration-300 group-hover:scale-125 shrink-0"
+                          ? "transition-transform duration-300 group-hover:scale-110 shrink-0 [&_img]:!w-7 [&_img]:!h-7 xl:[&_img]:!w-9 xl:[&_img]:!h-9 2xl:[&_img]:!w-14 2xl:[&_img]:!h-14"
+                          : "transition-transform duration-300 group-hover:scale-110 shrink-0 [&_img]:!w-6 [&_img]:!h-6 xl:[&_img]:!w-8 xl:[&_img]:!h-8 2xl:[&_img]:!w-10 2xl:[&_img]:!h-10"
                       }
                     >
                       {link.icon}
                     </div>
-                    <span className="font-bold text-black text-[11px] lg:text-xs xl:text-[0.85rem] relative z-10 whitespace-nowrap">
-                      {link.label}
+                    <span className="font-bold text-black relative z-10 text-center min-w-0 max-w-full
+                                     text-[9px] leading-[1.15] xl:text-[11px] xl:leading-none
+                                     2xl:text-[0.85rem]
+                                     line-clamp-2 xl:line-clamp-none xl:whitespace-nowrap">
+                      {link.shortLabel ? (
+                        <>
+                          <span className="2xl:hidden">{link.shortLabel}</span>
+                          <span className="hidden 2xl:inline">{link.label}</span>
+                        </>
+                      ) : (
+                        link.label
+                      )}
                     </span>
                   </Link>
                 ))}
               </div>
 
               {/* Right Zone: Artificial Jewellery promo — never shrink off the page */}
-              <div className="hidden lg:flex items-center justify-end shrink-0 relative z-[60]">
+              <div className="hidden lg:flex items-center justify-end shrink-0 relative z-[60] pl-1">
                 <FabuniqoJewelleryPromo />
               </div>
 
@@ -930,7 +967,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
               to="/"
               aria-label="Offer Wale Baba home"
               onClick={handleHomeClick}
-              className="pointer-events-auto flex h-full w-[110px] xl:w-[140px] 2xl:w-[175px] shrink-0 items-center justify-center"
+              className="pointer-events-auto flex h-full w-[96px] xl:w-[128px] 2xl:w-[175px] shrink-0 items-center justify-center"
             >
               <NavLogo className="block h-auto w-auto max-h-[72%] max-w-[90%] -translate-y-3 xl:-translate-y-4 object-contain object-center" />
             </Link>
@@ -989,7 +1026,7 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                 {/* Quick links */}
                 <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mb-2">✨ Quick Links</p>
 
-                {/* Home link in sidebar */}
+                {/* 1. Home */}
                 <Link
                   to="/"
                   onClick={() => {
@@ -1004,25 +1041,117 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                   <span className="group-hover:text-[#F7A221]">Home</span>
                 </Link>
 
-                {/* Remaining quick links */}
-                {bottomNavLinks.map((link, idx) => (
-                  <Link
-                    key={idx}
-                    to={link.path}
-                    onClick={() => setIsMenuOpen(false)}
-                    className="flex items-center gap-4 p-3 hover:bg-orange-50 rounded-xl transition-all font-bold text-sm group"
+                {/* 2. Categories (Expandable Accordion) */}
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setIsMobileCategoriesOpen((prev) => !prev)}
+                    className="w-full flex items-center justify-between p-3 hover:bg-orange-50 rounded-xl transition-all font-bold text-sm group cursor-pointer text-left"
                   >
-                    <span
-                      className={`p-2 bg-gray-50 rounded-lg group-hover:scale-110 transition-transform ${
-                        link.label === "Just Arrived" ? "[&_img]:!h-14 [&_img]:!w-14" : ""
-                      }`}
-                    >
-                      {link.icon}
-                    </span>
-                    <span className="group-hover:text-[#F7A221]">{link.label}</span>
-                  </Link>
-                ))}
+                    <div className="flex items-center gap-4">
+                      <span className="p-2 bg-gray-50 rounded-lg group-hover:scale-110 transition-transform w-[56px] h-[56px] flex items-center justify-center shrink-0">
+                        <LayoutGrid size={24} className="text-[#F7A221] animate-bounce-soft" />
+                      </span>
+                      <span className="group-hover:text-[#F7A221]">Categories</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] text-gray-500 font-bold bg-gray-100 px-2 py-0.5 rounded-full">
+                        {mobileCategories.length}
+                      </span>
+                      <ChevronDown
+                        size={16}
+                        className={`text-gray-400 transition-transform duration-200 ${
+                          isMobileCategoriesOpen ? "rotate-180 text-[#F7A221]" : ""
+                        }`}
+                      />
+                    </div>
+                  </button>
 
+                  {/* Category Pills inside Accordion */}
+                  {isMobileCategoriesOpen && (
+                    <div className="pl-6 pr-2 pt-1 pb-3 flex flex-wrap gap-1.5 animate-fadeIn">
+                      {mobileCategories.map((cat, i) => (
+                        <div
+                          key={i}
+                          onClick={() => {
+                            setIsMenuOpen(false);
+                            setTimeout(() => navigate(cat.path), 150);
+                          }}
+                          className="px-3 py-1.5 rounded-full border border-gray-200 bg-white text-[11px] font-semibold text-gray-700 hover:bg-[#F7A221] hover:text-white hover:border-[#F7A221] transition-all cursor-pointer whitespace-nowrap active:scale-[.95]"
+                        >
+                          {cat.label}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* 3. Customized Gift */}
+                <Link
+                  to="/customize-gift"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center gap-4 p-3 hover:bg-orange-50 rounded-xl transition-all font-bold text-sm group"
+                >
+                  <span className="p-2 bg-gray-50 rounded-lg group-hover:scale-110 transition-transform">
+                    <ImageIcon src={giftIcon} alt="Customized Gift" animation="animate-float" />
+                  </span>
+                  <span className="group-hover:text-[#F7A221]">Customized Gift</span>
+                </Link>
+
+                {/* 4. Today's Deal */}
+                <Link
+                  to="/today-arrival#tagProducts-top"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center gap-4 p-3 hover:bg-orange-50 rounded-xl transition-all font-bold text-sm group"
+                >
+                  <span className="p-2 bg-gray-50 rounded-lg group-hover:scale-110 transition-transform">
+                    <ImageIcon src={deal} alt="Today's Deal" animation="animate-swing" />
+                  </span>
+                  <span className="group-hover:text-[#F7A221]">Today's Deal</span>
+                </Link>
+
+                {/* 5. Just Arrived */}
+                <Link
+                  to="/#best-sellers"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center gap-4 p-3 hover:bg-orange-50 rounded-xl transition-all font-bold text-sm group"
+                >
+                  <span className="p-2 bg-gray-50 rounded-lg group-hover:scale-110 transition-transform [&_img]:!h-14 [&_img]:!w-14">
+                    <ImageIcon
+                      src={arrivals}
+                      alt="Just Arrived"
+                      animation="animate-float"
+                      className="object-center"
+                    />
+                  </span>
+                  <span className="group-hover:text-[#F7A221]">Just Arrived</span>
+                </Link>
+
+                {/* 6. Festive Sale */}
+                <Link
+                  to="/on-sale#tagProducts-top"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center gap-4 p-3 hover:bg-orange-50 rounded-xl transition-all font-bold text-sm group"
+                >
+                  <span className="p-2 bg-gray-50 rounded-lg group-hover:scale-110 transition-transform">
+                    <ImageIcon src={SaleIcon} alt="Festive Sale is Live" animation="animate-flicker" />
+                  </span> 
+                  <span className="group-hover:text-[#F7A221]">Festive Sale is Live</span>
+                </Link>
+
+                {/* 7. Bulk */}
+                <Link
+                  to="/bulk"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="flex items-center gap-4 p-3 hover:bg-orange-50 rounded-xl transition-all font-bold text-sm group"
+                >
+                  <span className="p-2 bg-gray-50 rounded-lg group-hover:scale-110 transition-transform">
+                    <ImageIcon src={bulkIcon} alt="Bulk" animation="animate-bounce-soft" />
+                  </span>
+                  <span className="group-hover:text-[#F7A221]">Bulk</span>
+                </Link>
+
+                {/* 8. Contact Us */}
                 <Link
                   to="/contact"
                   onClick={() => setIsMenuOpen(false)}
@@ -1033,22 +1162,6 @@ const Navbar = ({ searchQuery, setSearchQuery, isMenuOpen, setIsMenuOpen, isLogg
                   </span>
                   <span className="group-hover:text-[#F7A221]">Contact Us</span>
                 </Link>
-
-                {/* Categories — pill chips in sidebar */}
-                <div className="pt-4 border-t">
-                  <p className="text-[10px] font-black uppercase text-gray-400 tracking-[0.2em] mb-4">🔥 Top Categories</p>
-                  <div className="flex flex-wrap gap-2">
-                    {mobileCategories.map((cat, i) => (
-                      <div
-                        key={i}
-                        onClick={() => { setIsMenuOpen(false); setTimeout(() => navigate(cat.path), 150); }}
-                        className="px-3 py-1.5 rounded-full border border-gray-200 bg-white text-[11px] font-semibold text-gray-700 hover:bg-[#F7A221] hover:text-white hover:border-[#F7A221] transition-all cursor-pointer whitespace-nowrap active:scale-[.95]"
-                      >
-                        {cat.label}
-                      </div>
-                    ))}
-                  </div>
-                </div>
 
                 {/* Contact / help block */}
                 <div className="pt-6">

@@ -4,9 +4,10 @@ import { USER_TAB_REGISTRY } from "./ADMIN_TABS/CUSTOMER_SEGMENT/userTabRegistry
 import { WebPageRegistry } from "./ADMIN_TABS//WEBSITE_TAB/WebPageRegistry";
 import { DEMO_TAB_REGISTRY } from "./ADMIN_TABS/DEMO/demoTabRegistry";
 import { REVIEW_TAB_REGISTRY } from "./ADMIN_TABS/CUSTOMER_REVIEW/reviewTabRegistry";
+import { ORDERS_TAB_REGISTRY } from "./ADMIN_TABS/OrderTab/ordersTabRegistry";
 
 
-const OrderTab = lazy(() => import("./ADMIN_TABS/OrderTab/OrderTab"));
+const OrdersDashboard = lazy(() => import("./ADMIN_TABS/OrderTab/OrdersDashboard"));
 const ReturnsRefundsTab = lazy(() => import("./ADMIN_TABS/OrderTab/ReturnsRefundsTab"));
 const RtoTab = lazy(() => import("./ADMIN_TABS/RtoTab/RtoTab"));
 const ProductsTab = lazy(() => import("./ADMIN_TABS/ProductsTab"));
@@ -23,6 +24,8 @@ const SettingsDashboard = lazy(() => import("./ADMIN_TABS/SETTINGS/SettingsDashb
 const ReviewsDashboard = lazy(() => import("./ADMIN_TABS/CUSTOMER_REVIEW/ReviewsDashboard"));
 const StaffTab = lazy(() => import("./ADMIN_TABS/STAFF_TAB/StaffTab"));
 const DemoDashboard = lazy(() => import("./ADMIN_TABS/DEMO/DemoDashboard"));
+const GiftCustomizationTab = lazy(() => import("./ADMIN_TABS/GiftEnquiriesTab/GiftCustomizationTab"));
+const BulkInquiriesTab = lazy(() => import("./ADMIN_TABS/GiftEnquiriesTab/BulkInquiriesTab"));
 // const WholesalerDashboard = lazy(() => import("./ADMIN_TABS/WHOLESALER_TAB/WholesalerDashboard"));
 
 // const getProductsBadge = (state) => state.adminGetProducts?.products?.length || 0;
@@ -33,8 +36,9 @@ export const TAB_REGISTRY = [
     id: "orders",
     label: "Orders",
     icon: "M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4H6zM3 6h18M16 10a4 4 0 01-8 0",
-    component: OrderTab,
+    component: OrdersDashboard,
     badge: null,
+    subItems: ORDERS_TAB_REGISTRY,
   },
   {
     id: "returns_refunds",
@@ -78,7 +82,20 @@ export const TAB_REGISTRY = [
     component: outOfStockTab,
     badge: null,
   },
-
+  {
+    id: "gift_customization",
+    label: "Gift Customization",
+    icon: "M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zm0 0h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z",
+    component: GiftCustomizationTab,
+    badge: null,
+  },
+  {
+    id: "bulk_inquiries",
+    label: "Bulk Inquiries",
+    icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4",
+    component: BulkInquiriesTab,
+    badge: null,
+  },
   {
     id: "customers",
     label: "Leads",

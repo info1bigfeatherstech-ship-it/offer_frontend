@@ -56,9 +56,11 @@ function writeRecord(historyKey, record) {
         y: Math.max(0, Math.round(Number(record.y) || 0)),
         anchorId: record.anchorId || null,
         anchorOffset:
-          record.anchorOffset == null ? null : Math.round(Number(record.anchorOffset)),
+          record.anchorOffset == null
+            ? null
+            : Math.round(Number(record.anchorOffset)),
         sectionId: record.sectionId || null,
-      })
+      }),
     );
   } catch {
     /* ignore */
@@ -144,7 +146,10 @@ function measureRealShellHeight() {
 
 function contentSupportsY(targetY) {
   if (!(targetY > 0)) return true;
-  return measureRealShellHeight() >= targetY + Math.min(160, window.innerHeight * 0.15);
+  return (
+    measureRealShellHeight() >=
+    targetY + Math.min(160, window.innerHeight * 0.15)
+  );
 }
 
 function applyRecord(record) {
@@ -160,12 +165,15 @@ function applyRecord(record) {
     const el = findAnchorEl(record.anchorId, record.sectionId);
     if (el) {
       const offset =
-        record.anchorOffset != null && Number.isFinite(Number(record.anchorOffset))
+        record.anchorOffset != null &&
+        Number.isFinite(Number(record.anchorOffset))
           ? Number(record.anchorOffset)
           : Math.min(160, Math.round(window.innerHeight * 0.2));
       const nextY = Math.max(
         0,
-        Math.round(el.getBoundingClientRect().top + getWindowScrollY() - offset)
+        Math.round(
+          el.getBoundingClientRect().top + getWindowScrollY() - offset,
+        ),
       );
       ensureRestoreProtection(Math.max(nextY, targetY));
       setWindowScrollY(nextY);
@@ -200,7 +208,10 @@ function applyRecord(record) {
         setWindowScrollY(targetY);
       } else {
         const top = section.getBoundingClientRect().top + getWindowScrollY();
-        const nextY = Math.max(top - 80, Math.min(targetY, top + section.offsetHeight));
+        const nextY = Math.max(
+          top - 80,
+          Math.min(targetY, top + section.offsetHeight),
+        );
         setWindowScrollY(Number.isFinite(nextY) ? nextY : top);
       }
       return { foundAnchor: false, foundSection: true };
@@ -273,7 +284,8 @@ const ScrollRestoration = () => {
       });
     };
     document.addEventListener("pointerdown", onPointerDown, true);
-    return () => document.removeEventListener("pointerdown", onPointerDown, true);
+    return () =>
+      document.removeEventListener("pointerdown", onPointerDown, true);
   }, [key]);
 
   // Apply scroll BEFORE paint. This is the only place that owns route scroll.
@@ -351,12 +363,15 @@ const ScrollRestoration = () => {
         let finalY = Math.max(0, Number(latest.y) || targetY || 0);
         if (el) {
           const offset =
-            latest.anchorOffset != null && Number.isFinite(Number(latest.anchorOffset))
+            latest.anchorOffset != null &&
+            Number.isFinite(Number(latest.anchorOffset))
               ? Number(latest.anchorOffset)
               : Math.min(160, Math.round(window.innerHeight * 0.2));
           finalY = Math.max(
             0,
-            Math.round(el.getBoundingClientRect().top + getWindowScrollY() - offset)
+            Math.round(
+              el.getBoundingClientRect().top + getWindowScrollY() - offset,
+            ),
           );
         }
 
@@ -426,8 +441,14 @@ const ScrollRestoration = () => {
       }
       observersRef.current.push(mo);
 
-      window.addEventListener("wheel", onUserGesture, { capture: true, passive: true });
-      window.addEventListener("touchmove", onUserGesture, { capture: true, passive: true });
+      window.addEventListener("wheel", onUserGesture, {
+        capture: true,
+        passive: true,
+      });
+      window.addEventListener("touchmove", onUserGesture, {
+        capture: true,
+        passive: true,
+      });
 
       safetyTimer = window.setTimeout(forceComplete, 2500);
     } else if (hash) {

@@ -4,7 +4,7 @@ import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useSelector } from "react-redux";
 import { TAB_REGISTRY } from "./TabRegistry";
-import { ROLE_PERMISSIONS, ROLE_LABELS, ROLES } from "./roles";
+import { ROLE_PERMISSIONS, ROLE_LABELS, ROLES, isPackingViewerRole } from "./roles";
 import { useNavigate } from "react-router-dom";
 import { useAdminLogoutMutation } from "./ADMIN_REDUX_MANAGEMENT/adminAuthApi";
 import LOGO from "../../assets/logo2.png";
@@ -25,7 +25,12 @@ const AdminDashboard = () => {
   // ── Role & permissions ────────────────────────────────────────────────────
   const activeRole = HARDCODED_ROLE;
   const allowedTabIds = ROLE_PERMISSIONS[activeRole] || [];
-  const allowedTabs = TAB_REGISTRY.filter((tab) => allowedTabIds.includes(tab.id));
+  const hideSameDayOrders = isPackingViewerRole(activeRole);
+  const allowedTabs = TAB_REGISTRY.filter((tab) => allowedTabIds.includes(tab.id)).map((tab) => {
+    if (tab.id !== "orders" || !hideSameDayOrders || !tab.subItems?.length) return tab;
+    const subItems = tab.subItems.filter((sub) => !sub.hideForPackingViewer && sub.id !== "same_day");
+    return subItems.length > 1 ? { ...tab, subItems } : { ...tab, subItems: undefined };
+  });
   const defaultTab = allowedTabs[0]?.id || "products";
 
   // ── Derive activeTab synchronously from URL + permissions ─────────────────

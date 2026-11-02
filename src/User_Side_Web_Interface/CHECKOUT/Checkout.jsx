@@ -86,6 +86,7 @@ import RazorpayCheckout, {
   PaymentErrorModal,
   PaymentLoadingModal,
   markRazorpaySessionClosed,
+  finalizeRazorpayDismiss,
 } from "./RazorpayCheckout/RazorpayCheckout";
 
 // --- PAYMENT STATE MACHINE ----------------------------------------------------
@@ -329,8 +330,12 @@ const CartSummaryCompact = ({
   payNow = null,
   balanceCod = null,
   partialPercentLabel = null,
+  shippingDeferred = false,
+  showShipping = false,
 }) => {
   const total = quote?.amountPayable ?? 0;
+  const shipping = Number(quote?.deliveryCharges) || 0;
+  const displayTotal = shippingDeferred ? Math.max(0, total - shipping) : total;
   const hasPartial =
     showPartial &&
     payNow != null &&
@@ -360,9 +365,29 @@ const CartSummaryCompact = ({
           ) : null}
         </div>
         <span className="font-black shrink-0" style={{ fontSize: 14, color: "#111" }}>
-          {fmt(total)}
+          {fmt(displayTotal)}
         </span>
       </div>
+
+      {shippingDeferred ? (
+        <p className="mt-1.5" style={{ fontSize: 11, color: "#6b7280", margin: 0 }}>
+          Shipping is added after you choose Full / Partial / COD.
+        </p>
+      ) : null}
+
+      {showShipping && !shippingDeferred ? (
+        <div className="mt-2 pt-2 space-y-1" style={{ borderTop: "1px dashed #e8dfd0" }}>
+          <div className="flex items-center justify-between gap-2">
+            <span style={{ fontSize: 11, color: "#6b7280", fontWeight: 700 }}>Shipping</span>
+            <span
+              className="font-black"
+              style={{ fontSize: 12, color: shipping === 0 ? "#15803D" : "#111" }}
+            >
+              {shipping === 0 ? "FREE" : fmt(shipping)}
+            </span>
+          </div>
+        </div>
+      ) : null}
 
       {hasPartial ? (
         <div className="mt-2 pt-2 space-y-1" style={{ borderTop: "1px dashed #e8dfd0" }}>
@@ -593,6 +618,8 @@ const OrderSummaryCard = ({
   dispatch,
   onCartMutationSuccess,
   defaultOpen = false,
+  hideShipping = false,
+  shippingDeferred = false,
 }) => {
   const [open, setOpen] = useState(defaultOpen);
   const [updatingId, setUpdatingId] = useState(null);
@@ -606,7 +633,10 @@ const OrderSummaryCard = ({
       item.price?.current ?? item.price?.sale ?? item.price?.base ?? 0;
     return sum + (Number(item.total) || Number(unit) * (item.quantity || 1));
   }, 0);
-  const total = quote?.amountPayable ?? (subtotal > 0 ? subtotal : cartSubtotalFallback);
+  const quotedTotal = quote?.amountPayable ?? (subtotal > 0 ? subtotal : cartSubtotalFallback);
+  const deferShipping =
+    shippingDeferred && !hideShipping && quote?.deliveryMode !== "same_day";
+  const total = deferShipping ? Math.max(0, quotedTotal - delivery) : quotedTotal;
 
   const psych = useMemo(
     () => computeCheckoutPsychologyPricing(cartItems, quote),
@@ -831,7 +861,7 @@ const OrderSummaryCard = ({
           </div>
 
           {/* Price breakdown � SubTotal, base?sale discount, coupon, shipping, tax (totals from quote) */}
-          <div className="px-4 pt-2 space-y-2"
+          <div className="px-4 pt-2 pb-3 space-y-2"
             style={{ borderTop: "1px solid #f0e8d8" }}>
             <p className="font-black text-xs mb-1" style={{ color: "#111" }}>
               Price Details
@@ -861,14 +891,18 @@ const OrderSummaryCard = ({
                 </span>
               </div>
             ) : null}
+            {hideShipping || quote?.deliveryMode === "same_day" ? null : (
             <div className="flex justify-between items-center">
               <span style={{ fontSize: 13, color: "#6b7280" }}>Shipping</span>
               <span style={{
                 fontSize: 13,
                 fontWeight: 600,
-                color: delivery === 0 ? "#15803D" : "#374151",
-              }}>{delivery === 0 ? "FREE" : fmt(delivery)}</span>
+                color: deferShipping ? "#9ca3af" : delivery === 0 ? "#15803D" : "#374151",
+              }}>
+                {deferShipping ? "After payment choice" : delivery === 0 ? "FREE" : fmt(delivery)}
+              </span>
             </div>
+            )}
             <div className="flex justify-between items-center">
               <span style={{ fontSize: 13, color: "#6b7280" }}>Other Taxes</span>
               <span style={{ fontSize: 13, fontWeight: 600, color: "#374151" }}>{fmt(gst)}</span>
@@ -881,6 +915,27 @@ const OrderSummaryCard = ({
                 {fmt(total)}
               </span>
             </div>
+
+            {hideShipping || quote?.deliveryMode === "same_day" ? (
+              <p
+                style={{
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "#92400E",
+                  lineHeight: 1.5,
+                  margin: 0,
+                  padding: "8px 10px",
+                  background: "#FFF7E8",
+                  borderRadius: 8,
+                }}
+              >
+                Delivery charge pay to the rider at delivery.
+              </p>
+            ) : deferShipping ? (
+              <p style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.45, margin: 0 }}>
+                Shipping can change for Full online, Partial (COD balance), or COD.
+              </p>
+            ) : null}
 
           </div>
 
@@ -958,14 +1013,23 @@ const Checkout = () => {
   const [onlineFullDisplayAmount, setOnlineFullDisplayAmount] = useState(null);
   /** Sticky offset under site navbar so cart bar is never hidden behind it. */
   const [checkoutStickyTop, setCheckoutStickyTop] = useState(0);
+  const [deliveryMode, setDeliveryMode] = useState("standard");
+  const [sddEligibility, setSddEligibility] = useState({
+    eligible: false,
+    enabled: false,
+    loading: false,
+    pincode: null,
+  });
 
   // Derived
   const allAddresses = [...(defaultAddr ? [defaultAddr] : []), ...otherAddrs];
   const selectedAddress = allAddresses.find(a => a._id === selectedAddressId);
+  const isSameDayDelivery = deliveryMode === "same_day";
 
   const policyPartialPercent = getServerPartialPercent(checkoutPolicy);
-  const partialPlanEnabled = checkoutPolicy?.partialPaymentEnabled === true;
-  const showCodOption = checkoutPolicy?.codEnabled !== false;
+  const partialPlanEnabled =
+    checkoutPolicy?.partialPaymentEnabled === true && !isSameDayDelivery;
+  const showCodOption = checkoutPolicy?.codEnabled !== false && !isSameDayDelivery;
 
   const checkoutMode =
     paymentMethod == null
@@ -1174,6 +1238,45 @@ const Checkout = () => {
   }, [dispatch]);
 
   useEffect(() => {
+    if (!selectedAddressId) {
+      setSddEligibility({ eligible: false, enabled: false, loading: false, pincode: null });
+      setDeliveryMode("standard");
+      return undefined;
+    }
+
+    let cancelled = false;
+    setSddEligibility((prev) => ({ ...prev, loading: true }));
+
+    (async () => {
+      try {
+        const res = await axiosInstance.get("/same-day-delivery/eligibility", {
+          params: { addressId: selectedAddressId },
+        });
+        if (cancelled) return;
+        const data = res.data?.data || {};
+        const eligible = data.eligible === true;
+        setSddEligibility({
+          eligible,
+          enabled: data.enabled === true,
+          loading: false,
+          pincode: data.pincode || null,
+        });
+        if (!eligible) {
+          setDeliveryMode("standard");
+        }
+      } catch {
+        if (cancelled) return;
+        setSddEligibility({ eligible: false, enabled: false, loading: false, pincode: null });
+        setDeliveryMode("standard");
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedAddressId]);
+
+  useEffect(() => {
     if (paymentPlan === "half" || paymentPlan === "seventy") {
       dispatch(setPaymentPlan("advance"));
       dispatch(setBalanceCollection("cod"));
@@ -1229,6 +1332,18 @@ const Checkout = () => {
     };
   }, [dispatch]);
 
+  useEffect(() => {
+    return () => {
+      if (
+        razorpayPaymentState === PAYMENT_STATE.SUCCESS ||
+        razorpayPaymentState === PAYMENT_STATE.VERIFIED ||
+        razorpayPaymentState === PAYMENT_STATE.FAILED
+      ) {
+        void finalizeRazorpayDismiss();
+      }
+    };
+  }, [razorpayPaymentState]);
+
   // -- Handlers --------------------------------------------------------------
 
   const requestQuote = useCallback(
@@ -1264,6 +1379,7 @@ const Checkout = () => {
           paymentPlan: plan,
           balanceCollection: balance,
           forceRefresh,
+          ...(deliveryMode === "same_day" ? { deliveryMode: "same_day" } : {}),
         })
       );
 
@@ -1282,6 +1398,7 @@ const Checkout = () => {
       paymentPlan,
       balanceCollection,
       loading.quote,
+      deliveryMode,
     ]
   );
 
@@ -1313,6 +1430,30 @@ const Checkout = () => {
       requestQuote({ paymentHint: "online", plan: "full", balance: "online" });
     }
   }, [step, checkoutPolicy, paymentMethod, dispatch, requestQuote]);
+
+  useEffect(() => {
+    if (step !== 3 || !isSameDayDelivery) return;
+    if (paymentMethod !== "online" || paymentPlan !== "full" || balanceCollection !== "online") {
+      dispatch(setPaymentMethod("online"));
+      dispatch(setPaymentPlan("full"));
+      dispatch(setBalanceCollection("online"));
+    }
+    if (!paymentOptionActivated && quoteId && quote && !loading.quote) {
+      activePaymentQuoteIdRef.current = quoteId;
+      setPaymentOptionActivated(true);
+    }
+  }, [
+    step,
+    isSameDayDelivery,
+    paymentMethod,
+    paymentPlan,
+    balanceCollection,
+    paymentOptionActivated,
+    quoteId,
+    quote,
+    loading.quote,
+    dispatch,
+  ]);
 
   useEffect(() => {
     if (!checkoutPolicy) return;
@@ -1444,6 +1585,19 @@ const Checkout = () => {
       toast.error("Please select a delivery address", { theme: "dark" });
       return;
     }
+    if (isSameDayDelivery && !sddEligibility.eligible) {
+      toast.error("Same day delivery is not available for this pincode.", { theme: "dark" });
+      setDeliveryMode("standard");
+      return;
+    }
+    if (isSameDayDelivery) {
+      dispatch(setPaymentMethod("online"));
+      dispatch(setPaymentPlan("full"));
+      dispatch(setBalanceCollection("online"));
+      setStep(2);
+      requestQuote({ paymentHint: "online", plan: "full", balance: "online" });
+      return;
+    }
     setStep(2);
     requestQuote(quoteParamsForPaymentSelection({ paymentMethod, paymentPlan, balanceCollection }));
   };
@@ -1452,6 +1606,17 @@ const Checkout = () => {
     if (loading.quote) return;
     if (!quote) {
       toast.error("Please wait for order totals to load", { theme: "dark" });
+      return;
+    }
+    if (isSameDayDelivery) {
+      dispatch(setPaymentMethod("online"));
+      dispatch(setPaymentPlan("full"));
+      dispatch(setBalanceCollection("online"));
+      if (quoteId) {
+        activePaymentQuoteIdRef.current = quoteId;
+        setPaymentOptionActivated(true);
+      }
+      setStep(3);
       return;
     }
     dispatch(setPaymentMethod(null));
@@ -1472,6 +1637,10 @@ const Checkout = () => {
   };
 
   const selectCheckoutPaymentMode = async (mode) => {
+    if (isSameDayDelivery && mode !== "online_full") {
+      toast.info("Same day delivery accepts full online payment only.", { theme: "dark" });
+      return;
+    }
     if (isRecoveringCheckout || gatewayDismissRecoveryInFlight.current) {
       toast.info("Restoring your bag after payment was closed. Please wait a moment.", {
         theme: "dark",
@@ -1624,6 +1793,16 @@ const Checkout = () => {
       toast.error("Please select a payment method before placing your order.", { theme: "dark" });
       return;
     }
+    if (isSameDayDelivery) {
+      if (!sddEligibility.eligible) {
+        toast.error("Same day delivery is not available for this pincode.", { theme: "dark" });
+        return;
+      }
+      if (paymentMethod !== "online" || paymentPlan !== "full") {
+        toast.error("Same day delivery requires full online payment.", { theme: "dark" });
+        return;
+      }
+    }
 
     placeOrderInFlight.current = true;
     setIsPlacingOrder(true);
@@ -1647,6 +1826,7 @@ const Checkout = () => {
         paymentPlan,
         paymentAdvancePercent: advancePercentForApi,
         balanceCollection,
+        ...(isSameDayDelivery ? { deliveryMode: "same_day" } : {}),
       })).unwrap();
       quoteConfirmedThisAttempt = true;
 
@@ -1660,6 +1840,7 @@ const Checkout = () => {
         paymentAdvancePercent: advancePercentForApi,
         balanceCollection,
         idempotencyKey,
+        ...(isSameDayDelivery ? { deliveryMode: "same_day" } : {}),
       })).unwrap();
 
       // Step 3: Handle by payment method
@@ -1736,8 +1917,11 @@ const Checkout = () => {
 
   const handleRazorpaySuccess = async (response) => {
     // paymentState is already "success" (set inside RazorpayCheckout before this fires)
-    // Razorpay modal may or may not have closed � either way we show verification overlay
+    // Razorpay modal may or may not have closed — either way we show verification overlay
     setShowRazorpay(false);
+    window.setTimeout(() => {
+      void finalizeRazorpayDismiss();
+    }, 400);
     try {
       const currentOrderId = placedOrder?.order?.orderId || response.notes?.orderId;
       if (!currentOrderId) throw new Error("Order ID not found. Please contact support.");
@@ -1754,8 +1938,10 @@ const Checkout = () => {
 
       toast.success("✅ Payment verified! Order confirmed.", { theme: "dark", autoClose: 3000 });
       setTimeout(() => {
-        dispatch(resetCheckout());
-        navigate("/account/userorders", { state: { justPlaced: true } });
+        void finalizeRazorpayDismiss().finally(() => {
+          dispatch(resetCheckout());
+          navigate("/account/userorders", { state: { justPlaced: true } });
+        });
       }, 1500);
     } catch (err) {
       setRazorpayPaymentState(PAYMENT_STATE.FAILED);
@@ -1774,6 +1960,7 @@ const Checkout = () => {
     setRazorpayPaymentState(PAYMENT_STATE.FAILED);
     setShowPaymentErrorModal(false);
     setPaymentError(null);
+    void finalizeRazorpayDismiss();
 
     const msg =
       typeof error === "string"
@@ -1925,8 +2112,16 @@ const Checkout = () => {
             <CartSummaryCompact
               quote={quote}
               quoteLoading={loading.quote}
+              shippingDeferred={!isSameDayDelivery && !paymentOptionActivated}
+              showShipping={
+                !isSameDayDelivery &&
+                paymentOptionActivated &&
+                !loading.quote &&
+                quote != null
+              }
               showPartial={
                 checkoutMode === "advance_cod" &&
+                paymentOptionActivated &&
                 !loading.quote &&
                 partialPayNowDisplay != null &&
                 partialBalanceDisplay != null
@@ -1981,6 +2176,125 @@ const Checkout = () => {
 
             <AddressSelector onAddAddress={() => setShowAddressModal(true)} />
 
+            <div className="space-y-2.5 pt-1">
+              <p className="font-black uppercase" style={{ fontSize: 10, color: "#c27c00", letterSpacing: "0.06em" }}>
+                Delivery Option
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setDeliveryMode("standard")}
+                  className="text-left cursor-pointer transition-all"
+                  style={{
+                    padding: "13px 14px 12px",
+                    borderRadius: 16,
+                    border: `2px solid ${!isSameDayDelivery ? "#F7A221" : "#f0e8d8"}`,
+                    background: !isSameDayDelivery
+                      ? "linear-gradient(180deg, #FFF8E8 0%, #FFFFFF 100%)"
+                      : "#fff",
+                    boxShadow: !isSameDayDelivery ? "0 4px 14px rgba(247, 162, 33, 0.22)" : "none",
+                  }}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <div
+                      className="flex items-center justify-center shrink-0 mt-0.5"
+                      style={{
+                        width: 16,
+                        height: 16,
+                        borderRadius: "50%",
+                        border: `2px solid ${!isSameDayDelivery ? "#F7A221" : "#e5d5b8"}`,
+                        background: !isSameDayDelivery ? "#F7A221" : "#fff",
+                      }}
+                    >
+                      {!isSameDayDelivery && (
+                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#111" }} />
+                      )}
+                    </div>
+                    <div
+                      className="flex items-center justify-center shrink-0"
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: 10,
+                        background: !isSameDayDelivery ? "#F7A221" : "#FFF4DC",
+                      }}
+                    >
+                      <Truck size={16} style={{ color: !isSameDayDelivery ? "#111" : "#c27c00" }} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-black text-[13px] leading-tight" style={{ color: "#111" }}>
+                        Standard Delivery
+                      </p>
+                      <p className="text-[11px] mt-0.5 leading-snug" style={{ color: "#b45309" }}>
+                        Standard courier delivery across India
+                      </p>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  disabled={sddEligibility.loading || !sddEligibility.eligible}
+                  onClick={() => {
+                    if (!sddEligibility.eligible) return;
+                    setDeliveryMode("same_day");
+                  }}
+                  className="text-left transition-all"
+                  style={{
+                    padding: "13px 14px 12px",
+                    borderRadius: 16,
+                    border: `2px solid ${isSameDayDelivery ? "#F7A221" : "#f0e8d8"}`,
+                    background: isSameDayDelivery
+                      ? "linear-gradient(180deg, #FFF8E8 0%, #FFFFFF 100%)"
+                      : "#fff",
+                    boxShadow: isSameDayDelivery ? "0 4px 14px rgba(247, 162, 33, 0.22)" : "none",
+                    opacity: sddEligibility.eligible ? 1 : 0.55,
+                    cursor: sddEligibility.eligible ? "pointer" : "not-allowed",
+                  }}
+                >
+                  <div className="flex items-start gap-2.5">
+                    <div
+                      className="flex items-center justify-center shrink-0 mt-0.5"
+                      style={{
+                        width: 16,
+                        height: 16,
+                        borderRadius: "50%",
+                        border: `2px solid ${isSameDayDelivery ? "#F7A221" : "#e5d5b8"}`,
+                        background: isSameDayDelivery ? "#F7A221" : "#fff",
+                      }}
+                    >
+                      {isSameDayDelivery && (
+                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#111" }} />
+                      )}
+                    </div>
+                    <div
+                      className="flex items-center justify-center shrink-0"
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: 10,
+                        background: isSameDayDelivery ? "#F7A221" : "#FFF4DC",
+                      }}
+                    >
+                      <Clock size={16} style={{ color: isSameDayDelivery ? "#111" : "#c27c00" }} />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="font-black text-[13px] leading-tight" style={{ color: "#111" }}>
+                        Same Day Delivery
+                      </p>
+                      <p className="text-[11px] mt-0.5 leading-snug" style={{ color: sddEligibility.eligible ? "#b45309" : "#9ca3af" }}>
+                        {sddEligibility.loading
+                          ? "Checking pincode…"
+                          : sddEligibility.eligible
+                            ? "Delivery today"
+                            : "Not available for this pincode"}
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              </div>
+            </div>
+
             <button
               onClick={handleStep1Next}
               disabled={!selectedAddressId}
@@ -2019,7 +2333,7 @@ const Checkout = () => {
                 </h2>
               </div>
 
-              {quote?.deliveryEstimate && (
+              {quote?.deliveryEstimate && !isSameDayDelivery && quote?.deliveryMode !== "same_day" && (
                 <div className="flex items-center gap-2 px-4 py-2.5 rounded-[10px] w-fit"
                   style={{ background: "#F0FFF4", border: "1px solid #BBF7D0" }}>
                   <Truck size={13} style={{ color: "#15803D" }} />
@@ -2036,6 +2350,8 @@ const Checkout = () => {
                 dispatch={dispatch}
                 onCartMutationSuccess={handleQuoteRefreshAfterCartMutation}
                 defaultOpen
+                hideShipping={isSameDayDelivery || quote?.deliveryMode === "same_day"}
+                shippingDeferred={!isSameDayDelivery && quote?.deliveryMode !== "same_day"}
               />
 
               <CheckoutStepBackButton onClick={() => setStep(1)}>
@@ -2150,6 +2466,11 @@ const Checkout = () => {
                       {[selectedAddress.houseNumber, selectedAddress.area, selectedAddress.city]
                         .filter(Boolean).join(", ")}  {selectedAddress.postalCode}
                     </p>
+                    {isSameDayDelivery && (
+                      <p className="font-bold" style={{ fontSize: 11, color: "#B45309", marginTop: 4 }}>
+                        Same day delivery
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -2172,6 +2493,68 @@ const Checkout = () => {
                   {showCodOption || partialPlanEnabled ? "Payment Method" : "Payment"}
                 </h2>
               </div>
+
+              {isSameDayDelivery && (
+                <p style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.45 }}>
+                  Pay online. Cash on delivery is not available for same day delivery.
+                </p>
+              )}
+
+              {isSameDayDelivery && (
+                <button
+                  type="button"
+                  onClick={() => selectCheckoutPaymentMode("online_full")}
+                  className="w-full text-left cursor-pointer"
+                  style={{
+                    padding: 14,
+                    borderRadius: 16,
+                    border: "2px solid #111",
+                    background: "#111",
+                    color: "#F7A221",
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div
+                      className="flex items-center justify-center shrink-0"
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: "50%",
+                        border: "2px solid #F7A221",
+                      }}
+                    >
+                      <div style={{ width: 8, height: 8, borderRadius: "50%", background: "#F7A221" }} />
+                    </div>
+                    <div
+                      className="flex items-center justify-center shrink-0"
+                      style={{ width: 38, height: 38, borderRadius: 10, background: "#EBF8FF" }}
+                    >
+                      <CreditCard size={17} style={{ color: "#3b82f6" }} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="font-black text-sm">Pay Online Full Amount</p>
+                        <span
+                          className="font-black uppercase shrink-0"
+                          style={{
+                            fontSize: 8,
+                            letterSpacing: "0.06em",
+                            background: "#FEF3C7",
+                            color: "#B45309",
+                            borderRadius: 999,
+                            padding: "2px 6px",
+                          }}
+                        >
+                          Express
+                        </span>
+                      </div>
+                      <p className="text-[11px] opacity-80 mt-1">
+                        Pay {fmt(quote?.amountPayable ?? 0)} via UPI, cards, net banking
+                      </p>
+                    </div>
+                  </div>
+                </button>
+              )}
 
               {showCodOption || partialPlanEnabled ? (
                 <p className="font-black uppercase"

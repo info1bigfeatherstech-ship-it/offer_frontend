@@ -42,6 +42,7 @@ export const fetchCheckoutQuote = createAsyncThunk(
       paymentPlan = "full",
       balanceCollection = "online",
       demoMockShipping = false,
+      deliveryMode,
     },
     { rejectWithValue }
   ) => {
@@ -54,6 +55,9 @@ export const fetchCheckoutQuote = createAsyncThunk(
         paymentPlan,
         balanceCollection,
       };
+      if (deliveryMode === "same_day") {
+        body.deliveryMode = "same_day";
+      }
       const res = await axiosInstance.post("/checkout/quote", body);
       if (!res.data.success) throw new Error(res.data.message || "Failed to get quote");
       return res.data;
@@ -82,7 +86,7 @@ export const fetchCheckoutQuote = createAsyncThunk(
 export const confirmCheckoutQuote = createAsyncThunk(
   "checkout/confirmQuote",
   async (
-    { quoteId, paymentMethod, paymentPlan = "full", paymentAdvancePercent, balanceCollection = "online" },
+    { quoteId, paymentMethod, paymentPlan = "full", paymentAdvancePercent, balanceCollection = "online", deliveryMode },
     { rejectWithValue }
   ) => {
     try {
@@ -92,6 +96,9 @@ export const confirmCheckoutQuote = createAsyncThunk(
         paymentPlan,
         balanceCollection,
       };
+      if (deliveryMode === "same_day") {
+        body.deliveryMode = "same_day";
+      }
       if (
         paymentAdvancePercent !== undefined &&
         paymentAdvancePercent !== null &&
@@ -130,6 +137,7 @@ export const placeOrder = createAsyncThunk(
       paymentAdvancePercent,
       balanceCollection = "online",
       idempotencyKey,
+      deliveryMode,
     },
     { rejectWithValue }
   ) => {
@@ -146,6 +154,9 @@ export const placeOrder = createAsyncThunk(
         onlinePaymentMode,
         balanceCollection,
       };
+      if (deliveryMode === "same_day") {
+        payload.deliveryMode = "same_day";
+      }
       if (
         paymentAdvancePercent !== undefined &&
         paymentAdvancePercent !== null &&

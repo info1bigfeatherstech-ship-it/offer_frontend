@@ -5,7 +5,7 @@ import { SettingTabRegistry } from "./SettingTabregistry";
 import { ROLES } from "../../roles";
 
 /** Order managers may only open Delivery (shipping partner switch). Admins see all settings tabs. */
-const ORDER_MANAGER_SETTING_TAB_IDS = new Set(["delivery", "shipmozo-label"]);
+const ORDER_MANAGER_SETTING_TAB_IDS = new Set(["delivery", "same-day-delivery", "shipmozo-label"]);
 
 const SettingsDashboard = ({ onExit }) => {
   const [searchParams, setSearchParams] = useSearchParams();

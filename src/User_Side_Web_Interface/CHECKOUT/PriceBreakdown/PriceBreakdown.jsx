@@ -55,6 +55,23 @@ const PriceBreakdown = ({
   const advanceAmount = Math.round((amountPayable * advancePercent) / 100);
   const balanceAmount = amountPayable - advanceAmount;
 
+  const hideShipping = quote?.deliveryMode === "same_day";
+  const shippingRow = hideShipping
+    ? []
+    : [
+        {
+          label: psych ? "Shipping" : "Delivery Charges",
+          value:
+            deliveryCharges === 0 ? (
+              <span className="text-green-600 font-black">FREE</span>
+            ) : (
+              fmt(deliveryCharges)
+            ),
+          icon: <Truck size={12} className="text-gray-400" />,
+          green: deliveryCharges === 0,
+        },
+      ];
+
   const rows = psych
     ? [
         { label: "SubTotal", value: fmt(psych.mrpTotal), icon: null, green: false },
@@ -78,17 +95,7 @@ const PriceBreakdown = ({
               },
             ]
           : []),
-        {
-          label: "Shipping",
-          value:
-            deliveryCharges === 0 ? (
-              <span className="text-green-600 font-black">FREE</span>
-            ) : (
-              fmt(deliveryCharges)
-            ),
-          icon: <Truck size={12} className="text-gray-400" />,
-          green: deliveryCharges === 0,
-        },
+        ...shippingRow,
         {
           label: "Other taxes",
           value: fmt(taxes),
@@ -102,13 +109,7 @@ const PriceBreakdown = ({
       value: fmt(itemsSubtotal),
       icon: null,
     },
-    {
-      label: "Delivery Charges",
-      value: deliveryCharges === 0 ? (
-        <span className="text-green-600 font-black">FREE</span>
-      ) : fmt(deliveryCharges),
-      icon: <Truck size={12} className="text-gray-400" />,
-    },
+    ...shippingRow,
     ...(promotionDiscount > 0
       ? [{
           label: `Discount${couponApplied ? ` (${couponApplied})` : ""}`,
@@ -192,7 +193,7 @@ const PriceBreakdown = ({
       )}
 
       {/* Delivery estimate */}
-      {deliveryEstimate && (
+      {deliveryEstimate && !hideShipping && (
         <div className="bg-green-50 border border-green-100 rounded-2xl px-3 py-2.5 flex items-center gap-2">
           <Truck size={13} className="text-green-500 flex-shrink-0" />
           <p className="text-[11px] text-green-700 font-bold">{deliveryEstimate}</p>

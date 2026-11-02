@@ -17,10 +17,10 @@ export const ROLES = {
 };
 
 export const ROLE_PERMISSIONS = {
-  [ROLES.ADMIN]:             ["products", "analytics", "archived", "seoanalysis","customers","staff","demo", "orders","returns_refunds","rto","support","orders","outofstock","customerreview","website","ecommerce","marketing","settings","utilities","wholesaler"],
+  [ROLES.ADMIN]:             ["products", "analytics", "archived", "seoanalysis","customers","staff","demo", "orders","returns_refunds","rto","support","orders","outofstock","customerreview","website","ecommerce","marketing","settings","utilities","wholesaler", "gift_customization", "bulk_inquiries"],
   [ROLES.PRODUCT_MANAGER]:   ["products", "archived"],
-  [ROLES.ORDER_MANAGER]:     ["orders", "returns_refunds", "rto", "settings"],
-  [ROLES.MARKETING_MANAGER]: ["analytics"],
+  [ROLES.ORDER_MANAGER]:     ["orders", "returns_refunds", "rto", "settings", "gift_customization", "bulk_inquiries"],
+  [ROLES.MARKETING_MANAGER]: ["analytics", "gift_customization", "bulk_inquiries"],
   [ROLES.INVENTORY_MANAGER]: ["products"],
   [ROLES.PACKING_VIEWER]:    ["orders"],
   // [ROLES.User]: ["user"],

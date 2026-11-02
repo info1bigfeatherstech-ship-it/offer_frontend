@@ -60,6 +60,8 @@ const Footer = () => {
         // { label: "Influencer Form", path: "/influencer-form" },
         { label: "Customer Care", path: "/customer-care" },
         { label: "Influencer Form", path: "/Influencer" },
+        { label: "Bulk Orders", path: "/bulk" },
+        { label: "Customize Gift", path: "/customize-gift" },
       ]
     },
     {
@@ -440,6 +442,8 @@ export default Footer;
 //         // { label: "Influencer Form", path: "/influencer-form" },
 //         { label: "Customer Care", path: "/customer-care" },
 //         { label: "Influencer Form", path: "/Influencer" },
+//         { label: "Bulk Orders", path: "/bulk" },
+//         { label: "Customize Gift", path: "/customize-gift" },
 //       ]
 //     },
 //     {
