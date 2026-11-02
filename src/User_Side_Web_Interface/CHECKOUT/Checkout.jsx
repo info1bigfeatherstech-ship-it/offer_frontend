@@ -1917,9 +1917,11 @@ const Checkout = () => {
 
   const handleRazorpaySuccess = async (response) => {
     // paymentState is already "success" (set inside RazorpayCheckout before this fires)
-    // Razorpay modal may or may not have closed � either way we show verification overlay
+    // Razorpay modal may or may not have closed — either way we show verification overlay
     setShowRazorpay(false);
-    void finalizeRazorpayDismiss();
+    window.setTimeout(() => {
+      void finalizeRazorpayDismiss();
+    }, 400);
     try {
       const currentOrderId = placedOrder?.order?.orderId || response.notes?.orderId;
       if (!currentOrderId) throw new Error("Order ID not found. Please contact support.");
@@ -2175,40 +2177,55 @@ const Checkout = () => {
             <AddressSelector onAddAddress={() => setShowAddressModal(true)} />
 
             <div className="space-y-2.5 pt-1">
-              <p className="font-black uppercase" style={{ fontSize: 10, color: "#9ca3af", letterSpacing: "0.06em" }}>
+              <p className="font-black uppercase" style={{ fontSize: 10, color: "#c27c00", letterSpacing: "0.06em" }}>
                 Delivery Option
               </p>
-              <div className="grid grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
                 <button
                   type="button"
                   onClick={() => setDeliveryMode("standard")}
                   className="text-left cursor-pointer transition-all"
                   style={{
-                    padding: "12px 12px 11px",
+                    padding: "13px 14px 12px",
                     borderRadius: 16,
-                    border: `2px solid ${!isSameDayDelivery ? "#111" : "#f0e8d8"}`,
-                    background: "#fff",
+                    border: `2px solid ${!isSameDayDelivery ? "#F7A221" : "#f0e8d8"}`,
+                    background: !isSameDayDelivery
+                      ? "linear-gradient(180deg, #FFF8E8 0%, #FFFFFF 100%)"
+                      : "#fff",
+                    boxShadow: !isSameDayDelivery ? "0 4px 14px rgba(247, 162, 33, 0.22)" : "none",
                   }}
                 >
-                  <div className="flex items-start gap-2">
+                  <div className="flex items-start gap-2.5">
                     <div
                       className="flex items-center justify-center shrink-0 mt-0.5"
                       style={{
                         width: 16,
                         height: 16,
                         borderRadius: "50%",
-                        border: `2px solid ${!isSameDayDelivery ? "#111" : "#d1d5db"}`,
+                        border: `2px solid ${!isSameDayDelivery ? "#F7A221" : "#e5d5b8"}`,
+                        background: !isSameDayDelivery ? "#F7A221" : "#fff",
                       }}
                     >
                       {!isSameDayDelivery && (
-                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#111" }} />
+                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#111" }} />
                       )}
+                    </div>
+                    <div
+                      className="flex items-center justify-center shrink-0"
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: 10,
+                        background: !isSameDayDelivery ? "#F7A221" : "#FFF4DC",
+                      }}
+                    >
+                      <Truck size={16} style={{ color: !isSameDayDelivery ? "#111" : "#c27c00" }} />
                     </div>
                     <div className="min-w-0">
                       <p className="font-black text-[13px] leading-tight" style={{ color: "#111" }}>
                         Standard Delivery
                       </p>
-                      <p className="text-[11px] mt-0.5 leading-snug" style={{ color: "#9ca3af" }}>
+                      <p className="text-[11px] mt-0.5 leading-snug" style={{ color: "#b45309" }}>
                         Standard courier delivery across India
                       </p>
                     </div>
@@ -2224,48 +2241,48 @@ const Checkout = () => {
                   }}
                   className="text-left transition-all"
                   style={{
-                    padding: "12px 12px 11px",
+                    padding: "13px 14px 12px",
                     borderRadius: 16,
-                    border: `2px solid ${isSameDayDelivery ? "#111" : "#f0e8d8"}`,
-                    background: "#fff",
+                    border: `2px solid ${isSameDayDelivery ? "#F7A221" : "#f0e8d8"}`,
+                    background: isSameDayDelivery
+                      ? "linear-gradient(180deg, #FFF8E8 0%, #FFFFFF 100%)"
+                      : "#fff",
+                    boxShadow: isSameDayDelivery ? "0 4px 14px rgba(247, 162, 33, 0.22)" : "none",
                     opacity: sddEligibility.eligible ? 1 : 0.55,
                     cursor: sddEligibility.eligible ? "pointer" : "not-allowed",
                   }}
                 >
-                  <div className="flex items-start gap-2">
+                  <div className="flex items-start gap-2.5">
                     <div
                       className="flex items-center justify-center shrink-0 mt-0.5"
                       style={{
                         width: 16,
                         height: 16,
                         borderRadius: "50%",
-                        border: `2px solid ${isSameDayDelivery ? "#111" : "#d1d5db"}`,
+                        border: `2px solid ${isSameDayDelivery ? "#F7A221" : "#e5d5b8"}`,
+                        background: isSameDayDelivery ? "#F7A221" : "#fff",
                       }}
                     >
                       {isSameDayDelivery && (
-                        <div style={{ width: 7, height: 7, borderRadius: "50%", background: "#111" }} />
+                        <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#111" }} />
                       )}
                     </div>
+                    <div
+                      className="flex items-center justify-center shrink-0"
+                      style={{
+                        width: 34,
+                        height: 34,
+                        borderRadius: 10,
+                        background: isSameDayDelivery ? "#F7A221" : "#FFF4DC",
+                      }}
+                    >
+                      <Clock size={16} style={{ color: isSameDayDelivery ? "#111" : "#c27c00" }} />
+                    </div>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <p className="font-black text-[13px] leading-tight" style={{ color: "#111" }}>
-                          Same Day Delivery
-                        </p>
-                        <span
-                          className="font-black uppercase shrink-0"
-                          style={{
-                            fontSize: 8,
-                            letterSpacing: "0.06em",
-                            background: "#FEF3C7",
-                            color: "#B45309",
-                            borderRadius: 999,
-                            padding: "2px 6px",
-                          }}
-                        >
-                          Express
-                        </span>
-                      </div>
-                      <p className="text-[11px] mt-0.5 leading-snug" style={{ color: "#9ca3af" }}>
+                      <p className="font-black text-[13px] leading-tight" style={{ color: "#111" }}>
+                        Same Day Delivery
+                      </p>
+                      <p className="text-[11px] mt-0.5 leading-snug" style={{ color: sddEligibility.eligible ? "#b45309" : "#9ca3af" }}>
                         {sddEligibility.loading
                           ? "Checking pincode…"
                           : sddEligibility.eligible

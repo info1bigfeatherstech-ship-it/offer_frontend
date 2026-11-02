@@ -604,17 +604,16 @@ const RazorpayCheckout = forwardRef(({
         order_id: razorpayOrder.id,
  
         handler: (response) => {
-          // Payment succeeded
+          // Payment succeeded. Do not close()/strip the iframe in this tick —
+          // Razorpay then falls back to alerting {razorpay_payment_id, ...}.
           paymentStateRef.current = "success";
           onPaymentStateChange?.("success");
- 
-          console.log("✅ Razorpay payment captured:", response);
- 
-          try { razorpayInstance.current?.close(); } catch (e) { /* ignore */ }
-          razorpayInstance.current = null;
           markRazorpaySessionClosed();
-
           onSuccess?.(response);
+          window.setTimeout(() => {
+            try { razorpayInstance.current?.close(); } catch (e) { /* ignore */ }
+            razorpayInstance.current = null;
+          }, 0);
         },
  
         prefill: {
@@ -682,7 +681,6 @@ const RazorpayCheckout = forwardRef(({
           paymentStateRef.current = "failed";
           onPaymentStateChange?.("failed");
  
-          console.error("❌ Razorpay payment.failed:", response);
           const errorMessage =
             response.error?.description ||
             response.error?.reason ||
