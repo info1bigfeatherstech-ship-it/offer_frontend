@@ -43,7 +43,9 @@ function mergePincodes(current, incoming) {
 
 const SameDayDeliverySettingsTab = () => {
   const adminUser = useSelector(selectAdminUser);
-  const canEdit = String(adminUser?.role || "").toLowerCase() === ROLES.ADMIN;
+  const role = String(adminUser?.role || "").toLowerCase();
+  // Admin + order managers may toggle SDD and manage eligible pincodes
+  const canEdit = role === ROLES.ADMIN || role === ROLES.ORDER_MANAGER;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -131,6 +133,13 @@ const SameDayDeliverySettingsTab = () => {
       setBulkText("");
       setBulkOpen(false);
     }
+  };
+
+  /** Close paste panel without touching the saved/current pincode list. */
+  const closeBulkPaste = () => {
+    setBulkOpen(false);
+    setBulkText("");
+    setAddHint(null);
   };
 
   const removePincode = (pin) => {
@@ -252,7 +261,7 @@ const SameDayDeliverySettingsTab = () => {
                     handleAddDraft();
                   }
                 }}
-                placeholder="Add 110001, or paste 110001, 122001, 400001"
+                placeholder="Add one pincode, e.g. 110001"
                 className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:bg-white focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
               />
             </div>
@@ -265,12 +274,70 @@ const SameDayDeliverySettingsTab = () => {
               <Plus size={16} />
               Add
             </button>
+            {canEdit && (
+              <button
+                type="button"
+                onClick={() => {
+                  if (bulkOpen) closeBulkPaste();
+                  else setBulkOpen(true);
+                }}
+                className="inline-flex items-center justify-center px-4 py-2.5 rounded-xl border border-blue-200 bg-blue-50 text-blue-700 text-sm font-semibold hover:bg-blue-100"
+              >
+                {bulkOpen ? "Cancel paste" : "Paste a list"}
+              </button>
+            )}
           </div>
 
           {addHint && (
             <p className={`text-xs ${addHint.ok ? "text-emerald-700" : "text-amber-700"}`}>
               {addHint.text}
             </p>
+          )}
+
+          {bulkOpen && (
+            <div className="rounded-xl border border-blue-200 bg-blue-50/40 p-3 space-y-2">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-semibold text-blue-900">Paste multiple pincodes</p>
+                <button
+                  type="button"
+                  onClick={closeBulkPaste}
+                  className="text-xs font-medium text-gray-500 hover:text-gray-800"
+                >
+                  Close
+                </button>
+              </div>
+              <textarea
+                rows={4}
+                disabled={!canEdit}
+                value={bulkText}
+                onChange={(e) => setBulkText(e.target.value)}
+                placeholder={"110001\n122001\n400001"}
+                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-mono outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <p className="text-[11px] text-gray-500">
+                  One per line, or comma / space separated. Closing without “Add these” keeps your
+                  current list unchanged.
+                </p>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={closeBulkPaste}
+                    className="px-3 py-1.5 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-600 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!canEdit || !String(bulkText || "").trim()}
+                    onClick={handleAddBulk}
+                    className="px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    Add these
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
 
           <div className="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -294,56 +361,22 @@ const SameDayDeliverySettingsTab = () => {
                 </button>
               )}
             </div>
-            <div className="flex items-center gap-3 text-xs">
+            {canEdit && pincodes.length > 0 && (
               <button
                 type="button"
-                onClick={() => setBulkOpen((v) => !v)}
-                className="font-semibold text-blue-600 hover:text-blue-700"
+                onClick={() => {
+                  setPincodes([]);
+                  setSaveOk(false);
+                  setAddHint(null);
+                }}
+                className="text-xs font-medium text-gray-500 hover:text-red-600 px-1"
               >
-                {bulkOpen ? "Hide paste box" : "Paste a list"}
+                Clear all
               </button>
-              {canEdit && pincodes.length > 0 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPincodes([]);
-                    setSaveOk(false);
-                    setAddHint(null);
-                  }}
-                  className="font-medium text-gray-500 hover:text-red-600"
-                >
-                  Clear all
-                </button>
-              )}
-            </div>
+            )}
           </div>
 
-          {bulkOpen && (
-            <div className="rounded-xl border border-gray-200 bg-gray-50 p-3 space-y-2">
-              <textarea
-                rows={4}
-                disabled={!canEdit}
-                value={bulkText}
-                onChange={(e) => setBulkText(e.target.value)}
-                placeholder={"110001\n122001\n400001"}
-                className="w-full px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-mono outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[11px] text-gray-400">
-                  One per line, or comma / space separated. Duplicates are skipped.
-                </p>
-                <button
-                  type="button"
-                  disabled={!canEdit}
-                  onClick={handleAddBulk}
-                  className="px-3 py-1.5 rounded-lg bg-white border border-gray-200 text-xs font-semibold text-gray-800 hover:bg-gray-100 disabled:opacity-50"
-                >
-                  Add these
-                </button>
-              </div>
-            </div>
-          )}
-
+          {/* Existing list always stays visible — paste open/close never clears it */}
           <div className="min-h-[140px] max-h-[360px] overflow-y-auto rounded-xl border border-gray-100 bg-gray-50/70 p-3">
             {pincodes.length === 0 ? (
               <div className="h-[116px] flex flex-col items-center justify-center text-center text-sm text-gray-400">
@@ -351,8 +384,15 @@ const SameDayDeliverySettingsTab = () => {
                 No pincodes yet. Add the pins that can use same day delivery.
               </div>
             ) : filteredPincodes.length === 0 ? (
-              <div className="h-[116px] flex items-center justify-center text-sm text-gray-400">
-                No pincode matches “{query}”.
+              <div className="h-[116px] flex flex-col items-center justify-center gap-2 text-sm text-gray-400">
+                <span>No pincode matches “{query}”.</span>
+                <button
+                  type="button"
+                  onClick={() => setQuery("")}
+                  className="text-xs font-semibold text-blue-600 hover:text-blue-700"
+                >
+                  Clear search
+                </button>
               </div>
             ) : (
               <div className="flex flex-wrap gap-2">
@@ -407,7 +447,9 @@ const SameDayDeliverySettingsTab = () => {
               )}
             </div>
           ) : (
-            <p className="text-xs text-amber-700">Only admin can change these settings.</p>
+            <p className="text-xs text-amber-700">
+              You do not have permission to change these settings.
+            </p>
           )}
         </div>
       </div>

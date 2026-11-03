@@ -41,6 +41,20 @@ export const TAB_REGISTRY = [
     subItems: ORDERS_TAB_REGISTRY,
   },
   {
+    id: "gift_customization",
+    label: "Gift Customization",
+    icon: "M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zm0 0h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z",
+    component: GiftCustomizationTab,
+    badge: null,
+  },
+  {
+    id: "bulk_inquiries",
+    label: "Bulk Inquiries",
+    icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4",
+    component: BulkInquiriesTab,
+    badge: null,
+  },
+  {
     id: "returns_refunds",
     label: "Returns & Refunds",
     icon: "M4 4h16v4H4zM6 10h12v10H6zM9 14h6M9 18h4",
@@ -80,20 +94,6 @@ export const TAB_REGISTRY = [
     label: "Out of Stock Query",
     icon: "M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0zM12 9v4m0 4h.01",
     component: outOfStockTab,
-    badge: null,
-  },
-  {
-    id: "gift_customization",
-    label: "Gift Customization",
-    icon: "M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 010-5C11 2 12 7 12 7zm0 0h4.5a2.5 2.5 0 000-5C13 2 12 7 12 7z",
-    component: GiftCustomizationTab,
-    badge: null,
-  },
-  {
-    id: "bulk_inquiries",
-    label: "Bulk Inquiries",
-    icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4",
-    component: BulkInquiriesTab,
     badge: null,
   },
   {
