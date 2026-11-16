@@ -44,6 +44,7 @@ import Checkout from "./User_Side_Web_Interface/CHECKOUT/Checkout";
 import ContactUs from "./components/Common/Contact";
 import TagProducts from "./User_Side_Web_Interface/User_Dash_Segment/UserSubPages/TagProducts";
 import BulkOrderPage from "./components/Webside_Pages/BulkOrderPage";
+import BecomeDropshipper from "./components/Webside_Pages/BecomeDropshipper";
 import CustomizeGiftPage from "./components/Webside_Pages/CustomizeGiftPage";
 import AboutUs from "./components/Common/AboutUs";
 import Policy from "./components/Common/Policy";
@@ -317,6 +318,7 @@ const AppContent = () => {
                 <Route path="/today-arrival" element={<TagProducts tag="today-arrival" />} />
                 <Route path="/bulk"          element={<BulkOrderPage />} />
                 <Route path="/bulk-order"    element={<BulkOrderPage />} />
+                <Route path="/become-dropshipper" element={<BecomeDropshipper />} />
                 <Route path="/customize-gift" element={<CustomizeGiftPage />} />
                 <Route path="/Influencer" element={<InfluencerFormPage/>} />
 

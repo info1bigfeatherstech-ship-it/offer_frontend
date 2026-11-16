@@ -1,19 +1,29 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
 import axiosInstance, { AUTH_CONTEXT_ADMIN } from '../../../../SERVICES/axiosInstance';
+import { getAdminOrderStorefront } from '../../../../utils/adminOrderStorefront';
 
 /**
  * Axios adapter for RTK Query — matches userAnalyticsApi pattern; never use raw axios in components.
+ * Storefront header comes from AdminOrderStorefrontProvider (module override + interceptor).
+ *
+ * Do NOT put getAdminOrderStorefront() into serializeQueryArgs — that external mutable
+ * value desyncs the cache key from the in-flight request and leaves OrderTab stuck on
+ * "Loading orders…" even when /admin/orders returns 200.
  */
 const axiosBaseQuery =
   ({ baseUrl } = { baseUrl: '' }) =>
   async ({ url, method, data, params, headers, responseType }) => {
     try {
+      const storefront = getAdminOrderStorefront();
       const result = await axiosInstance({
         url: baseUrl + url,
         method,
         data,
         params,
-        headers: { ...headers },
+        headers: {
+          ...headers,
+          'x-storefront': storefront,
+        },
         authContext: AUTH_CONTEXT_ADMIN,
         ...(responseType ? { responseType } : {}),
       });

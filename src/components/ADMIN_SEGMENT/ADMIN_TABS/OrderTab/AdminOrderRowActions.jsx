@@ -15,6 +15,7 @@ import {
 } from "../../ADMIN_REDUX_MANAGEMENT/order_management/adminOrdersApi";
 import axiosInstance from "../../../../SERVICES/axiosInstance";
 import { filterCapsForPackingViewer } from "../../roles";
+import { chooseLabelSource } from "./chooseLabelSource";
 
 const ACTION_LABELS = {
   accept: "Accept",
@@ -242,12 +243,22 @@ async function executeAction(key, ctx) {
         `manifest-${id}.pdf`
       );
       return;
-    case "downloadLabel":
+    case "downloadLabel": {
+      const labelSource = await chooseLabelSource();
+      if (!labelSource) return;
+      const safeId = String(id).replace(/[^\w.-]+/g, "_").slice(0, 80);
+      const defaultName =
+        labelSource === "custom"
+          ? `Shipping-label-${safeId}.pdf`
+          : ctx.shippingProvider === "shipmozo"
+            ? `Shipmozo-label-${safeId}.pdf`
+            : `Shiprocket-label-${safeId}.pdf`;
       await downloadBlobFromGet(
-        `/orders/admin/items/${encodeURIComponent(String(id))}/fulfillment/shipping-label-file`,
-        ctx.shippingProvider === "shipmozo" ? `Shipmozo-label-${id}.pdf` : `Shiprocket-label-${id}.pdf`
+        `/orders/admin/items/${encodeURIComponent(String(id))}/fulfillment/shipping-label-file?labelSource=${encodeURIComponent(labelSource)}`,
+        defaultName
       );
       return;
+    }
     case "downloadTaxInvoice": {
       const res = await axiosInstance.get(
         `/orders/admin/items/${encodeURIComponent(String(id))}/invoice-html`,

@@ -2,7 +2,7 @@
  * Admin dropshipper product APIs — dedicated routes only.
  * Do NOT send dropship fields through /admin/products create/update.
  */
-import axiosInstance from './axiosInstance';
+import axiosInstance, { AUTH_CONTEXT_ADMIN } from './axiosInstance';
 
 const BASE = '/admin/dropshipper';
 
@@ -251,11 +251,75 @@ export function getProductDropshipStatusMeta(product) {
 
 /** Admin list of dropship orders (does not touch ecomm/wholesale order panels). */
 export async function listAdminDropshipOrders(params = {}) {
-  const res = await axiosInstance.get(`${BASE}/orders`, { params });
+  const res = await axiosInstance.get(`${BASE}/orders`, {
+    params,
+    authContext: AUTH_CONTEXT_ADMIN,
+  });
   return res.data;
 }
 
 export async function getAdminDropshipOrder(orderId) {
-  const res = await axiosInstance.get(`${BASE}/orders/${encodeURIComponent(orderId)}`);
+  const res = await axiosInstance.get(`${BASE}/orders/${encodeURIComponent(orderId)}`, {
+    authContext: AUTH_CONTEXT_ADMIN,
+  });
+  return res.data;
+}
+
+function adminRequest(extra = {}) {
+  return { authContext: AUTH_CONTEXT_ADMIN, ...extra };
+}
+
+/** Subscription fee and whether new partner registration is open. Admin write on PATCH. */
+export async function getDropshipperSettings() {
+  const res = await axiosInstance.get(`${BASE}/settings`, adminRequest());
+  return res.data;
+}
+
+export async function updateDropshipperSettings(body) {
+  const res = await axiosInstance.patch(`${BASE}/settings`, body, adminRequest());
+  return res.data;
+}
+
+export async function listDropshipperRequests(params = {}) {
+  const res = await axiosInstance.get(`${BASE}/requests`, adminRequest({ params }));
+  return res.data;
+}
+
+export async function getDropshipperRequest(id) {
+  const res = await axiosInstance.get(
+    `${BASE}/requests/${encodeURIComponent(id)}`,
+    adminRequest()
+  );
+  return res.data;
+}
+
+export async function approveDropshipperRequest(id, { note } = {}) {
+  const res = await axiosInstance.post(
+    `${BASE}/requests/${encodeURIComponent(id)}/approve`,
+    { note: note || '' },
+    adminRequest()
+  );
+  return res.data;
+}
+
+export async function rejectDropshipperRequest(id, { note } = {}) {
+  const res = await axiosInstance.post(
+    `${BASE}/requests/${encodeURIComponent(id)}/reject`,
+    { note: note || '' },
+    adminRequest()
+  );
+  return res.data;
+}
+
+export async function listDropshipperAccounts(params = {}) {
+  const res = await axiosInstance.get(`${BASE}/accounts`, adminRequest({ params }));
+  return res.data;
+}
+
+export async function getDropshipperAccount(id) {
+  const res = await axiosInstance.get(
+    `${BASE}/accounts/${encodeURIComponent(id)}`,
+    adminRequest()
+  );
   return res.data;
 }

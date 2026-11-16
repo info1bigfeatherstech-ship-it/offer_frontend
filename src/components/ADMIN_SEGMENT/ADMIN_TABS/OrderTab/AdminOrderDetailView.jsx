@@ -20,6 +20,7 @@ import AdminPendingAddressPanel from "./AdminPendingAddressPanel";
 import OrderShipmentTrackingPanel from "./OrderShipmentTrackingPanel";
 import OrderPaymentSummaryCard from "./OrderPaymentSummaryCard";
 import { filterCapsForPackingViewer } from "../../roles";
+import { chooseLabelSource } from "./chooseLabelSource";
 
 /** @deprecated Prefer shipmentOps.opsState — kept for legacy sync heuristics only. */
 function isPickupBookedOnOrder(ship, opsState) {
@@ -649,50 +650,59 @@ export default function AdminOrderDetailView({
     }
   }, [orderId, fetchInvoiceObjectUrl]);
 
-  const fetchShippingLabelBlob = useCallback(async () => {
-    const res = await axiosInstance.get(
-      `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/shipping-label-file`,
-      { responseType: "blob" }
-    );
-    if (res.headers["content-type"]?.includes("application/json")) {
-      const t = await res.data.text();
-      const j = JSON.parse(t);
-      throw new Error(j?.message || "Label fetch failed.");
-    }
-    const rawCt = String(res.headers["content-type"] || "application/pdf").split(";")[0].trim();
-    return {
-      blob: new Blob([res.data], { type: rawCt || "application/pdf" }),
-      filename: (() => {
-        const isSm =
-          String(order?.shippingProvider || order?.shipmentInfo?.provider || "")
-            .toLowerCase() === "shipmozo";
-        let filename = `${isSm ? "Shipmozo" : "Shiprocket"}-label-${String(orderId)
-          .replace(/[^\w.-]+/g, "_")
-          .slice(0, 80)}.pdf`;
-        const dispo = res.headers["content-disposition"];
-        if (dispo) {
-          const m = /filename\*?=(?:UTF-8''|"?)([^";\n]+)/i.exec(dispo);
-          if (m && m[1]) filename = decodeURIComponent(m[1].replace(/"/g, "").trim());
-        }
-        return filename;
-      })(),
-    };
-  }, [orderId, order?.shippingProvider, order?.shipmentInfo?.provider]);
+  const fetchShippingLabelBlob = useCallback(
+    async (labelSource) => {
+      const res = await axiosInstance.get(
+        `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/shipping-label-file?labelSource=${encodeURIComponent(labelSource)}`,
+        { responseType: "blob" }
+      );
+      if (res.headers["content-type"]?.includes("application/json")) {
+        const t = await res.data.text();
+        const j = JSON.parse(t);
+        throw new Error(j?.message || "Label fetch failed.");
+      }
+      const rawCt = String(res.headers["content-type"] || "application/pdf").split(";")[0].trim();
+      return {
+        blob: new Blob([res.data], { type: rawCt || "application/pdf" }),
+        filename: (() => {
+          const safeId = String(orderId).replace(/[^\w.-]+/g, "_").slice(0, 80);
+          const isSm =
+            String(order?.shippingProvider || order?.shipmentInfo?.provider || "")
+              .toLowerCase() === "shipmozo";
+          let filename =
+            labelSource === "custom"
+              ? `Shipping-label-${safeId}.pdf`
+              : `${isSm ? "Shipmozo" : "Shiprocket"}-label-${safeId}.pdf`;
+          const dispo = res.headers["content-disposition"];
+          if (dispo) {
+            const m = /filename\*?=(?:UTF-8''|"?)([^";\n]+)/i.exec(dispo);
+            if (m && m[1]) filename = decodeURIComponent(m[1].replace(/"/g, "").trim());
+          }
+          return filename;
+        })(),
+      };
+    },
+    [orderId, order?.shippingProvider, order?.shipmentInfo?.provider]
+  );
 
   const openShippingLabelInNewTab = useCallback(async () => {
     if (!orderId) return;
+    const labelSource = await chooseLabelSource();
+    if (!labelSource) return;
     setActionMsg(null);
     setLabelDownloadBusy(true);
     let objectUrl;
     try {
-      const { blob } = await fetchShippingLabelBlob();
+      const { blob } = await fetchShippingLabelBlob(labelSource);
       objectUrl = URL.createObjectURL(blob);
       window.open(objectUrl, "_blank", "noopener,noreferrer");
       const pname =
-        String(order?.shippingProvider || order?.shipmentInfo?.provider || "")
-          .toLowerCase() === "shipmozo"
-          ? "Shipmozo"
-          : "Shiprocket";
+        labelSource === "custom"
+          ? "Custom branded"
+          : String(order?.shippingProvider || order?.shipmentInfo?.provider || "")
+                .toLowerCase() === "shipmozo"
+            ? "Shipmozo"
+            : "Shiprocket";
       setActionMsg({ type: "ok", text: `Opening ${pname} shipping label.`, surface: "label" });
       await refreshOrder();
       setTimeout(() => URL.revokeObjectURL(objectUrl), 180000);
@@ -710,10 +720,12 @@ export default function AdminOrderDetailView({
 
   const downloadShippingLabelFile = useCallback(async () => {
     if (!orderId) return;
+    const labelSource = await chooseLabelSource();
+    if (!labelSource) return;
     setActionMsg(null);
     setLabelDownloadBusy(true);
     try {
-      const { blob, filename } = await fetchShippingLabelBlob();
+      const { blob, filename } = await fetchShippingLabelBlob(labelSource);
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
