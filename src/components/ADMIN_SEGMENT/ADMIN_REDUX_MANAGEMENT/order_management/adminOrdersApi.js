@@ -622,7 +622,8 @@ export const adminOrdersApi = createApi({
       query: ({ orderId, courierId, confirmSuggested }) => ({
         url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/reassign-courier`,
         method: 'POST',
-        body: {
+        // axiosBaseQuery reads `data` (not RTK-fetch `body`) — confirmSuggested/courierId must reach Shiprocket.
+        data: {
           ...(courierId != null ? { courierId: Number(courierId) } : {}),
           ...(confirmSuggested ? { confirmSuggested: true } : {}),
         },
