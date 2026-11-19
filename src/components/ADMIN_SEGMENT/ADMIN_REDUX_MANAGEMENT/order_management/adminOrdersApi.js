@@ -618,6 +618,24 @@ export const adminOrdersApi = createApi({
       ],
     }),
 
+    adminFulfillmentReassignCourier: builder.mutation({
+      query: ({ orderId, courierId, confirmSuggested }) => ({
+        url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/reassign-courier`,
+        method: 'POST',
+        body: {
+          ...(courierId != null ? { courierId: Number(courierId) } : {}),
+          ...(confirmSuggested ? { confirmSuggested: true } : {}),
+        },
+      }),
+      invalidatesTags: (result, error, arg) => {
+        const id = arg?.orderId;
+        return [
+          { type: 'AdminOrdersList', id },
+          { type: 'AdminOrderTracking', id },
+        ];
+      },
+    }),
+
     getAdminRtoOrders: builder.query({
       query: (params = {}) => ({
         url: '/admin/rto/orders',
@@ -785,6 +803,7 @@ export const {
   useAdminFulfillmentCancelShipmentMutation,
   useAdminFulfillmentSelfPickupMutation,
   useAdminFulfillmentRetryPickupMutation,
+  useAdminFulfillmentReassignCourierMutation,
   useAdminBulkApprovalConfirmMutation,
   useAdminBulkApprovalCancelMutation,
   useAdminPreviewPendingOrderEditMutation,

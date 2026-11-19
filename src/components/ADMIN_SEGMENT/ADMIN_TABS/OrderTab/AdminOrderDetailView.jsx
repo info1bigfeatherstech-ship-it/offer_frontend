@@ -8,6 +8,7 @@ import {
   useAdminFulfillmentEnsureShipmentMutation,
   useAdminFulfillmentManifestMutation,
   useAdminFulfillmentRetryPickupMutation,
+  useAdminFulfillmentReassignCourierMutation,
   useAdminFulfillmentSchedulePickupMutation,
   useAdminFulfillmentSelfPickupMutation,
   useAdminFulfillmentSyncShiprocketMutation,
@@ -46,6 +47,7 @@ const FULFILLMENT_PRIMARY_ACTION_LABELS = {
   downloadLabel: "Download label",
   syncShiprocket: "Refresh Shiprocket",
   refreshTracking: "Refresh tracking",
+  reassignCourier: "Reassign courier",
   retryPickup: "Retry pickup",
   cancelShipment: "Cancel on Shiprocket",
   selfPickup: "Self pickup",
@@ -473,6 +475,7 @@ export default function AdminOrderDetailView({
   const [cancelShipment, cancelState] = useAdminFulfillmentCancelShipmentMutation();
   const [selfPickup, selfPickupState] = useAdminFulfillmentSelfPickupMutation();
   const [retryPickup, retryPickupState] = useAdminFulfillmentRetryPickupMutation();
+  const [reassignCourier, reassignCourierState] = useAdminFulfillmentReassignCourierMutation();
   const [bulkConfirm, bulkConfirmState] = useAdminBulkApprovalConfirmMutation();
   const [bulkCancel, bulkCancelState] = useAdminBulkApprovalCancelMutation();
 
@@ -509,6 +512,7 @@ export default function AdminOrderDetailView({
     cancelState.isLoading ||
     selfPickupState.isLoading ||
     retryPickupState.isLoading ||
+    reassignCourierState.isLoading ||
     bulkConfirmState.isLoading ||
     bulkCancelState.isLoading;
 
@@ -1649,6 +1653,70 @@ export default function AdminOrderDetailView({
                   <p className="mt-2 text-[11px] text-amber-800">Shiprocket status: {ship.providerStatus}</p>
                 ) : null}
                 <div className="flex flex-wrap gap-2 mt-3">
+                  {caps.reassignCourier ? (
+                    <button
+                      type="button"
+                      disabled={fulfillmentBusy}
+                      title={blockReasons.reassignCourier}
+                      onClick={async () => {
+                        setActionMsg(null);
+                        try {
+                          let suggested = null;
+                          try {
+                            await reassignCourier({ orderId }).unwrap();
+                          } catch (probeErr) {
+                            if (probeErr?.data?.code !== "REASSIGN_COURIER_CONFIRM") {
+                              throw probeErr;
+                            }
+                            suggested = probeErr?.data?.suggestedCourier || null;
+                            const quotedFreight = probeErr?.data?.quotedFreightInr;
+                            const current = probeErr?.data?.currentCourier;
+                            const gapLine =
+                              suggested?.exceedsQuotedFreight &&
+                              suggested?.freightGapInr != null &&
+                              Number(suggested.freightGapInr) > 0
+                                ? `\nCustomer paid ₹${quotedFreight ?? "—"} shipping; suggested is ₹${suggested.totalCharges ?? "—"} (gap ₹${suggested.freightGapInr} is merchant-side only).`
+                                : suggested && quotedFreight != null
+                                  ? `\nCustomer paid ₹${quotedFreight} shipping; suggested ₹${suggested.totalCharges ?? "—"}.`
+                                  : "";
+                            const confirmMsg = suggested
+                              ? `Reassign from "${current?.courierName || current?.courierId || ship.courier || "current courier"}" to suggested "${suggested.courierName || suggested.courierId}" (₹${suggested.totalCharges ?? "—"})?${gapLine}\n\nCustomer order total will NOT change.\nCancel to use Shiprocket panel instead.`
+                              : `${probeErr?.data?.message || "Confirm courier reassign on Shiprocket?"}\n\nCustomer order total will NOT change.`;
+                            if (!window.confirm(confirmMsg)) {
+                              return;
+                            }
+                            const r = await reassignCourier({
+                              orderId,
+                              confirmSuggested: true,
+                              ...(suggested?.courierId != null ? { courierId: suggested.courierId } : {}),
+                            }).unwrap();
+                            setActionMsg({
+                              type: "ok",
+                              surface: "ops",
+                              text: r?.message || "Courier reassigned on Shiprocket.",
+                            });
+                            await refreshOrder();
+                            return;
+                          }
+                          setActionMsg({
+                            type: "ok",
+                            surface: "ops",
+                            text: "Courier reassigned on Shiprocket.",
+                          });
+                          await refreshOrder();
+                        } catch (e) {
+                          setActionMsg({
+                            type: "err",
+                            surface: "ops",
+                            text: fulfillmentActionErrorText(e, "Courier reassign failed."),
+                          });
+                        }
+                      }}
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-900 text-white hover:bg-amber-950 disabled:opacity-50"
+                    >
+                      {reassignCourierState.isLoading ? "Working…" : "Reassign courier"}
+                    </button>
+                  ) : null}
                   {caps.retryPickup ? (
                     <button
                       type="button"
@@ -1672,7 +1740,7 @@ export default function AdminOrderDetailView({
                           });
                         }
                       }}
-                      className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-amber-900 text-white hover:bg-amber-950 disabled:opacity-50"
+                      className="px-3 py-1.5 text-xs font-semibold rounded-lg border border-amber-400 bg-white hover:bg-amber-100/60 disabled:opacity-50"
                     >
                       {retryPickupState.isLoading ? "Working…" : "Retry pickup"}
                     </button>

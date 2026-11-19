@@ -8,6 +8,7 @@ import {
   useAdminFulfillmentEnsureShipmentMutation,
   useAdminFulfillmentManifestMutation,
   useAdminFulfillmentRetryPickupMutation,
+  useAdminFulfillmentReassignCourierMutation,
   useAdminFulfillmentSchedulePickupMutation,
   useAdminFulfillmentSelfPickupMutation,
   useAdminFulfillmentSyncShiprocketMutation,
@@ -29,6 +30,7 @@ const ACTION_LABELS = {
   syncShiprocket: "Refresh Shiprocket",
   refreshTracking: "Refresh tracking",
   retryPickup: "Retry pickup",
+  reassignCourier: "Reassign courier",
   cancelShipment: "Cancel on Shiprocket",
   selfPickup: "Self pickup",
   openShiprocketSupport: "Open Shiprocket support",
@@ -276,6 +278,38 @@ async function executeAction(key, ctx) {
     case "refreshTracking":
       await axiosInstance.get(`/orders/items/${encodeURIComponent(String(id))}/track`);
       return;
+    case "reassignCourier": {
+      try {
+        await ctx.reassignCourier({ orderId: id }).unwrap();
+      } catch (probeErr) {
+        if (probeErr?.data?.code !== "REASSIGN_COURIER_CONFIRM") {
+          throw probeErr;
+        }
+        const suggested = probeErr?.data?.suggestedCourier || null;
+        const quotedFreight = probeErr?.data?.quotedFreightInr;
+        const current = probeErr?.data?.currentCourier;
+        const gapLine =
+          suggested?.exceedsQuotedFreight &&
+          suggested?.freightGapInr != null &&
+          Number(suggested.freightGapInr) > 0
+            ? `\nCustomer paid ₹${quotedFreight ?? "—"} shipping; suggested is ₹${suggested.totalCharges ?? "—"} (gap ₹${suggested.freightGapInr} is merchant-side only).`
+            : suggested && quotedFreight != null
+              ? `\nCustomer paid ₹${quotedFreight} shipping; suggested ₹${suggested.totalCharges ?? "—"}.`
+              : "";
+        const confirmMsg = suggested
+          ? `Reassign from "${current?.courierName || current?.courierId || "current courier"}" to suggested "${suggested.courierName || suggested.courierId}" (₹${suggested.totalCharges ?? "—"})?${gapLine}\n\nCustomer order total will NOT change.\nCancel to use Shiprocket panel instead.`
+          : `${probeErr?.data?.message || "Confirm courier reassign on Shiprocket?"}\n\nCustomer order total will NOT change.`;
+        if (!window.confirm(confirmMsg)) {
+          throw new Error("Cancelled");
+        }
+        await ctx.reassignCourier({
+          orderId: id,
+          confirmSuggested: true,
+          ...(suggested?.courierId != null ? { courierId: suggested.courierId } : {}),
+        }).unwrap();
+      }
+      return;
+    }
     case "retryPickup":
       await ctx.retryPickup(id).unwrap();
       return;
@@ -375,6 +409,7 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback, 
   const [generateManifestMut] = useAdminFulfillmentManifestMutation();
   const [syncShiprocketMut] = useAdminFulfillmentSyncShiprocketMutation();
   const [retryPickupMut] = useAdminFulfillmentRetryPickupMutation();
+  const [reassignCourierMut] = useAdminFulfillmentReassignCourierMutation();
   const [cancelShipmentMut] = useAdminFulfillmentCancelShipmentMutation();
   const [selfPickupMut] = useAdminFulfillmentSelfPickupMutation();
 
@@ -412,6 +447,7 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback, 
       generateManifest: generateManifestMut,
       syncShiprocket: syncShiprocketMut,
       retryPickup: retryPickupMut,
+      reassignCourier: reassignCourierMut,
       cancelShipment: cancelShipmentMut,
       selfPickup: selfPickupMut,
       externalLinks,
@@ -429,6 +465,7 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback, 
       generateManifestMut,
       syncShiprocketMut,
       retryPickupMut,
+      reassignCourierMut,
       cancelShipmentMut,
       selfPickupMut,
       externalLinks,
@@ -460,6 +497,7 @@ export default function AdminOrderRowActions({ order, onOpenDetail, onFeedback, 
       "accept",
       "reject",
       "shipNow",
+      "reassignCourier",
       "retryPickup",
       "schedulePickup",
       "generateManifest",
