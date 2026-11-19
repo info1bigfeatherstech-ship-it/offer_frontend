@@ -61,6 +61,8 @@ const Footer = () => {
         { label: "Customer Care", path: "/customer-care" },
         { label: "Influencer Form", path: "/Influencer" },
         { label: "Bulk Orders", path: "/bulk" },
+        // Hidden until dropshipper public flow is fully tested
+        // { label: "Become a Dropshipper", path: "/become-dropshipper" },
         { label: "Customize Gift", path: "/customize-gift" },
       ]
     },

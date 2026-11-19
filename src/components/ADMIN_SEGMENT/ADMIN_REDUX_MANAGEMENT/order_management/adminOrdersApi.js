@@ -1,19 +1,29 @@
 import { createApi } from '@reduxjs/toolkit/query/react';
 import axiosInstance, { AUTH_CONTEXT_ADMIN } from '../../../../SERVICES/axiosInstance';
+import { getAdminOrderStorefront } from '../../../../utils/adminOrderStorefront';
 
 /**
  * Axios adapter for RTK Query — matches userAnalyticsApi pattern; never use raw axios in components.
+ * Storefront header comes from AdminOrderStorefrontProvider (module override + interceptor).
+ *
+ * Do NOT put getAdminOrderStorefront() into serializeQueryArgs — that external mutable
+ * value desyncs the cache key from the in-flight request and leaves OrderTab stuck on
+ * "Loading orders…" even when /admin/orders returns 200.
  */
 const axiosBaseQuery =
   ({ baseUrl } = { baseUrl: '' }) =>
   async ({ url, method, data, params, headers, responseType }) => {
     try {
+      const storefront = getAdminOrderStorefront();
       const result = await axiosInstance({
         url: baseUrl + url,
         method,
         data,
         params,
-        headers: { ...headers },
+        headers: {
+          ...headers,
+          'x-storefront': storefront,
+        },
         authContext: AUTH_CONTEXT_ADMIN,
         ...(responseType ? { responseType } : {}),
       });
@@ -608,6 +618,24 @@ export const adminOrdersApi = createApi({
       ],
     }),
 
+    adminFulfillmentReassignCourier: builder.mutation({
+      query: ({ orderId, courierId, confirmSuggested }) => ({
+        url: `/orders/admin/items/${encodeURIComponent(String(orderId))}/fulfillment/reassign-courier`,
+        method: 'POST',
+        body: {
+          ...(courierId != null ? { courierId: Number(courierId) } : {}),
+          ...(confirmSuggested ? { confirmSuggested: true } : {}),
+        },
+      }),
+      invalidatesTags: (result, error, arg) => {
+        const id = arg?.orderId;
+        return [
+          { type: 'AdminOrdersList', id },
+          { type: 'AdminOrderTracking', id },
+        ];
+      },
+    }),
+
     getAdminRtoOrders: builder.query({
       query: (params = {}) => ({
         url: '/admin/rto/orders',
@@ -775,6 +803,7 @@ export const {
   useAdminFulfillmentCancelShipmentMutation,
   useAdminFulfillmentSelfPickupMutation,
   useAdminFulfillmentRetryPickupMutation,
+  useAdminFulfillmentReassignCourierMutation,
   useAdminBulkApprovalConfirmMutation,
   useAdminBulkApprovalCancelMutation,
   useAdminPreviewPendingOrderEditMutation,

@@ -5,6 +5,7 @@ import {
   isScopeMismatchCode,
   sanitizeStoredTokenIfIncompatible,
 } from "./authPortalSession";
+import { getAdminOrderStorefrontOverride } from "../utils/adminOrderStorefront";
 
 export const USER_ACCESS_TOKEN_KEY = "userAccessToken";
 export const ADMIN_ACCESS_TOKEN_KEY = "adminAccessToken";
@@ -269,6 +270,14 @@ axiosInstance.interceptors.request.use(
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
+
+    // Dropshippers → Orders (and similar panels) set a scoped storefront.
+    // Must replace the axios default ecomm header while the panel is mounted.
+    const storefrontOverride = getAdminOrderStorefrontOverride();
+    if (storefrontOverride) {
+      config.headers["x-storefront"] = storefrontOverride;
+    }
+
     return config;
   },
   (error) => Promise.reject(error)

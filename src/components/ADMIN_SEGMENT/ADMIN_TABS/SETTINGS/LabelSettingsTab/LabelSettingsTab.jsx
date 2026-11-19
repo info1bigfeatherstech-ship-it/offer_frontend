@@ -31,17 +31,24 @@ const LabelSettingsTab = () => {
   const [fetchError, setFetchError] = useState(null);
   const [saveError, setSaveError] = useState(null);
   const [saveOk, setSaveOk] = useState(false);
-  const [storefront, setStorefront] = useState("ecomm");
+  const [activeStorefront, setActiveStorefront] = useState("ecomm");
   const [settings, setSettings] = useState(null);
   const [previewHtml, setPreviewHtml] = useState("");
   const [previewError, setPreviewError] = useState(null);
+  const [previewScale, setPreviewScale] = useState(1);
   const [pickupIdentity, setPickupIdentity] = useState({ name: "", source: "" });
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoRemoving, setLogoRemoving] = useState(false);
   const [logoError, setLogoError] = useState(null);
   const previewTimer = useRef(null);
   const iframeRef = useRef(null);
+  const previewShellRef = useRef(null);
   const logoInputRef = useRef(null);
+
+  const storefrontHeaders = useCallback(
+    () => ({ headers: { "x-storefront": activeStorefront } }),
+    [activeStorefront]
+  );
 
   const patch = useCallback((section, key, value) => {
     setSettings((prev) => {
@@ -61,11 +68,13 @@ const LabelSettingsTab = () => {
     setLoading(true);
     setFetchError(null);
     try {
-      const res = await axiosInstance.get("/shipping-provider/admin/shipmozo-label-settings");
+      const res = await axiosInstance.get(
+        "/shipping-provider/admin/shipmozo-label-settings",
+        storefrontHeaders()
+      );
       if (!res.data?.success || !res.data?.data?.settings) {
         throw new Error(res.data?.message || "Could not load label settings");
       }
-      setStorefront(res.data.data.storefront === "wholesale" ? "wholesale" : "ecomm");
       setSettings(res.data.data.settings);
       setPickupIdentity({
         name: res.data.data.pickupIdentity?.name || "",
@@ -76,11 +85,55 @@ const LabelSettingsTab = () => {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [storefrontHeaders]);
 
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  const fitPreviewScale = useCallback(() => {
+    const shell = previewShellRef.current;
+    const frame = iframeRef.current;
+    if (!shell || !frame) return;
+    try {
+      const doc = frame.contentDocument;
+      const contentW = Math.max(
+        doc?.documentElement?.scrollWidth || 0,
+        doc?.body?.scrollWidth || 0,
+        288
+      );
+      const contentH = Math.max(
+        doc?.documentElement?.scrollHeight || 0,
+        doc?.body?.scrollHeight || 0,
+        432
+      );
+      const shellW = shell.clientWidth || 1;
+      const shellH = shell.clientHeight || 1;
+      const scale = Math.min(shellW / contentW, shellH / contentH, 1);
+      setPreviewScale(Number.isFinite(scale) && scale > 0 ? scale : 1);
+    } catch {
+      setPreviewScale(1);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!previewHtml) return undefined;
+    const t = setTimeout(fitPreviewScale, 60);
+    window.addEventListener("resize", fitPreviewScale);
+    return () => {
+      clearTimeout(t);
+      window.removeEventListener("resize", fitPreviewScale);
+    };
+  }, [previewHtml, fitPreviewScale]);
+
+  const handleStorefrontChange = (sf) => {
+    if (sf === activeStorefront) return;
+    setActiveStorefront(sf);
+    setSaveOk(false);
+    setSaveError(null);
+    setPreviewHtml("");
+    setPreviewError(null);
+  };
 
   const refreshPreview = useCallback(async (draft) => {
     if (!draft) return;
@@ -89,6 +142,7 @@ const LabelSettingsTab = () => {
         "/shipping-provider/admin/shipmozo-label-settings/preview",
         { settings: draft },
         {
+          ...storefrontHeaders(),
           responseType: "text",
           transformResponse: [(data) => data],
         }
@@ -102,7 +156,7 @@ const LabelSettingsTab = () => {
     } catch (e) {
       setPreviewError(e.response?.data?.message || e.message || "Preview failed");
     }
-  }, []);
+  }, [storefrontHeaders]);
 
   useEffect(() => {
     if (!settings) return;
@@ -121,9 +175,11 @@ const LabelSettingsTab = () => {
     setSaveError(null);
     setSaveOk(false);
     try {
-      const res = await axiosInstance.put("/shipping-provider/admin/shipmozo-label-settings", {
-        settings,
-      });
+      const res = await axiosInstance.put(
+        "/shipping-provider/admin/shipmozo-label-settings",
+        { settings },
+        storefrontHeaders()
+      );
       if (!res.data?.success) throw new Error(res.data?.message || "Save failed");
       setSaveOk(true);
       if (res.data?.data?.settings) setSettings(res.data.data.settings);
@@ -144,6 +200,18 @@ const LabelSettingsTab = () => {
     const frame = iframeRef.current;
     if (!frame?.contentWindow) return;
     try {
+      const doc = frame.contentDocument;
+      if (doc) {
+        doc.title = "Shipping Label 4×6";
+        let style = doc.getElementById("admin-label-print-style");
+        if (!style) {
+          style = doc.createElement("style");
+          style.id = "admin-label-print-style";
+          style.textContent = `@page { size: 4in 6in; margin: 0; }
+@media print { html, body { margin: 0; padding: 0; width: 4in; height: 6in; overflow: hidden; } }`;
+          doc.head.appendChild(style);
+        }
+      }
       frame.contentWindow.focus();
       frame.contentWindow.print();
     } catch {
@@ -164,9 +232,17 @@ const LabelSettingsTab = () => {
     try {
       const form = new FormData();
       form.append("logo", file);
-      const res = await axiosInstance.post("/shipping-provider/admin/shipmozo-label-settings/logo", form, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
+      const res = await axiosInstance.post(
+        "/shipping-provider/admin/shipmozo-label-settings/logo",
+        form,
+        {
+          ...storefrontHeaders(),
+          headers: {
+            ...storefrontHeaders().headers,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
       if (!res.data?.success || !res.data?.data?.settings) {
         throw new Error(res.data?.message || "Logo upload failed");
       }
@@ -190,7 +266,10 @@ const LabelSettingsTab = () => {
     setLogoError(null);
     setSaveOk(false);
     try {
-      const res = await axiosInstance.delete("/shipping-provider/admin/shipmozo-label-settings/logo");
+      const res = await axiosInstance.delete(
+        "/shipping-provider/admin/shipmozo-label-settings/logo",
+        storefrontHeaders()
+      );
       if (!res.data?.success || !res.data?.data?.settings) {
         throw new Error(res.data?.message || "Could not remove logo");
       }
@@ -203,7 +282,12 @@ const LabelSettingsTab = () => {
   };
 
   const s = settings;
-  const storefrontLabel = storefront === "wholesale" ? "Wholesale" : "E-comm";
+  const storefrontLabel =
+    activeStorefront === "wholesale"
+      ? "Wholesale"
+      : activeStorefront === "dropship"
+        ? "Dropshipper"
+        : "Standard (E-comm)";
 
   const lockedNote = useMemo(
     () =>
@@ -238,8 +322,33 @@ const LabelSettingsTab = () => {
           <h1 className="text-2xl text-gray-900">Shipmozo label settings</h1>
           <p className="mt-1 max-w-2xl text-sm text-gray-500">{lockedNote}</p>
           <p className="mt-1 text-xs font-semibold uppercase text-blue-600">
-            Storefront: {storefrontLabel}
+            Editing: {storefrontLabel}
           </p>
+          <div
+            className="mt-3 inline-flex gap-1 rounded-lg border border-gray-200 bg-gray-50 p-1"
+            role="tablist"
+            aria-label="Label settings storefront"
+          >
+            {[
+              { id: "ecomm", label: "Standard" },
+              { id: "dropship", label: "Dropshipper" },
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={activeStorefront === tab.id}
+                onClick={() => handleStorefrontChange(tab.id)}
+                className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  activeStorefront === tab.id
+                    ? "bg-white text-blue-700 shadow-sm"
+                    : "text-gray-600 hover:text-gray-900"
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
         <button
           type="button"
@@ -453,6 +562,7 @@ const LabelSettingsTab = () => {
             <Toggle checked={s.misc.showAutoGeneratedDisclaimer} label="Auto-generated disclaimer" onChange={(v) => patch("misc", "showAutoGeneratedDisclaimer", v)} />
             <textarea
               className="col-span-full min-h-[88px] rounded-md border border-gray-200 px-3 py-2 text-sm"
+              placeholder="Notes shown on the label when Notes is enabled"
               value={s.misc.notes || ""}
               onChange={(e) => patch("misc", "notes", e.target.value)}
             />
@@ -475,6 +585,7 @@ const LabelSettingsTab = () => {
           {previewError && <p className="mb-2 shrink-0 text-xs text-red-600">{previewError}</p>}
           <div className="w-full overflow-auto rounded-xl bg-neutral-200 p-3">
             <div
+              ref={previewShellRef}
               className="relative w-full overflow-hidden bg-white shadow-lg"
               style={{ aspectRatio: "4 / 6" }}
             >
@@ -482,12 +593,19 @@ const LabelSettingsTab = () => {
                 ref={iframeRef}
                 title="Shipmozo label preview"
                 scrolling="no"
+                onLoad={fitPreviewScale}
                 srcDoc={
                   previewHtml ||
                   "<p style='padding:12px;font-family:sans-serif;color:#666'>Loading preview…</p>"
                 }
-                className="absolute inset-0 h-full w-full"
-                style={{ border: 0, overflow: "hidden" }}
+                className="absolute left-0 top-0 origin-top-left"
+                style={{
+                  border: 0,
+                  overflow: "hidden",
+                  width: `${100 / previewScale}%`,
+                  height: `${100 / previewScale}%`,
+                  transform: `scale(${previewScale})`,
+                }}
               />
             </div>
           </div>

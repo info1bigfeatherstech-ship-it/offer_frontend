@@ -5,6 +5,7 @@ import { WebPageRegistry } from "./ADMIN_TABS//WEBSITE_TAB/WebPageRegistry";
 import { DEMO_TAB_REGISTRY } from "./ADMIN_TABS/DEMO/demoTabRegistry";
 import { REVIEW_TAB_REGISTRY } from "./ADMIN_TABS/CUSTOMER_REVIEW/reviewTabRegistry";
 import { ORDERS_TAB_REGISTRY } from "./ADMIN_TABS/OrderTab/ordersTabRegistry";
+import { DROPSHIPPER_TAB_REGISTRY } from "./ADMIN_TABS/DROPSHIPPER_TAB/dropshipperTabRegistry";
 
 
 const OrdersDashboard = lazy(() => import("./ADMIN_TABS/OrderTab/OrdersDashboard"));
@@ -26,6 +27,7 @@ const StaffTab = lazy(() => import("./ADMIN_TABS/STAFF_TAB/StaffTab"));
 const DemoDashboard = lazy(() => import("./ADMIN_TABS/DEMO/DemoDashboard"));
 const GiftCustomizationTab = lazy(() => import("./ADMIN_TABS/GiftEnquiriesTab/GiftCustomizationTab"));
 const BulkInquiriesTab = lazy(() => import("./ADMIN_TABS/GiftEnquiriesTab/BulkInquiriesTab"));
+const DropshipperDashboard = lazy(() => import("./ADMIN_TABS/DROPSHIPPER_TAB/DropshipperDashboard"));
 // const WholesalerDashboard = lazy(() => import("./ADMIN_TABS/WHOLESALER_TAB/WholesalerDashboard"));
 
 // const getProductsBadge = (state) => state.adminGetProducts?.products?.length || 0;
@@ -53,6 +55,14 @@ export const TAB_REGISTRY = [
     icon: "M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4",
     component: BulkInquiriesTab,
     badge: null,
+  },
+  {
+    id: "dropshippers",
+    label: "Dropshippers",
+    icon: "M1 3h15v13H1zM16 8h4l3 3v5h-7V8zM8 18.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0zM21 18.5a2.5 2.5 0 11-5 0 2.5 2.5 0 015 0",
+    component: DropshipperDashboard,
+    badge: null,
+    subItems: DROPSHIPPER_TAB_REGISTRY,
   },
   {
     id: "returns_refunds",
