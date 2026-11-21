@@ -150,20 +150,20 @@ function useFloatingPanelStyle(anchorRef, open, widthPx = 176) {
   return style;
 }
 
-function isNoRefundPayment(row) {
-  const k = String(row?.paymentType?.key || "").toLowerCase();
-  return k === "partial_paid" || k === "cod";
+function isCodPayment(row) {
+  return String(row?.paymentType?.key || "").toLowerCase() === "cod";
 }
 
 /**
  * Amount / charges breakdown for RTO rows.
- * - Full-paid refundable: full refund math (net refund).
- * - Partial / COD: info-only (order value, paid/COD due, reverse shipping) — no refund CTA.
+ * - Full / partial online: net refund math when eligible (capped at amount paid).
+ * - COD: info-only (no Razorpay).
  */
 function buildRefundBreakdown(row) {
   if (!row) return null;
 
-  const infoOnly = isNoRefundPayment(row);
+  const paymentKey = String(row?.paymentType?.key || "").toLowerCase();
+  const infoOnly = paymentKey === "cod";
   const calc = row.refundCalculation || {};
   const saved = row.rtoDeductions || {};
   const useSaved = !infoOnly && saved.platformFee != null && row.rtoRefundAmount != null;
@@ -210,11 +210,13 @@ function buildRefundBreakdown(row) {
   const paidInr = Number(row.amountPaidInr) || 0;
   const codDueInr =
     Number(row.codDueInr) ||
-    (infoOnly ? Math.max(0, round2(orderTotal - paidInr)) : 0);
+    (paymentKey === "partial_paid" || infoOnly
+      ? Math.max(0, round2(orderTotal - paidInr))
+      : 0);
 
   return {
     infoOnly,
-    paymentKey: String(row.paymentType?.key || "").toLowerCase(),
+    paymentKey,
     cartValue,
     orderTotal,
     forwardShipping,
@@ -354,7 +356,12 @@ function RefundBreakdownPanel({ breakdown, variant = "compact" }) {
       )}
       {infoOnly && (
         <p className="text-[10px] text-amber-800 pt-1 font-semibold">
-          No Razorpay refund on {breakdown.paymentKey === "cod" ? "COD" : "partial paid"} — close case when done.
+          No Razorpay refund on COD — close case when done.
+        </p>
+      )}
+      {!infoOnly && breakdown.paymentKey === "partial_paid" && breakdown.paidInr > 0 && (
+        <p className="text-[10px] text-slate-500 pt-1">
+          Net refund capped at online paid {fmtInrDetail(breakdown.paidInr)}.
         </p>
       )}
     </div>
@@ -394,12 +401,12 @@ function AmountCell({ row, breakdown: breakdownProp, expanded, onToggle }) {
           Paid {fmtInr(paid)} · COD due {fmtInr(codDue || Math.max(0, Number(row.amountInr) - paid))}
         </div>
       )}
-      {isNoRefundPayment(row) && !row.canFullAmountRefund && (
+      {isCodPayment(row) && !row.canRefund && !row.canFullAmountRefund && (
         <div className="text-[10px] text-slate-500 mt-0.5">No refund — close case when done</div>
       )}
       {row.canFullAmountRefund && (
         <div className="text-[10px] text-emerald-700 font-semibold mt-0.5">
-          Full amount refund: {fmtInrDetail(Number(row.fullAmountRefundInr) || Number(row.amountPaidInr) || 0)}
+          Full refund: {fmtInrDetail(Number(row.fullAmountRefundInr) || Number(row.amountPaidInr) || 0)}
         </div>
       )}
       {rtoShip > 0 && (
@@ -407,7 +414,7 @@ function AmountCell({ row, breakdown: breakdownProp, expanded, onToggle }) {
           RTO ship: {fmtInrDetail(rtoShip)}
         </div>
       )}
-      {canShowBreakdown && !infoOnly && breakdown.eligible && breakdown.netRefund > 0 && (
+      {canShowBreakdown && !infoOnly && (breakdown.eligible || row.canRefund) && breakdown.netRefund > 0 && (
         <div className="text-[10px] text-emerald-700 font-semibold mt-1">
           {breakdown.processed ? "Refunded" : "Net refund"}: {fmtInrDetail(breakdown.netRefund)}
         </div>
@@ -430,7 +437,7 @@ function AmountCell({ row, breakdown: breakdownProp, expanded, onToggle }) {
           {expanded && <RefundBreakdownPanel breakdown={breakdown} variant="compact" />}
         </>
       )}
-      {!isNoRefundPayment(row) && row.refundBlockedReason && !row.canRefund && (
+      {row.refundBlockedReason && !row.canRefund && !row.canFullAmountRefund && (
         <div className="text-[10px] text-amber-800 font-semibold mt-1 max-w-[220px] leading-tight">
           {row.refundBlockedReason}
         </div>
@@ -445,7 +452,7 @@ function buildRowActionItems(row) {
   if (row.canFullAmountRefund) {
     items.push({
       key: "refund_full_amount",
-      label: "Refund full amount",
+      label: "Full refund",
       tone: "primary",
     });
   }
@@ -453,7 +460,7 @@ function buildRowActionItems(row) {
   if (row.canRefund) {
     items.push({
       key: "refund",
-      label: row.rtoStatus === "refund_failed" ? "Retry refund" : "Refund",
+      label: row.rtoStatus === "refund_failed" ? "Retry net refund" : "Net refund",
       tone: "primary",
     });
   }
@@ -596,7 +603,7 @@ function RtoActionModal({ modal, note, onNoteChange, onClose, onConfirm, loading
   if (!modal) return null;
 
   const row = modal.row;
-  const isPartial = row && isNoRefundPayment(row);
+  const isPartial = row && String(row?.paymentType?.key || "").toLowerCase() === "partial_paid";
   const shipReason = row?.shiprocketReason || row?.rtoReason || "—";
   const breakdown = row ? buildRefundBreakdown(row) : null;
   const netRefund = breakdown?.netRefund ?? row?.refundCalculation?.netRefund;
@@ -607,20 +614,20 @@ function RtoActionModal({ modal, note, onNoteChange, onClose, onConfirm, loading
   let confirmClass = BTN_DENY;
 
   if (modal.type === "refund") {
-    title = "Process Razorpay refund";
+    title = "Process net refund";
     description =
-      "This will initiate a real Razorpay refund to the customer. Use only when delivery/logistics was at fault — not for customer refusal.";
-    confirmLabel = loading ? "Processing…" : `Refund ${netRefund > 0 ? fmtInrDetail(netRefund) : ""}`.trim();
+      "This initiates a Razorpay net refund (order value minus forward shipping, RTO shipping, and platform fee), capped at the amount paid online. Choosing this closes the RTO case — Full refund will no longer be available.";
+    confirmLabel = loading ? "Processing…" : `Net refund ${netRefund > 0 ? fmtInrDetail(netRefund) : ""}`.trim();
     confirmClass = BTN_REFUND;
   } else if (modal.type === "refund_full_amount") {
     const paid =
       Number(row?.fullAmountRefundInr) > 0
         ? Number(row.fullAmountRefundInr)
         : Number(row?.amountPaidInr) || 0;
-    title = "Refund full amount paid";
+    title = "Process full refund";
     description =
-      "Tracking shows no delivery attempt / no customer fault. This refunds the full amount the customer paid online — no forward shipping, RTO shipping, or platform fee deductions.";
-    confirmLabel = loading ? "Processing…" : `Refund ${paid > 0 ? fmtInrDetail(paid) : ""}`.trim();
+      "This refunds the full amount the customer paid online — no forward shipping, RTO shipping, or platform fee deductions. Choosing this closes the RTO case — Net refund will no longer be available.";
+    confirmLabel = loading ? "Processing…" : `Full refund ${paid > 0 ? fmtInrDetail(paid) : ""}`.trim();
     confirmClass = BTN_REFUND;
   } else if (modal.type === "close") {
     title = "Close RTO case";
@@ -681,7 +688,7 @@ function RtoActionModal({ modal, note, onNoteChange, onClose, onConfirm, loading
         )}
         {modal.type === "refund_full_amount" && row && (
           <div className="rounded-lg border border-emerald-100 bg-emerald-50/60 p-3 text-xs space-y-1.5">
-            <p className="font-semibold text-emerald-900">Full amount refund (no deductions)</p>
+            <p className="font-semibold text-emerald-900">Full refund (no deductions)</p>
             <p>
               <span className="text-slate-500">Amount paid online:</span>{" "}
               <span className="font-semibold text-slate-900">
@@ -693,11 +700,11 @@ function RtoActionModal({ modal, note, onNoteChange, onClose, onConfirm, loading
               </span>
             </p>
             <p className="text-slate-600 leading-relaxed">
-              Forward shipping, RTO shipping, and platform fee will not be deducted.
+              Forward shipping, RTO shipping, and platform fee will not be deducted. Case locks after confirm.
             </p>
           </div>
         )}
-        {modal.type === "close" && breakdown?.infoOnly && (
+        {modal.type === "close" && breakdown && (
           <RefundBreakdownPanel breakdown={breakdown} variant="modal" />
         )}
         {(modal.type === "reject" || modal.type === "close" || modal.type === "bulk-reject") && (
@@ -894,9 +901,9 @@ export default function RtoTab() {
     setActionErr(null);
     setActionMsg(null);
     setModalNote(
-      isNoRefundPayment(row)
-        ? "Partial payment / COD — case closed, no Razorpay refund"
-        : "Case closed after admin review"
+      isCodPayment(row)
+        ? "COD — case closed, no Razorpay refund"
+        : "Case closed after admin review (no Razorpay refund)"
     );
     setModal({ type: "close", row });
   };
@@ -1309,7 +1316,16 @@ export default function RtoTab() {
                             {row.adminActionRequired && (
                               <div className="text-[10px] text-red-600 font-semibold mt-1">Refund action due</div>
                             )}
-                            {!row.warehouseDelivered && row.paymentType?.key === "full_paid" && (
+                            {row.refundEligibleBadge && (
+                              <div className="mt-1">
+                                <span className="inline-flex px-1.5 py-0.5 rounded border border-emerald-200 bg-emerald-50 text-emerald-800 text-[9px] font-bold uppercase tracking-wide">
+                                  Refund eligible
+                                </span>
+                              </div>
+                            )}
+                            {!row.warehouseDelivered &&
+                              (row.paymentType?.key === "full_paid" ||
+                                row.paymentType?.key === "partial_paid") && (
                               <div className="text-[10px] text-slate-500 mt-1">Awaiting warehouse</div>
                             )}
                           </td>

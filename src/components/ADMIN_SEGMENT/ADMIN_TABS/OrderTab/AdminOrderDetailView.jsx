@@ -112,6 +112,46 @@ function formatInr(amount) {
   }).format(n);
 }
 
+/**
+ * Admin-only: customer checkout shipping vs courier (SR/Shipmozo) freight after Ship Now.
+ * Never used on storefront / labels — display helper only.
+ */
+function resolveAdminShippingCompare(order) {
+  if (!order) return null;
+  const oos = order.paymentInfo?.oosShippingSettlement;
+  const ship = order.shipmentInfo || {};
+  const hasAwb = Boolean(String(ship.awbCode || ship.trackingNumber || "").trim());
+
+  const oosActual =
+    oos?.actualFreightInr != null && Number.isFinite(Number(oos.actualFreightInr))
+      ? Number(oos.actualFreightInr)
+      : null;
+  const splitFreight =
+    order.deliveryFreightInr != null && Number.isFinite(Number(order.deliveryFreightInr))
+      ? Number(order.deliveryFreightInr)
+      : null;
+
+  // After Ship Now only: settled OOS freight, or AWB + known courier freight split.
+  const settledOos = Boolean(oos) && oos.pending === false && oosActual != null && oosActual >= 0;
+  const shippedWithFreight = hasAwb && splitFreight != null && splitFreight >= 0;
+  if (!settledOos && !shippedWithFreight) return null;
+
+  const courierFreightInr = settledOos ? oosActual : splitFreight;
+  const customerCheckoutInr =
+    oos?.heldDeliveryCharges != null && Number.isFinite(Number(oos.heldDeliveryCharges))
+      ? Number(oos.heldDeliveryCharges)
+      : Number(order.deliveryCharges) || 0;
+
+  return {
+    customerCheckoutInr,
+    courierFreightInr,
+    freightSource: settledOos
+      ? oos.freightSource || "oos_settled"
+      : "delivery_freight_split",
+    providerLabel: "Courier / SR",
+  };
+}
+
 function formatKg(kg) {
   const n = Number(kg);
   if (!Number.isFinite(n)) return "—";
@@ -1514,11 +1554,19 @@ export default function AdminOrderDetailView({
                     <div className="flex justify-between text-slate-600">
                       <span>Delivery</span>
                       <span>
-                        {Number(order.deliveryCharges) === 0 ? (
-                          <span className="text-blue-600 font-semibold">FREE</span>
-                        ) : (
-                          formatInr(order.deliveryCharges)
-                        )}
+                        {(() => {
+                          const held =
+                            order?.paymentInfo?.oosShippingSettlement?.heldDeliveryCharges;
+                          const delivery =
+                            held != null && Number.isFinite(Number(held))
+                              ? Number(held)
+                              : Number(order.deliveryCharges) || 0;
+                          return delivery === 0 ? (
+                            <span className="text-blue-600 font-semibold">FREE</span>
+                          ) : (
+                            formatInr(delivery)
+                          );
+                        })()}
                       </span>
                     </div>
                     {Number(order.discount) > 0 && (
@@ -1531,6 +1579,27 @@ export default function AdminOrderDetailView({
                       <span>Grand total</span>
                       <span>{formatInr(order.totalAmount)}</span>
                     </div>
+                    {(() => {
+                      const compare = resolveAdminShippingCompare(order);
+                      if (!compare) return null;
+                      const providerShort = isShipmozoProvider ? "Shipmozo" : "SR";
+                      return (
+                        <div className="pt-1.5 space-y-1 text-[11px] text-slate-500" data-admin-only="shipping-compare">
+                          <div className="flex justify-between gap-3">
+                            <span>Checkout shipping</span>
+                            <span className="tabular-nums text-slate-600">
+                              {formatInr(compare.customerCheckoutInr)}
+                            </span>
+                          </div>
+                          <div className="flex justify-between gap-3">
+                            <span>{providerShort} freight</span>
+                            <span className="tabular-nums text-slate-600">
+                              {formatInr(compare.courierFreightInr)}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
             )}
