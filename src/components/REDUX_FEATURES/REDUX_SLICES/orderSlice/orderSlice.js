@@ -5,14 +5,19 @@ import axiosInstance from "../../../../SERVICES/axiosInstance";
 // Thunks
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** GET /api/orders/items */
+/** GET /api/orders/items?page=&limit= — paginated lean list */
 export const fetchUserOrders = createAsyncThunk(
   "orders/fetchAll",
-  async (_, { rejectWithValue }) => {
+  async (args, { rejectWithValue }) => {
     try {
-      const res = await axiosInstance.get("/orders/items");
+      const page = Math.max(1, Number(args?.page) || 1);
+      const limit = Math.min(50, Math.max(1, Number(args?.limit) || 20));
+      const append = Boolean(args?.append);
+      const res = await axiosInstance.get("/orders/items", {
+        params: { page, limit },
+      });
       if (!res.data.success) throw new Error(res.data.message || "Failed to fetch orders");
-      return res.data; // { success, count, orders: [...] }
+      return { ...res.data, append, requestedPage: page };
     } catch (err) {
       return rejectWithValue({
         message: err.response?.data?.message || err.message || "Failed to fetch orders",
@@ -193,9 +198,17 @@ const initialState = {
   orders: [],           // list from GET /orders/items
   activeOrder: null,    // single order from GET /orders/items/:id
   tracking: {},         // { [orderId]: trackingData }
+  pagination: {
+    page: 1,
+    limit: 20,
+    total: 0,
+    totalPages: 0,
+    hasMore: false,
+  },
 
   loading: {
     fetch: false,
+    fetchMore: false,
     fetchOne: false,
     track: false,
     cancel: false,
@@ -242,16 +255,40 @@ const orderSlice = createSlice({
   extraReducers: (builder) => {
     builder
       // ── fetchUserOrders ──────────────────────────────────────────────────
-      .addCase(fetchUserOrders.pending, (state) => {
-        state.loading.fetch = true;
-        state.error.fetch = null;
+      .addCase(fetchUserOrders.pending, (state, action) => {
+        const append = Boolean(action.meta?.arg?.append);
+        if (append) {
+          state.loading.fetchMore = true;
+        } else {
+          state.loading.fetch = true;
+          state.error.fetch = null;
+        }
       })
       .addCase(fetchUserOrders.fulfilled, (state, action) => {
         state.loading.fetch = false;
-        state.orders = action.payload.orders || [];
+        state.loading.fetchMore = false;
+        const next = action.payload.orders || [];
+        const pagination = action.payload.pagination || {};
+        if (action.payload.append) {
+          const seen = new Set(state.orders.map((o) => o.orderId));
+          state.orders = [
+            ...state.orders,
+            ...next.filter((o) => o?.orderId && !seen.has(o.orderId)),
+          ];
+        } else {
+          state.orders = next;
+        }
+        state.pagination = {
+          page: Number(pagination.page) || action.payload.requestedPage || 1,
+          limit: Number(pagination.limit) || 20,
+          total: Number(pagination.total) || 0,
+          totalPages: Number(pagination.totalPages) || 0,
+          hasMore: Boolean(pagination.hasMore),
+        };
       })
       .addCase(fetchUserOrders.rejected, (state, action) => {
         state.loading.fetch = false;
+        state.loading.fetchMore = false;
         state.error.fetch = action.payload || { message: "Failed to fetch orders" };
       })
 
@@ -381,6 +418,7 @@ export const { clearOrderErrors, clearActiveOrder, updateOrderInList } = orderSl
 // Selectors
 // ─────────────────────────────────────────────────────────────────────────────
 export const selectOrders        = (s) => s.orders.orders;
+export const selectOrdersPagination = (s) => s.orders.pagination;
 export const selectActiveOrder   = (s) => s.orders.activeOrder;
 export const selectTracking      = (orderId) => (s) => s.orders.tracking[orderId] || null;
 export const selectOrderLoading  = (s) => s.orders.loading;

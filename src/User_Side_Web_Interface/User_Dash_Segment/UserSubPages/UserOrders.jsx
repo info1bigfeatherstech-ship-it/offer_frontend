@@ -13,6 +13,7 @@ import {
   sendReturnChatMessage,
   fetchReturnChat,
   selectOrders,
+  selectOrdersPagination,
   selectActiveOrder,
   selectTracking,
   selectOrderLoading,
@@ -448,7 +449,7 @@ const OrderDetail = ({ orderId, onBack }) => {
           })
         ).unwrap();
         await dispatch(fetchOrderById(oid)).unwrap();
-        dispatch(fetchUserOrders());
+        dispatch(fetchUserOrders({ page: 1, limit: 20 }));
         dispatch(resetPaymentVerification());
         toast.success("Payment successful! Your order is confirmed.", { theme: "dark", autoClose: 3500 });
       } catch (e) {
@@ -1547,7 +1548,7 @@ const OrderDetail = ({ orderId, onBack }) => {
                       fetchOrderById(order.orderId)
                     ).unwrap();
 
-                    dispatch(fetchUserOrders());
+                    dispatch(fetchUserOrders({ page: 1, limit: 20 }));
 
                     setShowReturnForm(false);
                     setReturnReasonMessage("");
@@ -1883,10 +1884,13 @@ const OrderDetail = ({ orderId, onBack }) => {
 // ─────────────────────────────────────────────────────────────────────────────
 // UserOrders — Main Component
 // ─────────────────────────────────────────────────────────────────────────────
+const ORDERS_PAGE_SIZE = 20;
+
 const UserOrders = () => {
   const dispatch = useDispatch();
   const location = useLocation();
-  const orders = useSelector(selectOrders);
+  const orders = useSelector(selectOrders) || [];
+  const pagination = useSelector(selectOrdersPagination) || {};
   const loading = useSelector(selectOrderLoading);
   const error = useSelector(selectOrderError);
 
@@ -1894,9 +1898,20 @@ const UserOrders = () => {
 );
 
   useEffect(() => {
-    dispatch(fetchUserOrders());
+    dispatch(fetchUserOrders({ page: 1, limit: ORDERS_PAGE_SIZE }));
     return () => dispatch(clearOrderErrors());
   }, [dispatch]);
+
+  const handleLoadMore = () => {
+    if (loading.fetchMore || !pagination.hasMore) return;
+    dispatch(
+      fetchUserOrders({
+        page: (Number(pagination.page) || 1) + 1,
+        limit: ORDERS_PAGE_SIZE,
+        append: true,
+      })
+    );
+  };
 
   // ── Detail view ──────────────────────────────────────────────────────────
   if (activeOrderId) {
@@ -1909,7 +1924,7 @@ const UserOrders = () => {
   }
 
   // ── Loading ──────────────────────────────────────────────────────────────
-  if (loading.fetch) {
+  if (loading.fetch && orders.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-32 gap-4">
         <Loader2 size={28} className="text-gray-300 animate-spin" />
@@ -1921,7 +1936,7 @@ const UserOrders = () => {
   }
 
   // ── Error ────────────────────────────────────────────────────────────────
-  if (error.fetch) {
+  if (error.fetch && orders.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-32 gap-4 text-center">
         <AlertCircle size={32} className="text-red-300" />
@@ -1929,7 +1944,7 @@ const UserOrders = () => {
           {error.fetch.message || "Failed to load orders"}
         </p>
         <button
-          onClick={() => dispatch(fetchUserOrders())}
+          onClick={() => dispatch(fetchUserOrders({ page: 1, limit: ORDERS_PAGE_SIZE }))}
           className="flex items-center gap-2 text-xs font-black uppercase tracking-wider bg-[#F7A221] text-white px-6 py-3 rounded-xl hover:bg-black transition-colors"
         >
           <RefreshCw size={13} /> Retry
@@ -1974,7 +1989,9 @@ const UserOrders = () => {
     </h1>
 
     <p className="mt-1 text-[11px] sm:text-sm font-bold uppercase tracking-[0.25em] text-gray-400">
-      {orders.length} Order{orders.length !== 1 ? "s" : ""}
+      {Number(pagination.total) > 0
+        ? `${pagination.total} Order${Number(pagination.total) !== 1 ? "s" : ""}`
+        : `${orders.length} Order${orders.length !== 1 ? "s" : ""}`}
     </p>
   </header>
 
@@ -2140,6 +2157,26 @@ const UserOrders = () => {
       </button>
     ))}
   </div>
+
+  {pagination.hasMore && (
+    <div className="flex justify-center pt-2">
+      <button
+        type="button"
+        onClick={handleLoadMore}
+        disabled={loading.fetchMore}
+        className="inline-flex items-center gap-2 rounded-xl bg-black px-6 py-3 text-[11px] font-black uppercase tracking-widest text-white transition-colors hover:bg-[#F7A221] hover:text-black disabled:opacity-60"
+      >
+        {loading.fetchMore ? (
+          <>
+            <Loader2 size={14} className="animate-spin" />
+            Loading…
+          </>
+        ) : (
+          "Load more"
+        )}
+      </button>
+    </div>
+  )}
 </div>
   );
 };
