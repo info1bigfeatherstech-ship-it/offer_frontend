@@ -642,6 +642,10 @@ const OrderDetail = ({ orderId, onBack }) => {
           {
             label: "Delivery",
             value: (() => {
+              // Same-day: online bill has ₹0 ship; rider collects at door — never show FREE.
+              if (String(order?.fulfillmentMode || "").toLowerCase() === "same_day") {
+                return "Delivery charge pay to the rider at delivery";
+              }
               const locked = order?.shipmentInfo?.courierCollectableInr;
               const hasLock = locked != null && Number.isFinite(Number(locked));
               const frozenDel = order?.shipmentInfo?.courierDeliveryInr;
@@ -654,6 +658,7 @@ const OrderDetail = ({ orderId, onBack }) => {
                     : Number(order.deliveryCharges) || 0;
               return delivery === 0 ? "FREE" : fmt(delivery);
             })(),
+            wide: String(order?.fulfillmentMode || "").toLowerCase() === "same_day",
           },
           { label: "Tax", value: fmt(order.tax) },
           {
@@ -684,8 +689,8 @@ const OrderDetail = ({ orderId, onBack }) => {
               },
             ];
           })(),
-        ].map(({ label, value, bold }) => (
-          <div key={label} className="min-w-0">
+        ].map(({ label, value, bold, wide }) => (
+          <div key={label} className={`min-w-0 ${wide ? "col-span-2 lg:col-span-2" : ""}`}>
 
             <p
               className="
@@ -702,12 +707,13 @@ const OrderDetail = ({ orderId, onBack }) => {
             <p
               className={`
                 mt-1
-                text-xs sm:text-sm
                 break-words
                 ${
-                  bold
-                    ? "font-black text-gray-900"
-                    : "font-bold text-gray-700"
+                  wide
+                    ? "text-[11px] sm:text-xs font-semibold text-amber-800 leading-snug"
+                    : bold
+                      ? "text-xs sm:text-sm font-black text-gray-900"
+                      : "text-xs sm:text-sm font-bold text-gray-700"
                 }
               `}
             >
