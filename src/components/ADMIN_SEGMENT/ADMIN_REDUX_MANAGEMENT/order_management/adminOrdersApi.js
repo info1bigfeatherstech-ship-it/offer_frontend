@@ -237,6 +237,18 @@ export const adminOrdersApi = createApi({
       ],
     }),
 
+    adminReturnReversePickupSync: builder.mutation({
+      query: ({ orderId }) => ({
+        url: `/orders/admin/returns/requests/${encodeURIComponent(String(orderId))}/reverse-pickup/sync`,
+        method: 'POST',
+      }),
+      invalidatesTags: (result, error, arg) => [
+        { type: 'AdminOrderTracking', id: 'RETURNS_LIST' },
+        { type: 'AdminOrderTracking', id: `RETURN_${arg.orderId}` },
+        { type: 'AdminOrdersList', id: arg.orderId },
+      ],
+    }),
+
     getAdminReturnChat: builder.query({
       query: (orderId) => ({
         url: `/orders/admin/returns/requests/${encodeURIComponent(String(orderId))}/chat`,
@@ -791,6 +803,7 @@ export const {
   useDecideAdminReturnRequestMutation,
   useInitiateAdminReturnRefundMutation,
   useAdminReturnReversePickupRetryMutation,
+  useAdminReturnReversePickupSyncMutation,
   useGetAdminReturnChatQuery,
   useSendAdminReturnChatMessageMutation,
   useCloseAdminReturnChatSessionMutation,
