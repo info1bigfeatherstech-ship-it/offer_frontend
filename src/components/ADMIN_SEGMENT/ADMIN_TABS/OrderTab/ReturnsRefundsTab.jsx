@@ -133,6 +133,7 @@ export default function ReturnsRefundsTab() {
             <option value="approved">Approved</option>
             <option value="pickup_in_progress">Pickup in progress</option>
             <option value="in_transit_to_warehouse">In transit to warehouse</option>
+            <option value="approval_failed">Approval failed</option>
             <option value="refund_pending">Refund pending</option>
             <option value="refunded">Refunded</option>
             <option value="rejected">Rejected</option>
@@ -327,7 +328,10 @@ export default function ReturnsRefundsTab() {
               )}
 
               {canRefund && (
-                <div className="border-t border-slate-100 pt-3">
+                <div className="border-t border-slate-100 pt-3 space-y-2">
+                  <p className="text-[11px] font-semibold text-slate-500">
+                    Return is at warehouse. Refund is not automatic — click only after QC if you want to refund the online amount paid.
+                  </p>
                   <button
                     type="button"
                     disabled={refundState.isLoading}
