@@ -7,6 +7,7 @@ import {
   useInitiateAdminReturnRefundMutation,
   useAdminReturnReversePickupRetryMutation,
   useAdminReturnReversePickupSyncMutation,
+  useAdminReturnReversePickupInitiateMutation,
   useGetAdminReturnChatQuery,
   useSendAdminReturnChatMessageMutation,
   useCloseAdminReturnChatSessionMutation,
@@ -105,8 +106,12 @@ export default function ReturnsRefundsTab() {
   const retSt = String(selected?.returnInfo?.status || "").toLowerCase();
   const hasReverseCreated = Boolean(
     selected?.returnInfo?.reverseShipmentId ||
+      selected?.returnInfo?.reverseShiprocketOrderId ||
       selected?.returnInfo?.reverseAwbCode ||
       selected?.returnInfo?.reverseTrackingNumber
+  );
+  const hasReverseAwb = Boolean(
+    selected?.returnInfo?.reverseAwbCode || selected?.returnInfo?.reverseTrackingNumber
   );
   const reverseChannelOrderId = hasReverseCreated
     ? selected?.returnInfo?.reverseChannelOrderId ||
@@ -119,9 +124,14 @@ export default function ReturnsRefundsTab() {
     Boolean(selectedOrderId) &&
     !["requested", "rejected"].includes(retSt) &&
     (hasReverseCreated || retSt === "approved" || retSt === "approval_failed");
+  const canInitiateReverse =
+    hasReverseCreated &&
+    !hasReverseAwb &&
+    ["approved", "approval_failed", "reverse_pickup_created", "pickup_in_progress"].includes(retSt);
 
   const [retryReverse, retryReverseState] = useAdminReturnReversePickupRetryMutation();
   const [syncReverse, syncReverseState] = useAdminReturnReversePickupSyncMutation();
+  const [initiateReverse, initiateReverseState] = useAdminReturnReversePickupInitiateMutation();
   const topError = useMemo(
     () =>
       error?.data?.message ||
@@ -130,6 +140,7 @@ export default function ReturnsRefundsTab() {
       refundState.error?.data?.message ||
       retryReverseState.error?.data?.message ||
       syncReverseState.error?.data?.message ||
+      initiateReverseState.error?.data?.message ||
       closeChatState.error?.data?.message ||
       null,
     [
@@ -139,6 +150,7 @@ export default function ReturnsRefundsTab() {
       refundState.error,
       retryReverseState.error,
       syncReverseState.error,
+      initiateReverseState.error,
       closeChatState.error,
     ]
   );
@@ -199,14 +211,15 @@ export default function ReturnsRefundsTab() {
                     : ""}
                 </p>
                 {(r.returnInfo?.reverseShipmentId ||
+                  r.returnInfo?.reverseShiprocketOrderId ||
                   r.returnInfo?.reverseAwbCode ||
                   r.returnInfo?.reverseTrackingNumber) && (
                   <p className="text-[10px] mt-1 text-indigo-700 font-semibold truncate">
                     SR: {r.returnInfo?.reverseChannelOrderId || `${r.orderId}-RET`}
                     {r.returnInfo?.reverseAwbCode
                       ? ` · AWB ${r.returnInfo.reverseAwbCode}`
-                      : r.returnInfo?.reverseShipmentId
-                        ? ` · #${r.returnInfo.reverseShipmentId}`
+                      : r.returnInfo?.reverseShiprocketOrderId || r.returnInfo?.reverseShipmentId
+                        ? ` · #${r.returnInfo?.reverseShiprocketOrderId || r.returnInfo?.reverseShipmentId}`
                         : ""}
                   </p>
                 )}
@@ -283,7 +296,8 @@ export default function ReturnsRefundsTab() {
                   <div className="mt-3 pt-3 border-t border-slate-200 space-y-1 text-xs text-slate-700">
                     <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Shiprocket return</p>
                     <p><span className="font-semibold">Return order id:</span> {reverseChannelOrderId || "—"}</p>
-                    <p><span className="font-semibold">Reverse shipment / SR id:</span> {selected.returnInfo?.reverseShipmentId || "—"}</p>
+                    <p><span className="font-semibold">Shiprocket order id:</span> {selected.returnInfo?.reverseShiprocketOrderId || "—"}</p>
+                    <p><span className="font-semibold">Reverse shipment id:</span> {selected.returnInfo?.reverseShipmentId || "—"}</p>
                     <p><span className="font-semibold">Reverse AWB:</span> {selected.returnInfo?.reverseAwbCode || selected.returnInfo?.reverseTrackingNumber || "—"}</p>
                     <p><span className="font-semibold">Courier:</span> {selected.returnInfo?.reverseCourier || "—"}</p>
                   </div>
@@ -355,12 +369,28 @@ export default function ReturnsRefundsTab() {
                 </div>
               )}
 
-              {(canRetryReverse || canSyncReverse || selected.returnInfo?.reverseLastError) && (
+              {(canRetryReverse || canSyncReverse || canInitiateReverse || selected.returnInfo?.reverseLastError) && (
                 <div className="border-t border-slate-100 pt-3 space-y-2">
                   <p className="text-[11px] font-black uppercase tracking-widest text-slate-500">
                     Reverse pickup (Shiprocket)
                   </p>
                   <div className="flex flex-wrap gap-2">
+                    {canInitiateReverse && (
+                      <button
+                        type="button"
+                        disabled={initiateReverseState.isLoading}
+                        onClick={async () => {
+                          const ok = window.confirm(
+                            "Assign return AWB on Shiprocket (same as panel Initiate Return)?"
+                          );
+                          if (!ok) return;
+                          await initiateReverse({ orderId: selected.orderId });
+                        }}
+                        className="px-4 py-2 rounded-lg bg-violet-600 text-white text-xs font-semibold disabled:opacity-50"
+                      >
+                        {initiateReverseState.isLoading ? "Initiating…" : "Initiate reverse (assign AWB)"}
+                      </button>
+                    )}
                     {canSyncReverse && (
                       <button
                         type="button"
@@ -390,9 +420,9 @@ export default function ReturnsRefundsTab() {
                       </button>
                     )}
                   </div>
-                  {hasReverseCreated && !selected.returnInfo?.reverseAwbCode && (
+                  {canInitiateReverse && (
                     <p className="text-[11px] text-amber-700 font-semibold">
-                      Return exists on Shiprocket (AWB pending). Use Sync — do not Retry.
+                      Return exists on Shiprocket but AWB is pending — use Initiate reverse (not Retry).
                     </p>
                   )}
                   {selected.returnInfo?.reverseLastError && (
