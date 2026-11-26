@@ -174,26 +174,34 @@ export const updateVariantByBarcode = createAsyncThunk(
 
       // Images handling
       if (images !== undefined && images !== null) {
-        const existingImages = images.filter((img) => img.url && !(img.file instanceof File));
-        const newFiles = images.filter((img) => img.file instanceof File);
+        const existingPayload = [];
+        const newFiles = [];
+        const imageOrder = [];
 
-        if (existingImages.length > 0) {
-          const sorted = [...existingImages].sort((a, b) => {
-            if (a.isMain && !b.isMain) return -1;
-            if (!a.isMain && b.isMain) return 1;
-            return 0;
-          });
-          const existingPayload = sorted.map((img, i) => ({
-            url: img.url,
-            publicId: img.publicId || img.public_id || "",
-            altText: img.altText || "",
-            order: i,
-          }));
-          fd.append("existingImages", JSON.stringify(existingPayload));
+        images.forEach((img) => {
+          if (img?.file instanceof File) {
+            const fileIndex = newFiles.length;
+            newFiles.push(img.file);
+            imageOrder.push({ kind: "new", fileIndex });
+          } else if (img?.url) {
+            const publicId = img.publicId || img.public_id || "";
+            existingPayload.push({
+              url: img.url,
+              publicId,
+              altText: img.altText || "",
+              order: existingPayload.length,
+            });
+            imageOrder.push({ kind: "existing", publicId });
+          }
+        });
+
+        fd.append("existingImages", JSON.stringify(existingPayload));
+        if (imageOrder.length > 0) {
+          fd.append("variantImageOrder", JSON.stringify(imageOrder));
         }
 
-        newFiles.forEach((img) => {
-          fd.append("variantImages", img.file);
+        newFiles.forEach((file) => {
+          fd.append("variantImages", file);
         });
       }
 

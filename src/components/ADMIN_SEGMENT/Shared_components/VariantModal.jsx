@@ -1,6 +1,6 @@
 // Shared_components/VariantModal.jsx
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import VariantCatalogFieldsSection from './VariantCatalogFieldsSection';
 import DropshipControls from './DropshipControls';
 import OptionalDropshipFields from './OptionalDropshipFields';
@@ -25,6 +25,8 @@ export const defaultVariant = {
   shipping: emptyVariantShippingForm(),
 };
 
+const MAX_VARIANT_IMAGES = 5;
+
 const VariantModal = ({
   variantForm,
   setVariantForm,
@@ -38,6 +40,8 @@ const VariantModal = ({
   onDropshipUpdated = null,
 }) => {
   const [variantImageDragging, setVariantImageDragging] = useState(false);
+  const [draggedImageIdx, setDraggedImageIdx] = useState(null);
+  const draggedImageIdxRef = useRef(null);
   const isEditing = editingVariantIndex !== null;
 
   const addVariantAttribute = () =>
@@ -53,34 +57,85 @@ const VariantModal = ({
     }));
 
   const handleVariantImageUpload = (e) => {
-    const files = Array.from(e.target.files);
-    const newImages = [...variantForm.images];
-    files.forEach((file, index) => {
-      if (newImages.length < 4) {
-        const reader = new FileReader();
-        const imageId = `vimg-${Date.now()}-${index}`;
-        reader.onloadend = () => {
-          newImages.push({ id: imageId, url: reader.result, file, name: file.name, isMain: newImages.length === 0 });
-          setVariantForm(prev => ({ ...prev, images: [...newImages] }));
-        };
-        reader.readAsDataURL(file);
-      }
+    const files = Array.from(e.target?.files || []).filter((f) => f && f.type?.startsWith('image/'));
+    if (files.length === 0) return;
+    const remainingSlots = Math.max(0, MAX_VARIANT_IMAGES - (variantForm.images?.length || 0));
+    if (remainingSlots <= 0) return;
+    const filesToAdd = files.slice(0, remainingSlots);
+    const batchTs = Date.now();
+    filesToAdd.forEach((file, index) => {
+      const reader = new FileReader();
+      const imageId = `vimg-${batchTs}-${index}`;
+      reader.onloadend = () => {
+        setVariantForm((prev) => {
+          const current = Array.isArray(prev.images) ? prev.images : [];
+          if (current.length >= MAX_VARIANT_IMAGES) return prev;
+          return {
+            ...prev,
+            images: [
+              ...current,
+              { id: imageId, url: reader.result, file, name: file.name, isMain: current.length === 0 }
+            ]
+          };
+        });
+      };
+      reader.readAsDataURL(file);
     });
   };
 
-  const removeVariantImage = (imageId) => {
-    const newImages = variantForm.images.filter(img => (img.id || img.url) !== imageId);
-    if (variantForm.images.find(img => (img.id || img.url) === imageId)?.isMain && newImages.length > 0) {
-      newImages[0] = { ...newImages[0], isMain: true };
+  const handleVariantImageDragStart = (e, index) => {
+    draggedImageIdxRef.current = index;
+    setDraggedImageIdx(index);
+    if (e?.dataTransfer) {
+      e.dataTransfer.effectAllowed = 'move';
     }
-    setVariantForm(prev => ({ ...prev, images: newImages }));
+  };
+
+  const handleVariantImageDragOver = (e, index) => {
+    e.preventDefault();
+    const fromIndex = draggedImageIdxRef.current;
+    if (fromIndex === null || fromIndex === index) return;
+    draggedImageIdxRef.current = index;
+    setDraggedImageIdx(index);
+    setVariantForm((prev) => {
+      const imgs = [...(prev.images || [])];
+      if (fromIndex < 0 || fromIndex >= imgs.length || index < 0 || index >= imgs.length) {
+        return prev;
+      }
+      const [moved] = imgs.splice(fromIndex, 1);
+      imgs.splice(index, 0, moved);
+      const reordered = imgs.map((img, i) => ({ ...img, isMain: i === 0 }));
+      return { ...prev, images: reordered };
+    });
+  };
+
+  const handleVariantImageDragEnd = () => {
+    draggedImageIdxRef.current = null;
+    setDraggedImageIdx(null);
+  };
+
+  const removeVariantImage = (imageId) => {
+    setVariantForm((prev) => {
+      const current = Array.isArray(prev.images) ? prev.images : [];
+      const newImages = current
+        .filter((img) => (img.id || img.url) !== imageId)
+        .map((img, i) => ({ ...img, isMain: i === 0 }));
+      return { ...prev, images: newImages };
+    });
   };
 
   const setVariantMainImage = (imageId) =>
-    setVariantForm(prev => ({
-      ...prev,
-      images: prev.images.map(img => ({ ...img, isMain: (img.id || img.url) === imageId }))
-    }));
+    setVariantForm((prev) => {
+      const imgs = [...(prev.images || [])];
+      const idx = imgs.findIndex((img) => (img.id || img.url) === imageId);
+      if (idx < 0) return prev;
+      const [chosen] = imgs.splice(idx, 1);
+      imgs.unshift(chosen);
+      return {
+        ...prev,
+        images: imgs.map((img, i) => ({ ...img, isMain: i === 0 }))
+      };
+    });
 
   // SINGLE SOURCE OF TRUTH: check wholesale eligibility from price.wholesaleBase
   const isWholesaleEligible = () => {
@@ -382,24 +437,34 @@ const VariantModal = ({
 
           {/* Images */}
           <div>
-            <label className="text-sm font-semibold text-gray-800 mb-3 block">Images (up to 4)</label>
-            <label className={`block w-full border-2 border-dashed rounded-lg p-4 text-center cursor-pointer ${variantImageDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300'}`}
+            <label className="text-sm font-semibold text-gray-800 mb-3 block">Images (up to {MAX_VARIANT_IMAGES})</label>
+            <label className={`block w-full border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-all ${variantImageDragging ? 'border-indigo-500 bg-indigo-50' : 'border-gray-300 hover:border-indigo-400'} ${variantForm.images.length >= MAX_VARIANT_IMAGES ? 'opacity-50 cursor-not-allowed' : ''}`}
               onDragOver={(e) => { e.preventDefault(); setVariantImageDragging(true); }}
               onDragLeave={() => setVariantImageDragging(false)}
               onDrop={(e) => { e.preventDefault(); setVariantImageDragging(false); handleVariantImageUpload({ target: { files: e.dataTransfer.files } }); }}>
-              <input type="file" multiple accept="image/*" onChange={handleVariantImageUpload} className="hidden" disabled={variantForm.images.length >= 4} />
-              <p className="text-sm text-gray-500">Click or drop images ({variantForm.images.length}/4)</p>
+              <input type="file" multiple accept="image/*" onChange={handleVariantImageUpload} className="hidden" disabled={variantForm.images.length >= MAX_VARIANT_IMAGES} />
+              <p className="text-sm text-gray-500">Click or drop images ({variantForm.images.length}/{MAX_VARIANT_IMAGES})</p>
             </label>
             {variantForm.images.length > 0 && (
-              <div className="grid grid-cols-4 gap-2 mt-3">
-                {variantForm.images.map((image) => (
-                  <div key={image.id || image.url} className={`relative rounded-lg overflow-hidden border-2 ${image.isMain ? 'border-indigo-500' : 'border-gray-200'}`}>
-                    <img src={image.url} alt="" className="w-full h-16 object-cover" />
-                    <button type="button" onClick={() => setVariantMainImage(image.id || image.url)} className="absolute top-1 left-1 p-1 bg-white rounded-full text-indigo-600 text-xs">★</button>
-                    <button type="button" onClick={() => removeVariantImage(image.id || image.url)} className="absolute top-1 right-1 p-1 bg-white rounded-full text-red-500 text-xs">✕</button>
-                  </div>
-                ))}
-              </div>
+              <>
+                <p className="text-xs text-gray-400 mt-2">Drag images to reorder (first image is main)</p>
+                <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 mt-2">
+                  {variantForm.images.map((image, index) => (
+                    <div
+                      key={image.id || image.url}
+                      draggable
+                      onDragStart={(e) => handleVariantImageDragStart(e, index)}
+                      onDragOver={(e) => handleVariantImageDragOver(e, index)}
+                      onDragEnd={handleVariantImageDragEnd}
+                      className={`relative rounded-lg overflow-hidden border-2 cursor-grab active:cursor-grabbing transition-all ${image.isMain ? 'border-indigo-500' : 'border-gray-200 hover:border-gray-300'} ${draggedImageIdx === index ? 'opacity-50' : ''}`}
+                    >
+                      <img src={image.url} alt="" draggable={false} className="w-full h-16 object-cover select-none" />
+                      <button type="button" onClick={() => setVariantMainImage(image.id || image.url)} className="absolute top-1 left-1 p-1 bg-white rounded-full text-indigo-600 text-xs">★</button>
+                      <button type="button" onClick={() => removeVariantImage(image.id || image.url)} className="absolute top-1 right-1 p-1 bg-white rounded-full text-red-500 text-xs">✕</button>
+                    </div>
+                  ))}
+                </div>
+              </>
             )}
           </div>
         </div>
