@@ -38,7 +38,9 @@ export default function OrderPaymentSummaryCard({
       ? paymentMethodLabel(orderSafe)
       : String(pi.method || "—");
 
+  const orderStatus = String(orderSafe.orderStatus || "").toLowerCase();
   const payStatus = String(orderSafe.paymentStatus || "").toLowerCase();
+  const cancelReason = String(pi.cancellationReason || "").toLowerCase();
   const balanceDue = Number(orderSafe.balanceDueInr) || 0;
   const amountPaid = Number(orderSafe.amountPaidInr) || 0;
   const billTotal = Number(orderSafe.totalAmount) || 0;
@@ -49,12 +51,26 @@ export default function OrderPaymentSummaryCard({
     ? Number(lockedCollectableRaw) || 0
     : balanceDue;
   const isPaid = payStatus === "paid";
+  const isRefunded = payStatus === "refunded" || payStatus === "partially_refunded";
+  const isCancelledOrFailed =
+    orderStatus === "cancelled" || orderStatus === "payment_failed" || payStatus === "failed";
   /** Customer / courier facing: prefer locked COD after push. */
-  const hasDue = hasLockedCollectable
-    ? courierCollectable > 0.01
-    : balanceDue > 0.01;
+  const hasDue =
+    !isCancelledOrFailed &&
+    (hasLockedCollectable ? courierCollectable > 0.01 : balanceDue > 0.01);
   const internalDueDiffers =
-    hasLockedCollectable && Math.abs(balanceDue - courierCollectable) > 0.05;
+    !isCancelledOrFailed &&
+    hasLockedCollectable &&
+    Math.abs(balanceDue - courierCollectable) > 0.05;
+
+  const cancelledSummaryLabel =
+    cancelReason === "payment_timeout"
+      ? "Payment timed out"
+      : cancelReason === "checkout_gateway_dismissed"
+        ? "Checkout not completed"
+        : orderStatus === "payment_failed" || payStatus === "failed"
+          ? "Payment failed"
+          : "Order cancelled";
 
   const statusTone = isPaid
     ? "bg-blue-50 text-blue-800 border-blue-200"
@@ -106,7 +122,26 @@ export default function OrderPaymentSummaryCard({
             <span className="text-xs text-slate-500">Already paid</span>
             <span className="text-sm font-bold text-blue-700 tabular-nums">{fmt(amountPaid)}</span>
           </div>
-          {hasDue ? (
+          {isCancelledOrFailed ? (
+            <div className="flex justify-between items-baseline gap-3 rounded-md bg-red-50/70 border border-red-100 px-2.5 py-2 -mx-0.5">
+              <span className="text-xs font-semibold text-red-900">
+                {isRefunded
+                  ? payStatus === "partially_refunded"
+                    ? "Partially refunded"
+                    : "Refunded"
+                  : amountPaid > 0.01
+                    ? "Order cancelled"
+                    : "Not collected"}
+              </span>
+              <span className="text-xs font-bold text-red-700 text-right">
+                {isRefunded
+                  ? "Order cancelled"
+                  : amountPaid > 0.01
+                    ? "Paid before cancel"
+                    : cancelledSummaryLabel}
+              </span>
+            </div>
+          ) : hasDue ? (
             <div className="flex justify-between items-baseline gap-3 rounded-md bg-amber-50 border border-amber-100 px-2.5 py-2 -mx-0.5">
               <span className="text-xs font-semibold text-amber-900">
                 {hasLockedCollectable
@@ -117,10 +152,22 @@ export default function OrderPaymentSummaryCard({
                 {fmt(hasLockedCollectable ? courierCollectable : balanceDue)}
               </span>
             </div>
-          ) : (
+          ) : isPaid ? (
             <div className="flex justify-between items-baseline gap-3 pt-1 border-t border-slate-100">
               <span className="text-xs font-semibold text-slate-700">All clear</span>
               <span className="text-xs font-bold text-blue-700">Nothing left to collect</span>
+            </div>
+          ) : isRefunded ? (
+            <div className="flex justify-between items-baseline gap-3 pt-1 border-t border-slate-100">
+              <span className="text-xs font-semibold text-slate-700">
+                {payStatus === "partially_refunded" ? "Partially refunded" : "Refunded"}
+              </span>
+              <span className="text-xs font-bold text-slate-600">No balance due</span>
+            </div>
+          ) : (
+            <div className="flex justify-between items-baseline gap-3 pt-1 border-t border-slate-100">
+              <span className="text-xs font-semibold text-slate-700">Payment pending</span>
+              <span className="text-xs font-bold text-amber-700">Awaiting confirmation</span>
             </div>
           )}
           {internalDueDiffers ? (
