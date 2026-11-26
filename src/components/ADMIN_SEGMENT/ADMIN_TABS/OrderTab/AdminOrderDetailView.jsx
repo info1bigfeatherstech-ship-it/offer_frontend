@@ -1447,6 +1447,13 @@ export default function AdminOrderDetailView({
                       const sku = line?.sku || "—";
                       const qty = line?.quantity ?? 0;
                       const lineTotal = Number(line?.lineTotal ?? line?.priceSnapshot?.total) || 0;
+                      const rawUnitPrice = line?.priceSnapshot?.sale ?? line?.priceSnapshot?.base;
+                      const unitPrice =
+                        rawUnitPrice != null && Number.isFinite(Number(rawUnitPrice))
+                          ? Number(rawUnitPrice)
+                          : qty > 0 && lineTotal > 0
+                            ? lineTotal / qty
+                            : null;
                       const weightRow = weightByVariantId.get(String(line?.variantId ?? ""));
                       const lineDimsLabel = weightRow ? formatPackageDims(weightRow) : null;
                       const unitDimWeightKg =
@@ -1476,7 +1483,9 @@ export default function AdminOrderDetailView({
                             <div className="min-w-0">
                               <p className="text-sm font-semibold text-slate-900 leading-snug">{name}</p>
                               <p className="text-[11px] text-slate-500 mt-0.5">
-                                Qty {qty} · SKU <span className="font-mono">{sku}</span>
+                                Qty {qty}
+                                {unitPrice != null ? ` × ${formatInr(unitPrice)}` : ""} · SKU{" "}
+                                <span className="font-mono">{sku}</span>
                                 {weightRow ? (
                                   <>
                                     {" · "}
@@ -1487,7 +1496,16 @@ export default function AdminOrderDetailView({
                                 {lineDimWeightKg != null ? ` · dim ${formatKg(lineDimWeightKg)}` : null}
                               </p>
                             </div>
-                            <p className="text-sm font-bold text-slate-900 shrink-0">{formatInr(lineTotal)}</p>
+                            <div className="text-right shrink-0">
+                              <p className="text-sm font-bold text-slate-900 tabular-nums">
+                                {formatInr(lineTotal)}
+                              </p>
+                              {qty > 1 && unitPrice != null ? (
+                                <p className="text-[11px] text-slate-500 tabular-nums">
+                                  {qty} × {formatInr(unitPrice)}
+                                </p>
+                              ) : null}
+                            </div>
                           </div>
                         </div>
                       );
